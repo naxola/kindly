@@ -178,7 +178,7 @@ Sin UI — ni de Inbox, ni de conexión de canal.
       condición de carrera de `findOrCreateConversation` (mismo patrón que
       el fix de login, `isPostgresUniqueViolation` extraído a
       `src/db/errors.ts`).
-- [ ] Commit Git — pendiente, se hace a continuación en esta misma sesión.
+- [x] Commit Git — `2dadb0d`.
 
 ### Fix post-cierre de PKG-002 (2026-09-18, mismo día): login "silencioso"
 
@@ -499,9 +499,8 @@ esté pendiente.
 
 ## Estado
 
-**Último commit:** sin commitear todavía — pendiente al final de esta misma
-sesión (se registrará el hash aquí en un commit de seguimiento, igual que en
-PKG-001/PKG-002).
+**Último commit:** `2dadb0d` — "feat(PKG-003): Messaging core (backend) —
+MessagingAccount, MessagingAdapter, webhooks, Conversation".
 
 **Sesión anterior (misma fecha, 2026-09-18):** implementado `PKG-002 — CRM
 básico` completo, y el fix post-cierre de login silencioso + condición de
