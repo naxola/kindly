@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { clearMessagingAdapters, getMessagingAdapter, registerMessagingAdapter } from "@/modules/messaging/registry";
-import { FakeMessagingAdapter } from "../fakes/messaging-adapter";
+import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
 
 describe("messaging adapter registry (unit, no database)", () => {
   afterEach(() => {

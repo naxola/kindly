@@ -5,9 +5,11 @@ import { getCurrentOrganizationMember } from "@/modules/organizations/service";
 import { SignOutButton } from "@/app/(app)/sign-out-button";
 
 /**
- * Shared authenticated shell for PKG-002: Dashboard/Contacts/Cases/Tasks.
- * Minimal nav, no design system yet (same level as the login page from
- * PKG-001) — real product UI is a future package.
+ * Shared authenticated shell. Minimal nav, no design system yet (same
+ * level as the login page from PKG-001) — real product UI is a future
+ * package. `/dashboard` stays the post-login landing (PKG-004 adds "Inbox"
+ * as a nav link, not as the new landing screen — see
+ * project/CURRENT_TASK.md Non-goals for why).
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const member = await getCurrentOrganizationMember();
@@ -22,9 +24,11 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <Link href="/dashboard" className="font-semibold">
             Kindly
           </Link>
+          <Link href="/inbox">Inbox</Link>
           <Link href="/contacts">Contacts</Link>
           <Link href="/cases">Cases</Link>
           <Link href="/tasks">Tasks</Link>
+          <Link href="/channels">Canales</Link>
         </nav>
         <div className="flex items-center gap-3 text-sm text-zinc-500">
           <span>

@@ -9,13 +9,15 @@ export type ActivityEntityType = "contact" | "case" | "task" | "conversation" | 
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
  * (CASE_CREATED, CASE_ASSIGNED, TASK_CREATED, TASK_COMPLETED,
  * MESSAGE_RECEIVED, MESSAGE_SENT, CHANNEL_CONNECTED, CHANNEL_DISCONNECTED),
- * this adds CONTACT_CREATED/CONTACT_UPDATED and CASE_STATUS_CHANGED —
- * natural extensions for the entities PKG-002 actually manages. The docs
- * call that list "mínimos", not closed.
+ * this adds CONTACT_CREATED/CONTACT_UPDATED and CASE_STATUS_CHANGED
+ * (PKG-002), and CONTACT_IDENTIFIED/CONVERSATION_REASSIGNED (PKG-004, the
+ * "marcar como identificado"/"reasignar" actions on an Unassigned Contact).
+ * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
   | "CONTACT_CREATED"
   | "CONTACT_UPDATED"
+  | "CONTACT_IDENTIFIED"
   | "CASE_CREATED"
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"
@@ -23,6 +25,7 @@ export type ActivityType =
   | "TASK_COMPLETED"
   | "MESSAGE_RECEIVED"
   | "MESSAGE_SENT"
+  | "CONVERSATION_REASSIGNED"
   | "CHANNEL_CONNECTED"
   | "CHANNEL_DISCONNECTED";
 

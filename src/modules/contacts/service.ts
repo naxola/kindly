@@ -103,3 +103,31 @@ export async function updateContact(input: UpdateContactInput) {
 
   return updated;
 }
+
+/**
+ * Clears `isUnassigned` on a Contact auto-created from an unknown inbound
+ * sender (PKG-004, "Marcar como identificado" en /inbox/[id]) — the
+ * professional confirms this Contact's identity is good enough (editing its
+ * name/phone/email first via the regular edit form if needed).
+ */
+export async function markContactIdentified(organizationId: string, actorUserId: string, contactId: string) {
+  const [updated] = await db
+    .update(contacts)
+    .set({ isUnassigned: false, updatedAt: new Date() })
+    .where(and(eq(contacts.organizationId, organizationId), eq(contacts.id, contactId)))
+    .returning();
+
+  if (!updated) {
+    return null;
+  }
+
+  await recordActivity({
+    organizationId,
+    type: "CONTACT_IDENTIFIED",
+    actorUserId,
+    entityType: "contact",
+    entityId: updated.id,
+  });
+
+  return updated;
+}

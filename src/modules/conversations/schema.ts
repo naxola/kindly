@@ -32,6 +32,11 @@ export const conversations = pgTable(
       .references(() => contacts.id, { onDelete: "cascade" }),
     channel: text("channel").notNull(),
     externalConversationId: text("external_conversation_id").notNull(),
+    // Nullable: never read until the Inbox (PKG-004) opens a conversation
+    // for the first time. No per-user unread state in this MVP — one shared
+    // value per organization, same simplicity level as the rest of the
+    // permission model (docs/DECISIONS.md).
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

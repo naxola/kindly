@@ -30,6 +30,18 @@ if (!secret) {
 export const auth = betterAuth({
   secret,
   baseURL: process.env.BETTER_AUTH_URL,
+  // Better Auth's default rate limiting (3 requests per 10s per IP on
+  // /sign-up, /sign-in, ...) is disabled outside production — which is
+  // exactly why it never showed up in `next dev` during PKG-001/002/003,
+  // but does under `next build && next start`, the real production mode
+  // Playwright's webServer always ran. Found while chasing PKG-004 E2E
+  // flakiness: several specs registering different users from the same
+  // machine IP within a few seconds tripped this real, working rate limit
+  // — not a bug in bootstrap/session logic. `DISABLE_AUTH_RATE_LIMIT` is
+  // set only by playwright.config.ts's webServer.env; absent everywhere
+  // else, so real deployments keep the default protection. See
+  // docs/DECISIONS.md, bloque "PKG-004".
+  rateLimit: { enabled: process.env.DISABLE_AUTH_RATE_LIMIT !== "true" },
   database: drizzleAdapter(db, {
     provider: "pg",
     usePlural: true,

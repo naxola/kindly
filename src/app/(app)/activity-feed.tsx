@@ -10,6 +10,7 @@ interface ActivityRow {
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
   CONTACT_CREATED: "Contact creado",
   CONTACT_UPDATED: "Contact editado",
+  CONTACT_IDENTIFIED: "Contact identificado",
   CASE_CREATED: "Case creado",
   CASE_ASSIGNED: "Case asignado",
   CASE_STATUS_CHANGED: "Estado del case cambiado",
@@ -17,6 +18,7 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   TASK_COMPLETED: "Task completada",
   MESSAGE_RECEIVED: "Mensaje recibido",
   MESSAGE_SENT: "Mensaje enviado",
+  CONVERSATION_REASSIGNED: "Conversación reasignada",
   CHANNEL_CONNECTED: "Canal conectado",
   CHANNEL_DISCONNECTED: "Canal desconectado",
 };

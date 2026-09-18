@@ -4,17 +4,215 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-003 cerrado, PKG-004 por definir
+## Paquete activo: ninguno — PKG-004 cerrado, PKG-005 por definir
 
-`PKG-003 — Messaging core (backend)` se completó y se verificó el
-2026-09-18 (detalle más abajo). Candidato natural para `PKG-004`: Unified
-Inbox (UI de listado/filtros/composición de respuesta, marcado de
-`Contact → Unassigned`, UI de conexión de canal — ver `project/TASKS.md`,
-sección "Fase 3 (resto)"). No se empieza a programar nada de esto sin que
-el usuario lo confirme.
+`PKG-004 — Unified Inbox (UI)` se completó y se verificó el 2026-09-18
+(detalle más abajo). Candidatos naturales para `PKG-005`, según
+`project/TASKS.md`: Fase 4 (Telegram, bloqueada por la Fase 0 pendiente),
+Fase 6 (Cases lifecycle avanzado), o Fase 7 (Knowledge). No se empieza a
+programar nada sin que el usuario lo confirme.
 
 La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
-relación con esto.
+relación con lo anterior.
+
+---
+
+## Registro: PKG-004 — Unified Inbox (cerrado 2026-09-18)
+
+Confirmado por el usuario el 2026-09-18: alcance completo — listado/filtros/
+composición de respuesta, marcado explícito de `Contact → Unassigned`, y UI
+de conexión de canal (ver pregunta explícita hecha al usuario y su
+respuesta "Unified Inbox completo").
+
+La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
+relación con esto — no bloquea este paquete (se sigue construyendo contra
+`MessagingAdapter`, sin proveedor real).
+
+### Objective
+
+Construir la Unified Inbox: pantalla de listado de `Conversation` con
+filtros y no leídos, vista de conversación con composición/envío de
+respuesta, marcado de un `Contact` recién creado automáticamente (remitente
+desconocido) como identificado o su reasignación a un Contact existente, y
+una pantalla mínima de conexión/desconexión de `MessagingAccount`. Todo
+sigue construido contra la interfaz `MessagingAdapter` — sin ningún
+adapter de proveedor real (Telegram/WhatsApp son Fase 4/5).
+
+### Scope
+
+- **Esquema — dos columnas nuevas** (migración Drizzle):
+  - `contacts.is_unassigned` (boolean, `NOT NULL DEFAULT false`). Se pone a
+    `true` únicamente en la creación automática de Contact desde un mensaje
+    entrante de remitente desconocido (`findOrCreateConversation`); un
+    Contact creado manualmente por la UI de PKG-002 nunca lo tiene a `true`.
+  - `conversations.last_read_at` (timestamp, nullable). No hay "no leído"
+    por usuario en este MVP (un solo estado compartido por organización,
+    igual de simple que el resto del modelo de permisos) — se actualiza a
+    `now()` cuando se abre la conversación.
+- **Inbox — listado** (`/inbox`): `Conversation` + nombre de Contact (con
+  badge "Sin identificar" si `is_unassigned`) + canal + delegado + último
+  mensaje (snippet + hora) + indicador de no leído. Filtros por query string:
+  canal (`?channel=`) y solo no leídos (`?unread=1`). Sin selección manual
+  de canal al responder (`docs/PRODUCT.md` sección 6) — el canal ya lo
+  determina la Conversation.
+- **Inbox — detalle** (`/inbox/[id]`): historial de mensajes (INBOUND a la
+  izquierda, OUTBOUND a la derecha, con `deliveryStatus`), composición y
+  envío de respuesta (`sendOutboundMessage`, ya existente desde PKG-003).
+  Abrir la conversación marca `last_read_at = now()`. Si el Contact es
+  `is_unassigned`: banner con dos acciones — "Marcar como identificado"
+  (pone `is_unassigned = false`, tras editar sus datos si hace falta desde
+  `/contacts/[id]`) y "Reasignar a un Contact existente" (mueve la
+  Conversation a otro Contact de la misma organización, sin fusionar ni
+  eliminar el Contact mínimo original — fusión/eliminación reales siguen
+  fuera de alcance, ver Non-goals).
+- **Canales** (`/channels`): lista los canales realmente registrados en
+  `src/modules/messaging/registry.ts` (vacío en producción) para conectar
+  una cuenta nueva (canal + delegado de la organización) y lista las
+  `MessagingAccount` ya conectadas con botón de desconectar. Si no hay
+  ningún canal registrado, mensaje explícito de que no hay proveedores
+  disponibles todavía — nunca se inventa un flujo de "Connect" que no puede
+  completarse contra un proveedor real (`CLAUDE.md` sección 3).
+- **Activity**: nuevos tipos `CONTACT_IDENTIFIED` y `CONVERSATION_REASSIGNED`.
+- **Endurecimiento encontrado al construir `/channels`** (primer llamador
+  real de `connectMessagingAccount` fuera de tests): se añade una
+  comprobación `isOrganizationMember` sobre `delegateId` dentro del propio
+  servicio (`src/modules/messaging/service.ts`), mismo patrón de defensa en
+  profundidad que `cases/service.ts` — sin esto, un `delegateId` de un
+  usuario fuera de la organización se aceptaba sin validar.
+- **Canal de pruebas E2E controlado por variable de entorno**: para poder
+  probar el flujo completo `Webhook → Conversation → Inbox` con Playwright
+  contra un build de producción real (`next build && next start`, sin
+  acceso al proceso de Vitest), se añade `src/instrumentation.ts` que
+  registra `FakeMessagingAdapter`
+  (movido a `src/modules/messaging/testing/fake-adapter.ts`, antes en
+  `tests/fakes/`) **solo si** `process.env.E2E_FAKE_MESSAGING_CHANNEL ===
+  "true"`. Esa variable la fija únicamente `playwright.config.ts` en
+  `webServer.env` — no aparece en `.env.example` ni en ninguna
+  configuración de despliegue real. Ver `docs/DECISIONS.md` para la
+  justificación completa y el análisis de riesgo.
+
+### Non-goals (explícitamente fuera de PKG-004)
+
+- `WhatsAppAdapter`/`TelegramAdapter` reales — Fase 4/5.
+- Fusión/eliminación real de Contacts duplicados (la "reasignación" solo
+  mueve la Conversation a otro Contact existente; el Contact mínimo
+  original queda huérfano, sin fusionar ni eliminar).
+- Detección automática de posibles duplicados.
+- UI para vincular `Conversation` ↔ `Case` vía `conversation_cases` — Fase 6
+  (`project/TASKS.md`).
+- Cambiar la pantalla de aterrizaje tras login (`/dashboard`) por `/inbox`
+  como pantalla inicial real, aunque `docs/ARCHITECTURE.md` sección 11 lo
+  describa como objetivo final — cambiar el flujo de login/redirect
+  rompería los E2E existentes de PKG-001/PKG-002 y es un cambio de UX más
+  amplio que este paquete. Se añade "Inbox" como link de navegación, sin
+  tocar el destino post-login. Anotado aquí explícitamente, no en silencio.
+- No leídos por usuario individual (un `DELEGATE` no ve su propio contador
+  distinto del de otro) — un solo estado compartido por organización.
+- Plantillas de respuesta, ventana de 24h de WhatsApp, reintentos de envío
+  fallido — Fase 5.
+- Campos específicos de proveedor en el formulario de conexión de canal
+  (Embedded Signup real, deep link real) — no hay proveedor real que los
+  necesite todavía; el formulario de `/channels` solo pide canal + delegado.
+
+### Acceptance criteria
+
+1. `/inbox` lista las `Conversation` de la organización actual con nombre de
+   Contact, canal, delegado, último mensaje y hora; nunca una de otra
+   organización.
+2. Filtro por canal y filtro "solo no leídos" en `/inbox` funcionan sobre
+   query string.
+3. Abrir `/inbox/[id]` marca la conversación como leída (`last_read_at`) y
+   deja de aparecer en el filtro de no leídos.
+4. Desde `/inbox/[id]` se puede enviar una respuesta que persiste un
+   `Message` `OUTBOUND` (reutilizando `sendOutboundMessage` de PKG-003) y
+   aparece en el historial sin recargar manualmente el canal.
+5. Un Contact `is_unassigned` se ve con badge en el listado y detalle;
+   "Marcar como identificado" lo quita; "Reasignar" mueve la Conversation a
+   otro Contact de la misma organización y registra `CONVERSATION_REASSIGNED`.
+6. `/channels` conecta y desconecta una `MessagingAccount` contra cualquier
+   adapter registrado (verificado con el canal falso, gated por
+   `E2E_FAKE_MESSAGING_CHANNEL`, nunca alcanzable en un build de producción
+   real sin esa variable) y muestra un mensaje claro cuando no hay ningún
+   canal registrado.
+7. Ningún query de este paquete devuelve ni permite modificar filas de otra
+   `Organization` — test explícito con dos organizaciones (listado, detalle,
+   marcar leído, reasignar Contact, conectar canal).
+8. `npm run lint`, `npm run typecheck`, `npm test` y `npm run build` en
+   verde; al menos un E2E nuevo cubre el camino feliz completo (conectar
+   canal falso vía UI → simular webhook entrante → verlo en Inbox → marcar
+   identificado → responder) sin depender de ningún proveedor real.
+9. `docs/DATABASE.md` refleja las columnas nuevas; `docs/DECISIONS.md`
+   registra el endurecimiento de `connectMessagingAccount` y la variable de
+   entorno de canal falso para E2E.
+
+### Tests
+
+- Unit: `isConversationUnread` (dominio puro, sin DB).
+- Integration (PostgreSQL real): `is_unassigned` en la creación automática
+  de Contact; `markContactIdentified`; `reassignConversationContact`
+  (incluyendo rechazo cross-organización); `listConversationsWithPreview`
+  (filtros de canal/no-leídos, orden por último mensaje);
+  `markConversationRead`; aislamiento multi-tenant explícito para todo lo
+  anterior.
+- E2E (Playwright, contra build de producción con
+  `E2E_FAKE_MESSAGING_CHANNEL=true`): conectar el canal falso desde
+  `/channels` → simular un webhook entrante real (`POST
+  /api/webhooks/fake/[accountId]`, misma firma que usan los tests de
+  integración) → verlo en `/inbox` con badge "Sin identificar" y no leído →
+  abrir la conversación → marcar como identificado → responder → verificar
+  que una segunda organización no ve nada de esto.
+
+### Exit criteria — verificación final (2026-09-18)
+
+- [x] Acceptance criteria 1-9: verificados con la suite automatizada (58
+      unit/integration en verde) y manualmente contra `next build && next
+      start` real (curl + consultas SQL directas para confirmar el registro
+      de adapters y el pool de conexiones).
+- [x] `npm run lint` — sin errores ni warnings.
+- [x] `npm run typecheck` — sin errores.
+- [x] `npm test` — 58 tests (7 archivos unit, 6 archivos integration) en
+      verde, contra PostgreSQL real (`kindly_test`).
+- [x] `npm run test:e2e` — 5 tests Playwright en verde (los 3 de
+      PKG-001/002/003 sin cambios + 2 nuevos de Inbox), verificado estable en
+      3 ejecuciones completas consecutivas tras los fixes de la sección de
+      abajo.
+- [x] `npm run build` — build de producción sin errores ni warnings.
+- [x] `project/TASKS.md` actualizado.
+- [x] `project/PROGRESS.md` actualizado con fecha.
+- [x] Decisiones no triviales registradas en `docs/DECISIONS.md` (entradas
+      del 2026-09-18, bloque "PKG-004").
+- [x] Commit Git — ver `## Estado` al final de este archivo.
+
+### Tres bugs pre-existentes encontrados y corregidos (ninguno introducido por este paquete)
+
+Al intentar probar el flujo completo de Inbox contra un build de producción
+real (`next build && next start`, lo que Playwright siempre usó desde
+PKG-001) aparecieron tres bugs reales que nunca se habían manifestado
+porque nada anterior había ejercitado esas condiciones a fondo. Detalle
+completo, evidencia y reproducción en `docs/DECISIONS.md` (bloque
+"PKG-004", puntos 4-6):
+
+1. `src/modules/messaging/registry.ts` (PKG-003) usaba un `Map` a nivel de
+   módulo como "singleton", pero Turbopack en producción da a
+   `instrumentation.ts` y a cada ruta/página instancias de módulo
+   *separadas* — corregido guardándolo en `globalThis`.
+2. `src/db/client.ts` (PKG-001) solo cacheaba el pool de conexiones de
+   PostgreSQL en `globalThis` fuera de producción (`NODE_ENV !==
+   "production"`) — exactamente al revés de lo que hacía falta bajo
+   Turbopack, donde cada chunk sin ese cache abría su propio pool de hasta
+   10 conexiones. Corregido cacheándolo siempre.
+3. El rate limiting por defecto de Better Auth (3 peticiones/10s por IP en
+   `/sign-up`, `/sign-in`...) solo está activo en producción, nunca en
+   `next dev` — por eso nunca se vio en PKG-001/002/003. La suite de E2E de
+   PKG-004 fue la primera en acumular suficientes registros como para
+   chocar con él de forma consistente. Corregido con
+   `rateLimit: { enabled: process.env.DISABLE_AUTH_RATE_LIMIT !== "true" }`
+   en `src/modules/auth/auth.ts`, variable fijada solo por
+   `playwright.config.ts`.
+
+Los tres se verificaron con reproducción directa (logging temporal +
+scripts HTTP ad-hoc), no se asumieron — ver el registro completo en
+`docs/DECISIONS.md` antes de tocar `db/client.ts` o `registry.ts` de nuevo.
 
 ---
 
@@ -499,30 +697,32 @@ esté pendiente.
 
 ## Estado
 
-**Último commit:** `2dadb0d` — "feat(PKG-003): Messaging core (backend) —
-MessagingAccount, MessagingAdapter, webhooks, Conversation".
+**Último commit:** pendiente — ver el siguiente commit tras esta sesión
+("feat(PKG-004): Unified Inbox (UI) + fix connection pool/adapter registry
+singletons + fix Better Auth rate limit under E2E").
 
-**Sesión anterior (misma fecha, 2026-09-18):** implementado `PKG-002 — CRM
-básico` completo, y el fix post-cierre de login silencioso + condición de
-carrera (`38178b0`) descrito arriba. Al retomar esta sesión se corrigió
-además `CURRENT_TASK.md`, que había quedado desactualizado sobre ese commit.
+**Sesión anterior (misma fecha, 2026-09-18):** implementado `PKG-003 —
+Messaging core (backend)` completo (`2dadb0d`).
 
-**Esta sesión:** implementado `PKG-003 — Messaging core (backend)` completo
-(ver registro arriba): `MessagingAccount`, interfaz `MessagingAdapter`
-refinada, registro de adapters, infraestructura de webhooks idempotente con
-`after()`, `Conversation`/`conversation_cases`/`Task.conversation_id`, envío
-saliente genérico, todo con aislamiento multi-tenant real y probado con un
-adapter falso interno. Migración `drizzle/migrations/0003_gifted_star_brand.sql`
-aplicada contra PostgreSQL de desarrollo. Verificado manualmente con `curl`
-contra `next dev` que ningún canal es alcanzable en producción real (404).
+**Esta sesión:** implementado `PKG-004 — Unified Inbox (UI)` completo (ver
+registro arriba): `/inbox` (listado + filtros + no leídos), `/inbox/[id]`
+(detalle + respuesta + marcar identificado/reasignar Contact Unassigned),
+`/channels` (conectar/desconectar `MessagingAccount`). Migración
+`drizzle/migrations/0004_inbox_unassigned_unread.sql` aplicada contra
+PostgreSQL de desarrollo. Además, tres bugs pre-existentes encontrados y
+corregidos (ver sección dedicada arriba y `docs/DECISIONS.md`): singleton de
+`registry.ts` roto bajo Turbopack en producción, pool de conexiones de
+`db/client.ts` no cacheado en producción, y rate limiting de Better Auth
+(solo activo en producción) chocando con la suite de E2E ampliada.
 
-**Tests:** 48 unit/integration (Vitest, 11 archivos) + 3 E2E (Playwright,
-sin cambios), todos en verde. Requieren PostgreSQL local corriendo (`docker
-compose up -d`) — sin eso, `npm test` y `npm run test:e2e` fallan al no
-poder conectar, lo cual es esperado, no un bug.
+**Tests:** 58 unit/integration (Vitest, 13 archivos) + 5 E2E (Playwright, 3
+sin cambios + 2 nuevos de Inbox), todos en verde — suite E2E verificada
+estable en 3 ejecuciones completas consecutivas. Requieren PostgreSQL local
+corriendo (`docker compose up -d`) — sin eso, `npm test` y `npm run
+test:e2e` fallan al no poder conectar, lo cual es esperado, no un bug.
 
-**Próxima acción concreta:** el usuario decide el alcance de `PKG-004` (ver
-sección de arriba, candidato natural: Unified Inbox) y se documenta aquí
-siguiendo la misma plantilla que los paquetes anteriores. No empezar a
-programar nada de Inbox/WhatsApp/Telegram/Knowledge/AI antes de esa definición
+**Próxima acción concreta:** el usuario decide el alcance de `PKG-005` (ver
+sección de arriba: Telegram/Cases/Knowledge son candidatos, ninguno
+predefinido) y se documenta aquí siguiendo la misma plantilla que los
+paquetes anteriores. No empezar a programar nada antes de esa definición
 explícita.

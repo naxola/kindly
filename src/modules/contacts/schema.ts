@@ -7,7 +7,7 @@
  * (docs/PRODUCT.md sección 4, docs/DATABASE.md sección 4).
  */
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { organizations } from "@/modules/organizations/schema";
 
 export const contacts = pgTable("contacts", {
@@ -21,6 +21,11 @@ export const contacts = pgTable("contacts", {
   phoneE164: text("phone_e164"),
   email: text("email"),
   notes: text("notes"),
+  // True only for a Contact auto-created from an unknown inbound sender
+  // (findOrCreateConversation, PKG-003) — "Contact → Unassigned"
+  // (docs/PRODUCT.md sección 4). Never true for a Contact created through
+  // the manual form (PKG-002). Cleared by markContactIdentified (PKG-004).
+  isUnassigned: boolean("is_unassigned").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

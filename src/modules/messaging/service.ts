@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
+import { isOrganizationMember } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
 
 export async function listMessagingAccounts(organizationId: string) {
@@ -40,6 +41,15 @@ export async function connectMessagingAccount(input: ConnectMessagingAccountInpu
   const adapter = getMessagingAdapter(input.channel);
   if (!adapter) {
     throw new Error(`No MessagingAdapter registered for channel "${input.channel}".`);
+  }
+
+  // Defense in depth (CLAUDE.md sección 5, same pattern as
+  // cases/service.ts): without this, a delegateId belonging to a user
+  // outside the organization was accepted without any check — found while
+  // building the /channels UI (PKG-004), the first real caller of this
+  // function outside tests.
+  if (!(await isOrganizationMember(input.organizationId, input.delegateId))) {
+    throw new Error("Cannot connect a channel for a delegate outside the organization.");
   }
 
   const result = await adapter.connectAccount({

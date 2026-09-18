@@ -1,9 +1,11 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
 import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
+import { isConversationUnread } from "@/modules/conversations/domain";
 import { contacts } from "@/modules/contacts/schema";
+import { messagingAccounts } from "@/modules/messaging/schema";
 import { getCase } from "@/modules/cases/service";
 import { getMessagingAccount } from "@/modules/messaging/service";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
@@ -87,6 +89,7 @@ export async function findOrCreateConversation(
           organizationId,
           name: contactName,
           phoneE164: contact.phoneE164 || null,
+          isUnassigned: true,
         })
         .returning();
 
@@ -241,4 +244,173 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
   });
 
   return sentMessage;
+}
+
+export interface ConversationPreview {
+  id: string;
+  contactId: string;
+  contactName: string;
+  contactIsUnassigned: boolean;
+  channel: string;
+  delegateId: string;
+  lastMessage: { body: string; direction: "INBOUND" | "OUTBOUND"; createdAt: Date } | null;
+  unread: boolean;
+}
+
+export interface ListConversationsFilters {
+  channel?: string;
+  unreadOnly?: boolean;
+}
+
+/**
+ * Inbox listing (PKG-004): every Conversation of the organization with its
+ * Contact, channel, delegate and last message, newest activity first — a
+ * Conversation's own `updatedAt` never changes when a Message arrives, so
+ * ordering by the last message's `createdAt` (not the Conversation row) is
+ * what actually reflects "most recently active".
+ */
+export async function listConversationsWithPreview(
+  organizationId: string,
+  filters: ListConversationsFilters = {},
+): Promise<ConversationPreview[]> {
+  const rows = await db
+    .select({
+      conversation: conversations,
+      contactName: contacts.name,
+      contactIsUnassigned: contacts.isUnassigned,
+      delegateId: messagingAccounts.delegateId,
+    })
+    .from(conversations)
+    .innerJoin(contacts, eq(contacts.id, conversations.contactId))
+    .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .where(
+      and(
+        eq(conversations.organizationId, organizationId),
+        filters.channel ? eq(conversations.channel, filters.channel) : undefined,
+      ),
+    );
+
+  const conversationIds = rows.map((row) => row.conversation.id);
+  const lastMessagesByConversation = new Map<string, (typeof messages.$inferSelect)>();
+  if (conversationIds.length > 0) {
+    const recentMessages = await db
+      .select()
+      .from(messages)
+      .where(inArray(messages.conversationId, conversationIds))
+      .orderBy(desc(messages.createdAt));
+    for (const message of recentMessages) {
+      if (!lastMessagesByConversation.has(message.conversationId)) {
+        lastMessagesByConversation.set(message.conversationId, message);
+      }
+    }
+  }
+
+  const previews = rows.map((row): ConversationPreview => {
+    const lastMessage = lastMessagesByConversation.get(row.conversation.id) ?? null;
+    return {
+      id: row.conversation.id,
+      contactId: row.conversation.contactId,
+      contactName: row.contactName,
+      contactIsUnassigned: row.contactIsUnassigned,
+      channel: row.conversation.channel,
+      delegateId: row.delegateId,
+      lastMessage: lastMessage
+        ? { body: lastMessage.body, direction: lastMessage.direction, createdAt: lastMessage.createdAt }
+        : null,
+      unread: isConversationUnread(lastMessage?.createdAt ?? null, row.conversation.lastReadAt),
+    };
+  });
+
+  const filtered = filters.unreadOnly ? previews.filter((preview) => preview.unread) : previews;
+  return filtered.sort((a, b) => {
+    const aTime = a.lastMessage?.createdAt.getTime() ?? 0;
+    const bTime = b.lastMessage?.createdAt.getTime() ?? 0;
+    return bTime - aTime;
+  });
+}
+
+export interface ConversationDetails {
+  conversation: typeof conversations.$inferSelect;
+  contact: typeof contacts.$inferSelect;
+  delegateId: string;
+}
+
+/** Conversation detail view (PKG-004): the Conversation plus its Contact and owning delegate, scoped to `organizationId`. */
+export async function getConversationWithDetails(
+  organizationId: string,
+  conversationId: string,
+): Promise<ConversationDetails | null> {
+  const [row] = await db
+    .select({
+      conversation: conversations,
+      contact: contacts,
+      delegateId: messagingAccounts.delegateId,
+    })
+    .from(conversations)
+    .innerJoin(contacts, eq(contacts.id, conversations.contactId))
+    .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Marks a Conversation as read (PKG-004). Called from the detail page on
+ * every view — intentionally mutates during a GET, but that route is
+ * already fully dynamic (reads the session) and never cached, and "opening
+ * it marks it read" is the entire point of this call.
+ */
+export async function markConversationRead(organizationId: string, conversationId: string): Promise<void> {
+  await db
+    .update(conversations)
+    .set({ lastReadAt: new Date() })
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)));
+}
+
+/**
+ * Moves a Conversation to a different, already-existing Contact of the same
+ * organization — the "Reasignar" action for a Contact marked `Unassigned`
+ * (docs/PRODUCT.md sección 4: "...asignarlo"). Does not merge or delete the
+ * original minimal Contact (fusión/eliminación real siguen fuera de
+ * alcance, ver project/CURRENT_TASK.md Non-goals) — it's simply left
+ * without any Conversation pointing at it.
+ */
+export async function reassignConversationContact(
+  organizationId: string,
+  actorUserId: string,
+  conversationId: string,
+  targetContactId: string,
+) {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    throw new Error("Conversation not found in this organization.");
+  }
+
+  const [targetContact] = await db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.organizationId, organizationId), eq(contacts.id, targetContactId)))
+    .limit(1);
+  if (!targetContact) {
+    throw new Error("Target contact not found in this organization.");
+  }
+
+  const previousContactId = conversation.contactId;
+
+  const [updated] = await db
+    .update(conversations)
+    .set({ contactId: targetContactId, updatedAt: new Date() })
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .returning();
+
+  await recordActivity({
+    organizationId,
+    type: "CONVERSATION_REASSIGNED",
+    actorUserId,
+    entityType: "conversation",
+    entityId: conversationId,
+    metadata: { from: previousContactId, to: targetContactId },
+  });
+
+  return updated ?? null;
 }

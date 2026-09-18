@@ -12,9 +12,13 @@ import type {
 } from "@/modules/messaging/adapter";
 
 /**
- * Test-only double for `MessagingAdapter`. Never registered outside the
- * test suite (see src/modules/messaging/registry.ts) — there is no real
- * "fake" channel reachable from a production request.
+ * Test-only double for `MessagingAdapter`. Lives under `src/` (not
+ * `tests/fakes/`, where it lived through PKG-003) because
+ * `src/instrumentation.ts` (PKG-004) needs to import it — it registers this
+ * adapter in a real running server, but *only* when
+ * `E2E_FAKE_MESSAGING_CHANNEL=true`, a variable that only
+ * `playwright.config.ts` ever sets. Never registered in a real deployment
+ * (see docs/DECISIONS.md, bloque "PKG-004").
  *
  * Signature scheme: a shared secret compared verbatim against the
  * `x-fake-signature` header. Real providers use HMAC-over-raw-body; this

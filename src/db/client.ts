@@ -12,23 +12,29 @@ if (!databaseUrl) {
 }
 
 /**
- * Next.js reloads modules on every change in dev mode, which would open a
- * new PostgreSQL connection pool each time without this cache. Standard
- * pattern for `postgres.js` + Next.js.
+ * Cached on `globalThis` in every environment, not just dev. The original
+ * comment here only worried about Next.js dev-mode HMR re-evaluating this
+ * module — true, but PKG-004 found a second, more important reason: under
+ * Turbopack, a real `next start` production server gives different
+ * route/page/server-action chunks their *own* separate instantiation of
+ * this module (confirmed empirically while debugging src/instrumentation.ts
+ * — see docs/DECISIONS.md, bloque "PKG-004"). Guarding the cache to
+ * non-production meant every chunk that touched the database opened its
+ * *own* separate `max: 10` connection pool, and enough of them opening at
+ * once against a freshly booted server intermittently starved real
+ * requests of a connection — the actual cause of the E2E flakiness this
+ * package tracked down (register → self-heal Organization bootstrap
+ * occasionally finding nothing, even though nothing about the bootstrap
+ * logic itself was wrong). `globalThis` is what every chunk in the same
+ * Node process actually shares, in dev and in production alike.
  */
 declare global {
   var __kindlyPostgresClient: ReturnType<typeof postgres> | undefined;
 }
 
-const client =
-  global.__kindlyPostgresClient ??
-  postgres(databaseUrl, {
-    // Keep the local dev pool small; tune per-environment later if needed.
-    max: 10,
-  });
+global.__kindlyPostgresClient ??= postgres(databaseUrl, {
+  // Keep the local dev pool small; tune per-environment later if needed.
+  max: 10,
+});
 
-if (process.env.NODE_ENV !== "production") {
-  global.__kindlyPostgresClient = client;
-}
-
-export const db = drizzle(client, { schema });
+export const db = drizzle(global.__kindlyPostgresClient, { schema });

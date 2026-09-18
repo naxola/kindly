@@ -516,6 +516,115 @@ entrada de PKG-002 (punto 1) hasta este paquete.
 
 ---
 
+## 2026-09-18 — PKG-004 (Unified Inbox): decisiones técnicas de implementación
+
+Contexto: el usuario confirmó el alcance completo de `PKG-004` (Unified
+Inbox: listado/filtros/no leídos, composición de respuesta, marcado de
+`Contact → Unassigned`, UI de conexión de canal). Al construirlo aparecieron
+varias decisiones de diseño y, más importante, **tres bugs reales
+pre-existentes** (ninguno introducido por este paquete) descubiertos al
+intentar probar el flujo end-to-end contra un build de producción real.
+
+**1. Esquema: `contacts.is_unassigned` y `conversations.last_read_at`.**
+Ver `docs/DATABASE.md` secciones 4 y 7. `is_unassigned` se pone a `true`
+solo en la creación automática de Contact desde un remitente desconocido
+(`findOrCreateConversation`); `last_read_at` no tiene granularidad por
+usuario en este MVP (un solo valor compartido por organización, mismo nivel
+de simplicidad que el resto del modelo de permisos).
+
+**2. "Reasignar" mueve la Conversation a un Contact existente, sin fusionar
+ni eliminar el Contact mínimo original.** `docs/PRODUCT.md` sección 4
+describe "identificarlo, crear un Contact nuevo, fusionarlo o asignarlo"
+para un remitente desconocido. Fusión real (trasladar Cases/Tasks/Activity
+de un Contact a otro y eliminar el sobrante) es una pieza de producto no
+trivial (¿qué pasa con el historial? ¿qué Contact "gana"?) que no estaba
+pedida con ese detalle — se implementa solo la reasignación de la
+Conversation, dejando el Contact original huérfano sin datos que perder
+(nunca tuvo Cases/Tasks propios, es minúsculo por construcción). Fusión real
+queda explícitamente fuera de alcance (`project/CURRENT_TASK.md`).
+
+**3. Endurecimiento de `connectMessagingAccount`: valida que `delegateId`
+sea miembro de la organización.** Encontrado al construir `/channels`, el
+primer llamador real de esa función fuera de tests — sin el check, un
+`delegateId` de un usuario ajeno a la organización se aceptaba sin validar
+(mismo patrón de defensa en profundidad que `cases/service.ts`).
+
+**4. Bug real #1 — un `Map` a nivel de módulo no es un singleton bajo
+Turbopack en producción.** `src/modules/messaging/registry.ts` (PKG-003)
+guardaba los adapters registrados en un `const adapters = new Map()` a
+nivel de módulo, asumiendo que import = misma instancia en todo el proceso
+(cierto bajo Vitest, un solo proceso Node sin bundling). Al construir
+`src/instrumentation.ts` para que Playwright pudiera registrar
+`FakeMessagingAdapter` contra un build real (`next build && next start`),
+se comprobó empíricamente (logging temporal con un id aleatorio por
+instanciación de módulo) que Turbopack da a `instrumentation.ts` y a una
+ruta/página **instancias de módulo separadas** — lo registrado desde una es
+invisible desde la otra. Fix: `registry.ts` ahora guarda el `Map` en
+`globalThis` (`globalThis.__kindlyMessagingAdapters`), lo único que
+realmente comparten todos los chunks del mismo proceso Node.
+
+**5. Bug real #2 (más grave, pre-existente desde PKG-001) — el pool de
+conexiones de PostgreSQL solo se cacheaba en `globalThis` fuera de
+producción.** `src/db/client.ts` tenía
+`if (process.env.NODE_ENV !== "production") { global.__kindlyPostgresClient
+= client; }` — razonado en su momento solo para sobrevivir al HMR de
+`next dev`. Por el mismo motivo del punto 4, cada chunk que toca la base de
+datos en un build de producción real bajo Turbopack obtiene su propia
+instancia de `src/db/client.ts`, y con ese guard, **cada una abría su propio
+pool de hasta 10 conexiones** en vez de compartir uno. Esto es la causa raíz
+real de una intermitencia que parecía (y casi se documentó como) una
+condición de carrera en `bootstrapOrganizationForUser`/
+`getCurrentOrganizationMember`: bajo carga de arranque en frío, suficientes
+pools abriéndose a la vez agotaban momentáneamente la capacidad de conexión
+real. Fix: se cachea en `globalThis` en todos los entornos, sin la condición
+de `NODE_ENV`.
+
+**6. Bug real #3 (la causa raíz de la inestabilidad de los E2E, no una
+condición de carrera) — el rate limiting de Better Auth solo está activo en
+producción.** Better Auth limita por defecto `/sign-up`, `/sign-in`, etc. a
+3 peticiones cada 10s por IP, pero **solo cuando está en producción** — algo
+documentado en su propio tipo (`BetterAuthRateLimitOptions.enabled`), nunca
+visible en `next dev` (por eso nunca se vio en PKG-001/002/003). Como
+`playwright.config.ts` siempre arrancó el servidor con
+`next build && next start` (producción real) desde PKG-001, este límite
+estuvo activo en todos los E2E desde el principio; `PKG-004` simplemente
+añadió suficientes registros nuevos (`tests/e2e/inbox.spec.ts`) para que la
+suite completa superase las 3 peticiones en 10s desde la misma IP de forma
+consistente, hasta entonces solo latente. Verificado con reproducción
+directa por HTTP (fuera de Playwright): el 4º registro en menos de 10s
+devuelve 429 del propio Better Auth, y el cliente simplemente se queda en
+`/login` mostrando el error — exactamente el síntoma observado ("esperaba
+`/dashboard`, recibió `/login`"), sin ningún 500 ni fallo real de sesión.
+Fix: `rateLimit: { enabled: process.env.DISABLE_AUTH_RATE_LIMIT !== "true"
+}` en `src/modules/auth/auth.ts`; esa variable la fija únicamente
+`playwright.config.ts` (`webServer.env`) — ausente en cualquier despliegue
+real, donde el rate limiting por defecto de Better Auth sigue intacto.
+
+**Por qué se documentan los tres bugs con este nivel de detalle:** ninguno
+lo introdujo este paquete, pero los tres solo se manifestaban bajo
+condiciones que PKG-004 fue el primero en ejercitar de verdad (un
+`instrumentation.ts` real, y una suite de E2E lo bastante grande como para
+chocar con el rate limit). Sin este registro, una sesión futura podría
+volver a "descubrirlos" desde cero, o peor, reintroducir el guard de
+`NODE_ENV` en `db/client.ts` pensando que es una limpieza inocente.
+
+**7. Canal de pruebas E2E controlado por variable de entorno
+(`E2E_FAKE_MESSAGING_CHANNEL`).** `src/instrumentation.ts` registra
+`FakeMessagingAdapter` (movido de `tests/fakes/` a
+`src/modules/messaging/testing/fake-adapter.ts` porque necesita ser
+importable desde `src/`) solo si `process.env.E2E_FAKE_MESSAGING_CHANNEL
+=== "true"`. Esa variable la fija únicamente `playwright.config.ts`. Riesgo
+aceptado y acotado: si alguna vez se filtrara a un despliegue real, lo único
+que expone es un adapter falso sin credenciales ni efectos externos reales
+(no una vulnerabilidad de datos) — nunca aparece en `.env.example` ni en
+ninguna configuración de despliegue documentada.
+
+**Supersede a:** nada de lo anterior — extiende el modelo de `Contact`/
+`Conversation` de PKG-002/003 y corrige (sin cambiar su contrato público)
+`src/db/client.ts` (PKG-001) y `src/modules/messaging/registry.ts` (PKG-003).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

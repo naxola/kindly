@@ -123,17 +123,30 @@ completa en `project/CURRENT_TASK.md`. Resumen:
 Ver `docs/DECISIONS.md` (entradas del 2026-09-18, bloque "PKG-003") para las
 decisiones técnicas no triviales tomadas durante la implementación.
 
-## Fase 3 (resto) — Unified Inbox — candidato para `PKG-004`, sin definir
+## PKG-004 — Unified Inbox, UI (cerrado el 2026-09-18)
 
-- [ ] Unified Inbox (UI): listado, filtros, no leídos, sin selección manual
-      de canal al responder.
-- [ ] Marcado explícito de `Contact → Unassigned` en UI y flujo para
-      identificar/fusionar/asignar un remitente desconocido (el backend de
-      PKG-003 ya garantiza que ningún mensaje se pierde — crea un Contact
-      mínimo automáticamente — pero no expone ningún marcado de UI todavía).
-- [ ] UI de conexión de canal (Embedded Signup / deep link) — PKG-003 solo
-      dejó `connectMessagingAccount`/`disconnectMessagingAccount` a nivel de
-      servicio.
+Alcance elegido por el usuario: completo. Definición completa en
+`project/CURRENT_TASK.md`. Resumen:
+
+- [x] Unified Inbox (UI): listado (`/inbox`), filtros por canal y no
+      leídos, sin selección manual de canal al responder.
+- [x] Vista de conversación (`/inbox/[id]`): historial de mensajes,
+      composición y envío de respuesta.
+- [x] Marcado explícito de `Contact → Unassigned` en UI ("Marcar como
+      identificado") y reasignación de la Conversation a un Contact
+      existente (fusión/eliminación real del Contact original sigue fuera
+      de alcance).
+- [x] UI de conexión/desconexión de canal (`/channels`) contra cualquier
+      adapter realmente registrado — sin campos específicos de proveedor
+      todavía (no hay ninguno real).
+- [x] Corregidos tres bugs pre-existentes encontrados al construirlo:
+      singleton de `messaging/registry.ts` roto bajo Turbopack en
+      producción, pool de conexiones de `db/client.ts` no cacheado en
+      producción, rate limiting de Better Auth (solo activo en producción)
+      chocando con la suite de E2E ampliada.
+
+Ver `docs/DECISIONS.md` (entradas del 2026-09-18, bloque "PKG-004") para el
+detalle completo.
 
 ## Fase 4 — Telegram
 

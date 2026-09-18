@@ -89,6 +89,13 @@ técnico de integración (ver sección 6).
 sin detección/fusión de duplicados — ambas deferidas, ver
 `docs/DECISIONS.md`.
 
+**`is_unassigned`** (boolean, `NOT NULL DEFAULT false`) se añade en
+**PKG-004**: `true` únicamente para un Contact creado automáticamente a
+partir de un mensaje entrante de remitente desconocido
+(`findOrCreateConversation`, sección 7); un Contact creado manualmente desde
+la UI nunca lo tiene a `true`. Se limpia con "Marcar como identificado" en
+`/inbox/[id]` (`markContactIdentified`).
+
 ## 5. MessagingAccount
 
 Representa la identidad de comunicación de un `DELEGATE` en un canal
@@ -183,6 +190,11 @@ exactamente estos campos. `contact_id` es `NOT NULL` — un mensaje entrante
 de un remitente desconocido crea un `Contact` mínimo automáticamente en vez
 de dejar la conversación sin contacto (`docs/PRODUCT.md` sección 4,
 `docs/DECISIONS.md`).
+
+**`last_read_at`** (timestamp, nullable) se añade en **PKG-004**: se
+actualiza a `now()` cada vez que se abre `/inbox/[id]`. Sin "no leído" por
+usuario individual en este MVP — un solo valor compartido por
+organización, ver `docs/DECISIONS.md`.
 
 ## 8. Message
 
@@ -304,10 +316,12 @@ detrás, p. ej. `MESSAGE_RECEIVED` de un webhook entrante, desde PKG-003),
 `contacts`/`cases`/`tasks` en PKG-002, y desde PKG-003 también a
 `conversations`/`messaging_accounts`), `metadata` (jsonb, nullable),
 `created_at`. Además de los tipos mínimos de arriba, PKG-002 añade
-`CONTACT_CREATED`, `CONTACT_UPDATED` y `CASE_STATUS_CHANGED`, y PKG-003
+`CONTACT_CREATED`, `CONTACT_UPDATED` y `CASE_STATUS_CHANGED`, PKG-003
 activa los tipos ya documentados `MESSAGE_RECEIVED`, `MESSAGE_SENT`,
-`CHANNEL_CONNECTED` y `CHANNEL_DISCONNECTED` (la lista de arriba se
-documenta como "mínimos", no cerrada).
+`CHANNEL_CONNECTED` y `CHANNEL_DISCONNECTED`, y PKG-004 añade
+`CONTACT_IDENTIFIED` y `CONVERSATION_REASSIGNED` (las acciones de marcar
+identificado/reasignar sobre un Contact `Unassigned` en `/inbox/[id]`) — la
+lista de arriba se documenta como "mínimos", no cerrada.
 
 ## 13. Document / DocumentVersion
 

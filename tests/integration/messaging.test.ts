@@ -14,7 +14,7 @@ import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/mess
 import { receiveWebhook } from "@/modules/messaging/webhook-service";
 import { getConversation, listConversations, listMessages, sendOutboundMessage } from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
-import { FakeMessagingAdapter } from "../fakes/messaging-adapter";
+import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
 
 /**
  * Integration tests for PKG-003 (Messaging core, backend): MessagingAccount
