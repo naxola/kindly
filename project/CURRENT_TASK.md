@@ -172,7 +172,7 @@ con las personas antes de que exista ningún canal de mensajería conectado.
       bootstrap de Organization, priority sin enum, Task sin columna de
       estado, Activity.type sin enum + referencia polimórfica, sin
       eliminación de registros, stub de `server-only` en tests.
-- [x] Commit Git — pendiente, se hace a continuación de este mensaje.
+- [x] Commit Git — `f1c28f9`.
 
 ---
 
@@ -327,7 +327,8 @@ arriba): bootstrap de Organization, Contact/Case/Task/Activity con
 aislamiento multi-tenant real, y UI mínima. Se detectó y resolvió una
 contradicción real en la documentación (Conversation dependía de una tabla
 que no existe todavía) antes de escribir código — ver `docs/DECISIONS.md`.
-Pendiente de commitear a continuación de este mensaje.
+Commiteado en `f1c28f9` — "feat(PKG-002): CRM básico — Contacts, Cases,
+Tasks, Activity".
 
 **Tests:** 27 unit/integration (Vitest) + 3 E2E (Playwright), todos en
 verde. Requieren PostgreSQL local corriendo (`docker compose up -d`) — sin
