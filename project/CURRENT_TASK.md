@@ -697,9 +697,8 @@ esté pendiente.
 
 ## Estado
 
-**Último commit:** pendiente — ver el siguiente commit tras esta sesión
-("feat(PKG-004): Unified Inbox (UI) + fix connection pool/adapter registry
-singletons + fix Better Auth rate limit under E2E").
+**Último commit:** `1c985f5` — "feat(PKG-004): Unified Inbox (UI) —
+listado, detalle, canales".
 
 **Sesión anterior (misma fecha, 2026-09-18):** implementado `PKG-003 —
 Messaging core (backend)` completo (`2dadb0d`).
