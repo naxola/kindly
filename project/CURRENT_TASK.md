@@ -140,7 +140,7 @@ construir. No se implementa ninguna funcionalidad de producto todavía.
       de Better Auth, por qué no se usa `@better-auth/cli`, base de datos de
       test separada, vulnerabilidad moderada aceptada, bloque de Next.js en
       `CLAUDE.md`.
-- [ ] Commit Git — pendiente, se hace a continuación de este mismo mensaje.
+- [x] Commit Git — `a986fe2`.
 
 ## Fase 0 — Validación técnica (PoC WhatsApp/Telegram) — estado aparte
 
@@ -168,8 +168,8 @@ inicial de producto y arquitectura de Kindly" (solo documentación, sin
 código).
 
 **Esta sesión:** implementado `PKG-001 — Foundation` completo (ver registro
-arriba) y se va a commitear a continuación. Actualiza este archivo con el
-hash real en la próxima sesión si hace falta (`git log --oneline -1`).
+arriba). Commiteado en `a986fe2` — "feat(PKG-001): bootstrap Foundation
+(Next.js, Postgres/Drizzle, Better Auth)".
 
 **Tests:** 14 unit/integration (Vitest) + 1 E2E (Playwright), todos en verde.
 Requieren PostgreSQL local corriendo (`docker compose up -d`) — sin eso,
