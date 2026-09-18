@@ -78,29 +78,38 @@ WhatsApp/Telegram, sin Knowledge, sin AI. Definición completa en
 Ver `docs/DECISIONS.md` (entradas del 2026-09-18) para las decisiones
 técnicas no triviales tomadas durante la implementación.
 
-## Fases futuras (sin desglosar todavía en paquetes)
+## PKG-002 — CRM básico (cerrado el 2026-09-18)
 
-Estas fases se desglosarán en paquetes numerados (`PKG-002`, `PKG-003`, ...)
-cuando `PKG-001` esté cerrado y se decida el siguiente paso. El contenido de
-cada fase (más abajo) es la referencia de alcance, no una asignación de
-número de paquete todavía.
+Contacts, Cases, Tasks y Activity, con aislamiento multi-tenant real y UI
+mínima. **`Conversation` y `conversation_cases` se movieron a Messaging core**
+(ver contradicción documentada en `project/CURRENT_TASK.md`: dependen de
+`MessagingAccount`, que todavía no existe). Resumen:
 
-## Fase 2 — CRM
+- [x] Bootstrap automático de `Organization` + `organization_members` (rol
+      `ADMIN`) al registrarse un usuario.
+- [x] Entidad `Contact` (CRUD sin eliminar, formato E.164, sin identidad
+      técnica en teléfono).
+- [x] Entidad `Case` (CRUD sin eliminar, estado enum documentado, sin
+      `conversation_cases` todavía).
+- [x] Entidad `Task` relacionable con Contact/Case/User (sin
+      `conversation_id` todavía; "completada" vía `completed_at`).
+- [x] `Activity` (historial) con referencia polimórfica a Contact/Case/Task.
+- [x] Aislamiento multi-tenant verificado con tests explícitos (integración
+      y E2E).
+- [x] UI: Contacts, Cases, Tasks (listados y detalle básicos) + layout
+      autenticado compartido.
 
-- [ ] Entidad `Contact` (CRUD, formato E.164, sin identidad técnica en
-      teléfono).
-- [ ] Entidad `Conversation` (sin canales reales todavía, estructura base).
-- [ ] Entidad `Case` + `conversation_cases` (N:M).
-- [ ] Entidad `Task` relacionable con Contact/Conversation/Case/User.
-- [ ] `Activity` (historial) con los tipos definidos en `docs/DATABASE.md`.
-- [ ] UI: Contacts, Cases, Tasks (listados y detalle básicos).
+Ver `docs/DECISIONS.md` (entradas del 2026-09-18, bloque "PKG-002") para las
+decisiones técnicas no triviales tomadas durante la implementación.
 
-## Fase 3 — Messaging core
+## Fase 3 — Messaging core (sin número de paquete asignado todavía)
 
 - [ ] Entidad `MessagingAccount` con estados y campos completos.
 - [ ] Interfaz `MessagingAdapter` (sin implementación de proveedor todavía).
 - [ ] Infraestructura de webhooks: endpoint, validación de firma,
       `WebhookEvent`, respuesta 200 inmediata, cola async.
+- [ ] Entidad `Conversation` (movida aquí desde Fase 2, ver PKG-002) +
+      `conversation_cases` (N:M con Case) + columna `Task.conversation_id`.
 - [ ] Pipeline de normalización: MessagingAccount → Contact → Conversation →
       Message, con idempotencia garantizada por identificadores externos.
 - [ ] Envío saliente genérico (contra la interfaz `MessagingAdapter`).

@@ -86,3 +86,10 @@ Cualquier endpoint o query nuevo que toque datos con `organization_id` debe
 tener al menos un test que verifique explícitamente que un usuario de la
 `Organization` A no puede leer ni escribir datos de la `Organization` B —
 incluyendo, cuando aplique, las consultas de RAG.
+
+Ejemplo de referencia desde PKG-002:
+`tests/integration/crm.test.ts` (bloque `describe("multi-tenant isolation")`)
+y `tests/e2e/crm.spec.ts` (test "a second organization cannot see the first
+organization's contacts") — el mismo patrón (dos organizaciones, un usuario
+de cada una, verificar que ninguna ve ni puede modificar los datos de la
+otra) se repite tanto a nivel de servicio como de UI.

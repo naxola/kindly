@@ -77,6 +77,13 @@ tener varias `Conversation`, varios `Case`, y ser atendido por distintos
 `DELEGATE`. Teléfono en E.164 cuando exista, pero no como identificador
 técnico de integración (ver sección 6).
 
+**Implementado en PKG-002** (`src/modules/contacts/schema.ts`):
+`id` (uuid), `organization_id` (`ON DELETE CASCADE`), `name`, `phone_e164`
+(nullable), `email` (nullable), `notes` (nullable), `created_at`,
+`updated_at`. Sin CRUD de eliminación (crear/listar/ver/editar únicamente) y
+sin detección/fusión de duplicados — ambas deferidas, ver
+`docs/DECISIONS.md`.
+
 ## 5. MessagingAccount
 
 Representa la identidad de comunicación de un `DELEGATE` en un canal
@@ -133,6 +140,11 @@ técnica es siempre el identificador que da el proveedor
 campos.
 
 ## 7. Conversation
+
+> **No implementada todavía.** Se crea junto con `MessagingAccount` en el
+> paquete de Messaging core, no en PKG-002 (CRM básico) — depende de una FK
+> obligatoria a `messaging_accounts`, que no existe hasta ese paquete. Ver
+> `docs/DECISIONS.md` y `project/CURRENT_TASK.md`.
 
 Conversación concreta entre un `Contact` y una identidad de comunicación
 (`MessagingAccount`) concreta.
@@ -196,7 +208,19 @@ closed_at
 
 Sin workflow complejo en el MVP.
 
+**Implementado en PKG-002** (`src/modules/cases/schema.ts`): exactamente
+estos campos. `status` es un enum real de Postgres (`case_status`) con los
+cinco valores de arriba, `default 'OPEN'`. `priority` es texto libre — el
+encargo original nunca especificó valores concretos, así que no se inventa
+un enum cerrado (ver `docs/DECISIONS.md`). `assigned_to` referencia
+`users.id` (`ON DELETE SET NULL`). `closed_at` se rellena automáticamente
+cuando `status` pasa a `RESOLVED` o `CLOSED`. Sin eliminación (solo
+crear/listar/ver/editar) y sin restricciones de transición entre estados.
+
 ## 10. conversation_cases
+
+> **No implementada todavía**, por la misma razón que `Conversation`
+> (sección 7): depende de que `Conversation` exista.
 
 Tabla intermedia N:M entre `Conversation` y `Case` (un Contact puede tener
 varios Cases; un Case puede tocar varias Conversations).
@@ -213,6 +237,15 @@ Relacionable con `Contact`, `Conversation`, `Case` y `User`. Sin campos
 cerrados en este documento salvo los evidentes (título, descripción, estado,
 fecha límite, asignado). La AI puede sugerir tareas; no se auto-crean sin
 revisión salvo que se decida lo contrario explícitamente.
+
+**Implementado en PKG-002** (`src/modules/tasks/schema.ts`): `id`,
+`organization_id`, `contact_id` (nullable, `ON DELETE SET NULL`), `case_id`
+(nullable, `ON DELETE SET NULL`), `assigned_to` (nullable, `ON DELETE SET
+NULL`), `title`, `description`, `due_date`, `completed_at`, `created_at`,
+`updated_at`. **Sin `conversation_id` todavía** (se añade junto con
+`Conversation` en el paquete de Messaging core) y **sin columna de estado**:
+"completada" se deriva de `completed_at IS NOT NULL` en vez de inventar un
+enum de estados no documentado.
 
 ## 12. Activity
 
@@ -232,6 +265,18 @@ AI_SUGGESTION_REJECTED
 CHANNEL_CONNECTED
 CHANNEL_DISCONNECTED
 ```
+
+**Implementado en PKG-002** (`src/modules/audit/schema.ts`): `id`,
+`organization_id`, `type` (texto libre, no enum de Postgres — se valida en
+la capa de aplicación vía el tipo `ActivityType` de
+`src/modules/audit/service.ts`, porque esta lista sigue creciendo con cada
+fase futura y un enum de Postgres es costoso de extender), `actor_user_id`
+(nullable), `entity_type` + `entity_id` (referencia polimórfica sin FK —
+apunta a `contacts`/`cases`/`tasks` hoy, a `conversations`/`messages`/
+`ai_suggestions`/etc. en el futuro), `metadata` (jsonb, nullable),
+`created_at`. Además de los tipos mínimos de arriba, PKG-002 añade
+`CONTACT_CREATED`, `CONTACT_UPDATED` y `CASE_STATUS_CHANGED` (la lista de
+arriba se documenta como "mínimos", no cerrada).
 
 ## 13. Document / DocumentVersion
 

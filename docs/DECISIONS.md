@@ -246,6 +246,121 @@ detalle marcado. Siguiente paso: decidir con el usuario el alcance de
 `PKG-002` — no se predefine aquí (ver entrada "Corrección: PKG-000 no
 existe..." más arriba).
 
+---
+
+## 2026-09-18 — PKG-002 (CRM básico): decisiones técnicas de implementación
+
+Contexto: el usuario eligió CRM básico como alcance de `PKG-002` (ver
+`project/CURRENT_TASK.md`). Antes de escribir código se detectó una
+contradicción real entre `docs/DATABASE.md` y `project/TASKS.md`, y durante
+la implementación surgieron varias decisiones de diseño no triviales por
+campos que el encargo original nunca especificó del todo. Se registran aquí.
+
+**1. `Conversation`, `conversation_cases` y `Task.conversation_id` se
+mueven al paquete de Messaging core.**
+`docs/DATABASE.md` documentaba `Conversation.messaging_account_id` como
+columna obligatoria (`NOT NULL`, con `UNIQUE(messaging_account_id,
+external_conversation_id)`), pero `messaging_accounts` no existe hasta el
+paquete de Messaging core. `project/TASKS.md` pedía crear `Conversation`
+"sin canales reales todavía" en la fase de CRM, lo cual es incompatible con
+una FK obligatoria a una tabla inexistente. Una Conversation sin canal
+tampoco es un concepto real del producto
+(`docs/PRODUCT.md` sección 7). **Decisión:** `Conversation`,
+`conversation_cases` y la columna `Task.conversation_id` se crean junto con
+`MessagingAccount`, no en PKG-002. No cambia ningún requisito de producto,
+solo el orden de creación de tablas. `docs/DATABASE.md` y
+`project/TASKS.md` quedan actualizados para reflejarlo.
+
+**2. Bootstrap automático de Organization al registrarse.**
+Better Auth (elegido en PKG-001) no usa su plugin `organization` (decisión
+de PKG-001), así que no hay ningún mecanismo que le dé automáticamente una
+`Organization` a un usuario nuevo. Sin `organization_id`, ninguna fila de
+CRM puede existir (aislamiento multi-tenant, no negociable). Se usa el hook
+`databaseHooks.user.create.after` de Better Auth
+(`src/modules/auth/auth.ts`) para crear una `Organization` y su
+`organization_members` (`ADMIN`) justo después del registro
+(`src/modules/organizations/bootstrap.ts`). Gestión completa de
+organizaciones (invitar miembros, pertenecer a varias, cambiar de rol)
+queda fuera de alcance — un usuario tiene exactamente una organización por
+ahora, y `getCurrentOrganizationMember()`
+(`src/modules/organizations/service.ts`) asume "la primera membership
+encontrada" en base a eso. Quien implemente multi-organización debe
+sustituir esa función, no añadirle un parámetro que el cliente pueda
+falsificar.
+
+**3. `Case.priority` es texto libre, no un enum.**
+El encargo original nunca especificó valores concretos de prioridad (solo
+menciona "prioridad si se implementa" en el contexto del Inbox). Inventar
+un enum cerrado (`LOW/MEDIUM/HIGH`, etc.) sería añadir un requisito de
+producto no pedido. Se deja como texto libre hasta que exista una decisión
+de producto explícita sobre qué valores tiene sentido ofrecer.
+
+**4. `Task` no tiene columna de estado — se deriva de `completed_at`.**
+El encargo describe ejemplos de tareas pero nunca un state machine ni una
+lista de estados. En vez de inventar uno, "pendiente"/"completada" se
+deriva de si `completed_at` es `NULL` o no
+(`src/modules/tasks/domain.ts::isTaskPending`). Si el producto necesita más
+estados en el futuro (`IN_PROGRESS`, `BLOCKED`, ...), esa es una decisión de
+producto que debe tomarse explícitamente, no inferirse aquí.
+
+**5. `Activity.type` es texto libre, no un enum de Postgres — a diferencia
+de `organization_role` y `case_status`.**
+La lista de tipos de actividad va a seguir creciendo en cada fase futura
+(Messaging, Knowledge, AI añaden los suyos). Extender un enum de Postgres
+requiere una migración `ALTER TYPE ... ADD VALUE` por cada tipo nuevo;
+extender una validación de aplicación (`ActivityType` en
+`src/modules/audit/service.ts`) es un cambio de código sin migración. Para
+un conjunto pequeño y estable como el rol o el estado de un Case, el enum
+de Postgres es la opción correcta (validación en la base de datos); para
+uno abierto y creciente como los tipos de actividad, no lo es.
+
+**6. `Activity.entity_type`/`entity_id` son una referencia polimórfica sin
+foreign key.**
+La alternativa — una columna FK nullable por cada tipo de entidad
+auditable (`contact_id`, `case_id`, `task_id`, y en el futuro
+`conversation_id`, `message_id`, `ai_suggestion_id`, ...) — obligaría a
+migrar la tabla `activities` cada vez que se audite un tipo de entidad
+nuevo. Se acepta perder la integridad referencial de la base de datos en
+este punto concreto a cambio de que `activities` no cambie de forma cuando
+llegue Messaging/Knowledge/AI.
+
+**7. Se evaluó y se descartó dar de baja registros (`Contact`/`Case`/
+`Task`) en este paquete.**
+El encargo pide CRUD pero no especifica semántica de borrado (¿duro?
+¿blando? ¿con qué implicaciones de auditoría?). `Case` ya tiene un estado
+natural de cierre (`CLOSED`/`RESOLVED`) que cumple la misma función sin
+decidir esa semántica todavía. PKG-002 implementa crear/listar/ver/editar
+para las tres entidades, sin eliminar — se retoma cuando el producto lo
+pida explícitamente.
+
+**8. `server-only` se stubea en los tests (`vitest.config.mts`,
+`tests/stubs/server-only.ts`).**
+El paquete `server-only` (añadido en PKG-002 para marcar
+`src/db/client.ts` y los `service.ts`/`bootstrap.ts` de cada módulo como
+"no importable desde un Client Component") lanza una excepción
+incondicional cuando se importa fuera del bundler de Next.js — incluyendo
+bajo Vitest, que corre en Node plano. Sin un alias, cualquier test que
+importe un service module (incluidos los de PKG-001, `auth.ts`) rompe. Se
+alía `"server-only"` a un módulo vacío solo para los tests; la protección
+real sigue intacta en el build/dev real de Next.js, que es donde importa.
+
+---
+
+## 2026-09-18 — PKG-002 (CRM básico): cerrado
+
+Todos los *acceptance criteria* de `project/CURRENT_TASK.md` verificados:
+build, lint, typecheck, 27 tests unitarios/integración en verde (incluyendo
+aislamiento multi-tenant explícito), 3 E2E de Playwright en verde
+(auth de PKG-001 + flujo completo de Contact→Case→Task + aislamiento entre
+dos organizaciones a nivel de UI). Bootstrap de Organization al registrarse
+verificado manualmente contra PostgreSQL real antes de escribir los tests
+automatizados. Ver `project/PROGRESS.md` y `project/TASKS.md`. Siguiente
+paso: decidir con el usuario el alcance de `PKG-003` (candidato natural:
+Messaging core, que recupera `Conversation`/`conversation_cases` diferidas
+en la decisión 1 de esta misma fecha).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

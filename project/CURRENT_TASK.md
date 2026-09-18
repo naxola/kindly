@@ -4,19 +4,175 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-001 cerrado, PKG-002 por definir
+## Paquete activo: ninguno — PKG-002 cerrado, PKG-003 por definir
 
-`PKG-001 — Foundation` se completó y se verificó el 2026-09-18 (detalle más
-abajo). Siguiendo las reglas de `CLAUDE.md` ("no empezar el siguiente paquete
-sin definirlo primero"), **no hay ningún paquete de código en marcha ahora
-mismo**. El siguiente paso es que el usuario decida qué entra en `PKG-002`
-(candidatos naturales según `project/TASKS.md`: CRM básico —Contacts/Cases/
-Tasks— o adelantar algo de Messaging core, ver Fases 2 y 3) y se defina ahí
-mismo con Objective/Scope/Non-goals/Acceptance criteria/Tests/Exit criteria,
-igual que se hizo aquí para PKG-001.
+`PKG-002 — CRM básico` se completó y se verificó el 2026-09-18 (detalle más
+abajo). Igual que tras PKG-001, no hay ningún paquete de código en marcha
+ahora mismo. Candidato natural para `PKG-003` según `project/TASKS.md`:
+Messaging core (`MessagingAccount`, interfaz `MessagingAdapter`,
+infraestructura de webhooks, y recuperar `Conversation`/`conversation_cases`
+que quedaron diferidas — ver decisión 1 de PKG-002 en `docs/DECISIONS.md`).
+No se empieza a programar nada de esto sin que el usuario lo confirme.
 
 La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
-relación con esto — ver sección propia más abajo.
+relación con esto.
+
+---
+
+## Registro: PKG-002 — CRM básico (cerrado 2026-09-18)
+
+El usuario eligió CRM básico como PKG-002 (candidato recomendado, porque
+Messaging core depende de que `Conversation` exista, y `Conversation` es
+parte de CRM).
+
+### Contradicción detectada y cómo se resuelve
+
+`docs/DATABASE.md` sección 7 define `Conversation` con
+`messaging_account_id` como columna obligatoria (`NOT NULL`, con
+`UNIQUE(messaging_account_id, external_conversation_id)`), pero
+`messaging_accounts` no existe todavía (es de Messaging core, Fase 3).
+`project/TASKS.md` Fase 2 pedía "Conversation (sin canales reales todavía,
+estructura base)", lo cual es incompatible con una FK obligatoria a una
+tabla inexistente. Lo mismo aplica a `conversation_cases` (depende de
+`Conversation`) y a la columna `conversation_id` de `Task`.
+
+**Resolución:** `Conversation`, `conversation_cases` y la columna
+`Task.conversation_id` se crean junto con `MessagingAccount` en el paquete
+de Messaging core (no en PKG-002), porque una Conversation sin canal no es
+un concepto real en el producto (`docs/PRODUCT.md` sección 7: "el canal de
+comunicación concreto... entre un Contact y una identidad de comunicación
+concreta"). PKG-002 crea `Task` sin `conversation_id`; esa columna se añade
+con su FK en una migración del paquete de Messaging core. Esto no cambia
+ningún requisito de producto, solo el orden en que se crean las tablas —
+se registra como decisión en `docs/DECISIONS.md` al cerrar este paquete.
+
+### Objective
+
+Construir el CRM básico: gestión de Contacts, Cases y Tasks, con historial
+de actividad, para que el profesional pueda empezar a registrar su relación
+con las personas antes de que exista ningún canal de mensajería conectado.
+
+### Scope
+
+- **Bootstrap de Organization**: al registrarse un usuario (Better Auth
+  `databaseHooks.user.create.after`), se crea automáticamente una
+  `Organization` y su `organization_members` con rol `ADMIN` para ese
+  usuario. Es el mínimo necesario para que exista `organization_id` en algo
+  — gestión completa de organizaciones (invitar miembros, cambiar de rol,
+  pertenecer a varias organizaciones) queda fuera (ver Non-goals).
+- **Contact**: tabla + CRUD (crear, listar, ver, editar). Campos: `name`,
+  `phone_e164` (nullable), `email` (nullable), `notes` (nullable). Sin
+  detección/fusión de duplicados (explícitamente diferido en
+  `docs/PRODUCT.md` sección 4).
+- **Case**: tabla + CRUD. Campos según `docs/DATABASE.md` sección 9:
+  `contact_id`, `title`, `description`, `status` (enum
+  `OPEN/IN_PROGRESS/WAITING/RESOLVED/CLOSED`, documentado), `priority`
+  (texto libre, sin enum — el encargo no especifica valores, no se inventan),
+  `assigned_to` (User, nullable), `closed_at`. Sin workflow de transiciones
+  (`docs/PRODUCT.md` sección 7: "sin workflow complejo en el MVP").
+- **Task**: tabla + CRUD. Relacionable con `Contact` (nullable) y `Case`
+  (nullable) y `assigned_to` (User, nullable). Sin `conversation_id` todavía
+  (ver contradicción arriba). Sin enum de estado no documentado: se usa
+  `completed_at` (nullable) para saber si está hecha, en vez de inventar un
+  state machine.
+- **Activity**: tabla de historial, con `type` (texto libre validado en la
+  capa de aplicación, no enum de Postgres — la lista de tipos va a seguir
+  creciendo con cada fase futura y un enum de Postgres es más costoso de
+  extender que uno de rol fijo como `organization_role`), referencia
+  polimórfica (`entity_type` + `entity_id`, sin FK — apunta a Contact, Case o
+  Task por ahora, a Conversation/Message/AISuggestion en el futuro), y
+  `actor_user_id` (quién lo hizo). Se registra al crear/actualizar Contact,
+  crear/asignar Case, crear/completar Task. Solo escritura en este paquete;
+  se muestra como lista de solo lectura en las páginas de detalle de Contact
+  y Case (sin página propia `/activities`).
+- **Aislamiento multi-tenant real**: todo query de estos módulos filtra
+  explícitamente por `organization_id` del usuario autenticado (helper
+  `getCurrentOrganizationMember()` en `src/modules/organizations/service.ts`).
+  Sigue sin implementarse RLS a nivel de PostgreSQL (diferido, igual que en
+  PKG-001) — el filtrado es en la capa de aplicación, en todos los queries,
+  sin excepción.
+- **UI mínima**: layout autenticado compartido (nav: Contacts, Cases, Tasks,
+  cerrar sesión) envolviendo `/dashboard` y las tres secciones nuevas.
+  Listado + formulario de creación inline + página de detalle con edición
+  para cada entidad. Sin diseño elaborado (mismo nivel que el login de
+  PKG-001) — eso es trabajo de un paquete de UI/diseño posterior.
+
+### Non-goals (explícitamente fuera de PKG-002)
+
+- `Conversation`, `conversation_cases`, `Task.conversation_id` (ver
+  contradicción arriba — van con Messaging core).
+- `MessagingAccount`, `Message`, `WebhookEvent`, cualquier `MessagingAdapter`.
+- Gestión de organizaciones: invitar miembros, cambiar roles, pertenecer a
+  varias organizaciones, cambiar de organización activa, UI de
+  administración de la organización.
+- Detección/fusión de Contacts duplicados.
+- Workflow/transiciones de estado restringidas para Case (cualquier
+  ADMIN/DELEGATE puede poner cualquier estado).
+- Prioridad de Case como enum cerrado (es texto libre hasta que el producto
+  necesite valores concretos).
+- Unified Inbox, AI Copilot, Knowledge.
+- Página dedicada de Activity / auditoría completa (solo listas de solo
+  lectura embebidas en Contact/Case).
+
+### Acceptance criteria
+
+1. Un usuario que se registra tiene automáticamente una `Organization` con
+   rol `ADMIN`, verificable en base de datos.
+2. Un `ADMIN` o `DELEGATE` puede crear, listar, ver y editar `Contact`,
+   `Case` y `Task` desde la UI, y los cambios persisten en PostgreSQL.
+3. Ningún query de `contacts`/`cases`/`tasks`/`activities` puede devolver
+   filas de una `Organization` distinta a la del usuario autenticado — hay
+   un test que lo demuestra explícitamente (dos organizaciones, un usuario
+   de cada una, ninguna ve los datos de la otra).
+4. `Case.status` solo admite los cinco valores documentados (enum de
+   Postgres).
+5. Crear un Contact, crear/asignar un Case y crear/completar una Task
+   generan una fila en `activities` con el `type` correcto.
+6. `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e` y
+   `npm run build` en verde.
+7. `docs/DATABASE.md` refleja el esquema real implementado (igual que se
+   hizo para `organizations`/`organization_members` en PKG-001).
+
+### Tests
+
+- Unit: reglas de la capa de aplicación (p. ej. que `Case.status` solo
+  acepte los 5 valores a nivel de tipos, que `Task` sin `completed_at` se
+  considere pendiente).
+- Integration: CRUD contra PostgreSQL real (`kindly_test`) para Contact,
+  Case, Task; el hook de bootstrap de Organization al crear un usuario;
+  generación de `Activity` en las operaciones relevantes.
+- **Integration obligatorio de aislamiento multi-tenant**: dos
+  organizaciones con datos propios, verificar que ningún service devuelve
+  ni permite modificar datos de la otra (`tests/README.md` sección
+  "Multi-tenancy").
+- E2E (Playwright): registro → crear un Contact → crear un Case para ese
+  Contact → crear una Task → marcarla completada — un único flujo feliz que
+  toca las tres entidades.
+
+### Exit criteria — verificación final (2026-09-18)
+
+- [x] Acceptance criteria 1-7: verificados manualmente (curl + psql para el
+      bootstrap de Organization, `next dev` + navegación real para el CRUD)
+      y con la suite automatizada.
+- [x] `npm run lint` — sin errores ni warnings.
+- [x] `npm run typecheck` — sin errores.
+- [x] `npm test` — 27 tests (4 archivos unit, 3 archivos integration) en
+      verde, contra PostgreSQL real (`kindly_test`), incluyendo el bloque
+      dedicado de aislamiento multi-tenant.
+- [x] `npm run test:e2e` — 3 tests Playwright en verde: el flujo de auth de
+      PKG-001, el flujo completo Contact→Case→Task de PKG-002, y aislamiento
+      entre dos organizaciones a nivel de UI.
+- [x] `npm run build` — build de producción sin errores.
+- [x] `project/TASKS.md` — puntos de PKG-002 marcados `[x]`, `Conversation`/
+      `conversation_cases` movidos a la sección de Messaging core.
+- [x] `project/PROGRESS.md` — actualizado, PKG-002 completo, siguiente paso
+      anotado.
+- [x] Decisiones técnicas no triviales registradas en `docs/DECISIONS.md`
+      (entradas del 2026-09-18, bloque "PKG-002"): Conversation diferida,
+      bootstrap de Organization, priority sin enum, Task sin columna de
+      estado, Activity.type sin enum + referencia polimórfica, sin
+      eliminación de registros, stub de `server-only` en tests.
+- [x] Commit Git — pendiente, se hace a continuación de este mensaje.
 
 ---
 
@@ -163,20 +319,23 @@ esté pendiente.
 
 ## Estado
 
-**Último commit antes de esta sesión:** `0f300a5` — "Añadir documentación
-inicial de producto y arquitectura de Kindly" (solo documentación, sin
-código).
+**Último commit antes de esta sesión:** `2c3fbff` — "docs(PKG-001): record
+final commit hash in CURRENT_TASK.md".
 
-**Esta sesión:** implementado `PKG-001 — Foundation` completo (ver registro
-arriba). Commiteado en `a986fe2` — "feat(PKG-001): bootstrap Foundation
-(Next.js, Postgres/Drizzle, Better Auth)".
+**Esta sesión:** implementado `PKG-002 — CRM básico` completo (ver registro
+arriba): bootstrap de Organization, Contact/Case/Task/Activity con
+aislamiento multi-tenant real, y UI mínima. Se detectó y resolvió una
+contradicción real en la documentación (Conversation dependía de una tabla
+que no existe todavía) antes de escribir código — ver `docs/DECISIONS.md`.
+Pendiente de commitear a continuación de este mensaje.
 
-**Tests:** 14 unit/integration (Vitest) + 1 E2E (Playwright), todos en verde.
-Requieren PostgreSQL local corriendo (`docker compose up -d`) — sin eso,
-`npm test` y `npm run test:e2e` fallan al no poder conectar, lo cual es
+**Tests:** 27 unit/integration (Vitest) + 3 E2E (Playwright), todos en
+verde. Requieren PostgreSQL local corriendo (`docker compose up -d`) — sin
+eso, `npm test` y `npm run test:e2e` fallan al no poder conectar, lo cual es
 esperado, no un bug.
 
-**Próxima acción concreta:** el usuario decide el alcance de `PKG-002` (ver
-sección de arriba) y se documenta aquí siguiendo la misma plantilla que
-`PKG-001`. No empezar a programar nada de CRM/Messaging/Knowledge/AI antes de
-esa definición explícita.
+**Próxima acción concreta:** el usuario decide el alcance de `PKG-003` (ver
+sección de arriba, candidato natural: Messaging core) y se documenta aquí
+siguiendo la misma plantilla que PKG-001/PKG-002. No empezar a programar
+nada de Messaging/WhatsApp/Telegram/Knowledge/AI antes de esa definición
+explícita.

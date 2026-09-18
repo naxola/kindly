@@ -3,6 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/client";
 import { authSchema } from "@/modules/auth/schema";
+import { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 
@@ -36,6 +37,19 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        // PKG-002: every new user gets their own Organization (ADMIN role)
+        // so multi-tenant data (Contacts/Cases/Tasks) has somewhere to
+        // belong. See docs/DECISIONS.md and
+        // src/modules/organizations/bootstrap.ts.
+        after: async (user) => {
+          await bootstrapOrganizationForUser(user.id, user.name);
+        },
+      },
+    },
   },
   // Must be last: lets server actions set the session cookie directly.
   plugins: [nextCookies()],

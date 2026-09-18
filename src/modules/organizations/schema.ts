@@ -16,6 +16,7 @@ import { users } from "@/modules/auth/schema";
  * rejects an invalid role (acceptance criterion 7 de PKG-001).
  */
 export const organizationRole = pgEnum("organization_role", ["ADMIN", "DELEGATE"]);
+export type OrganizationRole = (typeof organizationRole.enumValues)[number];
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),

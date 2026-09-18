@@ -4,32 +4,32 @@
 
 ## Resumen en una línea
 
-`PKG-001 — Foundation` completo: Next.js + PostgreSQL/Drizzle + Better Auth
-funcionando end-to-end, con tests y CI. Sin paquete activo ahora mismo —
-`PKG-002` está por definir con el usuario. La PoC de Telegram/WhatsApp sigue
-aparte, como tarea manual del usuario, sin fecha.
+`PKG-001 — Foundation` y `PKG-002 — CRM básico` completos: Next.js +
+PostgreSQL/Drizzle + Better Auth + Contacts/Cases/Tasks/Activity con
+aislamiento multi-tenant real, tests y CI. Sin paquete activo ahora mismo —
+`PKG-003` está por definir con el usuario (candidato natural: Messaging
+core). La PoC de Telegram/WhatsApp sigue aparte, tarea manual, sin fecha.
 
 ## Estado por fase / paquete
 
 | Fase / Paquete | Nombre | Tipo | Estado |
 |---|---|---|---|
 | Fase 0 | Validación técnica (PoC WhatsApp/Telegram) | Manual (usuario) | 🟡 Pendiente, sin fecha — no bloquea el desarrollo de código |
-| **PKG-001** | **Foundation** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| PKG-002 | Por definir | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
-| Fase 2 | CRM | Código (candidato a PKG-002, sin número asignado) | ⚪ No iniciada |
-| Fase 3 | Messaging core | Código (futuro paquete) | ⚪ No iniciada |
+| **PKG-001** | **Foundation** | Código (agente) | 🟢 **Completo** (2026-09-18) |
+| **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
+| PKG-003 | Por definir (candidato: Messaging core) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp | Código (futuro paquete, bloqueado por resultado de Fase 0) | ⚪ No iniciada |
-| Fase 6 | Cases | Código (futuro paquete) | ⚪ No iniciada |
+| Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 7 | Knowledge | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 
-Nota sobre numeración: `PKG-001` corresponde al alcance de la antigua "Fase
-1 — Foundation". Las fases 2-8 se desglosarán en paquetes numerados
-(`PKG-002` en adelante) cuando corresponda; su número concreto no está
-asignado todavía. Ver `project/TASKS.md`.
+Nota sobre numeración: `PKG-001` = antigua "Fase 1 — Foundation", `PKG-002` =
+antigua "Fase 2 — CRM" (con `Conversation`/`conversation_cases` movidas a
+Messaging core, ver `docs/DECISIONS.md`). Las fases 4-8 se desglosarán en
+paquetes numerados cuando corresponda. Ver `project/TASKS.md`.
 
 ## Decisiones importantes tomadas hasta ahora
 
@@ -55,6 +55,16 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   vulnerabilidades críticas de OAuth) — el esquema de Better Auth se verificó
   directamente contra el código fuente instalado. Detalle completo en
   `docs/DECISIONS.md`.
+- **(2026-09-18)** `PKG-002`: se detectó que `Conversation` (documentada con
+  una FK obligatoria a `messaging_accounts`) no podía crearse todavía —
+  `MessagingAccount` es de un paquete futuro. Se movió `Conversation`,
+  `conversation_cases` y `Task.conversation_id` a Messaging core. Además:
+  bootstrap automático de `Organization` al registrarse (Better Auth no
+  gestiona esto al no usar su plugin `organization`), `Case.priority` como
+  texto libre (sin enum inventado), `Task` sin columna de estado (se deriva
+  de `completed_at`), y `Activity.type` como texto libre con referencia
+  polimórfica (no enum, no FK) porque esa lista crece con cada fase futura.
+  Detalle completo en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 
@@ -64,17 +74,18 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   centralizado de organización, requiere aprobación explícita porque rompe
   un principio de producto). Ver `docs/INTEGRATIONS.md` sección 2.2. Sin
   fecha, pendiente de que el usuario ejecute la PoC manualmente.
-- **Alcance de `PKG-002`** — es la decisión pendiente inmediata. Candidatos
-  naturales según `project/TASKS.md`: CRM básico (Contacts/Cases/Tasks) o
-  adelantar Messaging core (MessagingAccount + MessagingAdapter sin
-  proveedor concreto). No se empieza a programar nada de esto sin que el
-  usuario lo confirme primero.
+- **Alcance de `PKG-003`** — es la decisión pendiente inmediata. Candidato
+  natural: Messaging core (`MessagingAccount`, interfaz `MessagingAdapter`
+  sin proveedor concreto, infraestructura de webhooks, y recuperar
+  `Conversation`/`conversation_cases`). No se empieza a programar nada de
+  esto sin que el usuario lo confirme primero.
 
 ## Repositorio
 
 Proyecto Next.js + TypeScript funcionando: PostgreSQL/Drizzle, Better Auth
-(login/registro/sesión), estructura de módulos completa
+(login/registro/sesión), CRM básico (Contacts/Cases/Tasks/Activity) con
+aislamiento multi-tenant real y UI mínima, estructura de módulos completa
 (`src/modules/{auth,organizations,contacts,conversations,messaging,cases,
-tasks,knowledge,ai,audit}`, solo `auth` y `organizations` con código real),
-tests (Vitest + Playwright) y CI en GitHub Actions. Ver `README.md` para
-arrancar en local.
+tasks,knowledge,ai,audit}`, con código real en `auth`, `organizations`,
+`contacts`, `cases`, `tasks` y `audit`), tests (Vitest + Playwright) y CI en
+GitHub Actions. Ver `README.md` para arrancar en local.
