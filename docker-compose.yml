@@ -1,0 +1,27 @@
+services:
+  postgres:
+    # pgvector image so we don't need to migrate the base image later when
+    # the Knowledge package (Fase 7) enables the `vector` extension — see
+    # docs/ARCHITECTURE.md sección 9. The extension itself is not created
+    # yet; that belongs to that future package's migration, not PKG-001.
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kindly
+      POSTGRES_PASSWORD: kindly
+      POSTGRES_DB: kindly
+    ports:
+      - "5432:5432"
+    volumes:
+      - kindly_postgres_data:/var/lib/postgresql/data
+      # Only runs on first container creation (fresh volume). See
+      # tests/README.md for what it's for.
+      - ./docker/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kindly -d kindly"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  kindly_postgres_data:

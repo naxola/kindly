@@ -52,6 +52,24 @@ sección 3 y `docs/DECISIONS.md`.
 - `OrganizationMember`: relaciona `User` con `Organization` y le asigna un
   rol: `ADMIN` o `DELEGATE`.
 
+**Implementado en PKG-001** (`src/modules/auth/schema.ts`,
+`src/modules/organizations/schema.ts`):
+
+- `users` (tabla `users`, en plural): la gestiona Better Auth (login,
+  sesión). Columnas: `id`, `name`, `email` (único), `email_verified`,
+  `image`, `created_at`, `updated_at`. Better Auth también crea `sessions`,
+  `accounts` (guarda el hash de contraseña del proveedor `credential`) y
+  `verifications` — infraestructura de auth, no entidades de negocio, por
+  eso no aparecen en la lista de tablas núcleo de la sección 45.
+  Decisión de no usar el plugin `organization` de Better Auth para
+  `organizations`/`organization_members` registrada en `docs/DECISIONS.md`.
+- `organizations`: `id` (uuid), `name`, `created_at`, `updated_at`.
+- `organization_members`: `id` (uuid), `organization_id` → `organizations.id`
+  (`ON DELETE CASCADE`), `user_id` → `users.id` (`ON DELETE CASCADE`), `role`
+  (enum Postgres `organization_role`: `ADMIN` | `DELEGATE`), `created_at`,
+  `updated_at`. Restricción `UNIQUE(organization_id, user_id)`: un usuario no
+  puede pertenecer dos veces a la misma organización.
+
 ## 4. Contact
 
 Persona con la que la organización tiene una relación. No tiene login. Puede

@@ -11,6 +11,20 @@ mocks/sandboxes en los tests. Ningún test en CI depende de credenciales
 reales de un proveedor externo. Las PoC descritas en `docs/INTEGRATIONS.md`
 se ejecutan manualmente/exploratoriamente, no como parte de la suite de CI.
 
+Better Auth **no** entra en esta regla de mocks: es infraestructura propia
+del proyecto (elegida en `docs/ARCHITECTURE.md`), no un proveedor externo de
+mensajería/IA, así que sus tests de integración (`tests/integration/
+auth-flow.test.ts`, desde PKG-001) corren contra una instancia real.
+
+### Base de datos de test
+
+`npm test` necesita PostgreSQL corriendo (`docker compose up -d`, ver
+`README.md`) y usa la base `kindly_test`, separada de la de desarrollo
+(`kindly`) — nunca toca datos de desarrollo. `tests/setup.ts` redirige
+`DATABASE_URL` a `TEST_DATABASE_URL` antes de que cualquier módulo de la app
+abra su conexión. `docker/init-test-db.sh` crea `kindly_test`
+automáticamente la primera vez que se levanta el contenedor.
+
 ## Tipos de test y qué cubren
 
 ### Unit tests

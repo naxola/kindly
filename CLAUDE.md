@@ -70,7 +70,7 @@ Sigue siempre esta secuencia (ver `docs/DECISIONS.md` para lo ya validado):
    (scraping, WhatsApp Web automatizado, sesiones no oficiales) para
    "aparentar" que el requisito se cumple.
 4. Si una limitación obliga a cambiar un requisito de producto, no lo cambies
-   en silencio: para, explica la limitación, propone alternativas oficiales, y
+   en silencio: para, explica la limitación, propón alternativas oficiales, y
    registra la decisión final en `docs/DECISIONS.md`.
 
 ## 4. Cómo trabajar por paquetes (flujo de sesión)
@@ -82,14 +82,59 @@ Cada sesión de trabajo debe:
    que sea trivial y esté claramente relacionado).
 3. Al terminar (o al final de la sesión aunque no haya terminado):
    - Actualizar `project/CURRENT_TASK.md` con el estado real (qué se hizo, qué
-     falta, próximos pasos concretos).
+     falta, próximos pasos concretos) **incluyendo el hash del último commit**
+     (o `sin commits` si no hay ninguno).
    - Actualizar `project/TASKS.md` marcando lo completado.
    - Actualizar `project/PROGRESS.md` si cambió el estado de una fase.
+     **Siempre actualizar también la línea "Última actualización:" (formato
+     YYYY-MM-DD) cuando se toque ese archivo.**
    - Si se tomó una decisión de arquitectura no trivial, añadir entrada nueva
      en `docs/DECISIONS.md` (nunca borrar entradas anteriores, solo
      superseder).
 4. No dejar el repositorio con tests rotos ni con un estado a medias sin
    dejarlo explícitamente anotado en `CURRENT_TASK.md`.
+
+## 4.5. Flujo de trabajo con Git
+
+### Al iniciar una sesión (antes de tocar nada)
+
+```bash
+git status          # ¿hay trabajo sin commitear de la sesión anterior?
+git log --oneline -10  # ¿dónde quedó el último commit?
+npm test            # ¿están los tests en verde?
+```
+
+Si `git status` muestra cambios sin commitear → leer `project/CURRENT_TASK.md`
+para entender si es trabajo a medias intencionado o un olvido.  
+Si los tests están rotos → no avanzar hasta entender el motivo; revisar si
+está anotado en `CURRENT_TASK.md`.
+
+### Al terminar un paquete de trabajo
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+git status
+git add .
+git commit -m "feat: complete PKG-XXX — descripción breve en inglés"
+```
+
+El commit solo se hace si **lint + typecheck + tests pasan todos en verde**.
+Si algo falla y no se puede resolver en esa sesión, dejar el estado anotado
+en `project/CURRENT_TASK.md` y **no commitear código roto**.
+
+### Formato de mensajes de commit
+
+Seguir [Conventional Commits](https://www.conventionalcommits.org/):
+
+- `feat:` — nueva funcionalidad
+- `fix:` — corrección de bug
+- `docs:` — solo cambios en documentación
+- `test:` — añadir/corregir tests
+- `chore:` — cambios de tooling, dependencias, configuración
+
+El `scope` opcional puede ser el identificador de paquete: `feat(PKG-001): ...`
 
 ## 5. Seguridad (no negociable)
 
@@ -134,3 +179,13 @@ complejo, billing avanzado, analítica avanzada, sistemas de permisos
 elaborados más allá de ADMIN/DELEGATE, decenas de proveedores de mensajería,
 integraciones no oficiales de WhatsApp. Ver justificación en
 `docs/ARCHITECTURE.md`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

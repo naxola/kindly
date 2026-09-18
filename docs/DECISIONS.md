@@ -108,6 +108,144 @@ rediseñar el modelo de `MessagingAccount`/`Conversation` después. Se prefiere
 pagar el coste de la incertidumbre ahora, de forma barata (una PoC), que
 después, de forma cara (reescribir el core).
 
+---
+
+## 2026-09-17 — Corrección: "PKG-000" no existe; nace la numeración PKG-XXX desacoplada de la Fase 0
+
+**Contexto:** al iniciar la sesión de implementación, el usuario pidió
+"implementar PKG-000 completamente" asumiendo que ya existía esa
+identificación. Al revisar `project/TASKS.md` y `project/CURRENT_TASK.md` no
+existía ningún paquete numerado — solo "fases" (0 a 8) sin identificador de
+paquete. Además, la fase activa en ese momento (Fase 0) consiste en pasos
+manuales (PoC de Telegram/WhatsApp con cuentas reales, Premium de Telegram,
+verificación de negocio en Meta) que el agente no puede ejecutar ni simular.
+Se detuvo el trabajo y se preguntó al usuario en vez de asumir.
+
+**Decisión:**
+
+1. Se introduce formalmente una numeración de paquetes de desarrollo
+   `PKG-001`, `PKG-002`, ... Cada paquete es una unidad de trabajo de código
+   que el agente implementa completa, con Objective/Scope/Non-goals/
+   Acceptance criteria/Tests/Exit criteria definidos en
+   `project/CURRENT_TASK.md` antes de empezar.
+2. La **Fase 0 (PoC de WhatsApp/Telegram) no es ni será un paquete
+   numerado**. Es trabajo manual que ejecuta el usuario con sus propias
+   cuentas y dispositivos. El agente no la ejecuta, no la simula, y no
+   implementa `WhatsAppAdapter`/`TelegramAdapter` reales mientras esté
+   pendiente.
+3. El desarrollo de código **no espera** al resultado de la Fase 0. Empieza
+   directamente por `PKG-001 — Foundation` (base técnica: proyecto Next.js,
+   PostgreSQL + Drizzle, testing, lint/typecheck, CI, y únicamente las tablas
+   `users`/`organizations`/`organization_members`). Esto no contradice la
+   prioridad del encargo original de validar mensajería antes de construir
+   sobre ella: `PKG-001` no toca `MessagingAccount` ni ningún modelo de
+   mensajería, así que no hay nada que rehacer si el resultado de la PoC
+   obliga a ajustar ese modelo más adelante.
+4. La Fase 0 solo bloquea el futuro paquete que implemente el
+   `WhatsAppAdapter` real (Fase 5 del backlog), no `PKG-001` ni,
+   previsiblemente, el paquete de Messaging core (que se construye contra la
+   interfaz `MessagingAdapter`, no contra una implementación concreta).
+
+**Por qué:** evita que el agente invente un alcance para un identificador que
+no existía, y separa con claridad qué es responsabilidad del usuario (validar
+capacidades reales de plataformas externas con sus propias cuentas) de qué es
+responsabilidad del agente (escribir e integrar código sobre esas
+capacidades, una vez confirmadas).
+
+**Supersede a:** la entrada "2026-09-17 — Fase 0 activa: PoC de mensajería
+antes que código de producto" de este mismo documento, en cuanto a que la
+Fase 0 ya no es la primera tarea del proyecto ni una condición previa al
+desarrollo — sigue siendo importante y pendiente, pero en paralelo.
+
+---
+
+## 2026-09-18 — PKG-001 (Foundation): decisiones técnicas de implementación
+
+Contexto: al implementar la base técnica (Next.js, PostgreSQL + Drizzle,
+Better Auth, testing, CI) surgieron varias decisiones no triviales que no
+estaban prescritas por `docs/ARCHITECTURE.md`/`docs/DATABASE.md` en detalle.
+Se registran aquí, verificadas contra el código real instalado (no memoria),
+siguiendo `CLAUDE.md` sección 3.
+
+**1. No se usa el plugin `organization` de Better Auth.**
+Better Auth incluye un plugin oficial (`better-auth/plugins/organization`)
+que ya implementa Organization/Member/Invitation con roles configurables.
+Se evaluó y se descarta para PKG-001: introduce una tabla `invitation` (no
+documentada, fuera de alcance), un modelo de equipos opcional, y acopla nuestro
+dominio de negocio (`Organization`) a una librería de autenticación — rompe
+el principio de aislamiento de proveedor de `docs/ARCHITECTURE.md` sección
+16. En su lugar, `organizations`/`organization_members` son tablas Drizzle
+propias en `src/modules/organizations/schema.ts`, con su propio enum
+`organization_role` (`ADMIN`/`DELEGATE`). Better Auth solo gestiona
+`users`/`sessions`/`accounts`/`verifications`.
+
+**2. Better Auth usa nombres de tabla en plural, alineados a `docs/DATABASE.md`.**
+El adaptador de Drizzle de Better Auth (`@better-auth/drizzle-adapter`) usa
+por defecto nombres de modelo en singular (`user`, `session`, ...). Se activó
+`usePlural: true` para que use `users`, `sessions`, `accounts`,
+`verifications`, coincidiendo con la tabla `users` ya documentada en
+`docs/DATABASE.md` sección 3, en vez de crear una tabla `user` paralela.
+
+**3. El esquema de las tablas de Better Auth se escribió a mano, verificado
+contra el código fuente instalado, no contra el CLI oficial.**
+Better Auth ofrece un paquete `@better-auth/cli` para generar el esquema de
+Drizzle automáticamente. Al instalarlo, `npm audit` reportó que arrastra una
+copia vendorizada y desactualizada de `better-auth` (≤1.6.21, con
+vulnerabilidades **críticas** de OAuth) y de `drizzle-orm`, y npm marca el
+propio paquete `@better-auth/cli` como
+`DEPRECATED — Package no longer supported. Contact Support`, un aviso que
+en el registro de npm normalmente indica una retirada por seguridad, no una
+simple sugerencia de actualizar de versión. Por precaución (no se pudo
+verificar la causa exacta de la retirada) se descartó ese CLI por completo:
+se desinstaló, y el esquema real de `users`/`sessions`/`accounts`/
+`verifications` (`src/modules/auth/schema.ts`) se escribió leyendo
+directamente el código fuente TypeScript del paquete `better-auth` legítimo
+ya instalado (`@better-auth/core/src/db/schema/{shared,user,session,account,
+verification}.ts`), que es autoritativo y no arrastra esas dependencias.
+
+**4. Base de datos de test separada (`kindly_test`).**
+Los tests de integración (`tests/integration/`) corren migraciones reales
+contra PostgreSQL. Para no tocar nunca los datos de desarrollo, se creó una
+base de datos separada (`kindly_test`, mismo contenedor) y
+`tests/setup.ts` redirige `DATABASE_URL` hacia `TEST_DATABASE_URL` antes de
+que cualquier test importe `src/db/client.ts` o `src/modules/auth/auth.ts`.
+`docker/init-test-db.sh` la crea automáticamente la primera vez que se
+levanta `docker compose up -d` (montado en `/docker-entrypoint-initdb.d/`).
+
+**5. Vulnerabilidad moderada aceptada: esbuild vía `drizzle-kit`.**
+`npm audit` señala una vulnerabilidad moderada de `esbuild` (<=0.24.2) a
+través de una dependencia transitiva de `drizzle-kit` (versión ya la más
+reciente disponible, 0.31.10 — no hay una versión sin esa dependencia). El
+aviso original es sobre el servidor de desarrollo de `esbuild` aceptando
+peticiones de cualquier origen; `drizzle-kit` no expone ningún servidor de
+ese tipo, solo usa `esbuild` para cargar su propio archivo de configuración
+en local. Riesgo aceptado y documentado; revisar si una versión futura de
+`drizzle-kit` lo soluciona.
+
+**6. El bloque `<!-- BEGIN:nextjs-agent-rules -->` en `CLAUDE.md` es de
+Next.js, no nuestro, y se mantiene.**
+Next.js 16 (`next dev`/`next build`) reescribe automáticamente un bloque al
+final de `CLAUDE.md` (o `AGENTS.md`) avisando a los agentes de que esta
+versión tiene cambios respecto a su conocimiento de entrenamiento y deben
+leer `node_modules/next/dist/docs/` antes de escribir código (mecanismo
+documentado en esa misma guía de Next.js, sección "Set up AI agent docs").
+Quitarlo manualmente solo hace que reaparezca como cambio sin commitear en
+el siguiente `next dev`; Next.js recomienda commitearlo. Se mantiene tal
+cual al final de `CLAUDE.md`.
+
+---
+
+## 2026-09-18 — PKG-001 (Foundation): cerrado
+
+Todos los *acceptance criteria* de `project/CURRENT_TASK.md` verificados:
+build, lint, typecheck, 14 tests unitarios/integración en verde, migración
+aplicada contra PostgreSQL real, flujo de registro/login/sesión/logout
+verificado tanto por HTTP directo (curl) como por un E2E de Playwright.
+Ver `project/PROGRESS.md` para el resumen y `project/TASKS.md` para el
+detalle marcado. Siguiente paso: decidir con el usuario el alcance de
+`PKG-002` — no se predefine aquí (ver entrada "Corrección: PKG-000 no
+existe..." más arriba).
+
 <!--
 Plantilla para nuevas entradas:
 

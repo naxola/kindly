@@ -1,11 +1,30 @@
-# TASKS.md — Backlog por fases
+# TASKS.md — Backlog por fases y paquetes
 
 Backlog completo. El paquete activo siempre se refleja en
 `project/CURRENT_TASK.md`; este archivo es la vista de conjunto. Se marca
 `[x]` al completar y no se borran tareas completadas (sirve de historial
 rápido junto con Git).
 
-## Fase 0 — Validación técnica (PoC)
+## Dos tipos de trabajo en este backlog
+
+1. **Fase 0 — Validación técnica**: trabajo **manual**, no es un paquete de
+   desarrollo (`PKG-XXX`), no lo ejecuta ni lo simula el agente. La ejecuta
+   el usuario con sus propias cuentas y dispositivos. Ver
+   `docs/DECISIONS.md` entrada "PKG-000 no existe...".
+2. **Paquetes (`PKG-001`, `PKG-002`, ...)**: trabajo de código que sí
+   implementa el agente, uno detrás de otro, cada uno con su definición
+   completa (Objective/Scope/Non-goals/Acceptance criteria/Tests/Exit
+   criteria) en `project/CURRENT_TASK.md` cuando esté activo. La numeración
+   de paquetes se asigna de forma incremental a medida que se activan — no se
+   predefine de antemano el contenido exacto de `PKG-002` en adelante hasta
+   que `PKG-001` esté cerrado.
+
+## Fase 0 — Validación técnica (PoC) — MANUAL, pendiente, no bloquea PKG-001
+
+> El agente no debe ejecutar, simular, ni escribir código de producto para
+> estos pasos. Puede, si se le pide explícitamente en un paquete futuro,
+> construir herramientas de apoyo (p. ej. un endpoint de logging) — pero eso
+> requeriría su propio paquete y una petición explícita del usuario.
 
 - [ ] PoC Telegram: crear bot, conectar Connected Business Bot desde una
       cuenta Telegram Business real, recibir `business_connection`.
@@ -25,24 +44,46 @@ rápido junto con Git).
       desconexión/reconexión, estabilidad de identificadores).
 - [ ] PoC WhatsApp: verificar explícitamente disponibilidad real de
       "coexistence" con WhatsApp Business App para el mercado objetivo.
-- [ ] Registrar resultado de ambas PoC en `docs/DECISIONS.md`.
+- [ ] Registrar resultado de ambas PoC en `docs/DECISIONS.md` (lo hace el
+      usuario, o el agente a partir de lo que el usuario reporte).
 - [ ] Si WhatsApp no soporta el requisito fundamental: decisión explícita del
       usuario entre alternativas A/B/C (`docs/INTEGRATIONS.md` sección 2.2)
-      antes de continuar a Fase 5.
+      antes de empezar el paquete de integración de WhatsApp.
 
-## Fase 1 — Foundation
+## PKG-001 — Foundation (cerrado el 2026-09-18)
 
-- [ ] Setup Next.js + TypeScript + Tailwind + shadcn/ui.
-- [ ] Setup PostgreSQL + pgvector (Docker Compose local).
-- [ ] Setup Drizzle ORM + migraciones.
-- [ ] Better Auth: login, sesión.
-- [ ] Entidades: `User`, `Organization`, `OrganizationMember`.
-- [ ] Aislamiento multi-tenant: middleware/helper que exige
-      `organization_id` en toda query; evaluar RLS.
-- [ ] Roles `ADMIN` / `DELEGATE` y permisos base.
-- [ ] UI base (layout, navegación, autenticación).
-- [ ] Logging estructurado + Sentry + OpenTelemetry básico.
-- [ ] Infraestructura de testing (Vitest, Playwright, CI en GitHub Actions).
+Base técnica del proyecto únicamente. Sin CRM, sin Messaging, sin
+WhatsApp/Telegram, sin Knowledge, sin AI. Definición completa en
+`project/CURRENT_TASK.md`. Resumen:
+
+- [x] Inicializar/configurar Next.js + TypeScript (si no existe ya).
+- [x] Configurar la estructura de módulos del modular monolith
+      (`docs/ARCHITECTURE.md` sección 2).
+- [x] Configurar PostgreSQL + Drizzle ORM (conexión, migraciones).
+- [x] Configurar infraestructura de testing (Vitest, más Playwright para el
+      E2E de PKG-001).
+- [x] Configurar lint y typecheck.
+- [x] Configurar estructura inicial de `src/`.
+- [x] Preparar configuración de desarrollo local (Docker Compose para
+      PostgreSQL, variables de entorno de ejemplo).
+- [x] Configurar GitHub Actions (lint + typecheck + test + build + e2e en
+      cada push/PR contra `main`).
+- [x] Crear únicamente las tablas/modelos estrictamente necesarios para
+      Foundation (`users`, `organizations`, `organization_members`), sin
+      lógica de negocio de CRM/Messaging/Knowledge/AI.
+- [x] Configurar Better Auth (login/registro con email+contraseña, sesión en
+      PostgreSQL vía Drizzle) mapeado a la tabla `users` documentada, con una
+      página mínima de login/registro y una ruta protegida de prueba.
+
+Ver `docs/DECISIONS.md` (entradas del 2026-09-18) para las decisiones
+técnicas no triviales tomadas durante la implementación.
+
+## Fases futuras (sin desglosar todavía en paquetes)
+
+Estas fases se desglosarán en paquetes numerados (`PKG-002`, `PKG-003`, ...)
+cuando `PKG-001` esté cerrado y se decida el siguiente paso. El contenido de
+cada fase (más abajo) es la referencia de alcance, no una asignación de
+número de paquete todavía.
 
 ## Fase 2 — CRM
 
