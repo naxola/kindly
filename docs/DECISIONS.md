@@ -421,6 +421,101 @@ usuario sin tocar manualmente — se autorepara en su próximo login.
 
 ---
 
+## 2026-09-18 — PKG-003 (Messaging core, backend): decisiones técnicas de implementación
+
+Contexto: el usuario eligió el alcance "backend completo, sin UI de Inbox"
+para `PKG-003` (la Unified Inbox queda como `PKG-004`). No existe ningún
+proveedor real (`WhatsAppAdapter`/`TelegramAdapter`) porque la Fase 0 (PoC)
+sigue pendiente, así que todo el pipeline se construye y prueba contra la
+interfaz `MessagingAdapter` y un adapter falso interno.
+
+**1. `MessagingAdapter.handleWebhook(payload: unknown)` se divide en
+`verifyWebhookSignature` + `parseWebhookEvents`.**
+El pseudocódigo de `docs/ARCHITECTURE.md` sección 4 tenía un único método de
+webhook, pero validar una firma requiere el body crudo y los headers *antes*
+de parsear nada — un `payload: unknown` ya parseado no lo permite, y el
+pipeline exige exactamente ese orden (`docs/ARCHITECTURE.md` sección 7:
+validar firma → persistir → responder → normalizar). Se dividió en dos
+métodos llamados en ese orden por `src/modules/messaging/webhook-service.ts`.
+No es un cambio de requisito de producto, solo una corrección de una
+interfaz que, tal como estaba escrita, no podía implementarse correctamente.
+
+**2. Registro de adapters por canal, vacío en producción en este paquete.**
+`src/modules/messaging/registry.ts` mapea `channel → MessagingAdapter`. En
+PKG-003 no se registra ningún canal real (Fase 4/5 lo harán). Solo los tests
+registran un `FakeMessagingAdapter` (`tests/fakes/messaging-adapter.ts`) para
+probar el pipeline completo; nada en el código de producción lo registra, así
+que es inalcanzable desde una petición real — verificado manualmente con
+`curl` contra `next dev`: cualquier canal devuelve 404.
+
+**3. No se introduce pg-boss/Inngest todavía — se usa `after()` de
+`next/server`.**
+`docs/ARCHITECTURE.md` sección 8 prevé un worker para procesamiento de
+webhooks, pero sin tráfico real de ningún proveedor conectado no hay
+necesidad concreta de esa infraestructura (CLAUDE.md sección 2). `after()`
+(Next.js 15.1+, estable) cumple el contrato real que se necesita ahora mismo
+("responder 200 → procesar después, sin bloquear el request") sin añadir un
+proceso worker ni una tabla de jobs. Limitación aceptada: si el proceso
+muere a mitad de un `after()`, el `WebhookEvent` queda con
+`processed_at = NULL` sin reintento automático — aceptable mientras no haya
+tráfico real; se revisita cuando lo haya.
+
+**4. `channel` en `MessagingAccount`/`Conversation`/`WebhookEvent` es texto
+libre, no un enum de Postgres.**
+Misma razón que `Activity.type` (entrada de PKG-002 más arriba): la lista de
+canales sigue creciendo (Telegram, WhatsApp, email, SMS...) y un enum de
+Postgres es costoso de extender. Se valida en la capa de aplicación contra
+el registro de adapters del punto 2 — no puede haber una `MessagingAccount`
+con un canal para el que no exista un adapter implementado.
+
+**5. `Message.body` y `Message.sourceWebhookEventId` se añaden al
+pseudocódigo de `docs/DATABASE.md` sección 8.**
+El pseudocódigo original no incluía ninguna columna de contenido — un
+`Message` sin texto no sirve para nada (no se puede mostrar ni reenviar).
+`sourceWebhookEventId` (FK nullable a `webhook_events`) sustituye al
+`raw_event_reference` mencionado en la sección 17: como el evento crudo ya
+es una fila propia en esta misma base de datos, una FK real es mejor que una
+referencia string a un sistema externo que no existe. Nula en mensajes
+salientes (no vienen de ningún webhook).
+
+**6. `webhook_events` guarda el body crudo inline (texto), no una referencia
+a almacenamiento externo (S3).**
+`docs/DATABASE.md` sección 17 sugiere `raw_event_reference`, que podría leerse
+como un puntero a un objeto externo. Se descarta introducir S3/object
+storage para esto sin una necesidad concreta (CLAUDE.md sección 2/8) dado el
+volumen esperado (mensajes de texto cortos, no adjuntos grandes — eso, si
+llega, es una decisión aparte cuando exista).
+
+**7. Mensaje entrante de remitente desconocido: se crea un `Contact` mínimo
+automáticamente, sin fusión/detección de duplicados.**
+`docs/PRODUCT.md` sección 4: "un mensaje de un Contact desconocido no se
+pierde: entra como Contact → Unassigned". Sin UI de Inbox en este paquete,
+no existe un concepto de "Unassigned" que mostrar — la garantía que sí
+implementa el backend es que la `Conversation` y el `Message` siempre se
+crean, con un `Contact` cuyo nombre es el display name que dé el proveedor,
+o si no lo hay, el teléfono, o si no, el identificador externo crudo (nunca
+se inventa un nombre). Sin fusión automática de identificadores distintos
+(deferido, igual que en PKG-002) — cualquier "Unassigned" visible y
+asignación manual es trabajo de `PKG-004` (Inbox).
+
+**8. Condición de carrera en la creación de `Conversation`+`Contact` resuelta
+con el mismo patrón que `bootstrapOrganizationForUser`.**
+Dos webhooks concurrentes para la misma conversación nueva podían crear dos
+Contacts (uno de ellos huérfano). Se extrajo `isPostgresUniqueViolation` de
+`src/modules/organizations/bootstrap.ts` a `src/db/errors.ts` (sin cambiar su
+comportamiento) y se reutiliza en
+`src/modules/conversations/service.ts::findOrCreateConversation`: Contact +
+Conversation se crean en una transacción; si pierde la carrera contra la
+restricción `UNIQUE(messaging_account_id, external_conversation_id)`, la
+transacción entera revierte (sin Contact huérfano) y se relee la fila
+ganadora.
+
+**Supersede a:** nada — extiende el modelo de `Conversation`/
+`conversation_cases`/`Task.conversation_id` cuya creación se difirió en la
+entrada de PKG-002 (punto 1) hasta este paquete.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

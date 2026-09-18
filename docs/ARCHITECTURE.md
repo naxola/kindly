@@ -114,6 +114,20 @@ Implementaciones iniciales: `WhatsAppAdapter`, `TelegramAdapter`. Preparado
 para añadir `EmailAdapter`, `SMSAdapter` sin tocar el núcleo del CRM. Reglas
 detalladas de cada proveedor en `docs/INTEGRATIONS.md`.
 
+**Implementado en PKG-003** (`src/modules/messaging/adapter.ts`), con un
+refinamiento sobre el pseudocódigo de arriba: un único
+`handleWebhook(payload: unknown)` no permite validar la firma sobre el body
+crudo *antes* de parsear nada (necesario para persistir el `WebhookEvent`
+solo si la firma es válida, sección 7). Se divide en
+`verifyWebhookSignature(rawBody, headers, account): boolean` y
+`parseWebhookEvents(rawBody, headers): NormalizedInboundEvent[]`, llamados en
+ese orden por `src/modules/messaging/webhook-service.ts`. Un registro por
+canal (`src/modules/messaging/registry.ts`) permite añadir
+`WhatsAppAdapter`/`TelegramAdapter` sin tocar el núcleo; en PKG-003 el
+registro está vacío en producción (ninguna implementación real todavía) y
+solo un adapter falso, usado exclusivamente en tests, prueba el pipeline
+completo.
+
 ## 5. Identidad técnica frente a número de teléfono
 
 `phone_e164` nunca es el identificador técnico principal de una integración
@@ -160,6 +174,16 @@ Worker (pg-boss o Inngest) para: procesamiento de webhooks, generación de
 embeddings, indexación, generación de summaries, tareas de AI,
 sincronizaciones y cualquier operación lenta. Nunca bloquear un request HTTP
 con trabajo pesado.
+
+**PKG-003 todavía no introduce pg-boss/Inngest.** El procesamiento de
+webhooks usa `after()` de `next/server` (la respuesta 200 se envía primero,
+la normalización corre después, sin bloquear el request) — sin necesidad
+concreta de un worker separado mientras no haya tráfico real de un proveedor
+conectado (CLAUDE.md sección 2). Limitación conocida: si el proceso muere a
+mitad de un `after()`, el `WebhookEvent` queda persistido con
+`processed_at = NULL` pero nada lo reintenta automáticamente todavía. Se
+introduce un worker real cuando exista esa necesidad de durabilidad
+(Fase 4/5, con tráfico real). Ver `docs/DECISIONS.md`.
 
 ## 9. RAG y conocimiento
 

@@ -3,14 +3,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { activities } from "@/modules/audit/schema";
 
-export type ActivityEntityType = "contact" | "case" | "task";
+export type ActivityEntityType = "contact" | "case" | "task" | "conversation" | "messaging_account";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
- * (CASE_CREATED, CASE_ASSIGNED, TASK_CREATED, TASK_COMPLETED), this adds
- * CONTACT_CREATED/CONTACT_UPDATED and CASE_STATUS_CHANGED — natural
- * extensions for the entities PKG-002 actually manages. The docs call that
- * list "mínimos", not closed.
+ * (CASE_CREATED, CASE_ASSIGNED, TASK_CREATED, TASK_COMPLETED,
+ * MESSAGE_RECEIVED, MESSAGE_SENT, CHANNEL_CONNECTED, CHANNEL_DISCONNECTED),
+ * this adds CONTACT_CREATED/CONTACT_UPDATED and CASE_STATUS_CHANGED —
+ * natural extensions for the entities PKG-002 actually manages. The docs
+ * call that list "mínimos", not closed.
  */
 export type ActivityType =
   | "CONTACT_CREATED"
@@ -19,12 +20,17 @@ export type ActivityType =
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"
   | "TASK_CREATED"
-  | "TASK_COMPLETED";
+  | "TASK_COMPLETED"
+  | "MESSAGE_RECEIVED"
+  | "MESSAGE_SENT"
+  | "CHANNEL_CONNECTED"
+  | "CHANNEL_DISCONNECTED";
 
 interface RecordActivityInput {
   organizationId: string;
   type: ActivityType;
-  actorUserId: string;
+  /** Null for system-triggered activity with no human actor — e.g. MESSAGE_RECEIVED from an inbound webhook. */
+  actorUserId: string | null;
   entityType: ActivityEntityType;
   entityId: string;
   metadata?: Record<string, unknown>;

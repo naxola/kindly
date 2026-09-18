@@ -102,20 +102,38 @@ mínima. **`Conversation` y `conversation_cases` se movieron a Messaging core**
 Ver `docs/DECISIONS.md` (entradas del 2026-09-18, bloque "PKG-002") para las
 decisiones técnicas no triviales tomadas durante la implementación.
 
-## Fase 3 — Messaging core (sin número de paquete asignado todavía)
+## PKG-003 — Messaging core, backend (cerrado el 2026-09-18)
 
-- [ ] Entidad `MessagingAccount` con estados y campos completos.
-- [ ] Interfaz `MessagingAdapter` (sin implementación de proveedor todavía).
-- [ ] Infraestructura de webhooks: endpoint, validación de firma,
-      `WebhookEvent`, respuesta 200 inmediata, cola async.
-- [ ] Entidad `Conversation` (movida aquí desde Fase 2, ver PKG-002) +
+Alcance elegido por el usuario: backend completo, sin UI. Definición
+completa en `project/CURRENT_TASK.md`. Resumen:
+
+- [x] Entidad `MessagingAccount` con estados y campos completos.
+- [x] Interfaz `MessagingAdapter` (sin implementación de proveedor todavía;
+      refinada con `verifyWebhookSignature`/`parseWebhookEvents` en vez de
+      un único `handleWebhook`, ver `docs/DECISIONS.md`).
+- [x] Infraestructura de webhooks: endpoint, validación de firma,
+      `WebhookEvent`, respuesta 200 inmediata, procesamiento asíncrono con
+      `after()` (sin pg-boss/Inngest todavía, ver `docs/DECISIONS.md`).
+- [x] Entidad `Conversation` (movida aquí desde Fase 2, ver PKG-002) +
       `conversation_cases` (N:M con Case) + columna `Task.conversation_id`.
-- [ ] Pipeline de normalización: MessagingAccount → Contact → Conversation →
+- [x] Pipeline de normalización: MessagingAccount → Contact → Conversation →
       Message, con idempotencia garantizada por identificadores externos.
-- [ ] Envío saliente genérico (contra la interfaz `MessagingAdapter`).
+- [x] Envío saliente genérico (contra la interfaz `MessagingAdapter`).
+
+Ver `docs/DECISIONS.md` (entradas del 2026-09-18, bloque "PKG-003") para las
+decisiones técnicas no triviales tomadas durante la implementación.
+
+## Fase 3 (resto) — Unified Inbox — candidato para `PKG-004`, sin definir
+
 - [ ] Unified Inbox (UI): listado, filtros, no leídos, sin selección manual
       de canal al responder.
-- [ ] Manejo de `Contact → Unassigned` para remitentes desconocidos.
+- [ ] Marcado explícito de `Contact → Unassigned` en UI y flujo para
+      identificar/fusionar/asignar un remitente desconocido (el backend de
+      PKG-003 ya garantiza que ningún mensaje se pierde — crea un Contact
+      mínimo automáticamente — pero no expone ningún marcado de UI todavía).
+- [ ] UI de conexión de canal (Embedded Signup / deep link) — PKG-003 solo
+      dejó `connectMessagingAccount`/`disconnectMessagingAccount` a nivel de
+      servicio.
 
 ## Fase 4 — Telegram
 

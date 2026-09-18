@@ -4,14 +4,14 @@
 
 ## Resumen en una línea
 
-`PKG-001 — Foundation` y `PKG-002 — CRM básico` completos: Next.js +
-PostgreSQL/Drizzle + Better Auth + Contacts/Cases/Tasks/Activity con
-aislamiento multi-tenant real, tests y CI. Sin paquete activo ahora mismo —
-`PKG-003` está por definir con el usuario (candidato natural: Messaging
-core). La PoC de Telegram/WhatsApp sigue aparte, tarea manual, sin fecha.
-El mismo día del cierre de PKG-002, un bug real reportado por el usuario
-(login que volvía a `/login` sin error) quedó corregido — ver
-`project/CURRENT_TASK.md` y `docs/DECISIONS.md`.
+`PKG-001 — Foundation`, `PKG-002 — CRM básico` y `PKG-003 — Messaging core
+(backend)` completos: Next.js + PostgreSQL/Drizzle + Better Auth +
+Contacts/Cases/Tasks/Activity + MessagingAccount/Conversation/Message con
+webhooks idempotentes, todo con aislamiento multi-tenant real, tests y CI.
+Sin paquete activo ahora mismo — `PKG-004` (Unified Inbox, UI) es el
+candidato natural, sin definir todavía. La PoC de Telegram/WhatsApp sigue
+aparte, tarea manual, sin fecha, y sigue sin bloquear nada de esto (Fase 0
+solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 
 ## Estado por fase / paquete
 
@@ -20,7 +20,8 @@ El mismo día del cierre de PKG-002, un bug real reportado por el usuario
 | Fase 0 | Validación técnica (PoC WhatsApp/Telegram) | Manual (usuario) | 🟡 Pendiente, sin fecha — no bloquea el desarrollo de código |
 | **PKG-001** | **Foundation** | Código (agente) | 🟢 **Completo** (2026-09-18) |
 | **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| PKG-003 | Por definir (candidato: Messaging core) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
+| **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
+| PKG-004 | Por definir (candidato: Unified Inbox, UI) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp | Código (futuro paquete, bloqueado por resultado de Fase 0) | ⚪ No iniciada |
 | Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
@@ -76,6 +77,18 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   concurrentes) corregida con `UNIQUE(user_id)` en `organization_members` +
   transacción en `bootstrapOrganizationForUser()`. Detalle completo,
   verificación y test de regresión en `docs/DECISIONS.md`.
+- **(2026-09-18)** `PKG-003`: `MessagingAccount`, interfaz `MessagingAdapter`
+  (dividida en `verifyWebhookSignature`/`parseWebhookEvents` en vez del
+  `handleWebhook` único del pseudocódigo original), registro de adapters por
+  canal (vacío en producción, sin proveedor real todavía), infraestructura
+  de webhooks con idempotencia real (`after()` de Next.js en vez de
+  pg-boss/Inngest, sin necesidad concreta de un worker separado todavía), y
+  `Conversation`/`conversation_cases`/`Task.conversation_id` recuperadas de
+  PKG-002. Mensaje de remitente desconocido crea un Contact mínimo
+  automáticamente (sin fusión de duplicados). Misma condición de carrera que
+  el fix de login (Contact+Conversation en transacción,
+  `isPostgresUniqueViolation` extraído a `src/db/errors.ts`). Detalle
+  completo en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 
@@ -85,18 +98,19 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   centralizado de organización, requiere aprobación explícita porque rompe
   un principio de producto). Ver `docs/INTEGRATIONS.md` sección 2.2. Sin
   fecha, pendiente de que el usuario ejecute la PoC manualmente.
-- **Alcance de `PKG-003`** — es la decisión pendiente inmediata. Candidato
-  natural: Messaging core (`MessagingAccount`, interfaz `MessagingAdapter`
-  sin proveedor concreto, infraestructura de webhooks, y recuperar
-  `Conversation`/`conversation_cases`). No se empieza a programar nada de
-  esto sin que el usuario lo confirme primero.
+- **Alcance de `PKG-004`** — candidato natural: Unified Inbox (UI de
+  listado/filtros/no leídos/composición de respuesta, marcado de
+  `Contact → Unassigned`, UI de conexión de canal). No se empieza a
+  programar nada de esto sin que el usuario lo confirme primero.
 
 ## Repositorio
 
 Proyecto Next.js + TypeScript funcionando: PostgreSQL/Drizzle, Better Auth
-(login/registro/sesión), CRM básico (Contacts/Cases/Tasks/Activity) con
-aislamiento multi-tenant real y UI mínima, estructura de módulos completa
+(login/registro/sesión), CRM básico (Contacts/Cases/Tasks/Activity) y
+Messaging core backend (MessagingAccount/Conversation/Message/WebhookEvent,
+interfaz MessagingAdapter, endpoint de webhooks) con aislamiento multi-tenant
+real, sin UI de Inbox todavía. Estructura de módulos completa
 (`src/modules/{auth,organizations,contacts,conversations,messaging,cases,
-tasks,knowledge,ai,audit}`, con código real en `auth`, `organizations`,
-`contacts`, `cases`, `tasks` y `audit`), tests (Vitest + Playwright) y CI en
-GitHub Actions. Ver `README.md` para arrancar en local.
+tasks,knowledge,ai,audit}`, con código real en todos salvo `knowledge` y
+`ai`), tests (Vitest + Playwright) y CI en GitHub Actions. Ver `README.md`
+para arrancar en local.

@@ -4,18 +4,181 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-002 cerrado, PKG-003 por definir
+## Paquete activo: ninguno — PKG-003 cerrado, PKG-004 por definir
 
-`PKG-002 — CRM básico` se completó y se verificó el 2026-09-18 (detalle más
-abajo). Igual que tras PKG-001, no hay ningún paquete de código en marcha
-ahora mismo. Candidato natural para `PKG-003` según `project/TASKS.md`:
-Messaging core (`MessagingAccount`, interfaz `MessagingAdapter`,
-infraestructura de webhooks, y recuperar `Conversation`/`conversation_cases`
-que quedaron diferidas — ver decisión 1 de PKG-002 en `docs/DECISIONS.md`).
-No se empieza a programar nada de esto sin que el usuario lo confirme.
+`PKG-003 — Messaging core (backend)` se completó y se verificó el
+2026-09-18 (detalle más abajo). Candidato natural para `PKG-004`: Unified
+Inbox (UI de listado/filtros/composición de respuesta, marcado de
+`Contact → Unassigned`, UI de conexión de canal — ver `project/TASKS.md`,
+sección "Fase 3 (resto)"). No se empieza a programar nada de esto sin que
+el usuario lo confirme.
 
 La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
 relación con esto.
+
+---
+
+## Registro: PKG-003 — Messaging core, backend (cerrado 2026-09-18)
+
+Confirmado por el usuario el 2026-09-18: alcance "backend completo, sin UI
+de Inbox" (la Unified Inbox queda como `PKG-004` aparte). La Fase 0 (PoC
+manual de WhatsApp/Telegram) sigue pendiente y sin fecha, y no bloquea este
+paquete — se construye contra la interfaz `MessagingAdapter`, sin ninguna
+implementación de proveedor real (ver `docs/DECISIONS.md`, entrada
+"Corrección: PKG-000 no existe...", punto 4).
+
+### Objective
+
+Construir el núcleo de mensajería: `MessagingAccount`, la interfaz
+`MessagingAdapter`, infraestructura de webhooks con idempotencia real, y las
+entidades `Conversation`/`conversation_cases`/`Task.conversation_id` que
+PKG-002 dejó diferidas. Todo probado con un adapter falso interno (nunca
+expuesto como canal real) porque no hay proveedor real disponible todavía.
+Sin UI — ni de Inbox, ni de conexión de canal.
+
+### Scope
+
+- **`MessagingAccount`**: tabla + servicio (`src/modules/messaging/`), campos
+  según `docs/DATABASE.md` sección 5. `status` es un enum real de Postgres
+  (7 estados documentados). `channel` es texto libre validado en la capa de
+  aplicación contra el registro de adapters (misma razón que
+  `Activity.type`: la lista de canales sigue creciendo — Telegram, WhatsApp,
+  email, SMS — y un enum de Postgres es costoso de extender). Restricción
+  `UNIQUE(channel, external_account_id)`.
+- **Interfaz `MessagingAdapter`** (`src/modules/messaging/adapter.ts`):
+  `connectAccount`, `disconnectAccount`, `getConnectionStatus`,
+  `sendMessage`, más `verifyWebhookSignature` y `parseWebhookEvents` en vez
+  del único `handleWebhook(payload: unknown)` de `docs/ARCHITECTURE.md`
+  sección 4 — necesario para poder validar la firma sobre el body crudo
+  *antes* de parsear nada, ver `docs/DECISIONS.md`. Sin ninguna
+  implementación de proveedor real (`WhatsAppAdapter`/`TelegramAdapter` son
+  Fase 4/5). Un **registro de adapters** (`registry.ts`) permite registrar
+  implementaciones por canal; en este paquete no se registra ningún canal
+  real — solo un adapter falso (`FakeAdapter`) usado exclusivamente en
+  tests, nunca alcanzable desde una petición real fuera de la suite.
+- **Infraestructura de webhooks**: endpoint genérico
+  `POST /api/webhooks/[channel]/[accountId]`. Valida firma vía el adapter
+  del canal antes de persistir nada; si es inválida, responde 401 sin
+  guardar el evento (orden exacto de `docs/ARCHITECTURE.md` sección 7). Si
+  es válida, persiste `WebhookEvent` (body crudo + headers), responde 200
+  inmediatamente, y procesa la normalización con `after()` de `next/server`
+  — no se introduce pg-boss/Inngest todavía (ver `docs/DECISIONS.md`: no hay
+  necesidad concreta de un worker separado sin tráfico real de un proveedor
+  conectado; se revisita cuando haga falta durabilidad entre reinicios).
+- **`Conversation`, `Message`, `conversation_cases`, `Task.conversation_id`**:
+  tablas según `docs/DATABASE.md` secciones 7/8/10/11, con los ajustes
+  documentados en `docs/DECISIONS.md` (`Message.body` y
+  `Message.sourceWebhookEventId` no estaban en el pseudocódigo original y
+  hacían falta para que la entidad sirva de algo). Idempotencia real vía
+  `UNIQUE(messaging_account_id, external_conversation_id)` y
+  `UNIQUE(messaging_account_id, external_message_id)`.
+- **Pipeline de normalización idempotente**: mensaje entrante nuevo → si no
+  existe `Conversation` para ese `(messaging_account_id,
+  external_conversation_id)`, se crea junto con un `Contact` mínimo (nombre
+  = display name del proveedor si lo hay, si no el identificador externo —
+  nunca se inventa un nombre). Sin fusión/detección de duplicados (deferida,
+  igual que en PKG-002). Un evento de actualización de estado de entrega
+  actualiza el `Message` saliente existente, no crea uno nuevo. Webhook
+  repetido (mismo `external_message_id`) nunca duplica `Message`
+  (`onConflictDoNothing`, mismo patrón que la condición de carrera de
+  `bootstrapOrganizationForUser` — ver `docs/DECISIONS.md`).
+- **Envío saliente genérico**: `sendOutboundMessage` contra la interfaz
+  `MessagingAdapter` (sin UI de composición — eso es Inbox, PKG-004).
+- **Activity**: se añaden `MESSAGE_RECEIVED`, `MESSAGE_SENT`,
+  `CHANNEL_CONNECTED`, `CHANNEL_DISCONNECTED` (ya documentados como
+  "mínimos" en `docs/DATABASE.md` sección 12) y se extiende
+  `ActivityEntityType` con `"conversation"` y `"messaging_account"`.
+- **Aislamiento multi-tenant real**: todo query de `MessagingAccount`/
+  `Conversation`/`Message` filtra explícitamente por `organization_id`,
+  igual que PKG-002.
+
+### Non-goals (explícitamente fuera de PKG-003)
+
+- `WhatsAppAdapter`/`TelegramAdapter` reales (Fase 4/5, bloqueados por la
+  Fase 0 pendiente).
+- Unified Inbox (UI), cualquier UI de composición de respuesta —
+  `PKG-004`.
+- UI/flujo de conexión de canal (Embedded Signup, deep link, "Connect →
+  Autorización → Connected") — solo `connectMessagingAccount`/
+  `disconnectMessagingAccount` a nivel de servicio, sin pantalla.
+- pg-boss/Inngest — se usa `after()` de Next.js mientras no haya necesidad
+  concreta de un worker separado (ver Scope).
+- Detección/fusión de Contacts duplicados y cualquier marcado explícito de
+  "Unassigned" en UI (`docs/PRODUCT.md` sección 4) — el backend solo
+  garantiza que ningún mensaje entrante se pierde (crea Contact/Conversation
+  mínimos automáticamente si no existen).
+- UI para vincular `Conversation` ↔ `Case` — solo la tabla
+  `conversation_cases` y una función de servicio para crear el vínculo.
+- Reintentos automáticos de envío saliente fallido, plantillas, ventana de
+  24h de WhatsApp (Fase 5).
+
+### Acceptance criteria
+
+1. Se puede conectar y desconectar un `MessagingAccount` a través de
+   cualquier implementación de `MessagingAdapter` sin que el dominio conozca
+   el proveedor concreto — verificado con un adapter falso en tests.
+2. `Conversation`, `Message`, `conversation_cases` y `Task.conversation_id`
+   existen y coinciden con `docs/DATABASE.md` (actualizado).
+3. El endpoint de webhooks: (a) responde 401 y no persiste nada si la firma
+   es inválida; (b) con firma válida, persiste `WebhookEvent`, responde 200,
+   y crea `Contact`/`Conversation`/`Message` si no existían; (c) un mismo
+   `external_message_id` recibido dos veces nunca duplica `Message`; (d) un
+   evento de estado de entrega actualiza el `Message` saliente existente;
+   (e) canal o cuenta desconocidos devuelven 404.
+4. `sendOutboundMessage` persiste un `Message` `OUTBOUND` de forma idempotente
+   y registra `MESSAGE_SENT`; el procesamiento de un webhook entrante
+   registra `MESSAGE_RECEIVED`.
+5. Ningún query de `messaging_accounts`/`conversations`/`messages` puede
+   devolver filas de otra `Organization` — test explícito con dos
+   organizaciones.
+6. `npm run lint`, `npm run typecheck`, `npm test` y `npm run build` en
+   verde; la suite E2E de PKG-001/PKG-002 sigue pasando sin cambios (este
+   paquete no toca UI).
+7. `docs/DATABASE.md` y `docs/ARCHITECTURE.md` reflejan el esquema/interfaz
+   realmente implementados.
+
+### Tests
+
+- Unit: enums/columnas de los nuevos schemas (patrón
+  `tests/unit/cases-schema.test.ts`); registro de adapters
+  (`registerMessagingAdapter`/`getMessagingAdapter`/limpieza entre tests).
+- Integration (PostgreSQL real, `kindly_test`): conectar/desconectar una
+  cuenta con el adapter falso; endpoint de webhooks completo (firma
+  inválida, firma válida primera vez, webhook duplicado, actualización de
+  estado de entrega, canal/cuenta desconocidos); `sendOutboundMessage`;
+  aislamiento multi-tenant explícito entre dos organizaciones para
+  `MessagingAccount`/`Conversation`/`Message`.
+- Sin E2E nuevo: este paquete no cambia ningún flujo de usuario visible (sin
+  UI). Se verifica que el E2E existente (`tests/e2e/auth.spec.ts`,
+  `tests/e2e/crm.spec.ts`) sigue pasando sin modificaciones.
+
+### Exit criteria — verificación final (2026-09-18)
+
+- [x] Acceptance criteria 1-7: verificados con la suite automatizada
+      (48 unit/integration en verde) y manualmente con `curl` contra
+      `next dev` (cualquier canal, registrado o no en tests, devuelve 404 en
+      producción real — el registro de adapters está vacío).
+- [x] `npm run lint` — sin errores ni warnings.
+- [x] `npm run typecheck` — sin errores.
+- [x] `npm test` — 48 tests (6 archivos unit, 5 archivos integration) en
+      verde, contra PostgreSQL real (`kindly_test`).
+- [x] `npm run test:e2e` — 3 tests Playwright en verde, sin cambios (este
+      paquete no toca UI).
+- [x] `npm run build` — build de producción sin errores; el endpoint
+      `/api/webhooks/[channel]/[accountId]` aparece en la tabla de rutas.
+- [x] `project/TASKS.md` actualizado — Fase 3 dividida en `PKG-003` (cerrado)
+      y el resto (Unified Inbox, candidato a `PKG-004`, sin definir).
+- [x] `project/PROGRESS.md` actualizado con fecha.
+- [x] Decisiones no triviales registradas en `docs/DECISIONS.md` (entradas
+      del 2026-09-18, bloque "PKG-003"): refinamiento de la interfaz
+      `MessagingAdapter`, registro de adapters vacío en producción, `after()`
+      en vez de pg-boss/Inngest, `channel` como texto libre,
+      `Message.body`/`sourceWebhookEventId`, `webhook_events` con body
+      inline, Contact mínimo automático para remitentes desconocidos, y la
+      condición de carrera de `findOrCreateConversation` (mismo patrón que
+      el fix de login, `isPostgresUniqueViolation` extraído a
+      `src/db/errors.ts`).
+- [ ] Commit Git — pendiente, se hace a continuación en esta misma sesión.
 
 ### Fix post-cierre de PKG-002 (2026-09-18, mismo día): login "silencioso"
 
@@ -30,7 +193,9 @@ bajo peticiones concurrentes), corregida con una restricción
 `bootstrapOrganizationForUser()`. Detalle completo, verificación manual y
 test de regresión en `docs/DECISIONS.md` (entrada "Fix: login silencioso
 para cuentas sin Organization..."). Migración
-`drizzle/migrations/0002_nice_blacklash.sql`. Pendiente de commitear.
+`drizzle/migrations/0002_nice_blacklash.sql`. Commiteado en `38178b0` —
+"fix: self-heal missing Organization on login + fix resulting race
+condition".
 
 ---
 
@@ -334,24 +499,31 @@ esté pendiente.
 
 ## Estado
 
-**Último commit antes de esta sesión:** `2c3fbff` — "docs(PKG-001): record
-final commit hash in CURRENT_TASK.md".
+**Último commit:** sin commitear todavía — pendiente al final de esta misma
+sesión (se registrará el hash aquí en un commit de seguimiento, igual que en
+PKG-001/PKG-002).
 
-**Esta sesión:** implementado `PKG-002 — CRM básico` completo (ver registro
-arriba): bootstrap de Organization, Contact/Case/Task/Activity con
-aislamiento multi-tenant real, y UI mínima. Se detectó y resolvió una
-contradicción real en la documentación (Conversation dependía de una tabla
-que no existe todavía) antes de escribir código — ver `docs/DECISIONS.md`.
-Commiteado en `f1c28f9` — "feat(PKG-002): CRM básico — Contacts, Cases,
-Tasks, Activity".
+**Sesión anterior (misma fecha, 2026-09-18):** implementado `PKG-002 — CRM
+básico` completo, y el fix post-cierre de login silencioso + condición de
+carrera (`38178b0`) descrito arriba. Al retomar esta sesión se corrigió
+además `CURRENT_TASK.md`, que había quedado desactualizado sobre ese commit.
 
-**Tests:** 27 unit/integration (Vitest) + 3 E2E (Playwright), todos en
-verde. Requieren PostgreSQL local corriendo (`docker compose up -d`) — sin
-eso, `npm test` y `npm run test:e2e` fallan al no poder conectar, lo cual es
-esperado, no un bug.
+**Esta sesión:** implementado `PKG-003 — Messaging core (backend)` completo
+(ver registro arriba): `MessagingAccount`, interfaz `MessagingAdapter`
+refinada, registro de adapters, infraestructura de webhooks idempotente con
+`after()`, `Conversation`/`conversation_cases`/`Task.conversation_id`, envío
+saliente genérico, todo con aislamiento multi-tenant real y probado con un
+adapter falso interno. Migración `drizzle/migrations/0003_gifted_star_brand.sql`
+aplicada contra PostgreSQL de desarrollo. Verificado manualmente con `curl`
+contra `next dev` que ningún canal es alcanzable en producción real (404).
 
-**Próxima acción concreta:** el usuario decide el alcance de `PKG-003` (ver
-sección de arriba, candidato natural: Messaging core) y se documenta aquí
-siguiendo la misma plantilla que PKG-001/PKG-002. No empezar a programar
-nada de Messaging/WhatsApp/Telegram/Knowledge/AI antes de esa definición
+**Tests:** 48 unit/integration (Vitest, 11 archivos) + 3 E2E (Playwright,
+sin cambios), todos en verde. Requieren PostgreSQL local corriendo (`docker
+compose up -d`) — sin eso, `npm test` y `npm run test:e2e` fallan al no
+poder conectar, lo cual es esperado, no un bug.
+
+**Próxima acción concreta:** el usuario decide el alcance de `PKG-004` (ver
+sección de arriba, candidato natural: Unified Inbox) y se documenta aquí
+siguiendo la misma plantilla que los paquetes anteriores. No empezar a
+programar nada de Inbox/WhatsApp/Telegram/Knowledge/AI antes de esa definición
 explícita.

@@ -15,6 +15,10 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   CASE_STATUS_CHANGED: "Estado del case cambiado",
   TASK_CREATED: "Task creada",
   TASK_COMPLETED: "Task completada",
+  MESSAGE_RECEIVED: "Mensaje recibido",
+  MESSAGE_SENT: "Mensaje enviado",
+  CHANNEL_CONNECTED: "Canal conectado",
+  CHANNEL_DISCONNECTED: "Canal desconectado",
 };
 
 function labelFor(type: string): string {

@@ -135,6 +135,16 @@ Telegram: `business_connection_id`, `telegram_user_id`; para WhatsApp:
 `external_business_account_id` = WABA id, `external_account_id` = phone
 number id de Cloud API). Detalle por proveedor en `docs/INTEGRATIONS.md`.
 
+**Implementado en PKG-003** (`src/modules/messaging/schema.ts`): exactamente
+los campos de arriba. `status` es un enum real de Postgres
+(`messaging_account_status`, los 7 valores de esta sección). `channel` es
+texto libre, no enum — misma razón que `Activity.type` (`docs/DECISIONS.md`):
+la lista de canales sigue creciendo (Telegram, WhatsApp, email, SMS...) y se
+valida en la capa de aplicación contra el registro de adapters
+(`src/modules/messaging/registry.ts`), no en Postgres. Restricción
+`UNIQUE(channel, external_account_id)`. Sin ninguna implementación de
+proveedor real todavía — Fase 4/5, bloqueadas por la Fase 0 pendiente.
+
 ## 6. Identidad técnica vs. teléfono
 
 `phone_e164` nunca es la clave técnica de una integración. La identidad
@@ -145,11 +155,6 @@ técnica es siempre el identificador que da el proveedor
 campos.
 
 ## 7. Conversation
-
-> **No implementada todavía.** Se crea junto con `MessagingAccount` en el
-> paquete de Messaging core, no en PKG-002 (CRM básico) — depende de una FK
-> obligatoria a `messaging_accounts`, que no existe hasta ese paquete. Ver
-> `docs/DECISIONS.md` y `project/CURRENT_TASK.md`.
 
 Conversación concreta entre un `Contact` y una identidad de comunicación
 (`MessagingAccount`) concreta.
@@ -173,6 +178,12 @@ UNIQUE (messaging_account_id, external_conversation_id)
 
 Esta combinación identifica técnicamente una conversación externa.
 
+**Implementado en PKG-003** (`src/modules/conversations/schema.ts`):
+exactamente estos campos. `contact_id` es `NOT NULL` — un mensaje entrante
+de un remitente desconocido crea un `Contact` mínimo automáticamente en vez
+de dejar la conversación sin contacto (`docs/PRODUCT.md` sección 4,
+`docs/DECISIONS.md`).
+
 ## 8. Message
 
 ```
@@ -194,6 +205,16 @@ updated_at
 Idempotencia: los identificadores externos (`external_message_id` +
 `messaging_account_id`) garantizan que un mismo webhook recibido dos veces
 nunca crea dos `Message`. Ver `docs/ARCHITECTURE.md` sección 7.
+
+**Implementado en PKG-003** (`src/modules/conversations/schema.ts`), con dos
+columnas que no estaban en el pseudocódigo de arriba porque la entidad no
+servía de nada sin ellas: `body` (texto del mensaje — sin esto no hay nada
+que mostrar ni que enviar) y `source_webhook_event_id` (FK nullable a
+`webhook_events`, sustituye a `raw_event_reference`: como el evento crudo ya
+se guarda como fila propia en esta misma base de datos, una FK real es
+estrictamente mejor que una referencia string a otro sitio; nula en
+mensajes salientes, que no vienen de ningún webhook). Restricción
+`UNIQUE(messaging_account_id, external_message_id)`.
 
 ## 9. Case
 
@@ -224,9 +245,6 @@ crear/listar/ver/editar) y sin restricciones de transición entre estados.
 
 ## 10. conversation_cases
 
-> **No implementada todavía**, por la misma razón que `Conversation`
-> (sección 7): depende de que `Conversation` exista.
-
 Tabla intermedia N:M entre `Conversation` y `Case` (un Contact puede tener
 varios Cases; un Case puede tocar varias Conversations).
 
@@ -235,6 +253,10 @@ conversation_id
 case_id
 created_at
 ```
+
+**Implementado en PKG-003** (`src/modules/conversations/schema.ts`): clave
+primaria compuesta `(conversation_id, case_id)`. Solo la tabla y una función
+de servicio (`linkConversationToCase`) — sin UI para vincularlos todavía.
 
 ## 11. Task
 
@@ -247,10 +269,10 @@ revisión salvo que se decida lo contrario explícitamente.
 `organization_id`, `contact_id` (nullable, `ON DELETE SET NULL`), `case_id`
 (nullable, `ON DELETE SET NULL`), `assigned_to` (nullable, `ON DELETE SET
 NULL`), `title`, `description`, `due_date`, `completed_at`, `created_at`,
-`updated_at`. **Sin `conversation_id` todavía** (se añade junto con
-`Conversation` en el paquete de Messaging core) y **sin columna de estado**:
-"completada" se deriva de `completed_at IS NOT NULL` en vez de inventar un
-enum de estados no documentado.
+`updated_at`. **Sin columna de estado**: "completada" se deriva de
+`completed_at IS NOT NULL` en vez de inventar un enum de estados no
+documentado. **`conversation_id`** (nullable, `ON DELETE SET NULL`) se
+añadió en **PKG-003** junto con `Conversation`.
 
 ## 12. Activity
 
@@ -276,12 +298,16 @@ CHANNEL_DISCONNECTED
 la capa de aplicación vía el tipo `ActivityType` de
 `src/modules/audit/service.ts`, porque esta lista sigue creciendo con cada
 fase futura y un enum de Postgres es costoso de extender), `actor_user_id`
-(nullable), `entity_type` + `entity_id` (referencia polimórfica sin FK —
-apunta a `contacts`/`cases`/`tasks` hoy, a `conversations`/`messages`/
-`ai_suggestions`/etc. en el futuro), `metadata` (jsonb, nullable),
+(nullable — `null` para actividad disparada por el sistema sin un usuario
+detrás, p. ej. `MESSAGE_RECEIVED` de un webhook entrante, desde PKG-003),
+`entity_type` + `entity_id` (referencia polimórfica sin FK — apunta a
+`contacts`/`cases`/`tasks` en PKG-002, y desde PKG-003 también a
+`conversations`/`messaging_accounts`), `metadata` (jsonb, nullable),
 `created_at`. Además de los tipos mínimos de arriba, PKG-002 añade
-`CONTACT_CREATED`, `CONTACT_UPDATED` y `CASE_STATUS_CHANGED` (la lista de
-arriba se documenta como "mínimos", no cerrada).
+`CONTACT_CREATED`, `CONTACT_UPDATED` y `CASE_STATUS_CHANGED`, y PKG-003
+activa los tipos ya documentados `MESSAGE_RECEIVED`, `MESSAGE_SENT`,
+`CHANNEL_CONNECTED` y `CHANNEL_DISCONNECTED` (la lista de arriba se
+documenta como "mínimos", no cerrada).
 
 ## 13. Document / DocumentVersion
 
@@ -361,6 +387,15 @@ documento X → versión Y → artículo Z" y abrir el fragmento correspondiente
 Guarda eventos externos crudos para idempotencia, debugging, auditoría,
 reintentos y trazabilidad. Referencia al evento original vía
 `raw_event_reference`, sin exponer información sensible innecesaria en logs.
+
+**Implementado en PKG-003** (`src/modules/messaging/schema.ts`): `id`,
+`organization_id`, `messaging_account_id`, `channel`, `raw_body` (texto
+crudo del body del webhook, no una referencia a almacenamiento externo — no
+hay necesidad concreta de introducir S3/object storage para esto todavía,
+`docs/DECISIONS.md`), `headers` (jsonb), `received_at`, `processed_at`
+(nullable, se rellena tras la normalización), `processing_error` (nullable).
+Solo se persiste **después** de validar la firma — una firma inválida no
+deja ningún rastro (`docs/ARCHITECTURE.md` sección 7).
 
 ## 18. Auditoría — qué se debe poder reconstruir
 

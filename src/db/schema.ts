@@ -9,5 +9,7 @@ export * from "@/modules/auth/schema";
 export * from "@/modules/organizations/schema";
 export * from "@/modules/contacts/schema";
 export * from "@/modules/cases/schema";
+export * from "@/modules/messaging/schema";
+export * from "@/modules/conversations/schema";
 export * from "@/modules/tasks/schema";
 export * from "@/modules/audit/schema";
