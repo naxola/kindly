@@ -361,6 +361,66 @@ en la decisión 1 de esta misma fecha).
 
 ---
 
+## 2026-09-18 — Fix: login "silencioso" para cuentas sin Organization + condición de carrera al autorepararlo
+
+**Incidente reportado por el usuario:** al iniciar sesión con su cuenta real
+(creada antes de que el bootstrap automático de Organization de PKG-002
+existiera), volvía a la pantalla de login sin ningún mensaje de error, pese
+a tener el usuario y la contraseña correctos.
+
+**Causa raíz:** `getCurrentOrganizationMember()`
+(`src/modules/organizations/service.ts`) devolvía `null` si la sesión
+existía pero no había fila en `organization_members` — exactamente el caso
+de cualquier cuenta creada antes del hook de bootstrap de PKG-002 (o de
+cualquier fallo futuro de ese hook). El layout `(app)` interpreta un
+`null` como "no autenticado" y redirige a `/login` sin distinguir "no hay
+sesión" de "hay sesión pero falta la organización" — desde fuera, un login
+correcto se veía exactamente igual que uno incorrecto.
+
+**Fix 1 — autoreparación:** `getCurrentOrganizationMember()` ahora, si
+encuentra una sesión válida sin membership, llama a
+`bootstrapOrganizationForUser()` sobre la marcha y vuelve a consultar. Así
+cualquier cuenta huérfana se repara sola la próxima vez que inicia sesión,
+sin intervención manual.
+
+**Fix 2 — la autoreparación en sí tenía una condición de carrera real,
+detectada al verificar el Fix 1 manualmente (no en un test, en la propia
+verificación):** dos Server Components de la misma petición (el layout
+`(app)` y la página que envuelve) pueden invocar
+`getCurrentOrganizationMember()` en paralelo para la misma sesión huérfana,
+y ambos intentaban crear una Organization a la vez — un usuario real
+acabó con dos organizaciones distintas durante la prueba. Se añadió una
+restricción `UNIQUE(user_id)` en `organization_members`
+(`organization_members_user_unique`, migración `0002_nice_blacklash.sql`),
+formalizando una invariante que ya estaba documentada pero no forzada a
+nivel de base de datos ("un usuario tiene exactamente una organización en
+este modelo MVP", `docs/DECISIONS.md` entrada de PKG-002 nº2).
+`bootstrapOrganizationForUser()` ahora crea la Organization y su membership
+dentro de una transacción; si pierde la carrera contra otra llamada
+concurrente, la restricción única hace fallar el `insert` de
+`organization_members`, la transacción entera revierte (sin dejar una
+`organizations` huérfana) y la función devuelve `null` — el llamador
+vuelve a consultar y recibe la fila de quien ganó la carrera.
+
+**Detalle no obvio que costó una segunda vuelta:** el primer intento de
+capturar "es una violación de unicidad de Postgres" comprobaba
+`error.code === '23505'`, pero Drizzle envuelve cualquier error del driver
+en `DrizzleQueryError`, cuyo `.cause` es el error real de `postgres.js`
+— el código vive ahí, no en el objeto que se captura directamente. El fix
+comprueba ambos niveles.
+
+**Verificado:** 5 peticiones concurrentes a `/dashboard` con una sesión sin
+organización, antes del fix, devolvían error 500 en 2 de las 5 (por la
+condición de carrera sin capturar) aunque no duplicaban la fila gracias al
+constraint; después del fix, las 5 devuelven 200 y queda exactamente una
+Organization. Test de regresión en
+`tests/integration/organizations.test.ts` (llama a
+`bootstrapOrganizationForUser` 8 veces en paralelo para el mismo usuario y
+comprueba que solo una sobrevive, sin filas huérfanas). Cuenta real del
+usuario sin tocar manualmente — se autorepara en su próximo login.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

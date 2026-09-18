@@ -68,7 +68,12 @@ sección 3 y `docs/DECISIONS.md`.
   (`ON DELETE CASCADE`), `user_id` → `users.id` (`ON DELETE CASCADE`), `role`
   (enum Postgres `organization_role`: `ADMIN` | `DELEGATE`), `created_at`,
   `updated_at`. Restricción `UNIQUE(organization_id, user_id)`: un usuario no
-  puede pertenecer dos veces a la misma organización.
+  puede pertenecer dos veces a la misma organización. Restricción adicional
+  `UNIQUE(user_id)`: en el modelo actual (PKG-002) un usuario pertenece a
+  exactamente una organización — esta restricción es lo que hace segura la
+  autoreparación de `getCurrentOrganizationMember()` bajo peticiones
+  concurrentes (ver `docs/DECISIONS.md`, entrada "Fix: login silencioso...").
+  Se elimina el día que exista multi-organización real.
 
 ## 4. Contact
 

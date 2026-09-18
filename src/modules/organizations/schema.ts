@@ -42,6 +42,14 @@ export const organizationMembers = pgTable(
   (table) => [
     // A user can only belong to a given organization once.
     unique("organization_members_org_user_unique").on(table.organizationId, table.userId),
+    // A user has exactly one Organization in this MVP model (no
+    // multi-organization membership yet — docs/DECISIONS.md). This is also
+    // what makes the self-heal path in
+    // getCurrentOrganizationMember/bootstrapOrganizationForUser safe under
+    // concurrency: two simultaneous requests for a brand-new session both
+    // trying to bootstrap an org race on this constraint, and the loser
+    // re-queries instead of ending up with two organizations.
+    unique("organization_members_user_unique").on(table.userId),
   ],
 );
 

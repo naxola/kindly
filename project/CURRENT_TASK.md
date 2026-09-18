@@ -17,6 +17,21 @@ No se empieza a programar nada de esto sin que el usuario lo confirme.
 La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
 relación con esto.
 
+### Fix post-cierre de PKG-002 (2026-09-18, mismo día): login "silencioso"
+
+El usuario reportó que al hacer login con una cuenta real (creada antes del
+bootstrap de Organization de PKG-002) volvía a `/login` sin ver ningún
+error. Causa: sesión válida sin fila en `organization_members` —
+indistinguible de "credenciales incorrectas" desde la UI. Se corrigió con
+autoreparación en `getCurrentOrganizationMember()`, lo cual expuso una
+condición de carrera real (dos Organizations creadas para el mismo usuario
+bajo peticiones concurrentes), corregida con una restricción
+`UNIQUE(user_id)` en `organization_members` + manejo transaccional en
+`bootstrapOrganizationForUser()`. Detalle completo, verificación manual y
+test de regresión en `docs/DECISIONS.md` (entrada "Fix: login silencioso
+para cuentas sin Organization..."). Migración
+`drizzle/migrations/0002_nice_blacklash.sql`. Pendiente de commitear.
+
 ---
 
 ## Registro: PKG-002 — CRM básico (cerrado 2026-09-18)

@@ -9,7 +9,8 @@ import { organizationMembers, organizations, type OrganizationRole } from "@/mod
 // bootstrapOrganizationForUser lives in ./bootstrap.ts, not here: auth.ts
 // needs it (databaseHooks.user.create.after) and this file imports `auth`,
 // so keeping them together would create an import cycle.
-export { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
+import { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
+export { bootstrapOrganizationForUser };
 
 export interface CurrentOrganizationMember {
   userId: string;
@@ -38,6 +39,45 @@ export async function getCurrentOrganizationMember(): Promise<CurrentOrganizatio
     return null;
   }
 
+  const membership = await findMembership(session.user.id);
+  if (membership) {
+    return {
+      userId: session.user.id,
+      userName: session.user.name,
+      userEmail: session.user.email,
+      organizationId: membership.organizationId,
+      organizationName: membership.organizationName,
+      role: membership.role,
+    };
+  }
+
+  // Self-heal: a session with no organization membership should not exist
+  // in PKG-002's model (every user gets one at signup — see
+  // databaseHooks.user.create.after in auth.ts), but it can for accounts
+  // created before that hook shipped, or if the hook ever fails. Without
+  // this, such a user gets bounced back to /login with no error message
+  // after a *correct* login, which is indistinguishable from a wrong
+  // password — see docs/DECISIONS.md for the incident this fixes.
+  await bootstrapOrganizationForUser(session.user.id, session.user.name);
+  const healed = await findMembership(session.user.id);
+  if (!healed) {
+    // Only reachable if the insert itself failed (e.g. DB unavailable) —
+    // bootstrapOrganizationForUser would have thrown in that case, so this
+    // is unreachable in practice. Kept for type-safety, not as a real path.
+    return null;
+  }
+
+  return {
+    userId: session.user.id,
+    userName: session.user.name,
+    userEmail: session.user.email,
+    organizationId: healed.organizationId,
+    organizationName: healed.organizationName,
+    role: healed.role,
+  };
+}
+
+async function findMembership(userId: string) {
   const [membership] = await db
     .select({
       organizationId: organizationMembers.organizationId,
@@ -46,21 +86,9 @@ export async function getCurrentOrganizationMember(): Promise<CurrentOrganizatio
     })
     .from(organizationMembers)
     .innerJoin(organizations, eq(organizations.id, organizationMembers.organizationId))
-    .where(eq(organizationMembers.userId, session.user.id))
+    .where(eq(organizationMembers.userId, userId))
     .limit(1);
-
-  if (!membership) {
-    return null;
-  }
-
-  return {
-    userId: session.user.id,
-    userName: session.user.name,
-    userEmail: session.user.email,
-    organizationId: membership.organizationId,
-    organizationName: membership.organizationName,
-    role: membership.role,
-  };
+  return membership ?? null;
 }
 
 /**

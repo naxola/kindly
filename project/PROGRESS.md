@@ -9,6 +9,9 @@ PostgreSQL/Drizzle + Better Auth + Contacts/Cases/Tasks/Activity con
 aislamiento multi-tenant real, tests y CI. Sin paquete activo ahora mismo —
 `PKG-003` está por definir con el usuario (candidato natural: Messaging
 core). La PoC de Telegram/WhatsApp sigue aparte, tarea manual, sin fecha.
+El mismo día del cierre de PKG-002, un bug real reportado por el usuario
+(login que volvía a `/login` sin error) quedó corregido — ver
+`project/CURRENT_TASK.md` y `docs/DECISIONS.md`.
 
 ## Estado por fase / paquete
 
@@ -65,6 +68,14 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   de `completed_at`), y `Activity.type` como texto libre con referencia
   polimórfica (no enum, no FK) porque esa lista crece con cada fase futura.
   Detalle completo en `docs/DECISIONS.md`.
+- **(2026-09-18, fix reportado por el usuario)** Una cuenta creada antes del
+  bootstrap de Organization se quedaba sin poder entrar (login correcto,
+  vuelta silenciosa a `/login`). Se añadió autoreparación en
+  `getCurrentOrganizationMember()`, lo que expuso una condición de carrera
+  real (dos Organizations para el mismo usuario bajo peticiones
+  concurrentes) corregida con `UNIQUE(user_id)` en `organization_members` +
+  transacción en `bootstrapOrganizationForUser()`. Detalle completo,
+  verificación y test de regresión en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

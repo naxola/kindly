@@ -14,17 +14,70 @@ import { organizationMembers, organizations } from "@/modules/organizations/sche
  * instance (for session lookup), and auth.ts needs this function, so
  * keeping them together would create an import cycle.
  */
-export async function bootstrapOrganizationForUser(userId: string, userName: string) {
-  const [organization] = await db
-    .insert(organizations)
-    .values({ name: `${userName}'s organization` })
-    .returning();
+const POSTGRES_UNIQUE_VIOLATION = "23505";
 
-  await db.insert(organizationMembers).values({
-    organizationId: organization.id,
-    userId,
-    role: "ADMIN",
-  });
+/**
+ * Creates the Organization and its ADMIN membership inside one transaction,
+ * and tolerates losing a race against a concurrent call for the *same*
+ * user (this happens in practice: getCurrentOrganizationMember's self-heal
+ * path can be invoked by more than one Server Component for the same
+ * request, e.g. the (app) layout and the page it wraps, both hitting a
+ * brand-new org-less session at once).
+ *
+ * `organization_members_user_unique` (schema.ts) is what makes this safe:
+ * the loser's membership insert hits the unique constraint, the whole
+ * transaction rolls back (so no orphaned `organizations` row survives), and
+ * this returns `null` instead of throwing. The caller must re-query for the
+ * winner's membership — see getCurrentOrganizationMember in ./service.ts.
+ */
+export async function bootstrapOrganizationForUser(
+  userId: string,
+  userName: string,
+): Promise<{ id: string; name: string } | null> {
+  try {
+    return await db.transaction(async (tx) => {
+      const [organization] = await tx
+        .insert(organizations)
+        .values({ name: `${userName}'s organization` })
+        .returning();
 
-  return organization;
+      await tx.insert(organizationMembers).values({
+        organizationId: organization.id,
+        userId,
+        role: "ADMIN",
+      });
+
+      return organization;
+    });
+  } catch (error) {
+    if (isPostgresUniqueViolation(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * `postgres`'s own error has `.code`, but Drizzle wraps every driver error
+ * in a `DrizzleQueryError` whose `.cause` is that original error — so the
+ * code we care about is one level down, not on the error we actually catch.
+ * Checked at both levels to be robust to either shape.
+ */
+function isPostgresUniqueViolation(error: unknown): boolean {
+  return hasUniqueViolationCode(error) || hasUniqueViolationCode(getCause(error));
+}
+
+function hasUniqueViolationCode(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === POSTGRES_UNIQUE_VIOLATION
+  );
+}
+
+function getCause(error: unknown): unknown {
+  return typeof error === "object" && error !== null && "cause" in error
+    ? (error as { cause?: unknown }).cause
+    : undefined;
 }
