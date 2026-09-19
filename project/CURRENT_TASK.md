@@ -873,7 +873,8 @@ estable en 3 ejecuciones completas consecutivas. Requieren PostgreSQL local
 corriendo (`docker compose up -d`) — sin eso, `npm test` y `npm run
 test:e2e` fallan al no poder conectar, lo cual es esperado, no un bug.
 
-**Sesión 2026-09-19 (solo documentación, commits `80a7ebf` y `411818d`):**
+**Sesión 2026-09-19 (solo documentación, commits `80a7ebf`, `411818d` y
+`3b78f69`):**
 decisión de adoptar WhatsApp coexistence y definición de `PKG-005` (ver
 arriba). Sin cambios de código todavía.
 
