@@ -20,6 +20,8 @@ relación con lo anterior.
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
+Último commit: `80a7ebf`.
+
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra
 documentación oficial de Meta (no contra el prompt original), y se cerró el
