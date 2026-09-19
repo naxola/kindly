@@ -9,9 +9,9 @@
 PostgreSQL/Drizzle + Better Auth + Contacts/Cases/Tasks/Activity +
 MessagingAccount/Conversation/Message con webhooks idempotentes + Inbox
 (listado/filtros/no leídos/respuesta/identificación de Contact/conexión de
-canal), todo con aislamiento multi-tenant real, tests y CI. Sin paquete
-activo ahora mismo — `PKG-005` sin definir todavía (candidatos: Telegram,
-WhatsApp coexistence, Cases lifecycle avanzado, Knowledge). La PoC de
+canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
+activo: **`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)**,
+definido el 2026-09-19 y sin empezar a programar todavía. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -26,7 +26,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| PKG-005 | Por definir (candidatos: Telegram, WhatsApp coexistence, Cases, Knowledge) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
+| **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🔴 **Activo** (definido 2026-09-19), ver `CURRENT_TASK.md` |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
 | Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
@@ -129,13 +129,13 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   tener control administrativo sobre un número personal. Encaja con el
   principio 1, pero tiene lectura legal/laboral. Aplazado explícitamente por
   el usuario el 2026-09-19; se decide antes de abrir el paquete de Fase 5.
-- **Alta de Kindly como Tech Provider / Solution Partner de Meta**: no es una
-  decisión de arquitectura sino un trámite bloqueante, y es el camino crítico
-  real de la Fase 5. Sin fecha.
-- **Alcance de `PKG-005`** — candidatos: Fase 4 (Telegram, bloqueada por la
-  Fase 0 pendiente), Fase 6 (Cases lifecycle avanzado), Fase 7 (Knowledge).
-  No se empieza a programar nada de esto sin que el usuario lo confirme
-  primero.
+- **Alta de Kindly como Tech Provider de Meta**: no es una decisión de
+  arquitectura sino un trámite bloqueante, y es el camino crítico real de la
+  Fase 5. Nivel decidido el 2026-09-19 (Tech Provider, no Solution Partner);
+  checklist ordenado en `project/TASKS.md`, Fase 0. Sin fecha de arranque.
+- ~~Alcance de `PKG-005`.~~ **Decidido el 2026-09-19**: WhatsApp coexistence
+  (dominio + UI contra stub). Definición completa en
+  `project/CURRENT_TASK.md`.
 
 ## Repositorio
 

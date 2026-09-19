@@ -45,10 +45,42 @@ rápido junto con Git).
 - [x] Decisión entre alternativas A/B/C (`docs/INTEGRATIONS.md` sección 2.2):
       **adoptada la A (coexistence)** el 2026-09-19. B y C quedan como plan de
       repliegue.
-- [ ] **Bloqueante, no técnico:** alta de Kindly como **Tech Provider o
-      Solution Partner de Meta**, con Cloud API activo y verificación de
-      negocio válida para coexistence (Partner-Led o Meta Verified, nunca la
-      clásica). Camino crítico real de la Fase 5 — sin esto no hay PoC.
+### Alta de Kindly como Tech Provider de Meta (bloqueante, no técnico)
+
+Camino crítico real de la Fase 5 — sin esto no hay PoC. **En orden**, porque
+cada bloque bloquea al siguiente. Nivel elegido: **Tech Provider**, no
+Solution Partner (Tech Provider no tiene línea de crédito: cada organización
+cliente pone su método de pago y Meta le factura a ella; Solution Partner
+factura el consumo al cliente, que es lo que hace GoHighLevel). Se sube de
+nivel más adelante si se quiere ese modelo.
+
+- [ ] Dominio público + landing con **política de privacidad y aviso legal**
+      accesibles. No hace falta el producto desplegado, pero sí una URL real:
+      la verificación de negocio pide web, y la app de Meta pide URL de
+      política de privacidad.
+- [ ] Business portfolio (Business Manager) con datos completos y
+      **coincidentes** con el registro mercantil y la web — nombre legal,
+      dirección, teléfono, email. La causa habitual de rechazo es que no
+      cuadren entre sí.
+- [ ] Activar **2FA** en la cuenta (requisito, no recomendación).
+- [ ] Lanzar la **verificación de negocio**: 2-5 días laborables. Para
+      coexistence debe ser **Partner-Led Business Verification o Meta
+      Verified** — la clásica no sirve. Si falla, se resubmite con el
+      feedback de Meta.
+- [ ] Alta como Meta Developer, crear **app** con caso de uso WhatsApp, y en
+      el App Dashboard ir a **Use cases → Customize → "Tech Provider
+      onboarding"**.
+- [ ] Rellenar lo básico de la app: icono, categoría y URL de política de
+      privacidad.
+- [ ] **App Review** (~24 h de respuesta): Advanced Access a
+      `whatsapp_business_management` y `whatsapp_business_messaging`. Para
+      cada permiso **por separado**: explicación escrita + **grabación de
+      pantalla** (no valen capturas, ni varios permisos en un mismo vídeo).
+      **No hace falta el producto terminado:** Meta acepta grabaciones del
+      API Setup con cURL o del WhatsApp Manager.
+- [ ] Preguntar a soporte de Meta si el Embedded Signup **de coexistence**
+      requiere habilitación adicional una vez eres Tech Provider. No
+      confirmado en la documentación; no darlo por resuelto.
 - [ ] Decidir el encaje del **Meta Business Manager de la organización** con
       el número personal del delegado (control administrativo sobre un número
       personal: lectura legal/laboral). Aplazado por el usuario el 2026-09-19;

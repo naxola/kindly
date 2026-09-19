@@ -4,17 +4,110 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-004 cerrado, PKG-005 por definir
+## Paquete activo: PKG-005 — WhatsApp coexistence (dominio + UI contra stub)
 
-`PKG-004 — Unified Inbox (UI)` se completó y se verificó el 2026-09-18
-(detalle más abajo). Candidatos naturales para `PKG-005`, según
-`project/TASKS.md`: Fase 4 (Telegram, bloqueada por la Fase 0 pendiente),
-Fase 5 (WhatsApp coexistence, bloqueada por el alta como Tech Provider de
-Meta), Fase 6 (Cases lifecycle avanzado), o Fase 7 (Knowledge). No se empieza
-a programar nada sin que el usuario lo confirme.
+Definido el 2026-09-19 tras la decisión de adoptar coexistence (ver
+`docs/DECISIONS.md`, entrada del 2026-09-19). **No implementa el
+`WhatsAppAdapter` real**: Kindly todavía no es Tech Provider de Meta, y ese
+trámite es el camino crítico de la Fase 5. Este paquete construye todo lo que
+no depende de Meta, para que cuando llegue la aprobación solo falte cablear
+credenciales y ajustar el adapter a los payloads reales.
 
-La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
-relación con lo anterior.
+### Objective
+
+Dejar el dominio y la UI preparados para coexistence, verificados de punta a
+punta contra un stub: eco de mensajes salientes enviados desde el móvil del
+delegado, importación de historial, desconexión iniciada desde fuera de
+Kindly, ventana de 24 h en la composición, y el flujo de conexión de canal
+con sus advertencias previas.
+
+### Scope
+
+- **Eco de salientes (`smb_message_echoes`) — el cambio más profundo.**
+  - Tercer tipo en `NormalizedInboundEvent`
+    (`src/modules/messaging/adapter.ts`): un saliente que Kindly no originó.
+    Hoy solo existen `MESSAGE` (entrante) y `DELIVERY_UPDATE`.
+  - Persistencia en `messages` con `direction = OUTBOUND`. La idempotencia ya
+    está garantizada por el `unique(messagingAccountId, externalMessageId)`
+    existente — hay que **verificar explícitamente** que un mensaje enviado
+    desde el propio Inbox y devuelto después como eco no se duplica.
+  - Distinguir el origen (Kindly vs. móvil del delegado) para poder mostrarlo
+    en la UI. Decidir al implementar entre una columna explícita
+    `messages.origin` (más claro para consultas y UI) o derivarlo de
+    `sourceWebhookEventId IS NOT NULL` con `direction = OUTBOUND` (sin
+    migración). Registrar la elección en `docs/DECISIONS.md`.
+- **Importación de historial.** Servicio idempotente de importación masiva de
+  mensajes históricos (180 días, chats 1:1), separado del pipeline de
+  webhooks en tiempo real. Reutiliza la misma clave de idempotencia.
+- **Desconexión iniciada desde fuera.** `/channels` no puede prometer un
+  "Desconectar" que no existe para coexistence (no hay Deregister API). El
+  botón pasa a ser condicional por canal, y se añade el camino de entrada
+  para una desconexión notificada por el proveedor (`PARTNER_REMOVED`), que
+  deja la `MessagingAccount` en `DISCONNECTED` con su `disconnectedAt`.
+- **Ventana de 24 h en la composición** (`/inbox/[id]`): estado de ventana
+  abierta/cerrada por conversación y aviso explicando el caso
+  contraintuitivo — un mensaje enviado desde el móvil del delegado **no**
+  abre ni extiende la ventana de Cloud API. Sin gestión de plantillas
+  todavía (ver Non-goals).
+- **Flujo de conexión de canal** (`/channels`), siguiendo el patrón de
+  GoHighLevel que el usuario describió: pantalla de advertencias previas
+  (requisito de WhatsApp Business App, número en el Business Manager,
+  historial de 180 días, funciones que se desactivan en el móvil, coste de
+  Cloud API) antes de iniciar la conexión. El botón final apunta al stub.
+- **Stub de canal para desarrollo.** Extender
+  `src/modules/messaging/testing/fake-adapter.ts` para emitir ecos,
+  historial y `PARTNER_REMOVED`. Se mantiene el guardarraíl existente: solo
+  se registra si `E2E_FAKE_MESSAGING_CHANNEL === "true"`, variable que fija
+  únicamente `playwright.config.ts`. Nunca alcanzable en un despliegue real.
+
+### Non-goals (explícitamente fuera de PKG-005)
+
+- **`WhatsAppAdapter` real, Embedded Signup y credenciales.** Bloqueados por
+  el alta como Tech Provider de Meta. Este paquete no los simula ni los
+  adelanta.
+- **Cola de jobs (pg-boss/Inngest).** La justificación concreta existe (el
+  plazo duro de 24 h para sincronizar historial, ver `docs/DECISIONS.md`),
+  pero introducirla ahora significaría elegir semántica de reintentos y
+  backoff **contra un stub que nunca falla**. Se introduce en el paquete que
+  cablea el proveedor real, donde se puede validar de verdad. El servicio de
+  importación se escribe de forma que no dependa de quién lo invoca.
+- **Gestión de plantillas de mensaje** (aprobación, envío fuera de ventana).
+  Paquete propio, cuando haya proveedor real que las valide.
+- **Telegram** (Fase 4) y billing/facturación del consumo de Cloud API.
+- **Verificación del país del número** contra la lista de regiones no
+  soportadas: la lista oficial no está confirmada (ver `docs/DECISIONS.md`),
+  y no se hardcodea desde fuentes no oficiales.
+
+### Acceptance criteria
+
+- Un eco de saliente entrante por webhook aparece en `/inbox/[id]` marcado
+  como enviado desde el móvil del delegado, no como enviado desde Kindly.
+- Un mensaje enviado desde el Inbox y devuelto después como eco **no se
+  duplica** en la conversación.
+- Una importación de historial ejecutada dos veces no duplica mensajes.
+- Un `PARTNER_REMOVED` deja la `MessagingAccount` en `DISCONNECTED`, y
+  `/channels` lo refleja sin ofrecer un "Desconectar" que no puede cumplir.
+- Con la ventana de 24 h cerrada, la composición lo indica y explica por qué
+  los mensajes del móvil no la reabren.
+- El aislamiento multi-tenant se mantiene en todo lo anterior: ningún query
+  nuevo sin filtro explícito por `organization_id`.
+
+### Tests
+
+- Unit: normalización del nuevo tipo de evento, cálculo del estado de la
+  ventana de 24 h, idempotencia de la importación de historial.
+- Integration (PostgreSQL): eco que colisiona con un saliente ya enviado
+  desde Kindly, importación repetida, `PARTNER_REMOVED` sobre una cuenta
+  conectada, y aislamiento por `organization_id`.
+- E2E (Playwright, contra el stub): eco del móvil visible en el Inbox, y
+  flujo de conexión con la pantalla de advertencias previas.
+
+### Exit criteria
+
+`npm run lint`, `npm run typecheck` y `npm test` en verde, más la suite E2E.
+Actualizar `project/TASKS.md`, `project/PROGRESS.md` y este archivo con el
+hash del commit final, y registrar en `docs/DECISIONS.md` las decisiones no
+triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ---
 
@@ -732,11 +825,17 @@ construir. No se implementa ninguna funcionalidad de producto todavía.
 
 ## Fase 0 — Validación técnica (PoC WhatsApp/Telegram) — estado aparte
 
-**No forma parte de PKG-001 ni de ningún paquete de código.** Es trabajo
-manual que ejecuta el usuario con sus propias cuentas de Telegram/WhatsApp y
-dispositivos reales. El agente no debe intentar ejecutarla, simularla, ni
-adelantar la implementación de `WhatsAppAdapter`/`TelegramAdapter` mientras
-esté pendiente.
+**No forma parte de ningún paquete de código.** Es trabajo manual que ejecuta
+el usuario con sus propias cuentas de Telegram/WhatsApp y dispositivos reales.
+El agente no debe intentar ejecutarla, simularla, ni adelantar la
+implementación de `WhatsAppAdapter`/`TelegramAdapter` reales mientras esté
+pendiente.
+
+**Matiz añadido el 2026-09-19:** construir dominio y UI **contra un stub**
+(como hace `PKG-005`) sí está permitido y siempre lo estuvo — es la razón de
+ser de la interfaz `MessagingAdapter`. Lo que sigue prohibido es un adapter
+real, simular una conexión real ante un usuario, o cualquier mecanismo no
+oficial (`CLAUDE.md` sección 3).
 
 - **Estado:** pendiente, sin fecha.
 - **Responsable:** el usuario.
@@ -774,8 +873,18 @@ estable en 3 ejecuciones completas consecutivas. Requieren PostgreSQL local
 corriendo (`docker compose up -d`) — sin eso, `npm test` y `npm run
 test:e2e` fallan al no poder conectar, lo cual es esperado, no un bug.
 
-**Próxima acción concreta:** el usuario decide el alcance de `PKG-005` (ver
-sección de arriba: Telegram/Cases/Knowledge son candidatos, ninguno
-predefinido) y se documenta aquí siguiendo la misma plantilla que los
-paquetes anteriores. No empezar a programar nada antes de esa definición
-explícita.
+**Sesión 2026-09-19 (solo documentación, commits `80a7ebf` y `411818d`):**
+decisión de adoptar WhatsApp coexistence y definición de `PKG-005` (ver
+arriba). Sin cambios de código todavía.
+
+**Próxima acción concreta:** empezar `PKG-005` por el eco de salientes, que
+es el cambio más profundo y el de mayor riesgo de duplicación —
+`src/modules/messaging/adapter.ts` (nuevo tipo de evento) y
+`src/modules/messaging/webhook-service.ts` (persistencia idempotente).
+
+**En paralelo, fuera del código y del camino del agente:** el usuario arranca
+el alta ante Meta (dominio + landing + política de privacidad pública →
+verificación de negocio Partner-Led o Meta Verified → app → App Review). Son
+2-5 días laborables de espera que corren solos mientras se programa
+`PKG-005`, y es lo único del camino crítico que no depende del código. Ver
+`project/TASKS.md`, Fase 0.
