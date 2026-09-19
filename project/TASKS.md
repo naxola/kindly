@@ -38,17 +38,29 @@ rápido junto con Git).
       (`edited_business_message`, `deleted_business_messages`).
 - [ ] PoC Telegram: desconectar y reconectar, verificar estabilidad de
       `business_connection_id`.
+- [x] PoC WhatsApp: verificar disponibilidad real de "coexistence" con
+      WhatsApp Business App. **Confirmada el 2026-09-19** contra documentación
+      oficial de Meta (disponible desde mayo 2025; Embedded Signup por defecto
+      desde abril 2026). Ver `docs/DECISIONS.md`.
+- [x] Decisión entre alternativas A/B/C (`docs/INTEGRATIONS.md` sección 2.2):
+      **adoptada la A (coexistence)** el 2026-09-19. B y C quedan como plan de
+      repliegue.
+- [ ] **Bloqueante, no técnico:** alta de Kindly como **Tech Provider o
+      Solution Partner de Meta**, con Cloud API activo y verificación de
+      negocio válida para coexistence (Partner-Led o Meta Verified, nunca la
+      clásica). Camino crítico real de la Fase 5 — sin esto no hay PoC.
+- [ ] Decidir el encaje del **Meta Business Manager de la organización** con
+      el número personal del delegado (control administrativo sobre un número
+      personal: lectura legal/laboral). Aplazado por el usuario el 2026-09-19;
+      se decide antes de abrir el paquete de Fase 5.
 - [ ] PoC WhatsApp — pasos 1-14 completos según `docs/INTEGRATIONS.md`
-      sección 3 (cuenta de prueba, Embedded Signup, envío/recepción en ambas
-      direcciones, no duplicación, delivery/read status, ventana de 24h,
-      desconexión/reconexión, estabilidad de identificadores).
-- [ ] PoC WhatsApp: verificar explícitamente disponibilidad real de
-      "coexistence" con WhatsApp Business App para el mercado objetivo.
-- [ ] Registrar resultado de ambas PoC en `docs/DECISIONS.md` (lo hace el
-      usuario, o el agente a partir de lo que el usuario reporte).
-- [ ] Si WhatsApp no soporta el requisito fundamental: decisión explícita del
-      usuario entre alternativas A/B/C (`docs/INTEGRATIONS.md` sección 2.2)
-      antes de empezar el paquete de integración de WhatsApp.
+      sección 3, ya reenfocados a coexistence (Embedded Signup v4 con
+      `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, las tres suscripciones de
+      webhook, sincronización de historial dentro del plazo de 24 h, no
+      duplicación de ecos, ventana de 24 h, desconexión desde el móvil con
+      `PARTNER_REMOVED`, países no soportados y throughput real).
+- [ ] Registrar resultado de la PoC de Telegram en `docs/DECISIONS.md` (lo
+      hace el usuario, o el agente a partir de lo que el usuario reporte).
 
 ## PKG-001 — Foundation (cerrado el 2026-09-18)
 
@@ -160,12 +172,34 @@ detalle completo.
       encargo original (conectar, recibir, mostrar en Inbox, responder desde
       Kindly y desde Telegram, sin duplicados, desconexión/reconexión).
 
-## Fase 5 — WhatsApp (solo tras cerrar Fase 0 con decisión registrada)
+## Fase 5 — WhatsApp coexistence (Alternativa A, decidida el 2026-09-19)
 
-- [ ] `WhatsAppAdapter` implementando `MessagingAdapter` sobre Cloud API,
-      según la alternativa (A/B/C) decidida en `docs/DECISIONS.md`.
-- [ ] Embedded Signup para conexión de WABA/número.
-- [ ] Manejo de ventana de 24h y plantillas en la UI de composición.
+Bloqueada por el alta como Tech Provider de Meta (Fase 0), no por la decisión
+de arquitectura, que ya está tomada. Ver `docs/DECISIONS.md` y
+`docs/INTEGRATIONS.md` sección 2.2.
+
+- [ ] `WhatsAppAdapter` implementando `MessagingAdapter` sobre Cloud API en
+      modo coexistence.
+- [ ] Embedded Signup **v4** (v2 se depreca el 2026-10-08) con
+      `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, saltando el registro del
+      número, y con session logging.
+- [ ] UI de conexión: pantalla previa de advertencias (país, número en el
+      Business Manager, requisito de WhatsApp Business App, historial de 180
+      días, funciones que se desactivan en el móvil, coste de Cloud API).
+- [ ] Tercer tipo de evento en `NormalizedInboundEvent`: saliente que Kindly
+      no originó (`smb_message_echoes`), con idempotencia frente a los
+      mensajes enviados desde el propio Inbox.
+- [ ] Sincronización inicial de historial (`history`) dentro del plazo duro de
+      24 h → primer caso de uso concreto que justifica un job en background
+      reintentable (pg-boss/Inngest) en vez de `after()`.
+- [ ] Sincronización de contactos (`smb_app_state_sync`) contra el modelo
+      `Contact`.
+- [ ] Manejo de ventana de 24h y plantillas en la UI de composición,
+      incluyendo el caso contraintuitivo: un mensaje enviado desde el móvil
+      del delegado no abre ni extiende la ventana de Cloud API.
+- [ ] Rediseñar la desconexión en `/channels`: no hay Deregister API para
+      coexistence — la inicia el delegado desde su móvil y llega como
+      `account_update` / `PARTNER_REMOVED`.
 - [ ] Manejo de delivery/read status vía webhooks de estado.
 - [ ] Acceptance test completo (sección "WhatsApp acceptance test" del
       encargo), incluyendo verificación explícita del comportamiento de

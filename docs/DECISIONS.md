@@ -625,6 +625,138 @@ ninguna configuración de despliegue documentada.
 
 ---
 
+## 2026-09-19 — WhatsApp: se adopta coexistence (Alternativa A). Riesgo crítico cerrado
+
+**Contexto:** la entrada del 2026-09-17 ("Riesgo crítico: identidad de
+comunicación de WhatsApp") dejó el `WhatsAppAdapter` bloqueado a la espera de
+una PoC que confirmase si "coexistence" existía de verdad. El usuario aportó
+una observación decisiva: **GoHighLevel tiene el flujo en producción**, y
+describió su UX completa (activación de la integración con coste repercutido
+al usuario; pantalla de elección entre conectar tu WhatsApp / crear una cuenta
+nueva / migrar desde otro BSP; pantalla previa de advertencias —código de
+país, número en el Business Manager de Meta, uso de WhatsApp Business App,
+sincronización de historial de 6 meses—; redirección a Facebook; vuelta con el
+número conectado).
+
+Eso convirtió la pregunta "¿existe?" en "¿qué implica?". Se verificó contra la
+documentación oficial de Meta (no contra el prompt original ni por
+extrapolación, según `CLAUDE.md` sección 3).
+
+**Decisión:** se adopta la **Alternativa A** de `docs/INTEGRATIONS.md` sección
+2.2 — **coexistence vía Embedded Signup**, con el evento
+`FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, saltándose el registro del número.
+El `DELEGATE` conserva su número y su WhatsApp Business App en el móvil, y
+Kindly sincroniza por detrás. **El principio 1 de `CLAUDE.md` (identidad de
+comunicación del profesional) queda satisfecho sin excepciones ni
+sustituciones.** No se adoptan las alternativas B (número dedicado por
+delegado) ni C (número centralizado de organización).
+
+**Verificado (documentación oficial de Meta, consultada el 2026-09-19):**
+
+- Coexistence está disponible en producción desde mayo de 2025, y desde abril
+  de 2026 Embedded Signup es la vía por defecto para altas nuevas.
+- Requisitos del número: WhatsApp **Business App** 2.24.17 o superior, y que
+  el número **no esté ya registrado solo en Cloud API**.
+- Sincronización de historial: **180 días**, solo chats 1:1 (sin grupos), en
+  tres fases (día 0-1, 1-90, 90-180). Los adjuntos solo llegan para mensajes
+  de los **últimos 14 días**.
+
+**Requisito de plataforma que condiciona todo el calendario:** para ofrecer
+este flujo, **Kindly debe ser Tech Provider o Solution Partner de Meta**, estar
+ya usando Cloud API, e implementar Embedded Signup **con session logging**.
+Además, para coexistence **no sirve la verificación de negocio clásica**: solo
+Partner-Led Business Verification o Meta Verified, y **no hay cuenta oficial
+(badge azul)**. Esto no es trabajo de código: es un alta nuestra ante Meta y es
+el camino crítico real de la Fase 5.
+
+**Hallazgos que obligan a cambiar diseño ya existente** (esto es lo que
+justifica registrar la decisión ahora y no al empezar el paquete):
+
+1. **La ventana de 24 h se comporta al revés de lo intuitivo.** Los mensajes
+   que el delegado envía **desde su móvil no abren ni extienden** la ventana de
+   servicio de Cloud API; solo la abre un mensaje entrante del usuario a la
+   cuenta ya onboardeada. El delegado puede ver un hilo vivo en su teléfono
+   mientras el Inbox de Kindly no puede responder en texto libre. Esa
+   disonancia debe tratarse explícitamente en la UI de composición, no
+   descubrirse en producción.
+2. **`smb_message_echoes` rompe el modelo de eventos actual.** Cada mensaje que
+   el delegado envía desde la Business App vuelve como eco por webhook. El tipo
+   `NormalizedInboundEvent` de `src/modules/messaging/adapter.ts` solo
+   contempla `MESSAGE` (entrante) y `DELIVERY_UPDATE`: **no existe el caso
+   "mensaje saliente que Kindly no originó"**. Hace falta un tercer tipo de
+   evento, y es además el principal riesgo de duplicación (un mensaje enviado
+   desde Kindly podría volver como eco).
+3. **Hay un plazo duro de 24 horas.** Tras el onboarding hay **24 h para
+   sincronizar el historial o el cliente debe ser dado de baja**. Eso no cabe
+   en el `after()` de Next.js que usa hoy
+   `src/app/api/webhooks/[channel]/[accountId]/route.ts`: es trabajo en
+   background real y reintentable. **Este es el primer caso de uso concreto que
+   podría justificar pg-boss/Inngest** según el criterio de
+   `docs/ARCHITECTURE.md` ("No construir todavía" exige necesidad demostrada:
+   aquí ya la hay).
+4. **El botón "Desconectar" de `/channels` no puede funcionar para WhatsApp.**
+   Para números en coexistence **no se puede usar la Deregister API**: el
+   negocio se desconecta a mano desde su móvil y Kindly se entera por un
+   webhook `account_update` con `PARTNER_REMOVED`. El método
+   `disconnectAccount` de `MessagingAdapter` no tiene equivalente real en este
+   canal; `src/app/(app)/channels/page.tsx` necesita rediseño para no prometer
+   una acción que no existe.
+5. **Suscripciones de webhook obligatorias: tres**, no una — `history`,
+   `smb_app_state_sync` (contactos) y `smb_message_echoes`. La de contactos
+   mapea contra nuestro modelo `Contact` y mitiga parcialmente el caso
+   "remitente desconocido" de PKG-003.
+6. **Pérdidas de funcionalidad en el móvil del delegado**, que deben aparecer
+   en la pantalla de advertencias previa a conectar: se desactivan mensajes
+   temporales, "ver una vez", ubicación en directo y listas de difusión; y
+   WhatsApp para Windows y WearOS **se desvinculan** durante el onboarding.
+7. **Coste.** Los mensajes enviados desde la Business App del móvil siguen
+   siendo gratis; los enviados vía Cloud API (es decir, los que salgan del
+   Inbox de Kindly) se facturan a tarifa Cloud API normal. Esto es lo que en
+   GoHighLevel aparece como coste repercutido al usuario de la cuenta. **No
+   implica construir billing** (sigue en "no construir todavía"), pero sí que
+   el flujo de activación lo advierta.
+
+**No verificado — pendiente al construir, no asumir:**
+
+- **La lista de países/regiones no soportados** (el "country code check" del
+  flujo de GoHighLevel). Que existen restricciones regionales es cierto; la
+  lista oficial enumerada no se localizó. **No se hardcodea desde un blog**: se
+  consulta la fuente oficial en el momento de implementar.
+- **El throughput.** La documentación de Meta indica **20 mensajes/segundo**
+  fijos para números en coexistence; documentación de un BSP indica 5.
+  Discrepancia sin resolver, irrelevante para el volumen previsto pero
+  registrada para que no sorprenda.
+- **Embedded Signup v2 se deprecia el 8 de octubre de 2026.** Kindly no tiene
+  ninguna implementación previa, así que se implementa **v4 directamente** —
+  se anota para no seguir tutoriales desactualizados.
+- El encaje del **Meta Business Manager de la organización** con el número
+  personal del delegado: el número debe añadirse al BM de la organización, lo
+  que le da control administrativo sobre un número personal. Encaja con el
+  principio 1, pero tiene lectura legal/laboral. **Aplazado explícitamente por
+  el usuario el 2026-09-19** ("luego vemos el tema del BM de la org"); se
+  decide antes de abrir el paquete de Fase 5.
+
+**Alternativas consideradas:** B (número de Cloud API dedicado por delegado) y
+C (número centralizado de la organización), ambas descritas en
+`docs/INTEGRATIONS.md` sección 2.2. Se descartan porque A está confirmada como
+disponible y es la única que no rompe, ni parcialmente, el principio de
+identidad de comunicación del profesional. Quedan documentadas como plan de
+repliegue por si el alta como Tech Provider resultara inviable.
+
+**Efecto sobre la Fase 0:** la PoC de WhatsApp **no se cancela, se reenfoca**.
+Ya no tiene que responder "¿existe coexistence?" (respondido), sino "¿funciona
+para nuestro caso concreto?": alta como Tech Provider, Embedded Signup v4 con
+un número real en Business App, y comprobación de los puntos 1-6 de arriba.
+Sigue siendo trabajo manual del usuario, sin fecha, y sigue sin bloquear
+paquetes que no sean el `WhatsAppAdapter`.
+
+**Supersede a:** la sección "Riesgo crítico: identidad de comunicación de
+WhatsApp" de la entrada del 2026-09-17, cuyo estado era "pendiente de PoC" y
+que dejaba sin decidir la elección entre A/B/C. Esa entrada se mantiene intacta
+como registro histórico; esta la resuelve.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

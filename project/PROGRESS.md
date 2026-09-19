@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-18.
+Última actualización: 2026-09-19.
 
 ## Resumen en una línea
 
@@ -11,22 +11,24 @@ MessagingAccount/Conversation/Message con webhooks idempotentes + Inbox
 (listado/filtros/no leídos/respuesta/identificación de Contact/conexión de
 canal), todo con aislamiento multi-tenant real, tests y CI. Sin paquete
 activo ahora mismo — `PKG-005` sin definir todavía (candidatos: Telegram,
-Cases lifecycle avanzado, Knowledge). La PoC de Telegram/WhatsApp sigue
-aparte, tarea manual, sin fecha, y sigue sin bloquear nada de esto (Fase 0
-solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
+WhatsApp coexistence, Cases lifecycle avanzado, Knowledge). La PoC de
+Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
+nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
+**El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
+2026-09-19: se adopta coexistence** (ver `docs/DECISIONS.md`).
 
 ## Estado por fase / paquete
 
 | Fase / Paquete | Nombre | Tipo | Estado |
 |---|---|---|---|
-| Fase 0 | Validación técnica (PoC WhatsApp/Telegram) | Manual (usuario) | 🟡 Pendiente, sin fecha — no bloquea el desarrollo de código |
+| Fase 0 | Validación técnica (PoC WhatsApp/Telegram) | Manual (usuario) | 🟡 Pendiente, sin fecha — no bloquea el desarrollo de código. Decisión de coexistence ya cerrada (2026-09-19); queda el alta como Tech Provider de Meta |
 | **PKG-001** | **Foundation** | Código (agente) | 🟢 **Completo** (2026-09-18) |
 | **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| PKG-005 | Por definir (candidatos: Telegram, Cases, Knowledge) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
+| PKG-005 | Por definir (candidatos: Telegram, WhatsApp coexistence, Cases, Knowledge) | Código (agente) | ⚪ Sin definir — pendiente de decisión del usuario |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
-| Fase 5 | WhatsApp | Código (futuro paquete, bloqueado por resultado de Fase 0) | ⚪ No iniciada |
+| Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
 | Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 7 | Knowledge | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
@@ -44,10 +46,10 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
 
 - Estructura de documentación de contexto entre sesiones adoptada
   (`CLAUDE.md`, `docs/`, `project/`, `tests/README.md`).
-- Riesgo crítico identificado y **sin resolver todavía**: la identidad de
-  comunicación del delegado en WhatsApp depende de la disponibilidad real de
-  "coexistence" con WhatsApp Business App, que debe verificarse con una PoC
-  antes de construir el `WhatsAppAdapter`.
+- ~~Riesgo crítico identificado y sin resolver: la identidad de comunicación
+  del delegado en WhatsApp depende de la disponibilidad real de
+  "coexistence".~~ **Superado por la decisión del 2026-09-19** (ver más
+  abajo).
 - UX de conexión de canales ajustada: no hay QR oficial para Telegram
   Business Bots ni para WhatsApp Cloud API; se usa autorización oficial
   (deep link para Telegram, Embedded Signup/OAuth para WhatsApp).
@@ -106,15 +108,30 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   con la suite de E2E ampliada (corregido con una variable de entorno que
   solo fija `playwright.config.ts`). Detalle completo, con reproducción, en
   `docs/DECISIONS.md`.
+- **(2026-09-19, cierra el riesgo crítico de WhatsApp)** Se adopta
+  **coexistence** (Alternativa A de `docs/INTEGRATIONS.md` sección 2.2): el
+  delegado conserva su número y su WhatsApp Business App en el móvil y Kindly
+  sincroniza por detrás vía Cloud API, con lo que el principio 1 de
+  `CLAUDE.md` queda satisfecho sin excepciones. Verificado contra
+  documentación oficial de Meta, a partir de que el usuario señalara que
+  GoHighLevel ya tiene el flujo en producción. Implica: alta de Kindly como
+  Tech Provider, Embedded Signup v4, tres suscripciones de webhook
+  (`history`, `smb_app_state_sync`, `smb_message_echoes`), historial de 180
+  días con plazo duro de 24 h, y cuatro cambios sobre diseño ya existente
+  (nuevo tipo de evento para ecos de salientes, job en background real,
+  ventana de 24 h que no se abre desde el móvil, y desconexión que Kindly no
+  controla). Detalle completo en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 
-- Resultado de la PoC de WhatsApp: si "coexistence" no cubre el caso de uso
-  real, elegir entre alternativas A (coexistence limitado, aceptar sus
-  restricciones), B (número dedicado de Cloud API por delegado) o C (número
-  centralizado de organización, requiere aprobación explícita porque rompe
-  un principio de producto). Ver `docs/INTEGRATIONS.md` sección 2.2. Sin
-  fecha, pendiente de que el usuario ejecute la PoC manualmente.
+- **Meta Business Manager de la organización vs. número personal del
+  delegado**: el número debe añadirse al BM de la organización, que pasa a
+  tener control administrativo sobre un número personal. Encaja con el
+  principio 1, pero tiene lectura legal/laboral. Aplazado explícitamente por
+  el usuario el 2026-09-19; se decide antes de abrir el paquete de Fase 5.
+- **Alta de Kindly como Tech Provider / Solution Partner de Meta**: no es una
+  decisión de arquitectura sino un trámite bloqueante, y es el camino crítico
+  real de la Fase 5. Sin fecha.
 - **Alcance de `PKG-005`** — candidatos: Fase 4 (Telegram, bloqueada por la
   Fase 0 pendiente), Fase 6 (Cases lifecycle avanzado), Fase 7 (Knowledge).
   No se empieza a programar nada de esto sin que el usuario lo confirme

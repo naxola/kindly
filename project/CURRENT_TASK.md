@@ -9,11 +9,63 @@
 `PKG-004 — Unified Inbox (UI)` se completó y se verificó el 2026-09-18
 (detalle más abajo). Candidatos naturales para `PKG-005`, según
 `project/TASKS.md`: Fase 4 (Telegram, bloqueada por la Fase 0 pendiente),
-Fase 6 (Cases lifecycle avanzado), o Fase 7 (Knowledge). No se empieza a
-programar nada sin que el usuario lo confirme.
+Fase 5 (WhatsApp coexistence, bloqueada por el alta como Tech Provider de
+Meta), Fase 6 (Cases lifecycle avanzado), o Fase 7 (Knowledge). No se empieza
+a programar nada sin que el usuario lo confirme.
 
 La Fase 0 (PoC manual de WhatsApp/Telegram) sigue pendiente y sin fecha, sin
 relación con lo anterior.
+
+---
+
+## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
+
+Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
+coexistence en producción y describió su UX completa. Se verificó contra
+documentación oficial de Meta (no contra el prompt original), y se cerró el
+riesgo crítico que estaba abierto desde el 2026-09-17: **se adopta la
+Alternativa A — coexistence**.
+
+Archivos tocados (documentación únicamente, ningún cambio de código):
+
+- `docs/DECISIONS.md` — entrada nueva del 2026-09-19 con la decisión, lo
+  verificado, los seis hallazgos que obligan a cambiar diseño ya existente, y
+  lo que queda sin verificar. Supersede la sección "Riesgo crítico" de la
+  entrada del 2026-09-17, que se conserva intacta.
+- `docs/INTEGRATIONS.md` — sección 2.2 reescrita (de "riesgo sin resolver" a
+  "mecanismo adoptado y sus límites"), 2.3 actualizada (Embedded Signup v4;
+  v2 se depreca el 2026-10-08), 2.4 ampliada con el matiz contraintuitivo de
+  la ventana de 24 h, y sección 3 (PoC) reenfocada.
+- `project/TASKS.md` — Fase 0 actualizada (disponibilidad y decisión marcadas
+  como hechas; añadidos el alta como Tech Provider y la decisión del BM de la
+  organización como pendientes); Fase 5 desglosada para coexistence.
+- `project/PROGRESS.md` — estado y lista de decisiones actualizados.
+
+### Próximos pasos concretos
+
+1. **Decidir el encaje del Meta Business Manager de la organización** con el
+   número personal del delegado. El usuario lo aplazó explícitamente en esta
+   sesión ("luego vemos el tema del BM de la org"). Se decide antes de abrir
+   el paquete de Fase 5.
+2. **Alta de Kindly como Tech Provider / Solution Partner de Meta** — trámite
+   bloqueante, camino crítico real de la Fase 5, trabajo manual del usuario.
+3. Elegir el alcance de `PKG-005`. Si fuese WhatsApp, ojo: está bloqueado por
+   el punto 2, no por la arquitectura.
+
+### Deuda técnica identificada (no ejecutada en esta sesión)
+
+Cuatro cambios sobre código ya escrito que la decisión de coexistence obliga
+a hacer cuando se abra la Fase 5, detallados en `docs/DECISIONS.md`:
+
+1. `NormalizedInboundEvent` (`src/modules/messaging/adapter.ts`) necesita un
+   tercer tipo: saliente que Kindly no originó (`smb_message_echoes`).
+2. El `after()` de `src/app/api/webhooks/[channel]/[accountId]/route.ts` no
+   sirve para la sincronización de historial (plazo duro de 24 h): primer
+   caso de uso concreto que justifica pg-boss/Inngest.
+3. El botón "Desconectar" de `src/app/(app)/channels/page.tsx` no puede
+   funcionar para WhatsApp (no hay Deregister API en coexistence).
+4. La UI de composición debe explicar que un mensaje enviado desde el móvil
+   del delegado no abre ni extiende la ventana de 24 h de Cloud API.
 
 ---
 
