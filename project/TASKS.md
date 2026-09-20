@@ -54,10 +54,16 @@ cliente pone su método de pago y Meta le factura a ella; Solution Partner
 factura el consumo al cliente, que es lo que hace GoHighLevel). Se sube de
 nivel más adelante si se quiere ese modelo.
 
-- [ ] Dominio público + landing con **política de privacidad y aviso legal**
-      accesibles. No hace falta el producto desplegado, pero sí una URL real:
-      la verificación de negocio pide web, y la app de Meta pide URL de
-      política de privacidad.
+- [~] Dominio público + landing con **política de privacidad y aviso legal**.
+      **El sitio está construido** (`PKG-010`, 2026-09-20): `/`, `/privacidad`,
+      `/terminos`, `/aviso-legal` y `/eliminacion-de-datos`, públicas y sin
+      login. Falta lo que no puede hacer el agente:
+      - [ ] Rellenar los datos legales reales en `src/config/company.ts`
+            (mientras haya `REVISAR:`, el sitio muestra una banda roja).
+      - [ ] **Revisión jurídica** de los textos antes de publicarlos.
+      - [ ] Contratar dominio y desplegar con HTTPS válido.
+      - [ ] Correo en el dominio propio (Meta rechaza gmail.com y similares).
+      - [ ] Fijar `NEXT_PUBLIC_SITE_URL` y `FACEBOOK_DOMAIN_VERIFICATION`.
 - [ ] Business portfolio (Business Manager) con datos completos y
       **coincidentes** con el registro mercantil y la web — nombre legal,
       dirección, teléfono, email. La causa habitual de rechazo es que no
@@ -313,6 +319,21 @@ emails: el ADMIN copia el enlace.
 El onboarding lo declara el adapter (`onboarding: "WHATSAPP_COEXISTENCE"`), así
 que cuando llegue `PKG-009` el `WhatsAppAdapter` real usará esta misma UI sin
 tocarla.
+
+### PKG-010 — Sitio público y documentos legales — CERRADO 2026-09-20
+
+Prerrequisito del alta ante Meta, no del producto.
+
+- [x] Landing pública en `/` con el producto real: bandeja, copiloto con
+      citas, y los tres principios que no se negocian.
+- [x] `/privacidad`, `/terminos`, `/aviso-legal` y `/eliminacion-de-datos`
+      (esta última la exige Meta como *Data Deletion Instructions URL*).
+- [x] Todas accesibles **sin sesión**, con test E2E que lo comprueba en un
+      contexto sin cookies — es el requisito que Meta verifica periódicamente.
+- [x] Identidad legal centralizada en `src/config/company.ts` con huecos
+      visibles y banda de aviso mientras queden sin rellenar.
+- [x] Metaetiqueta de verificación de dominio vía
+      `FACEBOOK_DOMAIN_VERIFICATION`.
 
 ### PKG-009 — Embedded Signup real (BLOQUEADO)
 

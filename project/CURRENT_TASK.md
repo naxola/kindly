@@ -4,19 +4,45 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005 a PKG-008 cerrados el 2026-09-20
+## Paquete activo: ninguno — PKG-005 a PKG-008 y PKG-010 cerrados el 2026-09-20
 
-Todo lo construible de WhatsApp sin Meta está hecho. Lo único que queda del
-canal es **`PKG-009` — Embedded Signup real**, y sigue **bloqueado** por dos
-cosas que no dependen del código:
+El producto tiene ya el mínimo para que el usuario haga sus propias pruebas.
+Lo que queda **no es código**: es el alta de Kindly ante Meta, y ahora mismo
+es lo único que separa a WhatsApp de funcionar de verdad.
 
-1. El alta de Kindly como **Tech Provider de Meta** (checklist ordenado en
-   `project/TASKS.md`, Fase 0). El paso que más tarda es la verificación de
-   negocio, 2-5 días laborables, y necesita antes un dominio público con
-   política de privacidad.
-2. La **decisión del Business Manager de la organización**, aplazada por el
-   usuario el 2026-09-19. No es solo legal: determina quién se autentica
-   contra Facebook y en qué Business Manager acaba el número.
+### Lo que tiene que hacer el usuario, en este orden
+
+1. **Rellenar `src/config/company.ts`** con la razón social exacta, NIF,
+   domicilio completo sin abreviaturas, datos registrales, teléfono y correos.
+   Mientras quede algún `REVISAR:`, el sitio público muestra una banda roja.
+   Meta compara estos datos carácter a carácter con la documentación.
+2. **Revisión jurídica** de `/privacidad`, `/terminos`, `/aviso-legal` y
+   `/eliminacion-de-datos`. Son un borrador sólido y anclado en lo que hace el
+   producto, no un dictamen.
+3. **Dominio y despliegue con HTTPS**, y un **correo en ese dominio** (Meta
+   rechaza gmail.com y similares para la verificación de negocio). Fijar
+   `NEXT_PUBLIC_SITE_URL`.
+4. **Verificación de negocio en Meta** — 2-5 días laborables. Para
+   coexistence debe ser Partner-Led o Meta Verified, no la clásica. Añadir
+   `FACEBOOK_DOMAIN_VERIFICATION` con el token de la metaetiqueta.
+5. **App + App Review** (~24 h). No hace falta el producto terminado: valen
+   grabaciones del API Setup con cURL o del WhatsApp Manager.
+6. Solo entonces `PKG-009` (Embedded Signup real), que además necesita cerrar
+   **la decisión del Business Manager de la organización**, aplazada el
+   2026-09-19.
+
+### PKG-010 — Sitio público y documentos legales (cerrado 2026-09-20)
+
+- `/` es ahora la landing pública; ya no redirige según haya sesión.
+- `/privacidad`, `/terminos`, `/aviso-legal`, `/eliminacion-de-datos`, todas
+  accesibles sin sesión y estáticas en el build.
+- Identidad legal centralizada en `src/config/company.ts`, con banda de aviso
+  mientras queden huecos.
+- Diseño: el sans vende, el serif documenta. El héroe es una sugerencia del
+  copiloto con evidencia **parcial** — el estado honesto vende mejor que el
+  perfecto.
+
+Decisiones completas en `docs/DECISIONS.md` (entrada del 2026-09-20).
 
 ### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas (cerrado 2026-09-20)
 
@@ -979,12 +1005,12 @@ selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
 engancha a él sin las variables de entorno que la suite necesita. Detalle en
 `docs/DECISIONS.md`, entrada del 2026-09-20.
 
-**Próxima acción concreta: no hay trabajo de código de WhatsApp pendiente.**
-Lo que queda (`PKG-009`) está bloqueado por trámites externos, ver arriba. Si
-el usuario quiere seguir programando mientras corre el reloj de Meta, los
-candidatos son la Fase 4 (Telegram, que ya puede reutilizar `MessagingAdapter`
-y la UI de canales), la Fase 6 (Cases lifecycle avanzado) o la Fase 7
-(Knowledge). No empezar ninguno sin que el usuario lo confirme.
+**Próxima acción concreta: la lista de seis pasos del usuario, arriba.** No
+hay trabajo de código pendiente en el camino de WhatsApp. Si el usuario quiere
+seguir programando mientras corre el reloj de Meta, los candidatos son la Fase
+4 (Telegram, que ya reutiliza `MessagingAdapter` y toda la UI de canales), la
+Fase 6 (Cases lifecycle avanzado) o la Fase 7 (Knowledge). No empezar ninguno
+sin que el usuario lo confirme.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

@@ -1144,6 +1144,105 @@ tercer campo obligatorio.
 
 ---
 
+## 2026-09-20 — PKG-010: sitio público y documentos legales
+
+Prerrequisito del alta como Tech Provider de Meta: la verificación de negocio
+exige una web, y la app exige una URL de política de privacidad.
+
+**`/` deja de ser un redirect.** Hasta ahora la raíz mandaba al `/dashboard` o
+al `/login`. Ahora es la landing pública, y el grupo de rutas `(public)` queda
+**fuera** de `(app)`, que exige sesión. No es una preferencia estética: Meta
+comprueba la URL de la política de privacidad de forma periódica y marca la
+app si devuelve error o **si pide iniciar sesión**; tres fallos consecutivos
+pueden acabar en retirada de la app. Un test E2E abre cada página pública en
+un contexto de navegador sin cookies y comprueba que responde 200 y que la
+ruta final es la misma — es decir, que no hay redirección al login.
+
+Las páginas legales salen **estáticas** en el build, que es lo que conviene
+para esas comprobaciones periódicas.
+
+**La identidad legal vive en un único archivo, con huecos ruidosos.**
+`src/config/company.ts` concentra razón social, NIF, domicilio, datos
+registrales, correos y teléfono. Todos los valores por defecto empiezan por
+`REVISAR:` y, mientras quede alguno, el sitio muestra **una banda roja en
+todas las páginas públicas** avisando de que no está publicado.
+
+La alternativa —rellenar con datos verosímiles de ejemplo— se descarta
+explícitamente. Un domicilio inventado en un aviso legal no es un
+*placeholder*: es una afirmación falsa sobre una entidad jurídica, publicada.
+Y hay un motivo práctico además del ético: Meta compara la razón social y el
+domicilio **carácter a carácter** con la documentación que se sube, y rechaza
+por diferencias tan pequeñas como "C/" frente a "Calle". Un dato plausible
+puede colarse hasta producción; uno que grita no.
+
+**La decisión jurídica de fondo: dos papeles, no uno.** La política de
+privacidad separa explícitamente:
+
+- Datos de los **profesionales** que usan Kindly (cuenta, organización, rol):
+  Kindly es **responsable del tratamiento**.
+- Datos de los **clientes de cada despacho** (contactos, conversaciones):
+  el despacho es el responsable y Kindly el **encargado del tratamiento**.
+
+Es el encuadre correcto para un SaaS B2B y tiene una consecuencia operativa
+que la página dice en voz alta: si el cliente de un despacho quiere ejercer
+sus derechos, tiene que dirigirse al despacho, no a nosotros. Tratar todo como
+si Kindly fuese responsable de todo habría sido más corto de escribir y
+habría prometido algo que no podemos cumplir.
+
+**Contenido anclado en lo que hace el código.** Las categorías de datos, los
+plazos y los terceros salen de `docs/DATABASE.md` y `docs/INTEGRATIONS.md`:
+qué guardamos de un mensaje, que los payloads originales de los webhooks se
+conservan, que el historial de coexistence llega a 180 días y solo de
+conversaciones individuales, que las credenciales no están en la base de datos
+sino tras un `credentials_reference`. Una política genérica de plantilla
+habría sido más rápida y habría sido falsa en varios puntos concretos.
+
+**Requisitos de Meta cubiertos de forma deliberada:**
+
+- `/privacidad` pública, sin login, nombrando app y empresa.
+- `/eliminacion-de-datos`, que Meta exige como *Data Deletion Instructions
+  URL* para apps con Facebook Login — y el Embedded Signup de WhatsApp lo es.
+- `/terminos` y `/aviso-legal` (este último obligatorio en España por la
+  LSSI-CE art. 10).
+- Metaetiqueta `facebook-domain-verification` inyectada desde
+  `FACEBOOK_DOMAIN_VERIFICATION`, el método de verificación de dominio que no
+  requiere tocar DNS.
+- `NEXT_PUBLIC_SITE_URL` como origen canónico, que debe coincidir con el
+  dominio verificado.
+
+**Diseño: el sans vende, el serif documenta.** Una sola idea tipográfica
+sostiene el sitio. Los titulares van en sans, apretados; el serif aparece
+**solo donde el producto produce algo con peso documental**: el borrador del
+copiloto, sus citas, y los propios textos legales. Invierte el tópico de
+"serif para el display, sans para el cuerpo" y lo ata al argumento del
+producto, que es convertir conversación suelta en trabajo documentado.
+
+La paleta es tinta azul oscura sobre papel frío —deliberadamente no crema— con
+un único acento verde de sello de "vigente", que es exactamente lo que el
+producto promete sobre la normativa. Los tres niveles de evidencia
+(`SUFFICIENT`/`PARTIAL`/`INSUFFICIENT`) son valores reales del dominio, así que
+tienen color propio en el sistema en vez de un semáforo decorativo.
+
+El héroe no es una captura ni una cifra: es una **sugerencia del copiloto tal
+y como la define `docs/PRODUCT.md` sección 10**, con evidencia **parcial** a
+propósito. El estado honesto —la herramienta diciendo qué no sabe— es mejor
+argumento que uno en el que todo sale perfecto.
+
+**Lo que NO está hecho, y no lo puede hacer el agente:**
+
+1. **Los datos legales reales.** Sin ellos el sitio no se publica.
+2. **Revisión jurídica.** Estos textos son un borrador sólido y anclado en el
+   producto real, no un dictamen. Antes de publicarlos deben pasar por alguien
+   que responda de ellos.
+3. **Dominio y despliegue con HTTPS.** Meta exige certificado válido.
+4. **Correo en el dominio propio.** Meta rechaza gmail.com y similares para la
+   verificación de negocio.
+
+**Supersede a:** el `src/app/page.tsx` de PKG-001, que redirigía la raíz según
+hubiera sesión o no.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

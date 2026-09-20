@@ -19,7 +19,9 @@ vista por delegado con la máquina de estados expuesta, y **`PKG-008` — Alta
 de WhatsApp** cierra el flujo de conexión (tres vías, comprobaciones previas,
 comprobación de país configurable) contra el stub. Sin paquete activo ahora
 mismo: lo único que queda de WhatsApp es `PKG-009`, bloqueado por el alta
-como Tech Provider de Meta y por la decisión del Business Manager. La PoC de
+como Tech Provider de Meta y por la decisión del Business Manager. **`PKG-010`
+añade el sitio público y los documentos legales** que ese alta exige; le
+faltan los datos legales reales, la revisión jurídica y el despliegue. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -38,6 +40,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-006** | **Miembros de la organización (invitar delegados)** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-008** | **Alta de WhatsApp: elección y comprobaciones previas** | Código (agente) | 🟢 **Completo** (2026-09-20) |
+| **PKG-010** | **Sitio público y documentos legales** | Código (agente) | 🟢 **Completo** (2026-09-20) — falta rellenar datos legales, revisión jurídica y despliegue |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
@@ -180,6 +183,16 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   una fuente no oficial bloquearía a usuarios reales con falsa seguridad.
   Los estados `PENDING → CONNECTING` se aplazan a `PKG-009` a propósito.
   Detalle en `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-010`: sitio público (`/`, `/privacidad`, `/terminos`,
+  `/aviso-legal`, `/eliminacion-de-datos`). `/` deja de ser un redirect
+  porque Meta comprueba la política de privacidad periódicamente y marca la
+  app si pide login. La identidad legal vive en `src/config/company.ts` con
+  huecos `REVISAR:` y una banda roja visible mientras queden: un domicilio
+  inventado en un aviso legal no es un placeholder, es una afirmación falsa
+  publicada. La política separa los dos papeles —Kindly responsable de los
+  datos del profesional, encargado de los de sus clientes— y su contenido
+  está anclado en lo que hace el código, no en una plantilla. Detalle en
+  `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

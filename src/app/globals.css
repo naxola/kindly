@@ -1,26 +1,138 @@
 @import "tailwindcss";
 
+/**
+ * Kindly's visual language.
+ *
+ * The palette is ink on cool paper: a genuinely blue near-black, the colour
+ * of pen on an official document, over a grey-cool white that is explicitly
+ * not cream. The one accent is a deep verification green, borrowed from the
+ * "vigente" stamp on a regulation — the product's whole promise is that an
+ * answer can be traced to a source that is still in force.
+ *
+ * The evidence colours are not decoration: SUFFICIENT / PARTIAL /
+ * INSUFFICIENT are a real value in the domain (docs/PRODUCT.md sección 10),
+ * so they get real, muted, documentary colours rather than a traffic light.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #101c33;
+
+  --ink: #101c33;
+  --ink-soft: #46556f;
+  --ink-faint: #7a879e;
+  --paper: #f5f7f9;
+  --line: #dde3ea;
+  --stamp: #15654a;
+  --stamp-soft: #e6f0eb;
+
+  --evidence-sufficient: #15654a;
+  --evidence-partial: #8a6314;
+  --evidence-insufficient: #8c2f2f;
+  /* Risk flagged on a suggestion. Same hue as INSUFFICIENT evidence but a
+     separate token: they are different things and must stay free to diverge. */
+  --alert: #8c2f2f;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+  --color-evidence-sufficient: var(--evidence-sufficient);
+  --color-evidence-partial: var(--evidence-partial);
+  --color-evidence-insufficient: var(--evidence-insufficient);
+  --color-alert: var(--alert);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Sans is the voice that sells; serif is the voice of the documents the
+     product produces. See the public layout for how the two are used. */
+  --font-sans: var(--font-inter);
+  --font-document: var(--font-literata);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+/* Headlines are set tight and heavy; the type does the work, not a colour
+   accent on one word. */
+.headline {
+  letter-spacing: -0.032em;
+  line-height: 1.02;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.document {
+  font-family: var(--font-literata), Georgia, serif;
+}
+
+/* Legal pages are documents: measure under 70 characters, generous leading,
+   and headings that read as sections of a text rather than as marketing. */
+.legal-prose {
+  font-family: var(--font-literata), Georgia, serif;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+
+.legal-prose h2 {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  margin-top: 2.75rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.35;
+}
+
+.legal-prose h3 {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.legal-prose p,
+.legal-prose ul {
+  margin-bottom: 1rem;
+  max-width: 68ch;
+}
+
+.legal-prose ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+
+.legal-prose li {
+  margin-bottom: 0.4rem;
+}
+
+.legal-prose a {
+  color: var(--stamp);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.legal-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
