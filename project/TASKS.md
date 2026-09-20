@@ -288,31 +288,31 @@ emails: el ADMIN copia el enlace.
       permite, la conexión es siempre para uno mismo, y el servicio lo
       rechaza además de la UI. Ver `docs/DECISIONS.md`.
 
-### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas (contra stub)
+### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas — CERRADO 2026-09-20
 
-Construible hoy. Es el flujo que el usuario describió de GoHighLevel.
+- [x] Pantalla de elección con las tres vías excluyentes. Solo coexistence
+      disponible; las otras dos se muestran deshabilitadas **con su motivo**.
+- [x] Pantalla de comprobaciones previas con los seis puntos (Business App,
+      número no registrado ya en Cloud API, Business Manager, historial de 180
+      días, funciones que se pierden en el móvil, coste de Cloud API),
+      revalidados en el servidor y no solo en el cliente.
+- [x] Comprobación de país como dato configurable
+      (`WHATSAPP_UNSUPPORTED_COUNTRY_CODES`), vacía por defecto: la UI dice
+      que no puede comprobarlo en vez de usar una lista no oficial.
+- [x] Aviso de redirección a Facebook y botón final. Sin adapter registrado
+      el flujo es inalcanzable, que es la verdad actual — nunca simula una
+      conexión real.
+- [x] Camino de error real: el proveedor rechaza y no queda ninguna
+      `MessagingAccount` a medias.
+- [ ] **No hecho a propósito:** `PENDING → CONNECTING → CONNECTED`. Con un
+      stub síncrono no hay ningún instante en que esos estados sean ciertos;
+      inventar la asincronía sería escribir la máquina de estados alrededor de
+      una suposición. Pasa a `PKG-009`, donde el flujo sale de verdad a
+      Facebook y vuelve por un callback. Ver `docs/DECISIONS.md`.
 
-- [ ] Pantalla de elección con las tres vías, excluyentes entre sí:
-      (a) conectar un número que ya usa WhatsApp Business App (coexistence),
-      (b) crear una cuenta de WhatsApp Business nueva,
-      (c) migrar desde otro BSP.
-      **Solo (a) está decidida** (`docs/DECISIONS.md`, 2026-09-19). Las otras
-      dos se muestran como no disponibles todavía, nunca como si funcionaran.
-- [ ] Pantalla de comprobaciones previas antes de conectar: número en
-      WhatsApp Business App, número añadido al Business Manager, historial que
-      se sincroniza (180 días, solo 1:1, adjuntos 14 días), funciones que se
-      desactivan en el móvil (mensajes temporales, ver una vez, ubicación en
-      directo, listas de difusión; Windows y WearOS se desvinculan) y coste de
-      Cloud API.
-- [ ] Comprobación de país: **como dato configurable, no como lista
-      hardcodeada** — la lista oficial de regiones no soportadas sigue sin
-      confirmarse (`docs/DECISIONS.md`) y no se copia de fuentes no oficiales.
-- [ ] Aviso de qué pasa después (redirección a Facebook) y botón final.
-      Sin credenciales de Meta, el botón explica que el canal todavía no está
-      disponible — **nunca simula una conexión real ante un usuario**
-      (`CLAUDE.md` sección 3).
-- [ ] Estados intermedios reales: `PENDING` → `CONNECTING` → `CONNECTED`, y
-      el camino de error, ejercitados contra el stub.
+El onboarding lo declara el adapter (`onboarding: "WHATSAPP_COEXISTENCE"`), así
+que cuando llegue `PKG-009` el `WhatsAppAdapter` real usará esta misma UI sin
+tocarla.
 
 ### PKG-009 — Embedded Signup real (BLOQUEADO)
 
@@ -334,7 +334,11 @@ toca Meta de verdad.
       `smb_app_state_sync`, `smb_message_echoes`).
 - [ ] Disparar la sincronización de historial dentro del plazo duro de 24 h
       (aquí sí se introduce la cola de jobs, ver `docs/DECISIONS.md`).
-- [ ] `WhatsAppAdapter` real implementando `MessagingAdapter`.
+- [ ] `WhatsAppAdapter` real implementando `MessagingAdapter`, declarando
+      `onboarding: "WHATSAPP_COEXISTENCE"` para reutilizar la UI de PKG-008.
+- [ ] Estados `PENDING → CONNECTING → CONNECTED` reales, aplazados desde
+      PKG-008: aquí el flujo sale a Facebook y vuelve por callback, que es el
+      primer momento en que esos estados significan algo.
 - [ ] Credenciales en almacén seguro vía `credentials_reference` — nunca en
       la fila de la base de datos, el código o los logs (`CLAUDE.md` 5).
 

@@ -15,9 +15,11 @@ canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
 contra el stub. **`PKG-006` — Miembros de la organización** completo el mismo
 día: invitaciones, roles reales y `/members`. **`PKG-007` — Ajustes del
 delegado y estado del canal** también completo: `/channels` es ahora una
-vista por delegado con la máquina de estados expuesta. Sin paquete activo
-ahora mismo; el siguiente candidato es `PKG-008` (alta de WhatsApp:
-elección y comprobaciones previas), definido en `TASKS.md`. La PoC de
+vista por delegado con la máquina de estados expuesta, y **`PKG-008` — Alta
+de WhatsApp** cierra el flujo de conexión (tres vías, comprobaciones previas,
+comprobación de país configurable) contra el stub. Sin paquete activo ahora
+mismo: lo único que queda de WhatsApp es `PKG-009`, bloqueado por el alta
+como Tech Provider de Meta y por la decisión del Business Manager. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -35,7 +37,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🟢 **Completo** (2026-09-20), ver `CURRENT_TASK.md` |
 | **PKG-006** | **Miembros de la organización (invitar delegados)** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
-| PKG-008 | Alta de WhatsApp: elección y comprobaciones previas | Código (agente) | ⚪ No iniciada |
+| **PKG-008** | **Alta de WhatsApp: elección y comprobaciones previas** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
@@ -167,6 +169,17 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   asimétrico (el ADMIN puede, para dar de baja a quien se va), y la máquina
   de estados se expone con `describeAccountStatus` en vez de imprimir el
   enum en crudo. Detalle en `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-008`: flujo de alta de WhatsApp contra el stub. El
+  onboarding lo **declara el adapter** (`onboarding:
+  "WHATSAPP_COEXISTENCE"`), no lo deduce la UI del nombre del canal, así que
+  el `WhatsAppAdapter` real de `PKG-009` reutilizará esta misma UI sin
+  tocarla. De las tres vías solo coexistence está disponible; las otras dos
+  se deshabilitan **explicando por qué**. Las comprobaciones previas se
+  revalidan en el servidor (hay un E2E que fuerza el botón). Y la
+  comprobación de país devuelve `UNKNOWN` por defecto: una lista copiada de
+  una fuente no oficial bloquearía a usuarios reales con falsa seguridad.
+  Los estados `PENDING → CONNECTING` se aplazan a `PKG-009` a propósito.
+  Detalle en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

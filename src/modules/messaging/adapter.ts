@@ -160,7 +160,20 @@ export interface MessagingChannelCapabilities {
    * their own phone and we only find out through a webhook.
    */
   canDisconnect: boolean;
+  /**
+   * Which onboarding the channel needs before it can be connected
+   * (PKG-008). `DIRECT` connects in one click. `WHATSAPP_COEXISTENCE` has
+   * to walk the delegate through choosing a path and acknowledging what
+   * coexistence does to their phone first — requirements that come from
+   * Meta, not from Kindly (docs/INTEGRATIONS.md sección 2.2).
+   *
+   * Declared by the adapter rather than inferred from the channel name so
+   * the onboarding UI never hardcodes a provider (`CLAUDE.md` sección 2).
+   */
+  onboarding: MessagingOnboardingKind;
 }
+
+export type MessagingOnboardingKind = "DIRECT" | "WHATSAPP_COEXISTENCE";
 
 export interface MessagingAdapter {
   readonly channel: string;

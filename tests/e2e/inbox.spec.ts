@@ -25,6 +25,25 @@ test.afterAll(async () => {
   await sql.end();
 });
 
+/**
+ * Walks the coexistence onboarding (PKG-008) from /channels to a connected
+ * account: choose the coexistence path, acknowledge every preflight check,
+ * and submit.
+ */
+async function connectCoexistenceChannel(page: import("@playwright/test").Page) {
+  await page.getByRole("link", { name: "Conectar fake-coex", exact: true }).click();
+  await page.getByRole("link", { name: "Siguiente" }).click();
+  const checks = page.locator('input[name="acknowledged"]');
+  // Wait for the step to actually render: counting straight after the click
+  // resolves to 0 and silently ticks nothing.
+  await expect(checks.first()).toBeVisible();
+  for (let index = 0, total = await checks.count(); index < total; index++) {
+    await checks.nth(index).check();
+  }
+  await page.getByRole("button", { name: "Continuar con Facebook" }).click();
+  await expect(page).toHaveURL(/\/channels$/);
+}
+
 async function registerAndReachDashboard(page: import("@playwright/test").Page, name: string) {
   const email = `${randomUUID()}@example.com`;
   await page.goto("/login");
@@ -165,7 +184,9 @@ test("a conversation outside the provider window explains itself instead of offe
   await registerAndReachDashboard(page, delegateName);
 
   await page.getByRole("link", { name: "Canales" }).click();
-  await page.getByRole("button", { name: "Conectar fake-coex", exact: true }).click();
+  // fake-coex declares the WhatsApp coexistence onboarding, so connecting
+  // it means walking the flow rather than pressing one button (PKG-008).
+  await connectCoexistenceChannel(page);
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
   // This channel cannot be ended from Kindly, so no button is offered.

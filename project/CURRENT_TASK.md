@@ -4,13 +4,37 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005, PKG-006 y PKG-007 cerrados el 2026-09-20
+## Paquete activo: ninguno — PKG-005 a PKG-008 cerrados el 2026-09-20
 
-Siguiente candidato, ya definido en `project/TASKS.md`: **`PKG-008` — Alta de
-WhatsApp: elección y comprobaciones previas** (el flujo estilo GoHighLevel que
-describió el usuario), construible hoy contra el stub. `PKG-009` (Embedded
-Signup real) sigue bloqueado por el alta como Tech Provider de Meta y por la
-decisión del Business Manager de la organización.
+Todo lo construible de WhatsApp sin Meta está hecho. Lo único que queda del
+canal es **`PKG-009` — Embedded Signup real**, y sigue **bloqueado** por dos
+cosas que no dependen del código:
+
+1. El alta de Kindly como **Tech Provider de Meta** (checklist ordenado en
+   `project/TASKS.md`, Fase 0). El paso que más tarda es la verificación de
+   negocio, 2-5 días laborables, y necesita antes un dominio público con
+   política de privacidad.
+2. La **decisión del Business Manager de la organización**, aplazada por el
+   usuario el 2026-09-19. No es solo legal: determina quién se autentica
+   contra Facebook y en qué Business Manager acaba el número.
+
+### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas (cerrado 2026-09-20)
+
+El flujo que describió el usuario a partir de GoHighLevel, contra el stub.
+
+- `/channels/connect/[channel]`: las tres vías excluyentes. Solo coexistence
+  disponible; las otras dos deshabilitadas **con su motivo**.
+- `/channels/connect/[channel]/coexistence`: los seis puntos a confirmar,
+  aviso de redirección a Facebook y botón final. Revalidado en el servidor.
+- Comprobación de país configurable vía `WHATSAPP_UNSUPPORTED_COUNTRY_CODES`,
+  vacía por defecto.
+- El onboarding lo declara el adapter, así que `PKG-009` reutilizará esta UI
+  sin tocarla. En producción el flujo es hoy inalcanzable porque no hay
+  adapter de WhatsApp — que es la verdad actual, no un hueco.
+- **Aplazado a propósito:** `PENDING → CONNECTING → CONNECTED`. Con un stub
+  síncrono no hay ningún instante en que esos estados sean ciertos.
+
+Decisiones completas en `docs/DECISIONS.md` (entrada del 2026-09-20).
 
 ### PKG-007 — Ajustes del delegado y estado del canal (cerrado 2026-09-20)
 
@@ -955,12 +979,12 @@ selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
 engancha a él sin las variables de entorno que la suite necesita. Detalle en
 `docs/DECISIONS.md`, entrada del 2026-09-20.
 
-**Próxima acción concreta:** `PKG-008 — Alta de WhatsApp: elección y
-comprobaciones previas`, definido en `project/TASKS.md` y construible hoy
-contra el stub. Es el flujo que describió el usuario (tres vías excluyentes,
-pantalla de advertencias previas, aviso de redirección y botón final), con la
-regla de que solo la vía de coexistence está decidida y las otras dos se
-muestran como no disponibles en vez de fingir que funcionan.
+**Próxima acción concreta: no hay trabajo de código de WhatsApp pendiente.**
+Lo que queda (`PKG-009`) está bloqueado por trámites externos, ver arriba. Si
+el usuario quiere seguir programando mientras corre el reloj de Meta, los
+candidatos son la Fase 4 (Telegram, que ya puede reutilizar `MessagingAdapter`
+y la UI de canales), la Fase 6 (Cases lifecycle avanzado) o la Fase 7
+(Knowledge). No empezar ninguno sin que el usuario lo confirme.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

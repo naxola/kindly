@@ -2,6 +2,7 @@ import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/mod
 import { listMessagingAccountsForMember } from "@/modules/messaging/service";
 import { getChannelCapabilities, listRegisteredChannels } from "@/modules/messaging/registry";
 import { describeAccountStatus, type AccountStatusTone } from "@/modules/messaging/domain";
+import Link from "next/link";
 import { connectMessagingAccountAction, disconnectMessagingAccountAction } from "@/modules/messaging/actions";
 import type { MessagingAccountStatus } from "@/modules/messaging/schema";
 
@@ -71,6 +72,11 @@ export default async function ChannelsPage() {
           <ul className="flex flex-col gap-2">
             {availableChannels.map((channel) => {
               const alreadyConnected = myConnectedChannels.has(channel);
+              // A channel whose provider demands an onboarding (WhatsApp
+              // coexistence) cannot be connected from a button: the
+              // delegate has to choose a path and acknowledge what it does
+              // to their phone first (PKG-008).
+              const needsOnboarding = getChannelCapabilities(channel)?.onboarding !== "DIRECT";
               return (
                 <li
                   key={channel}
@@ -84,17 +90,25 @@ export default async function ChannelsPage() {
                         : "Se conectará con tu propia cuenta, a tu nombre."}
                     </p>
                   </div>
-                  {!alreadyConnected && (
-                    <form action={connectMessagingAccountAction}>
-                      <input type="hidden" name="channel" value={channel} />
-                      <button
-                        type="submit"
+                  {!alreadyConnected &&
+                    (needsOnboarding ? (
+                      <Link
+                        href={`/channels/connect/${channel}`}
                         className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
                       >
                         Conectar {channel}
-                      </button>
-                    </form>
-                  )}
+                      </Link>
+                    ) : (
+                      <form action={connectMessagingAccountAction}>
+                        <input type="hidden" name="channel" value={channel} />
+                        <button
+                          type="submit"
+                          className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
+                        >
+                          Conectar {channel}
+                        </button>
+                      </form>
+                    ))}
                 </li>
               );
             })}

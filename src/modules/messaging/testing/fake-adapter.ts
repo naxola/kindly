@@ -55,10 +55,19 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     this.capabilities = {
       serviceWindowHours: options.serviceWindowHours ?? null,
       canDisconnect: options.canDisconnect ?? true,
+      onboarding: options.onboarding ?? "DIRECT",
     };
   }
 
+  /** Set by a test to exercise the failure path of a connection attempt. */
+  public failNextConnect: string | null = null;
+
   async connectAccount(input: ConnectAccountInput): Promise<ConnectionResult> {
+    if (this.failNextConnect) {
+      const reason = this.failNextConnect;
+      this.failNextConnect = null;
+      throw new Error(reason);
+    }
     return {
       externalAccountId: `fake-account-${randomUUID()}`,
       displayName: `Fake account for ${input.delegateId}`,

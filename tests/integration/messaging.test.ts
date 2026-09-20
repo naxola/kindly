@@ -771,6 +771,24 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
     });
   });
 
+  describe("a provider that refuses the connection", () => {
+    it("leaves no half-created MessagingAccount behind", async () => {
+      const { user, org } = await createTestUserAndOrg("Refused Connection Org");
+
+      fakeAdapter.failNextConnect = "El número no está en WhatsApp Business App.";
+      await expect(connectFakeAccount(org.id, user.id)).rejects.toThrow(/WhatsApp Business App/);
+
+      // No row, no CHANNEL_CONNECTED activity: a failed attempt is not a
+      // connection in any state.
+      expect(await listMessagingAccountsForMember(org.id, { userId: user.id, role: "ADMIN" })).toHaveLength(0);
+
+      // And the adapter is usable again straight after — a refusal is not
+      // a latch.
+      const account = await connectFakeAccount(org.id, user.id);
+      expect(account.status).toBe("CONNECTED");
+    });
+  });
+
   describe("multi-tenant isolation", () => {
     it("an organization cannot read another organization's MessagingAccount, Conversation, or Message", async () => {
       const { user: userA, org: orgA } = await createTestUserAndOrg("Isolation Messaging A");

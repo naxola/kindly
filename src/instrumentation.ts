@@ -28,6 +28,7 @@ export async function register() {
       channel: "fake-coex",
       serviceWindowHours: 24,
       canDisconnect: false,
+      onboarding: "WHATSAPP_COEXISTENCE",
     }),
   );
 }

@@ -1067,6 +1067,83 @@ disponible para usos internos sin sesión, pero la UI usa
 
 ---
 
+## 2026-09-20 — PKG-008: alta de WhatsApp (elección y comprobaciones previas)
+
+Flujo de conexión que describió el usuario a partir de GoHighLevel,
+construido contra el stub. No toca Meta.
+
+**El onboarding lo declara el adapter, no lo deduce la UI del nombre del
+canal.** Nueva capacidad `onboarding: "DIRECT" | "WHATSAPP_COEXISTENCE"` en
+`MessagingChannelCapabilities`. `/channels` enseña un botón de conexión
+directa para los canales `DIRECT` y un enlace al flujo para los demás; las
+rutas `/channels/connect/[channel]` devuelven 404 si el canal no declara ese
+onboarding.
+
+La alternativa era una ruta `/channels/whatsapp` con el proveedor escrito en
+la URL y en el código. Se descarta por la misma razón que en PKG-005: el
+dominio y la UI no preguntan por el nombre del proveedor
+(`CLAUDE.md` sección 2). Además esta forma tiene una propiedad que la otra no:
+cuando llegue `PKG-009`, el `WhatsAppAdapter` real declarará
+`WHATSAPP_COEXISTENCE` y **esta misma UI le servirá sin tocarla**.
+
+Consecuencia deliberada: en producción el flujo es inalcanzable hoy, porque no
+hay ningún adapter de WhatsApp registrado. Eso no es un hueco, es la verdad
+actual — WhatsApp no está disponible hasta `PKG-009`, y `/channels` ya lo dice.
+El flujo se ejercita de punta a punta contra `fake-coex`, que declara ese
+onboarding sin fingir ser WhatsApp.
+
+**Las tres vías: una disponible, dos deshabilitadas con motivo.** Coexistence
+es la única decidida (`docs/DECISIONS.md`, 2026-09-19). Crear cuenta nueva y
+migrar desde otro BSP son flujos reales de Meta que Kindly **no** ha adoptado,
+así que se listan y se deshabilitan **explicando por qué**, en vez de
+ocultarlas u ofrecerlas. Ocultarlas dejaría al delegado preguntándose si se ha
+perdido algo; ofrecerlas sería el incumplimiento silencioso que prohíbe
+`CLAUDE.md` sección 3.
+
+**Las comprobaciones previas se revalidan en el servidor.** El botón
+deshabilitado hasta marcar los seis puntos es una cortesía para quien lee, no
+una garantía sobre lo que llega al servidor — y estos puntos concretos tratan
+de un móvil que pierde funciones, así que "la UI no te dejaba" no basta. Hay
+un E2E que quita el `disabled` por JavaScript y comprueba que el servidor
+rechaza igualmente.
+
+El contenido de la lista no es inventado: cada punto sale de
+`docs/INTEGRATIONS.md` sección 2.2, que a su vez sale de la documentación de
+Meta. Una pantalla que le dice a alguien qué va a pasarle al teléfono no puede
+llevar un requisito que no se pueda citar.
+
+**La comprobación de país devuelve `UNKNOWN` por defecto, y eso es correcto.**
+`checkCountrySupport` consulta `WHATSAPP_UNSUPPORTED_COUNTRY_CODES` (variable
+de entorno, documentada en `.env.example`), **vacía por defecto**.
+
+La lista oficial de regiones excluidas no se pudo confirmar
+(`docs/DECISIONS.md`, 2026-09-19). Una lista copiada de un blog sería **peor
+que no tener lista**: bloquearía a usuarios reales con falsa seguridad, y el
+error sería invisible porque parecería una comprobación legítima. Con la
+variable vacía, la UI dice que no puede comprobarlo y por qué. Cuando se tenga
+la fuente oficial, se rellena la variable y el comportamiento cambia sin tocar
+código.
+
+**Lo que NO se ha hecho, y por qué.** El alcance de `PKG-008` en
+`project/TASKS.md` incluía ejercitar `PENDING → CONNECTING → CONNECTED` contra
+el stub. **No se ha hecho, y no se debe hacer todavía.** Con un stub síncrono
+no existe ningún instante en el que esos estados sean ciertos: habría que
+inventar una asincronía artificial y escribir la máquina de estados alrededor
+de cómo *suponemos* que se comporta Embedded Signup. Esos estados se vuelven
+reales en `PKG-009`, donde el flujo sale de verdad a Facebook y vuelve por un
+callback, y ahí se podrán validar.
+
+Sí se ha hecho el **camino de error**, que sí es real hoy: si el proveedor
+rechaza la conexión, el flujo vuelve a la pantalla previa mostrando lo que dijo
+el proveedor — a esas alturas el delegado ya ha hecho gestiones en su móvil y
+merece saber qué parte se rechazó — y no queda ninguna `MessagingAccount` a
+medias (test de integración con `failNextConnect`).
+
+**Supersede a:** nada. Amplía `MessagingChannelCapabilities` (PKG-005) con un
+tercer campo obligatorio.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
