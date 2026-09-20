@@ -930,7 +930,7 @@ test:e2e` fallan al no poder conectar, lo cual es esperado, no un bug.
 decisión de adoptar WhatsApp coexistence y definición de `PKG-005` (ver
 arriba). Sin cambios de código todavía.
 
-**Sesión 2026-09-20 (commits `961efda` y `da98e2f`):** implementado el primer bloque de
+**Sesión 2026-09-20 (commits `961efda`, `da98e2f` y `2941815`):** implementado el primer bloque de
 `PKG-005`, el eco de salientes (ver Progreso arriba). Migración
 `drizzle/migrations/0005_echo_sent_from_device.sql` aplicada contra
 PostgreSQL de desarrollo. 62 unit/integration (Vitest) + 6 E2E (Playwright) en verde.
