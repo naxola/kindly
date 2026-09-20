@@ -105,6 +105,9 @@ export default async function ConversationDetailPage({
               <p className={`mt-1 text-xs ${message.direction === "OUTBOUND" ? "text-zinc-300" : "text-zinc-400"}`}>
                 {message.createdAt.toLocaleString("es-ES")}
                 {message.direction === "OUTBOUND" && ` · ${message.deliveryStatus}`}
+                {/* Coexistence: an outbound message may have been written on
+                    the delegate's own phone, not here (PKG-005). */}
+                {message.direction === "OUTBOUND" && message.sentFromDevice && " · desde el móvil"}
               </p>
             </div>
           </li>

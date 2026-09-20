@@ -29,6 +29,13 @@ export class FakeMessagingAdapter implements MessagingAdapter {
   readonly channel = "fake";
   private readonly secret: string;
   public sentMessages: Array<{ account: MessagingAccountRecord; conversation: ConversationRecord; message: OutboundMessage }> = [];
+  /**
+   * Forces the id the next `sendMessage` returns, so a test can make an
+   * echo and a Kindly-sent message collide on
+   * `(messaging_account_id, external_message_id)` deliberately — the whole
+   * point of the echo idempotency rules (PKG-005).
+   */
+  public nextExternalMessageId: string | null = null;
 
   constructor(secret = "fake-shared-secret") {
     this.secret = secret;
@@ -56,7 +63,9 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     message: OutboundMessage,
   ): Promise<SendResult> {
     this.sentMessages.push({ account, conversation, message });
-    return { externalMessageId: `fake-outbound-${randomUUID()}`, deliveryStatus: "SENT" };
+    const externalMessageId = this.nextExternalMessageId ?? `fake-outbound-${randomUUID()}`;
+    this.nextExternalMessageId = null;
+    return { externalMessageId, deliveryStatus: "SENT" };
   }
 
   verifyWebhookSignature(_rawBody: string, headers: Record<string, string>): boolean {
@@ -68,6 +77,18 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     const rawEvents = Array.isArray(payload) ? payload : [payload];
     return rawEvents.map((raw) => {
       const event = raw as Record<string, unknown>;
+      if (event.kind === "OUTBOUND_ECHO") {
+        return {
+          kind: "OUTBOUND_ECHO",
+          externalConversationId: String(event.externalConversationId),
+          externalMessageId: String(event.externalMessageId),
+          externalContactId: String(event.externalContactId),
+          contactDisplayName: (event.contactDisplayName as string | null) ?? null,
+          contactPhoneE164: (event.contactPhoneE164 as string | null) ?? null,
+          text: String(event.text),
+          occurredAt: new Date(),
+        };
+      }
       if (event.kind === "DELIVERY_UPDATE") {
         return {
           kind: "DELIVERY_UPDATE",

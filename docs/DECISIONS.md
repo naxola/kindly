@@ -757,6 +757,85 @@ como registro histórico; esta la resuelve.
 
 ---
 
+## 2026-09-20 — PKG-005 (en curso): eco de salientes de coexistence
+
+Primer bloque de `PKG-005` (ver `project/CURRENT_TASK.md`): los mensajes que
+el `DELEGATE` escribe desde su propio móvil y que el proveedor nos devuelve
+como eco (`smb_message_echoes`).
+
+**1. Tipo de evento nuevo, no reutilizar `MESSAGE`.** Se añade
+`NormalizedOutboundEcho` (`kind: "OUTBOUND_ECHO"`) a la unión
+`NormalizedInboundEvent` en `src/modules/messaging/adapter.ts`. Un eco es
+OUTBOUND pero Kindly no lo originó, así que no cabe en
+`NormalizedInboundMessage` sin mentir sobre la dirección. Lleva los mismos
+campos de contacto que un entrante **a propósito**: un eco puede ser lo
+primero que Kindly ve de una conversación, cuando el delegado inicia un chat
+nuevo desde su teléfono, así que necesita poder crear Contact y Conversation
+igual que un mensaje entrante.
+
+**2. Cómo se distingue el origen: columna explícita `messages.sent_from_device`
+(boolean, `NOT NULL DEFAULT false`), no derivarlo.** La alternativa evaluada
+era derivarlo de `direction = OUTBOUND AND source_webhook_event_id IS NOT
+NULL`, que no habría necesitado migración y no tiene riesgo de desincronizarse
+por ser un dato calculado.
+
+Se descarta por el punto 3: con un dato derivado, la carrera entre el envío y
+su eco solo se podría corregir **destruyendo la procedencia** del webhook
+(poniendo `source_webhook_event_id` a NULL). La columna explícita permite
+corregir exactamente el flag que importa y no tocar nada más. Además se lee
+directamente en la UI sin que cada llamador tenga que recordar la regla.
+
+Se eligió booleano y no un enum: la pregunta real que responde la columna es
+binaria ("¿lo escribió en su móvil?"), y para un mensaje INBOUND cualquier
+enum de origen tendría un valor sin sentido. Mismo criterio que llevó a no
+inventar un enum para `Case.priority` en PKG-002.
+
+**3. La carrera entre `sendOutboundMessage` y el eco — y por qué
+`onConflictDoUpdate`.** El proveedor solo hace eco de un mensaje que ya
+aceptó, pero ese eco puede llegar y procesarse **antes** de que commitee el
+`INSERT` de `sendOutboundMessage`. Con el `onConflictDoNothing` original, el
+eco se quedaba con la fila y el mensaje aparecía para siempre como escrito en
+el móvil, cuando se había compuesto en Kindly.
+
+`sendOutboundMessage` pasa a `onConflictDoUpdate` fijando **solo**
+`sentFromDevice: false` (y `updatedAt`). En particular **no** toca
+`deliveryStatus`: un callback `DELIVERED`/`READ` puede habernos adelantado
+también, y sobrescribirlo con `SENT` sería una regresión de estado. Cubierto
+por el test "labels the message as composed in Kindly even when its echo
+arrives first".
+
+**4. Idempotencia: no hace falta nada nuevo.** El
+`unique(messaging_account_id, external_message_id)` que ya existía desde
+PKG-003 hace doble trabajo aquí: absorbe el webhook reentregado **y** el caso
+que de verdad importa en este canal — que un mensaje enviado desde Kindly
+vuelva como eco. `insertEchoedMessage` usa `onConflictDoNothing` y devuelve
+`created: false`, así que no hay fila duplicada ni segunda Activity.
+
+**5. `MESSAGE_SENT_FROM_DEVICE` como `ActivityType` propio.** No se reutiliza
+`MESSAGE_SENT`: nadie actuó dentro de Kindly, no hay `actorUserId`, y
+fusionarlos haría imposible distinguir en el historial lo que hizo el
+profesional desde la app de lo que hizo desde su teléfono. `Activity.type` es
+texto libre en base de datos (decisión de PKG-002), así que no hay migración.
+
+**Nota sobre la suite E2E (no es un cambio de código).** Los E2E fallaron al
+principio de esta sesión por una causa ajena al paquete: `playwright.config.ts`
+usa `reuseExistingServer: !process.env.CI`, y había un `next-server` levantado
+desde hacía 23 horas ocupando el puerto 3000. Playwright se enganchó a él, y
+ese proceso no tenía `E2E_FAKE_MESSAGING_CHANNEL` (sin ella no se registra el
+canal `fake`) ni `DISABLE_AUTH_RATE_LIMIT` (sin ella el rate limiting de
+Better Auth tumba los tests que registran dos usuarios seguidos). Verificado
+haciendo `git stash`: los mismos 3 tests fallaban en árbol limpio. Con el
+puerto libre, los 6 E2E pasan. **Si vuelve a ocurrir, ése es el primer sitio
+donde mirar** — el síntoma (no existe el selector "Canal") no apunta en
+absoluto a su causa.
+
+**Supersede a:** nada. Extiende `MessagingAdapter` (PKG-003) y el modelo de
+`Message` (PKG-003) sin romper sus contratos — `sent_from_device` tiene
+default, y el tipo de evento nuevo es un miembro más de una unión que los
+adapters existentes no emiten.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

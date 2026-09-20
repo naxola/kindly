@@ -237,6 +237,179 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
     });
   });
 
+  /**
+   * PKG-005 — WhatsApp coexistence echoes the delegate's own phone messages
+   * back to us (`smb_message_echoes`). These cover the rule that matters
+   * most on that channel: an echo must never duplicate a message, least of
+   * all one Kindly itself sent.
+   */
+  describe("outbound echoes (coexistence)", () => {
+    async function echoBody(overrides: Record<string, unknown>) {
+      return JSON.stringify({
+        kind: "OUTBOUND_ECHO",
+        externalContactId: "provider-contact-echo",
+        text: "Te llamo en un rato",
+        ...overrides,
+      });
+    }
+
+    it("creates Conversation, Contact and an OUTBOUND message when the delegate writes from their phone first", async () => {
+      const { user, org } = await createTestUserAndOrg("Echo First Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const externalConversationId = `chat-${randomUUID()}`;
+      const outcome = await receiveWebhook(
+        "fake",
+        account.id,
+        await echoBody({
+          externalConversationId,
+          externalMessageId: `msg-${randomUUID()}`,
+          contactDisplayName: "Grace Hopper",
+        }),
+        fakeAdapter.signatureHeaders(),
+      );
+      if (outcome.status !== 200) throw new Error("unreachable");
+      await outcome.process();
+
+      const conversation = (await listConversations(org.id)).find(
+        (c) => c.externalConversationId === externalConversationId,
+      )!;
+      expect(conversation).toBeDefined();
+
+      const conversationMessages = await listMessages(org.id, conversation.id);
+      expect(conversationMessages).toHaveLength(1);
+      expect(conversationMessages[0].direction).toBe("OUTBOUND");
+      expect(conversationMessages[0].sentFromDevice).toBe(true);
+      expect(conversationMessages[0].deliveryStatus).toBe("SENT");
+
+      const activities = await listActivitiesForEntity(org.id, "conversation", conversation.id);
+      expect(activities.map((a) => a.type)).toContain("MESSAGE_SENT_FROM_DEVICE");
+      // Nobody acted inside Kindly, so this is not a MESSAGE_SENT.
+      expect(activities.map((a) => a.type)).not.toContain("MESSAGE_SENT");
+    });
+
+    it("never duplicates a message Kindly sent when the provider echoes it back", async () => {
+      const { user, org } = await createTestUserAndOrg("Echo Of Own Send Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const externalConversationId = `chat-${randomUUID()}`;
+      const inbound = await receiveWebhook(
+        "fake",
+        account.id,
+        JSON.stringify({
+          externalConversationId,
+          externalMessageId: `msg-${randomUUID()}`,
+          externalContactId: "provider-contact-echo-2",
+          text: "Hola",
+        }),
+        fakeAdapter.signatureHeaders(),
+      );
+      if (inbound.status !== 200) throw new Error("unreachable");
+      await inbound.process();
+
+      const conversation = (await listConversations(org.id)).find(
+        (c) => c.externalConversationId === externalConversationId,
+      )!;
+
+      const sharedExternalMessageId = `msg-${randomUUID()}`;
+      fakeAdapter.nextExternalMessageId = sharedExternalMessageId;
+      const sent = await sendOutboundMessage({
+        organizationId: org.id,
+        actorUserId: user.id,
+        conversationId: conversation.id,
+        text: "Respuesta desde Kindly",
+      });
+
+      const echo = await receiveWebhook(
+        "fake",
+        account.id,
+        await echoBody({
+          externalConversationId,
+          externalMessageId: sharedExternalMessageId,
+          text: "Respuesta desde Kindly",
+        }),
+        fakeAdapter.signatureHeaders(),
+      );
+      if (echo.status !== 200) throw new Error("unreachable");
+      await echo.process();
+
+      const conversationMessages = await listMessages(org.id, conversation.id);
+      // The inbound seed plus exactly one outbound — the echo added nothing.
+      expect(conversationMessages).toHaveLength(2);
+
+      const outbound = conversationMessages.find((m) => m.id === sent.id)!;
+      expect(outbound.sentFromDevice).toBe(false);
+
+      const activities = await listActivitiesForEntity(org.id, "conversation", conversation.id);
+      expect(activities.filter((a) => a.type === "MESSAGE_SENT_FROM_DEVICE")).toHaveLength(0);
+    });
+
+    it("labels the message as composed in Kindly even when its echo arrives first", async () => {
+      const { user, org } = await createTestUserAndOrg("Echo Race Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const externalConversationId = `chat-${randomUUID()}`;
+      const sharedExternalMessageId = `msg-${randomUUID()}`;
+
+      // The echo wins the race and owns the row first, flagged as written
+      // on the phone.
+      const echo = await receiveWebhook(
+        "fake",
+        account.id,
+        await echoBody({
+          externalConversationId,
+          externalMessageId: sharedExternalMessageId,
+          text: "Mensaje en carrera",
+        }),
+        fakeAdapter.signatureHeaders(),
+      );
+      if (echo.status !== 200) throw new Error("unreachable");
+      await echo.process();
+
+      const conversation = (await listConversations(org.id)).find(
+        (c) => c.externalConversationId === externalConversationId,
+      )!;
+      expect((await listMessages(org.id, conversation.id))[0].sentFromDevice).toBe(true);
+
+      fakeAdapter.nextExternalMessageId = sharedExternalMessageId;
+      await sendOutboundMessage({
+        organizationId: org.id,
+        actorUserId: user.id,
+        conversationId: conversation.id,
+        text: "Mensaje en carrera",
+      });
+
+      const conversationMessages = await listMessages(org.id, conversation.id);
+      expect(conversationMessages).toHaveLength(1);
+      expect(conversationMessages[0].sentFromDevice).toBe(false);
+    });
+
+    it("never duplicates a Message when the same echo is delivered twice", async () => {
+      const { user, org } = await createTestUserAndOrg("Echo Duplicate Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const externalConversationId = `chat-${randomUUID()}`;
+      const body = await echoBody({
+        externalConversationId,
+        externalMessageId: `msg-${randomUUID()}`,
+      });
+
+      const first = await receiveWebhook("fake", account.id, body, fakeAdapter.signatureHeaders());
+      const second = await receiveWebhook("fake", account.id, body, fakeAdapter.signatureHeaders());
+      if (first.status !== 200 || second.status !== 200) throw new Error("unreachable");
+      await first.process();
+      await second.process();
+
+      const conversation = (await listConversations(org.id)).find(
+        (c) => c.externalConversationId === externalConversationId,
+      )!;
+      expect(await listMessages(org.id, conversation.id)).toHaveLength(1);
+
+      const activities = await listActivitiesForEntity(org.id, "conversation", conversation.id);
+      expect(activities.filter((a) => a.type === "MESSAGE_SENT_FROM_DEVICE")).toHaveLength(1);
+    });
+  });
+
   describe("multi-tenant isolation", () => {
     it("an organization cannot read another organization's MessagingAccount, Conversation, or Message", async () => {
       const { user: userA, org: orgA } = await createTestUserAndOrg("Isolation Messaging A");

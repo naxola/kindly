@@ -4,7 +4,12 @@ import { db } from "@/db/client";
 import { webhookEvents } from "@/modules/messaging/schema";
 import { getMessagingAccountByChannelAndId } from "@/modules/messaging/service";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
-import { findOrCreateConversation, insertInboundMessage, applyDeliveryUpdate } from "@/modules/conversations/service";
+import {
+  findOrCreateConversation,
+  insertInboundMessage,
+  insertEchoedMessage,
+  applyDeliveryUpdate,
+} from "@/modules/conversations/service";
 import { recordActivity } from "@/modules/audit/service";
 import type { MessagingAdapter, MessagingAccountRecord } from "@/modules/messaging/adapter";
 
@@ -98,6 +103,39 @@ async function processWebhookEvent(
           await recordActivity({
             organizationId: account.organizationId,
             type: "MESSAGE_RECEIVED",
+            actorUserId: null,
+            entityType: "conversation",
+            entityId: conversation.id,
+            metadata: { messageId: message.id },
+          });
+        }
+      } else if (normalized.kind === "OUTBOUND_ECHO") {
+        // The delegate wrote this on their own phone. It can be the first
+        // thing we ever see of a conversation (a chat they started
+        // themselves), so it resolves the Conversation exactly like an
+        // inbound message does.
+        const conversation = await findOrCreateConversation(account.organizationId, account, normalized.externalConversationId, {
+          externalContactId: normalized.externalContactId,
+          displayName: normalized.contactDisplayName,
+          phoneE164: normalized.contactPhoneE164,
+        });
+
+        const { created, message } = await insertEchoedMessage({
+          organizationId: account.organizationId,
+          conversation,
+          account,
+          externalMessageId: normalized.externalMessageId,
+          body: normalized.text,
+          sourceWebhookEventId: webhookEventId,
+          occurredAt: normalized.occurredAt,
+        });
+
+        if (created && message) {
+          // Distinct from MESSAGE_SENT on purpose: nobody acted in Kindly,
+          // so there is no actor user and the two are not the same event.
+          await recordActivity({
+            organizationId: account.organizationId,
+            type: "MESSAGE_SENT_FROM_DEVICE",
             actorUserId: null,
             entityType: "conversation",
             entityId: conversation.id,

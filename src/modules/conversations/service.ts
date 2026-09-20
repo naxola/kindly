@@ -172,6 +172,53 @@ export async function insertInboundMessage(input: InsertInboundMessageInput) {
   return { created: false as const, message: null };
 }
 
+interface InsertEchoedMessageInput {
+  organizationId: string;
+  conversation: typeof conversations.$inferSelect;
+  account: MessagingAccountRecord;
+  externalMessageId: string;
+  body: string;
+  sourceWebhookEventId: string;
+  occurredAt: Date;
+}
+
+/**
+ * Persists a message the delegate sent from their own device, echoed back
+ * by the provider (WhatsApp coexistence `smb_message_echoes`, PKG-005).
+ *
+ * Idempotency is the same `(messaging_account_id, external_message_id)`
+ * constraint used by every other path, and here it does double duty: it
+ * absorbs a redelivered webhook *and* the case that matters most for this
+ * channel — a message Kindly itself sent coming straight back as an echo.
+ * Either way `created: false`, so no duplicate row and no second Activity.
+ */
+export async function insertEchoedMessage(input: InsertEchoedMessageInput) {
+  const [inserted] = await db
+    .insert(messages)
+    .values({
+      organizationId: input.organizationId,
+      conversationId: input.conversation.id,
+      messagingAccountId: input.account.id,
+      externalMessageId: input.externalMessageId,
+      direction: "OUTBOUND",
+      sentFromDevice: true,
+      body: input.body,
+      // The provider only echoes messages it already accepted, so SENT is
+      // the floor; real delivery/read callbacks arrive separately.
+      deliveryStatus: "SENT",
+      sourceWebhookEventId: input.sourceWebhookEventId,
+      createdAt: input.occurredAt,
+      updatedAt: input.occurredAt,
+    })
+    .onConflictDoNothing({ target: [messages.messagingAccountId, messages.externalMessageId] })
+    .returning();
+
+  if (inserted) {
+    return { created: true as const, message: inserted };
+  }
+  return { created: false as const, message: null };
+}
+
 /** Applies a delivery-status callback to the matching (already-sent) Message — never creates a new row. */
 export async function applyDeliveryUpdate(
   messagingAccountId: string,
@@ -211,6 +258,13 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
 
   const result = await adapter.sendMessage(account, conversation, { text: input.text });
 
+  // `onConflictDoUpdate`, not `DoNothing`: on a channel that echoes outbound
+  // messages back (coexistence), the provider's echo can land before this
+  // insert commits and would then own the row, mislabelled as written on the
+  // delegate's phone. Whoever told us first, a message that went through
+  // `sendOutboundMessage` was composed in Kindly — so correct just that flag
+  // and nothing else. `deliveryStatus` in particular is left alone: a
+  // DELIVERED/READ callback may already have overtaken us.
   const [message] = await db
     .insert(messages)
     .values({
@@ -219,10 +273,14 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
       messagingAccountId: account.id,
       externalMessageId: result.externalMessageId,
       direction: "OUTBOUND",
+      sentFromDevice: false,
       body: input.text,
       deliveryStatus: result.deliveryStatus === "FAILED" ? "FAILED" : "SENT",
     })
-    .onConflictDoNothing({ target: [messages.messagingAccountId, messages.externalMessageId] })
+    .onConflictDoUpdate({
+      target: [messages.messagingAccountId, messages.externalMessageId],
+      set: { sentFromDevice: false, updatedAt: new Date() },
+    })
     .returning();
 
   const sentMessage =

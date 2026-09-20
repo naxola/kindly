@@ -12,6 +12,9 @@ export type ActivityEntityType = "contact" | "case" | "task" | "conversation" | 
  * this adds CONTACT_CREATED/CONTACT_UPDATED and CASE_STATUS_CHANGED
  * (PKG-002), and CONTACT_IDENTIFIED/CONVERSATION_REASSIGNED (PKG-004, the
  * "marcar como identificado"/"reasignar" actions on an Unassigned Contact).
+ * PKG-005 adds MESSAGE_SENT_FROM_DEVICE: on a channel with coexistence an
+ * outbound message may have been written on the delegate's own phone, with
+ * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -25,6 +28,7 @@ export type ActivityType =
   | "TASK_COMPLETED"
   | "MESSAGE_RECEIVED"
   | "MESSAGE_SENT"
+  | "MESSAGE_SENT_FROM_DEVICE"
   | "CONVERSATION_REASSIGNED"
   | "CHANNEL_CONNECTED"
   | "CHANNEL_DISCONNECTED";

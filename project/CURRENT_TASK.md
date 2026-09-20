@@ -21,6 +21,20 @@ delegado, importación de historial, desconexión iniciada desde fuera de
 Kindly, ventana de 24 h en la composición, y el flujo de conexión de canal
 con sus advertencias previas.
 
+### Progreso
+
+- [x] **Eco de salientes** — hecho el 2026-09-20. `NormalizedOutboundEcho` en
+      el adapter, `messages.sent_from_device` (migración
+      `0005_echo_sent_from_device.sql`), `insertEchoedMessage`,
+      `sendOutboundMessage` pasa a `onConflictDoUpdate` para ganar la carrera
+      contra su propio eco, `MESSAGE_SENT_FROM_DEVICE` como Activity, y la
+      marca "desde el móvil" en `/inbox/[id]`. 4 tests de integración + 1 E2E
+      nuevos. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-20).
+- [ ] Importación de historial.
+- [ ] Desconexión iniciada desde fuera (`PARTNER_REMOVED`).
+- [ ] Ventana de 24 h en la composición.
+- [ ] Flujo de conexión de canal con advertencias previas.
+
 ### Scope
 
 - **Eco de salientes (`smb_message_echoes`) — el cambio más profundo.**
@@ -878,10 +892,20 @@ test:e2e` fallan al no poder conectar, lo cual es esperado, no un bug.
 decisión de adoptar WhatsApp coexistence y definición de `PKG-005` (ver
 arriba). Sin cambios de código todavía.
 
-**Próxima acción concreta:** empezar `PKG-005` por el eco de salientes, que
-es el cambio más profundo y el de mayor riesgo de duplicación —
-`src/modules/messaging/adapter.ts` (nuevo tipo de evento) y
-`src/modules/messaging/webhook-service.ts` (persistencia idempotente).
+**Sesión 2026-09-20:** implementado el primer bloque de `PKG-005`, el eco de
+salientes (ver Progreso arriba). Migración
+`drizzle/migrations/0005_echo_sent_from_device.sql` aplicada contra
+PostgreSQL de desarrollo. 62 unit/integration (Vitest) + 6 E2E (Playwright) en verde.
+
+**Aviso para la próxima sesión:** si los E2E fallan con "no existe el
+selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
+`next-server` ocupando el puerto 3000 —
+`playwright.config.ts` usa `reuseExistingServer: !process.env.CI` y se
+engancha a él sin las variables de entorno que la suite necesita. Detalle en
+`docs/DECISIONS.md`, entrada del 2026-09-20.
+
+**Próxima acción concreta:** seguir con la importación de historial, o con la
+ventana de 24 h en la composición si se prefiere avanzar por la UI.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

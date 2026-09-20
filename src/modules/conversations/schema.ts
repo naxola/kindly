@@ -5,13 +5,16 @@
  * Deferred from PKG-002 because they depend on `messaging_accounts`
  * (docs/DECISIONS.md, entrada PKG-002 nº1).
  *
+ * `messages.sentFromDevice` (PKG-005) is not in docs/DATABASE.md either —
+ * coexistence makes "outbound" ambiguous, see docs/DECISIONS.md.
+ *
  * `messages.body` and `messages.sourceWebhookEventId` are not in the
  * pseudocode of docs/DATABASE.md sección 8 — added because a Message
  * without content is useless, and outbound messages have no webhook to
  * reference at all. See docs/DECISIONS.md.
  */
 import { relations } from "drizzle-orm";
-import { pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { organizations } from "@/modules/organizations/schema";
 import { contacts } from "@/modules/contacts/schema";
 import { cases } from "@/modules/cases/schema";
@@ -87,6 +90,11 @@ export const messages = pgTable(
     externalMessageId: text("external_message_id").notNull(),
     externalChatId: text("external_chat_id"),
     direction: messageDirection("direction").notNull(),
+    // Only meaningful for OUTBOUND: true when the delegate wrote the message
+    // on their own phone and the provider echoed it back to us (WhatsApp
+    // coexistence, `smb_message_echoes`), false when it was composed in
+    // Kindly. See docs/DECISIONS.md, entrada PKG-005.
+    sentFromDevice: boolean("sent_from_device").notNull().default(false),
     body: text("body").notNull(),
     deliveryStatus: messageDeliveryStatus("delivery_status").notNull().default("PENDING"),
     // Nullable: only inbound messages come from a webhook. Outbound messages

@@ -102,6 +102,59 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await expect(page.getByText("SENT")).toBeVisible();
 });
 
+/**
+ * PKG-005: on a coexistence channel the delegate can write from their own
+ * phone, and the provider echoes that message back to us. It has to show up
+ * in the Inbox as an outgoing message, marked as written on the phone
+ * rather than composed in Kindly.
+ */
+test("a message the delegate wrote on their phone shows up in the Inbox as sent from the device", async ({
+  page,
+  request,
+}) => {
+  const delegateName = `Echo Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachDashboard(page, delegateName);
+
+  await page.getByRole("link", { name: "Canales" }).click();
+  await page.getByLabel("Canal").selectOption({ label: "fake" });
+  await page.getByLabel("Delegate").selectOption({ label: delegateName });
+  await page.getByRole("button", { name: "Conectar" }).click();
+  await expect(page.getByText("CONNECTED")).toBeVisible();
+
+  const [account] = await sql`
+    select id from messaging_accounts
+    where channel = 'fake' and delegate_id = (select id from users where name = ${delegateName})
+    order by created_at desc limit 1
+  `;
+  expect(account).toBeTruthy();
+
+  // No inbound message first: the delegate started this chat themselves, so
+  // the echo is the very first thing Kindly ever sees of it.
+  const contactName = `Grace ${randomUUID().slice(0, 8)}`;
+  const echoResponse = await request.post(`/api/webhooks/fake/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify({
+      kind: "OUTBOUND_ECHO",
+      externalConversationId: `chat-${randomUUID()}`,
+      externalMessageId: `msg-${randomUUID()}`,
+      externalContactId: `provider-${randomUUID()}`,
+      contactDisplayName: contactName,
+      text: "Te confirmo la cita mañana",
+    }),
+  });
+  expect(echoResponse.status()).toBe(200);
+
+  await expect(async () => {
+    await page.goto("/inbox");
+    await expect(page.getByText(contactName)).toBeVisible();
+  }).toPass({ timeout: 15_000 });
+
+  await page.getByText(contactName).click();
+  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page.getByText("Te confirmo la cita mañana")).toBeVisible();
+  await expect(page.getByText("desde el móvil")).toBeVisible();
+});
+
 test("a second organization sees none of the first organization's inbox", async ({ browser }) => {
   const contextA = await browser.newContext();
   const pageA = await contextA.newPage();

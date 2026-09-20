@@ -70,6 +70,29 @@ export interface NormalizedInboundMessage {
   occurredAt: Date;
 }
 
+/**
+ * A message the DELEGATE sent from their own device, echoed back to us by
+ * the provider — WhatsApp coexistence's `smb_message_echoes`
+ * (docs/INTEGRATIONS.md sección 2.2). It is OUTBOUND, but Kindly did not
+ * originate it, which is why it can't reuse `NormalizedInboundMessage`.
+ *
+ * Carries the same contact fields as an inbound message on purpose: an echo
+ * can be the *first* thing we ever see of a conversation, when the delegate
+ * starts a brand-new chat from their phone.
+ */
+export interface NormalizedOutboundEcho {
+  kind: "OUTBOUND_ECHO";
+  externalConversationId: string;
+  externalMessageId: string;
+  /** Provider identity of the recipient — never a phone number (docs/DATABASE.md sección 6). */
+  externalContactId: string;
+  contactDisplayName?: string | null;
+  /** Opportunistic, never used as technical identity. */
+  contactPhoneE164?: string | null;
+  text: string;
+  occurredAt: Date;
+}
+
 export interface NormalizedDeliveryUpdate {
   kind: "DELIVERY_UPDATE";
   externalMessageId: string;
@@ -77,7 +100,10 @@ export interface NormalizedDeliveryUpdate {
   occurredAt: Date;
 }
 
-export type NormalizedInboundEvent = NormalizedInboundMessage | NormalizedDeliveryUpdate;
+export type NormalizedInboundEvent =
+  | NormalizedInboundMessage
+  | NormalizedOutboundEcho
+  | NormalizedDeliveryUpdate;
 
 export interface MessagingAdapter {
   readonly channel: string;

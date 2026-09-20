@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-19.
+Última actualización: 2026-09-20.
 
 ## Resumen en una línea
 
@@ -11,7 +11,8 @@ MessagingAccount/Conversation/Message con webhooks idempotentes + Inbox
 (listado/filtros/no leídos/respuesta/identificación de Contact/conexión de
 canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
 activo: **`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)**,
-definido el 2026-09-19 y sin empezar a programar todavía. La PoC de
+definido el 2026-09-19, con el eco de salientes ya implementado el
+2026-09-20. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -26,7 +27,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🔴 **Activo** (definido 2026-09-19), ver `CURRENT_TASK.md` |
+| **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🔴 **Activo** — eco de salientes hecho (2026-09-20); faltan historial, desconexión externa, ventana 24h y UI de conexión |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
 | Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
@@ -121,6 +122,16 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   (nuevo tipo de evento para ecos de salientes, job en background real,
   ventana de 24 h que no se abre desde el móvil, y desconexión que Kindly no
   controla). Detalle completo en `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-005`, primer bloque: eco de salientes. Tipo de evento
+  propio `OUTBOUND_ECHO` en `MessagingAdapter`, columna explícita
+  `messages.sent_from_device` (en vez de derivar el origen de
+  `source_webhook_event_id`, que impediría resolver la carrera sin destruir
+  la procedencia del webhook), `sendOutboundMessage` con
+  `onConflictDoUpdate` para que un eco que llega antes no se quede con la
+  fila mal etiquetada, y `MESSAGE_SENT_FROM_DEVICE` como Activity propia. La
+  idempotencia no necesitó nada nuevo: el `unique(messaging_account_id,
+  external_message_id)` de PKG-003 ya cubre el caso. Detalle en
+  `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 
