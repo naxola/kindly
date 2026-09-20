@@ -103,6 +103,18 @@ export async function disconnectMessagingAccount(
     throw new Error(`No MessagingAdapter registered for channel "${account.channel}".`);
   }
 
+  // Some channels cannot be disconnected from our side at all — WhatsApp
+  // coexistence has no Deregister API, the delegate ends it from their own
+  // phone and we only learn about it through a webhook
+  // (docs/INTEGRATIONS.md sección 2.2). Refusing here rather than silently
+  // marking the row DISCONNECTED keeps Kindly's state honest: the
+  // connection would still be live at the provider.
+  if (!adapter.capabilities.canDisconnect) {
+    throw new Error(
+      `Channel "${account.channel}" cannot be disconnected from Kindly — the delegate must do it from their own device.`,
+    );
+  }
+
   await adapter.disconnectAccount(account);
 
   const [updated] = await db
@@ -118,6 +130,48 @@ export async function disconnectMessagingAccount(
     entityType: "messaging_account",
     entityId: accountId,
     metadata: { channel: account.channel },
+  });
+
+  return updated ?? null;
+}
+
+/**
+ * Records a disconnection that happened outside Kindly — the delegate
+ * disconnected from their own device, or the provider revoked the
+ * connection (WhatsApp `account_update` / `PARTNER_REMOVED`). Reached only
+ * from the webhook pipeline, so there is no acting user.
+ *
+ * Idempotent: a webhook redelivered after the account is already
+ * DISCONNECTED changes nothing and logs nothing twice.
+ */
+export async function applyProviderDisconnection(accountId: string, reason?: string | null) {
+  const [account] = await db
+    .select()
+    .from(messagingAccounts)
+    .where(eq(messagingAccounts.id, accountId))
+    .limit(1);
+  if (!account || account.status === "DISCONNECTED") {
+    return null;
+  }
+
+  const [updated] = await db
+    .update(messagingAccounts)
+    .set({
+      status: "DISCONNECTED",
+      disconnectedAt: new Date(),
+      lastError: reason || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(messagingAccounts.id, accountId))
+    .returning();
+
+  await recordActivity({
+    organizationId: account.organizationId,
+    type: "CHANNEL_DISCONNECTED",
+    actorUserId: null,
+    entityType: "messaging_account",
+    entityId: accountId,
+    metadata: { channel: account.channel, initiatedBy: "provider", reason: reason || null },
   });
 
   return updated ?? null;

@@ -1,6 +1,6 @@
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listMessagingAccounts } from "@/modules/messaging/service";
-import { listRegisteredChannels } from "@/modules/messaging/registry";
+import { getChannelCapabilities, listRegisteredChannels } from "@/modules/messaging/registry";
 import { connectMessagingAccountAction, disconnectMessagingAccountAction } from "@/modules/messaging/actions";
 
 export default async function ChannelsPage() {
@@ -82,19 +82,33 @@ export default async function ChannelsPage() {
         <tbody>
           {accounts.map((account) => {
             const disconnectThisAccount = disconnectMessagingAccountAction.bind(null, account.id);
+            // Some channels cannot be ended from here at all (WhatsApp
+            // coexistence has no Deregister API) — offering the button
+            // anyway would promise something Kindly cannot do (PKG-005).
+            const canDisconnect = getChannelCapabilities(account.channel)?.canDisconnect ?? false;
             return (
               <tr key={account.id} className="border-b border-zinc-100">
                 <td className="py-2">{account.displayName ?? account.channel}</td>
                 <td className="py-2 text-zinc-500">{memberNameById.get(account.delegateId) ?? "—"}</td>
-                <td className="py-2 text-zinc-500">{account.status}</td>
-                <td className="py-2 text-right">
-                  {account.status !== "DISCONNECTED" && (
-                    <form action={disconnectThisAccount}>
-                      <button type="submit" className="text-xs underline">
-                        Desconectar
-                      </button>
-                    </form>
+                <td className="py-2 text-zinc-500">
+                  {account.status}
+                  {account.lastError && (
+                    <span className="block text-xs text-amber-700">{account.lastError}</span>
                   )}
+                </td>
+                <td className="py-2 text-right">
+                  {account.status !== "DISCONNECTED" &&
+                    (canDisconnect ? (
+                      <form action={disconnectThisAccount}>
+                        <button type="submit" className="text-xs underline">
+                          Desconectar
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-xs text-zinc-400">
+                        Se desconecta desde el móvil del delegado
+                      </span>
+                    ))}
                 </td>
               </tr>
             );

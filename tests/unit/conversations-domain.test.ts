@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isConversationUnread } from "@/modules/conversations/domain";
+import { getServiceWindowState, isConversationUnread } from "@/modules/conversations/domain";
 
 describe("isConversationUnread (unit, no database)", () => {
   it("is read when there is no message yet", () => {
@@ -21,5 +21,37 @@ describe("isConversationUnread (unit, no database)", () => {
     const lastReadAt = new Date("2026-01-01T00:00:01Z");
     expect(isConversationUnread(new Date("2026-01-01T00:00:00Z"), lastReadAt)).toBe(false);
     expect(isConversationUnread(lastReadAt, lastReadAt)).toBe(false);
+  });
+});
+
+describe("getServiceWindowState", () => {
+  const now = new Date("2026-09-20T12:00:00Z");
+
+  it("reports NOT_APPLICABLE on a channel without a messaging window", () => {
+    expect(getServiceWindowState(new Date("2020-01-01T00:00:00Z"), null, now)).toEqual({
+      status: "NOT_APPLICABLE",
+      expiresAt: null,
+    });
+  });
+
+  it("is CLOSED when the Contact has never written", () => {
+    expect(getServiceWindowState(null, 24, now)).toEqual({ status: "CLOSED", expiresAt: null });
+  });
+
+  it("is OPEN within the window and reports when it expires", () => {
+    const lastInbound = new Date("2026-09-20T02:00:00Z");
+    const state = getServiceWindowState(lastInbound, 24, now);
+    expect(state.status).toBe("OPEN");
+    expect(state.expiresAt).toEqual(new Date("2026-09-21T02:00:00Z"));
+  });
+
+  it("is CLOSED once the window has elapsed", () => {
+    expect(getServiceWindowState(new Date("2026-09-19T11:00:00Z"), 24, now).status).toBe("CLOSED");
+  });
+
+  it("closes exactly at the boundary, never a millisecond later", () => {
+    const lastInbound = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    expect(getServiceWindowState(lastInbound, 24, now).status).toBe("CLOSED");
+    expect(getServiceWindowState(new Date(lastInbound.getTime() + 1), 24, now).status).toBe("OPEN");
   });
 });

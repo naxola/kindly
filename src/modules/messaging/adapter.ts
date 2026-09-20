@@ -93,6 +93,39 @@ export interface NormalizedOutboundEcho {
   occurredAt: Date;
 }
 
+/**
+ * A message from the conversation's past, replayed by the provider during
+ * the initial sync that follows a connection (WhatsApp coexistence's
+ * `history` webhook, 180 days of 1:1 chats — docs/INTEGRATIONS.md sección
+ * 2.2). Unlike a live message it is not news: it must not mark the
+ * conversation unread, and it must not produce one Activity per message.
+ */
+export interface NormalizedHistoryMessage {
+  kind: "HISTORY_MESSAGE";
+  externalConversationId: string;
+  externalMessageId: string;
+  externalContactId: string;
+  contactDisplayName?: string | null;
+  contactPhoneE164?: string | null;
+  /** History replays both sides of the conversation. */
+  direction: "INBOUND" | "OUTBOUND";
+  text: string;
+  occurredAt: Date;
+}
+
+/**
+ * The connection ended somewhere other than Kindly — the delegate
+ * disconnected from their own phone, or the provider revoked it
+ * (WhatsApp's `account_update` / `PARTNER_REMOVED`). There is no acting
+ * user on our side, so this is the only way such a channel ever reaches
+ * DISCONNECTED.
+ */
+export interface NormalizedAccountDisconnected {
+  kind: "ACCOUNT_DISCONNECTED";
+  reason?: string | null;
+  occurredAt: Date;
+}
+
 export interface NormalizedDeliveryUpdate {
   kind: "DELIVERY_UPDATE";
   externalMessageId: string;
@@ -103,10 +136,35 @@ export interface NormalizedDeliveryUpdate {
 export type NormalizedInboundEvent =
   | NormalizedInboundMessage
   | NormalizedOutboundEcho
+  | NormalizedHistoryMessage
+  | NormalizedAccountDisconnected
   | NormalizedDeliveryUpdate;
+
+/**
+ * What a channel can and cannot do, declared by its adapter so the domain
+ * and the UI never branch on a provider name (`CLAUDE.md` sección 2: no
+ * acoplar el dominio a un proveedor concreto). Both flags exist because
+ * WhatsApp coexistence answers them differently from every other channel —
+ * see docs/INTEGRATIONS.md sección 2.2.
+ */
+export interface MessagingChannelCapabilities {
+  /**
+   * Length of the provider's free-form messaging window, in hours, counted
+   * from the Contact's last inbound message. `null` when the channel has no
+   * such restriction (Telegram). WhatsApp Cloud API: 24.
+   */
+  serviceWindowHours: number | null;
+  /**
+   * Whether Kindly can end the connection from its side. False for WhatsApp
+   * coexistence: there is no Deregister API, the delegate disconnects from
+   * their own phone and we only find out through a webhook.
+   */
+  canDisconnect: boolean;
+}
 
 export interface MessagingAdapter {
   readonly channel: string;
+  readonly capabilities: MessagingChannelCapabilities;
   connectAccount(input: ConnectAccountInput): Promise<ConnectionResult>;
   disconnectAccount(account: MessagingAccountRecord): Promise<void>;
   getConnectionStatus(account: MessagingAccountRecord): Promise<ConnectionStatus>;

@@ -10,9 +10,10 @@ PostgreSQL/Drizzle + Better Auth + Contacts/Cases/Tasks/Activity +
 MessagingAccount/Conversation/Message con webhooks idempotentes + Inbox
 (listado/filtros/no leídos/respuesta/identificación de Contact/conexión de
 canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
-activo: **`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)**,
-definido el 2026-09-19, con el eco de salientes ya implementado el
-2026-09-20. La PoC de
+**`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)** completo el
+2026-09-20: ecos, historial, ventana de servicio y desconexión externa, todo
+contra el stub. Sin paquete activo ahora mismo; el siguiente acordado es
+`PKG-006` (miembros de la organización). La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -27,7 +28,11 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-002** | **CRM básico** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
-| **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🔴 **Activo** — eco de salientes hecho (2026-09-20); faltan historial, desconexión externa, ventana 24h y UI de conexión |
+| **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🟢 **Completo** (2026-09-20), ver `CURRENT_TASK.md` |
+| PKG-006 | Miembros de la organización (invitar delegados) | Código (agente) | ⚪ Siguiente, confirmado por el usuario — definición en `TASKS.md` |
+| PKG-007 | Ajustes del delegado y estado del canal | Código (agente) | ⚪ No iniciada |
+| PKG-008 | Alta de WhatsApp: elección y comprobaciones previas | Código (agente) | ⚪ No iniciada |
+| PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
 | Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
@@ -132,6 +137,15 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   idempotencia no necesitó nada nuevo: el `unique(messaging_account_id,
   external_message_id)` de PKG-003 ya cubre el caso. Detalle en
   `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-005` cerrado: las particularidades del proveedor se
+  declaran como `MessagingChannelCapabilities` en el adapter
+  (`serviceWindowHours`, `canDisconnect`) en vez de preguntar por el nombre
+  del canal; la ventana de servicio se calcula **solo** sobre el último
+  mensaje entrante, porque los mensajes que el delegado escribe desde su
+  móvil no la reabren; el historial importado no marca conversaciones como no
+  leídas ni genera una Activity por mensaje; y un canal que Kindly no puede
+  desconectar lo dice en la UI en vez de ofrecer un botón imposible. Detalle
+  en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

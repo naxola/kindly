@@ -2,12 +2,14 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { webhookEvents } from "@/modules/messaging/schema";
-import { getMessagingAccountByChannelAndId } from "@/modules/messaging/service";
+import { getMessagingAccountByChannelAndId, applyProviderDisconnection } from "@/modules/messaging/service";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
 import {
   findOrCreateConversation,
   insertInboundMessage,
   insertEchoedMessage,
+  importHistoryMessage,
+  markConversationReadUpTo,
   applyDeliveryUpdate,
 } from "@/modules/conversations/service";
 import { recordActivity } from "@/modules/audit/service";
@@ -142,6 +144,32 @@ async function processWebhookEvent(
             metadata: { messageId: message.id },
           });
         }
+      } else if (normalized.kind === "HISTORY_MESSAGE") {
+        const conversation = await findOrCreateConversation(account.organizationId, account, normalized.externalConversationId, {
+          externalContactId: normalized.externalContactId,
+          displayName: normalized.contactDisplayName,
+          phoneE164: normalized.contactPhoneE164,
+        });
+
+        await importHistoryMessage({
+          organizationId: account.organizationId,
+          conversation,
+          account,
+          externalMessageId: normalized.externalMessageId,
+          direction: normalized.direction,
+          body: normalized.text,
+          sourceWebhookEventId: webhookEventId,
+          occurredAt: normalized.occurredAt,
+        });
+
+        // History is the past, not news: 180 days of imported threads must
+        // not land in the Inbox as a wall of unread conversations, and
+        // must not emit one Activity per message. Marking read up to the
+        // imported message's own timestamp leaves anything genuinely newer
+        // still unread.
+        await markConversationReadUpTo(account.organizationId, conversation.id, normalized.occurredAt);
+      } else if (normalized.kind === "ACCOUNT_DISCONNECTED") {
+        await applyProviderDisconnection(account.id, normalized.reason);
       } else {
         await applyDeliveryUpdate(account.id, normalized.externalMessageId, normalized.deliveryStatus);
       }

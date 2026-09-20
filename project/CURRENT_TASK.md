@@ -4,36 +4,39 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: PKG-005 — WhatsApp coexistence (dominio + UI contra stub)
+## Paquete activo: ninguno — PKG-005 cerrado el 2026-09-20
 
-Definido el 2026-09-19 tras la decisión de adoptar coexistence (ver
-`docs/DECISIONS.md`, entrada del 2026-09-19). **No implementa el
-`WhatsAppAdapter` real**: Kindly todavía no es Tech Provider de Meta, y ese
-trámite es el camino crítico de la Fase 5. Este paquete construye todo lo que
-no depende de Meta, para que cuando llegue la aprobación solo falte cablear
-credenciales y ajustar el adapter a los payloads reales.
+`PKG-005 — WhatsApp coexistence (dominio + UI contra stub)` completo. El
+siguiente paquete acordado con el usuario es **`PKG-006 — Miembros de la
+organización`** (ver `project/TASKS.md`), todavía sin empezar.
 
-### Objective
+El punto 5 del Scope original (flujo de conexión de canal con advertencias
+previas) salió de este paquete y vive ahora como `PKG-008` en
+`project/TASKS.md` — no se dejó sin hacer, se movió a un paquete propio
+porque creció (ver `docs/DECISIONS.md`, 2026-09-20).
 
-Dejar el dominio y la UI preparados para coexistence, verificados de punta a
-punta contra un stub: eco de mensajes salientes enviados desde el móvil del
-delegado, importación de historial, desconexión iniciada desde fuera de
-Kindly, ventana de 24 h en la composición, y el flujo de conexión de canal
-con sus advertencias previas.
+### Progreso — todo hecho (2026-09-20)
 
-### Progreso
-
-- [x] **Eco de salientes** — hecho el 2026-09-20. `NormalizedOutboundEcho` en
-      el adapter, `messages.sent_from_device` (migración
-      `0005_echo_sent_from_device.sql`), `insertEchoedMessage`,
-      `sendOutboundMessage` pasa a `onConflictDoUpdate` para ganar la carrera
-      contra su propio eco, `MESSAGE_SENT_FROM_DEVICE` como Activity, y la
-      marca "desde el móvil" en `/inbox/[id]`. 4 tests de integración + 1 E2E
-      nuevos. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-20).
-- [ ] Importación de historial.
-- [ ] Desconexión iniciada desde fuera (`PARTNER_REMOVED`).
-- [ ] Ventana de 24 h en la composición.
-- [ ] Flujo de conexión de canal con advertencias previas.
+- [x] **Eco de salientes.** `NormalizedOutboundEcho`,
+      `messages.sent_from_device` (migración `0005_echo_sent_from_device.sql`),
+      `insertEchoedMessage`, `sendOutboundMessage` con `onConflictDoUpdate`
+      para ganar la carrera contra su propio eco, `MESSAGE_SENT_FROM_DEVICE`
+      como Activity, marca "desde el móvil" en `/inbox/[id]`.
+- [x] **Capacidades de canal.** `MessagingChannelCapabilities`
+      (`serviceWindowHours`, `canDisconnect`) en `MessagingAdapter`, para que
+      ni el dominio ni la UI pregunten por el nombre del proveedor.
+- [x] **Importación de historial.** `HISTORY_MESSAGE`,
+      `importHistoryMessage`, `markConversationReadUpTo` (nunca hacia atrás),
+      sin Activity por mensaje.
+- [x] **Desconexión iniciada desde fuera.** `ACCOUNT_DISCONNECTED`,
+      `applyProviderDisconnection` (sin actor), `disconnectMessagingAccount`
+      rechaza los canales con `canDisconnect: false`, y `/channels` lo explica
+      en vez de ofrecer un botón imposible.
+- [x] **Ventana de servicio en la composición.** `getServiceWindowState`
+      calculada **solo** sobre el último mensaje entrante, guard en
+      `sendOutboundMessage` y aviso en `/inbox/[id]`.
+- [→] Flujo de conexión de canal con advertencias previas — **movido a
+      `PKG-008`** (`project/TASKS.md`), no completado aquí.
 
 ### Scope
 
@@ -904,8 +907,10 @@ selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
 engancha a él sin las variables de entorno que la suite necesita. Detalle en
 `docs/DECISIONS.md`, entrada del 2026-09-20.
 
-**Próxima acción concreta:** seguir con la importación de historial, o con la
-ventana de 24 h en la composición si se prefiere avanzar por la UI.
+**Próxima acción concreta:** empezar `PKG-006 — Miembros de la organización`
+(invitar delegados), confirmado por el usuario el 2026-09-20. Su definición
+está en `project/TASKS.md`; al activarlo, traerla aquí con la plantilla
+completa como el resto de paquetes.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

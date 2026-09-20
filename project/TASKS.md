@@ -237,6 +237,106 @@ de arquitectura, que ya está tomada. Ver `docs/DECISIONS.md` y
       encargo), incluyendo verificación explícita del comportamiento de
       identidad de comunicación decidido en Fase 0.
 
+## Desglose en paquetes: conexión de WhatsApp desde los ajustes del delegado
+
+Propuesto el 2026-09-20 a petición del usuario ("que el administrador o el
+delegado sean capaces de integrar su número con Kindly y Meta"). Sustituye al
+listado plano de la Fase 5 de arriba, que no distinguía lo construible hoy de
+lo bloqueado por Meta. Nada de esto se empieza sin confirmación explícita.
+
+### Bloqueo previo detectado: hoy no existen organizaciones con varios miembros
+
+`bootstrapOrganizationForUser` crea una Organization por usuario y le asigna
+rol `ADMIN` — **no hay ningún flujo de invitación**. Es decir: hoy toda
+organización tiene exactamente un miembro, que es ADMIN. La distinción
+"el administrador o el delegado" no se puede ejercer ni testear, y el selector
+de Delegate de `/channels` siempre tiene una sola opción: uno mismo.
+
+Esto no impide conectar un número (el ADMIN es también su propio delegado),
+pero sí hace imposible el escenario real del producto: un despacho donde el
+ADMIN gestiona varios DELEGATE. Por eso `PKG-006` va antes.
+
+### PKG-006 — Miembros de la organización (invitar delegados)
+
+Construible hoy, sin dependencias externas.
+
+- [ ] Invitar a un miembro a la Organization y asignarle rol ADMIN/DELEGATE.
+- [ ] Aceptación de invitación enlazada con el registro de Better Auth
+      (un invitado que se registra entra en la Organization que le invitó, no
+      en una nueva creada por el bootstrap).
+- [ ] Pantalla de miembros: listado, rol, revocar.
+- [ ] Helper de permisos `requireAdmin` como defensa en profundidad, al mismo
+      nivel de simplicidad que el resto (`CLAUDE.md` sección 8: nada de
+      sistemas de permisos elaborados más allá de ADMIN/DELEGATE).
+- [ ] Revisar el bootstrap: no debe crear una Organization nueva a un usuario
+      que llega por invitación.
+
+### PKG-007 — Ajustes del delegado y estado del canal (contra stub)
+
+Construible hoy. Es la pantalla que el usuario pidió, sin la parte de Meta.
+
+- [ ] Vista de ajustes por delegado: un DELEGATE ve y gestiona **solo sus
+      propias** `MessagingAccount`; un ADMIN ve las de toda la Organization.
+      Respeta el principio 1 (`CLAUDE.md`): la identidad de comunicación es
+      del profesional, no de la organización.
+- [ ] Exponer de verdad la máquina de estados de `MessagingAccount`
+      (`PENDING`/`CONNECTING`/`CONNECTED`/`DEGRADED`/`ERROR`/`REVOKED`/
+      `DISCONNECTED`), hoy reducida a un texto plano en `/channels`.
+- [ ] Mostrar `lastError` y `lastSyncAt` cuando existan — una cuenta en
+      `ERROR` o `DEGRADED` sin explicación es inútil para el usuario.
+- [ ] Sustituir el formulario genérico de `/channels` (canal + delegado) por
+      un alta por canal, que es como funciona de verdad cada proveedor.
+
+### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas (contra stub)
+
+Construible hoy. Es el flujo que el usuario describió de GoHighLevel.
+
+- [ ] Pantalla de elección con las tres vías, excluyentes entre sí:
+      (a) conectar un número que ya usa WhatsApp Business App (coexistence),
+      (b) crear una cuenta de WhatsApp Business nueva,
+      (c) migrar desde otro BSP.
+      **Solo (a) está decidida** (`docs/DECISIONS.md`, 2026-09-19). Las otras
+      dos se muestran como no disponibles todavía, nunca como si funcionaran.
+- [ ] Pantalla de comprobaciones previas antes de conectar: número en
+      WhatsApp Business App, número añadido al Business Manager, historial que
+      se sincroniza (180 días, solo 1:1, adjuntos 14 días), funciones que se
+      desactivan en el móvil (mensajes temporales, ver una vez, ubicación en
+      directo, listas de difusión; Windows y WearOS se desvinculan) y coste de
+      Cloud API.
+- [ ] Comprobación de país: **como dato configurable, no como lista
+      hardcodeada** — la lista oficial de regiones no soportadas sigue sin
+      confirmarse (`docs/DECISIONS.md`) y no se copia de fuentes no oficiales.
+- [ ] Aviso de qué pasa después (redirección a Facebook) y botón final.
+      Sin credenciales de Meta, el botón explica que el canal todavía no está
+      disponible — **nunca simula una conexión real ante un usuario**
+      (`CLAUDE.md` sección 3).
+- [ ] Estados intermedios reales: `PENDING` → `CONNECTING` → `CONNECTED`, y
+      el camino de error, ejercitados contra el stub.
+
+### PKG-009 — Embedded Signup real (BLOQUEADO)
+
+No se empieza hasta tener las dos cosas de abajo. Es el único paquete que
+toca Meta de verdad.
+
+**Bloqueado por:**
+1. El alta de Kindly como **Tech Provider de Meta** (Fase 0 arriba).
+2. La **decisión del Business Manager de la organización**, aplazada por el
+   usuario el 2026-09-19. No es solo legal: determina quién se autentica
+   contra Facebook y en qué Business Manager acaba el número, que es
+   precisamente lo que configura este paquete.
+
+- [ ] Embedded Signup **v4** con session logging (v2 se depreca el
+      2026-10-08).
+- [ ] Evento `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`, saltando el registro
+      del número, e intercambio del código por token.
+- [ ] Alta de las tres suscripciones de webhook (`history`,
+      `smb_app_state_sync`, `smb_message_echoes`).
+- [ ] Disparar la sincronización de historial dentro del plazo duro de 24 h
+      (aquí sí se introduce la cola de jobs, ver `docs/DECISIONS.md`).
+- [ ] `WhatsAppAdapter` real implementando `MessagingAdapter`.
+- [ ] Credenciales en almacén seguro vía `credentials_reference` — nunca en
+      la fila de la base de datos, el código o los logs (`CLAUDE.md` 5).
+
 ## Fase 6 — Cases
 
 - [ ] Ciclo de vida completo de `Case` (transiciones de estado).

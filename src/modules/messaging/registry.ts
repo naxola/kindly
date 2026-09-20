@@ -13,7 +13,7 @@
  * `globalThis` is the one thing every chunk in the same Node process
  * actually shares. See docs/DECISIONS.md, bloque "PKG-004".
  */
-import type { MessagingAdapter } from "@/modules/messaging/adapter";
+import type { MessagingAdapter, MessagingChannelCapabilities } from "@/modules/messaging/adapter";
 
 declare global {
   var __kindlyMessagingAdapters: Map<string, MessagingAdapter> | undefined;
@@ -35,6 +35,15 @@ export function getMessagingAdapter(channel: string): MessagingAdapter | null {
 /** Channels with a real registered adapter — drives the "connect a channel" UI (PKG-004). Empty in production. */
 export function listRegisteredChannels(): string[] {
   return [...getRegistry().keys()];
+}
+
+/**
+ * Capabilities of a channel, or null when no adapter is registered for it.
+ * Lets the UI ask what a channel can do without importing the adapter
+ * itself or branching on a provider name (PKG-005).
+ */
+export function getChannelCapabilities(channel: string): MessagingChannelCapabilities | null {
+  return getMessagingAdapter(channel)?.capabilities ?? null;
 }
 
 export function clearMessagingAdapters(): void {

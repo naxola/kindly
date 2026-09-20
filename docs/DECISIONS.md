@@ -836,6 +836,93 @@ adapters existentes no emiten.
 
 ---
 
+## 2026-09-20 — PKG-005 cerrado: capacidades de canal, historial, ventana y desconexión externa
+
+Resto de `PKG-005`, tras el eco de salientes (entrada anterior de hoy).
+
+**1. Las particularidades del proveedor se declaran como capacidades, no se
+consultan por nombre.** Se añade `MessagingChannelCapabilities` a
+`MessagingAdapter`:
+
+```
+serviceWindowHours: number | null   -- null = el canal no tiene ventana
+canDisconnect: boolean              -- false = Kindly no puede terminar la conexión
+```
+
+La alternativa era que el dominio y la UI preguntasen `if (channel ===
+"whatsapp")`, que es exactamente lo que prohíbe `CLAUDE.md` sección 2. Ambas
+existen porque coexistence las responde distinto de cualquier otro canal; un
+`TelegramAdapter` futuro declarará `{ serviceWindowHours: null,
+canDisconnect: true }` y ni el dominio ni la UI cambian.
+
+**2. La ventana de servicio se calcula solo desde el último mensaje
+ENTRANTE.** `getServiceWindowState(lastInboundAt, serviceWindowHours, now)` en
+`conversations/domain.ts`, puro y sin I/O.
+
+Éste es el punto que más fácil habría sido equivocar: lo intuitivo es usar "el
+último mensaje" de la conversación, y habría estado mal. En coexistence los
+mensajes que el delegado escribe desde su móvil llegan como salientes y **no
+abren ni extienden** la ventana de Cloud API (`docs/INTEGRATIONS.md` sección
+2.4). Calcularla sobre el último mensaje de cualquier dirección reportaría
+"ventana abierta" sobre conversaciones a las que Kindly no puede responder, y
+el fallo aparecería como un error del proveedor al enviar, no como un bug
+nuestro. Hay un test dedicado (`does not let the delegate's own phone reopen a
+closed window`).
+
+`sendOutboundMessage` además **rechaza** el envío con la ventana cerrada. La
+UI ya oculta el compositor, pero registrar un mensaje que el proveedor va a
+rechazar dejaría la conversación mintiendo.
+
+**3. El historial importado no es novedad.** Tres consecuencias, todas
+deliberadas:
+
+- **No marca la conversación como no leída.** Importar 180 días dejaría el
+  Inbox como un muro de conversaciones sin leer que nadie ha dejado sin leer.
+  `markConversationReadUpTo` marca leído hasta la fecha del propio mensaje
+  importado, **nunca hacia atrás**: una conversación que el usuario ya abrió
+  se queda donde la dejó, y una fase posterior del historial no puede
+  "des-leerla". Un mensaje en vivo realmente nuevo sigue apareciendo sin leer
+  (test dedicado).
+- **No genera una Activity por mensaje.** El feed de actividad no es un
+  volcado del historial.
+- **Un saliente importado es siempre `sentFromDevice: true`**: es anterior a
+  la conexión, así que por definición Kindly no lo compuso.
+
+**4. La desconexión que Kindly no inicia.** Tipo de evento
+`ACCOUNT_DISCONNECTED` (nombre genérico, no `PARTNER_REMOVED`, que es
+vocabulario de Meta) y `applyProviderDisconnection`, que deja la cuenta en
+`DISCONNECTED` con `actorUserId: null` — nadie actuó aquí — y es idempotente
+ante reentrega.
+
+Simétricamente, `disconnectMessagingAccount` **lanza** si el canal declara
+`canDisconnect: false`, en vez de marcar la fila como desconectada: la
+conexión seguiría viva en el proveedor y el estado de Kindly sería falso.
+`/channels` sustituye el botón por "Se desconecta desde el móvil del
+delegado", que es lo que de verdad hay que hacer.
+
+**5. Cambio de alcance registrado.** El punto 5 del Scope original de
+`PKG-005` (flujo de conexión de canal con advertencias previas) **sale de este
+paquete** y pasa a `PKG-008` en `project/TASKS.md`, donde se desglosó con el
+detalle que pidió el usuario el 2026-09-20. No se ha dejado sin hacer: se ha
+movido a un paquete propio porque creció.
+
+**Nota operativa: la suite E2E y el puerto 3000, segunda vez.** Hoy volvieron
+a fallar los E2E, con otra causa distinta de la de ayer pero el mismo
+mecanismo: `playwright.config.ts` usa `reuseExistingServer: !process.env.CI`,
+así que **cualquier** servidor en el puerto 3000 se reutiliza — incluido uno
+que arrancó la propia Playwright en una ejecución anterior y que quedó vivo
+con un build **antiguo**, sin el código recién escrito. El síntoma vuelve a
+no apuntar a la causa (tests que fallan por UI "inexistente" que sí existe en
+el fuente). Regla práctica: si los E2E fallan de forma inexplicable,
+`ss -ltnp | grep :3000` antes que nada. Queda como candidato a endurecer la
+configuración en un paquete futuro.
+
+**Supersede a:** nada. Extiende `MessagingAdapter` con `capabilities` — un
+miembro nuevo obligatorio de la interfaz, que solo implementa hoy
+`FakeMessagingAdapter` porque no hay ningún adapter real todavía.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

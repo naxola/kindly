@@ -155,6 +155,65 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   await expect(page.getByText("desde el móvil")).toBeVisible();
 });
 
+/**
+ * PKG-005: on a channel with a provider messaging window (coexistence's
+ * 24h), a conversation whose last inbound message is older than the window
+ * cannot be replied to in free form — and the UI has to say why, including
+ * the part users get wrong: writing from the phone does not reopen it.
+ */
+test("a conversation outside the provider window explains itself instead of offering a composer", async ({
+  page,
+  request,
+}) => {
+  const delegateName = `Window Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachDashboard(page, delegateName);
+
+  await page.getByRole("link", { name: "Canales" }).click();
+  await page.getByLabel("Canal").selectOption({ label: "fake-coex" });
+  await page.getByLabel("Delegate").selectOption({ label: delegateName });
+  await page.getByRole("button", { name: "Conectar" }).click();
+  await expect(page.getByText("CONNECTED")).toBeVisible();
+
+  // This channel cannot be ended from Kindly, so no button is offered.
+  await expect(page.getByText("Se desconecta desde el móvil del delegado")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Desconectar" })).toHaveCount(0);
+
+  const [account] = await sql`
+    select id from messaging_accounts
+    where channel = 'fake-coex' and delegate_id = (select id from users where name = ${delegateName})
+    order by created_at desc limit 1
+  `;
+  expect(account).toBeTruthy();
+
+  // A message from the Contact 48h ago: the window opened then, and closed.
+  const contactName = `Katherine ${randomUUID().slice(0, 8)}`;
+  const staleAt = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const response = await request.post(`/api/webhooks/fake-coex/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify({
+      kind: "HISTORY_MESSAGE",
+      externalConversationId: `chat-${randomUUID()}`,
+      externalMessageId: `msg-${randomUUID()}`,
+      externalContactId: `provider-${randomUUID()}`,
+      contactDisplayName: contactName,
+      direction: "INBOUND",
+      text: "Escribí hace dos días",
+      occurredAt: staleAt,
+    }),
+  });
+  expect(response.status()).toBe(200);
+
+  await expect(async () => {
+    await page.goto("/inbox");
+    await expect(page.getByText(contactName)).toBeVisible();
+  }).toPass({ timeout: 15_000 });
+
+  await page.getByText(contactName).click();
+  await expect(page.getByText("No puedes responder en texto libre ahora mismo")).toBeVisible();
+  await expect(page.getByText("no reabren")).toBeVisible();
+  await expect(page.getByPlaceholder("Escribe una respuesta...")).toHaveCount(0);
+});
+
 test("a second organization sees none of the first organization's inbox", async ({ browser }) => {
   const contextA = await browser.newContext();
   const pageA = await contextA.newPage();

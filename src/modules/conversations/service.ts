@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
 import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
-import { isConversationUnread } from "@/modules/conversations/domain";
+import { getServiceWindowState, isConversationUnread, type ServiceWindowState } from "@/modules/conversations/domain";
 import { contacts } from "@/modules/contacts/schema";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getCase } from "@/modules/cases/service";
@@ -233,6 +233,114 @@ export async function applyDeliveryUpdate(
     );
 }
 
+/**
+ * Service-window state for a conversation (PKG-005), resolved against the
+ * channel's declared capabilities rather than any provider name. An
+ * unregistered channel has no adapter to ask — in that case the window is
+ * reported as NOT_APPLICABLE, which is honest: we genuinely do not know,
+ * and sending is already impossible without an adapter anyway.
+ */
+export async function getConversationServiceWindow(
+  organizationId: string,
+  conversationId: string,
+  channel: string,
+  now: Date = new Date(),
+): Promise<ServiceWindowState> {
+  const adapter = getMessagingAdapter(channel);
+  if (!adapter) {
+    return { status: "NOT_APPLICABLE", expiresAt: null };
+  }
+
+  const [lastInbound] = await db
+    .select({ createdAt: messages.createdAt })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.organizationId, organizationId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.direction, "INBOUND"),
+      ),
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+
+  return getServiceWindowState(lastInbound?.createdAt ?? null, adapter.capabilities.serviceWindowHours, now);
+}
+
+interface ImportHistoryMessageInput {
+  organizationId: string;
+  conversation: typeof conversations.$inferSelect;
+  account: MessagingAccountRecord;
+  externalMessageId: string;
+  direction: "INBOUND" | "OUTBOUND";
+  body: string;
+  sourceWebhookEventId: string;
+  occurredAt: Date;
+}
+
+/**
+ * Persists one replayed message from the provider's initial history sync
+ * (PKG-005). Same idempotency key as every other path, so re-running an
+ * import — which WhatsApp's phased history delivery makes likely — never
+ * duplicates anything.
+ *
+ * An imported OUTBOUND message is always `sentFromDevice: true`: it
+ * predates the connection, so by definition Kindly did not compose it.
+ */
+export async function importHistoryMessage(input: ImportHistoryMessageInput) {
+  const [inserted] = await db
+    .insert(messages)
+    .values({
+      organizationId: input.organizationId,
+      conversationId: input.conversation.id,
+      messagingAccountId: input.account.id,
+      externalMessageId: input.externalMessageId,
+      direction: input.direction,
+      sentFromDevice: input.direction === "OUTBOUND",
+      body: input.body,
+      deliveryStatus: input.direction === "INBOUND" ? "DELIVERED" : "SENT",
+      sourceWebhookEventId: input.sourceWebhookEventId,
+      createdAt: input.occurredAt,
+      updatedAt: input.occurredAt,
+    })
+    .onConflictDoNothing({ target: [messages.messagingAccountId, messages.externalMessageId] })
+    .returning();
+
+  if (inserted) {
+    return { created: true as const, message: inserted };
+  }
+  return { created: false as const, message: null };
+}
+
+/**
+ * Marks a conversation as read up to `readAt` without touching anything
+ * else — used after a history import so that importing 180 days of past
+ * conversations does not land in the Inbox as a wall of unread threads
+ * (docs/DECISIONS.md, PKG-005). Never moves `lastReadAt` backwards: a
+ * conversation the user already opened stays where they left it, and a
+ * later history phase cannot un-read it.
+ */
+export async function markConversationReadUpTo(
+  organizationId: string,
+  conversationId: string,
+  readAt: Date,
+): Promise<void> {
+  const [conversation] = await db
+    .select({ lastReadAt: conversations.lastReadAt })
+    .from(conversations)
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .limit(1);
+
+  if (conversation && conversation.lastReadAt && conversation.lastReadAt.getTime() >= readAt.getTime()) {
+    return;
+  }
+
+  await db
+    .update(conversations)
+    .set({ lastReadAt: readAt })
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)));
+}
+
 export interface SendOutboundMessageInput {
   organizationId: string;
   actorUserId: string;
@@ -254,6 +362,19 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
   const adapter = getMessagingAdapter(conversation.channel);
   if (!adapter) {
     throw new Error(`No MessagingAdapter registered for channel "${conversation.channel}".`);
+  }
+
+  // Defense in depth: the composer already hides itself when the window is
+  // closed, but a closed window means the provider will reject the send
+  // outright, so the domain refuses it too rather than recording a message
+  // that never left.
+  const serviceWindow = await getConversationServiceWindow(
+    input.organizationId,
+    conversation.id,
+    conversation.channel,
+  );
+  if (serviceWindow.status === "CLOSED") {
+    throw new Error("The provider's messaging window for this conversation is closed.");
   }
 
   const result = await adapter.sendMessage(account, conversation, { text: input.text });
