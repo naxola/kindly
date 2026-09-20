@@ -2,12 +2,14 @@ import "server-only";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
 import { organizationMembers, organizations } from "@/modules/organizations/schema";
+import { acceptPendingInvitationForUser } from "@/modules/organizations/invitations";
 
 /**
- * Minimal Organization bootstrap for PKG-002: every new user gets their own
- * Organization with the ADMIN role. Full organization management (invite
- * members, switch active organization, belong to several organizations) is
- * explicitly out of scope — see project/CURRENT_TASK.md Non-goals.
+ * Organization bootstrap. Through PKG-005 every new user got their own
+ * Organization with the ADMIN role, full stop; PKG-006 adds the other way
+ * in — accepting an invitation — via `ensureOrganizationForUser` below.
+ * Belonging to several organizations at once remains out of scope
+ * (`organization_members_user_unique`).
  *
  * Called from Better Auth's `databaseHooks.user.create.after`
  * (src/modules/auth/auth.ts) right after a user registers. Deliberately in
@@ -54,4 +56,28 @@ export async function bootstrapOrganizationForUser(
     }
     throw error;
   }
+}
+
+/**
+ * The single entry point for "this user must end up in an Organization"
+ * (PKG-006). Order matters: an invited address joins the inviting
+ * Organization, and only a user with no invitation gets one of their own.
+ * Before this existed, the user-creation hook always created a new
+ * Organization, which made invitations impossible — the invitee ended up
+ * as ADMIN of their own empty tenant.
+ *
+ * Used both by Better Auth's user-creation hook and by the self-heal path
+ * in getCurrentOrganizationMember, so the two can never disagree about
+ * what "has an organization" means.
+ */
+export async function ensureOrganizationForUser(
+  userId: string,
+  userName: string,
+  userEmail: string,
+): Promise<void> {
+  const joined = await acceptPendingInvitationForUser(userId, userEmail);
+  if (joined) {
+    return;
+  }
+  await bootstrapOrganizationForUser(userId, userName);
 }

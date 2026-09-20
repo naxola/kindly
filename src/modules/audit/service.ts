@@ -3,7 +3,13 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { activities } from "@/modules/audit/schema";
 
-export type ActivityEntityType = "contact" | "case" | "task" | "conversation" | "messaging_account";
+export type ActivityEntityType =
+  | "contact"
+  | "case"
+  | "task"
+  | "conversation"
+  | "messaging_account"
+  | "organization";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -15,6 +21,8 @@ export type ActivityEntityType = "contact" | "case" | "task" | "conversation" | 
  * PKG-005 adds MESSAGE_SENT_FROM_DEVICE: on a channel with coexistence an
  * outbound message may have been written on the delegate's own phone, with
  * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
+ * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
+ * activities whose entity is the Organization itself.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -31,7 +39,10 @@ export type ActivityType =
   | "MESSAGE_SENT_FROM_DEVICE"
   | "CONVERSATION_REASSIGNED"
   | "CHANNEL_CONNECTED"
-  | "CHANNEL_DISCONNECTED";
+  | "CHANNEL_DISCONNECTED"
+  | "MEMBER_INVITED"
+  | "MEMBER_JOINED"
+  | "INVITATION_REVOKED";
 
 interface RecordActivityInput {
   organizationId: string;

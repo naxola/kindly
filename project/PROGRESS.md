@@ -12,8 +12,10 @@ MessagingAccount/Conversation/Message con webhooks idempotentes + Inbox
 canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
 **`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)** completo el
 2026-09-20: ecos, historial, ventana de servicio y desconexión externa, todo
-contra el stub. Sin paquete activo ahora mismo; el siguiente acordado es
-`PKG-006` (miembros de la organización). La PoC de
+contra el stub. **`PKG-006` — Miembros de la organización** completo el mismo
+día: invitaciones, roles reales y `/members`. Sin paquete activo ahora mismo;
+los candidatos son `PKG-007` (ajustes del delegado) y `PKG-008` (alta de
+WhatsApp), ambos definidos en `TASKS.md`. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -29,7 +31,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-003** | **Messaging core (backend, sin UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🟢 **Completo** (2026-09-20), ver `CURRENT_TASK.md` |
-| PKG-006 | Miembros de la organización (invitar delegados) | Código (agente) | ⚪ Siguiente, confirmado por el usuario — definición en `TASKS.md` |
+| **PKG-006** | **Miembros de la organización (invitar delegados)** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | PKG-007 | Ajustes del delegado y estado del canal | Código (agente) | ⚪ No iniciada |
 | PKG-008 | Alta de WhatsApp: elección y comprobaciones previas | Código (agente) | ⚪ No iniciada |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
@@ -146,6 +148,15 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   leídas ni genera una Activity por mensaje; y un canal que Kindly no puede
   desconectar lo dice en la UI en vez de ofrecer un botón imposible. Detalle
   en `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-006`: invitaciones de miembros. Hasta aquí toda
+  organización tenía un único miembro ADMIN y el rol DELEGATE no lo tenía
+  nadie. La invitación se vincula **por email** en el hook de registro (no por
+  token arrastrado por el flujo), `ensureOrganizationForUser` es el único
+  punto de entrada para "este usuario debe acabar en una organización", y el
+  límite real —una persona pertenece a una sola organización, así que solo
+  puede aceptar quien no tenga cuenta— se muestra como un estado propio de la
+  invitación en vez de reventar durante el registro. Kindly no envía emails:
+  el ADMIN copia el enlace, y la UI lo dice. Detalle en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

@@ -22,6 +22,9 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   CONVERSATION_REASSIGNED: "Conversación reasignada",
   CHANNEL_CONNECTED: "Canal conectado",
   CHANNEL_DISCONNECTED: "Canal desconectado",
+  MEMBER_INVITED: "Miembro invitado",
+  MEMBER_JOINED: "Miembro incorporado",
+  INVITATION_REVOKED: "Invitación revocada",
 };
 
 function labelFor(type: string): string {

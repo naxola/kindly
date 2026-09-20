@@ -923,6 +923,90 @@ miembro nuevo obligatorio de la interfaz, que solo implementa hoy
 
 ---
 
+## 2026-09-20 — PKG-006: invitaciones y miembros de la organización
+
+**Contexto.** Al desglosar la integración de WhatsApp en ajustes del delegado
+(petición del usuario del 2026-09-20) apareció un bloqueo que no estaba
+registrado: `bootstrapOrganizationForUser` creaba una Organization por
+usuario con rol `ADMIN`, y **no existía ningún flujo de invitación**. Toda
+organización tenía exactamente un miembro, el rol `DELEGATE` no lo tenía
+nadie, y el selector de Delegate de `/channels` siempre ofrecía una sola
+opción. "El administrador o el delegado" era, literalmente, la misma persona.
+
+**Decisión: la invitación se vincula por email, no por token.** El token de
+`/invite/<token>` solo direcciona la página; lo que convierte la invitación en
+membresía es que el email de la cuenta recién creada coincida con el de una
+invitación pendiente, comprobado en el hook de creación de usuario de Better
+Auth.
+
+La alternativa era arrastrar el token por el flujo de registro (query param,
+cookie o estado) hasta poder canjearlo tras crear la cuenta. Se descarta
+porque el registro lo gestiona Better Auth, no nosotros: meter estado propio
+en medio significa que un registro por cualquier otra vía (o un fallo a mitad)
+deja la invitación colgada. Emparejar por email hace que el camino funcione
+igual venga de donde venga la cuenta, y es idempotente.
+
+Consecuencia aceptada: quien acepta debe registrarse **con el email exacto al
+que se le invitó**. Por eso el campo de email de `/invite/<token>` es de solo
+lectura — si se pudiera cambiar, la persona acabaría en silencio como ADMIN de
+una organización nueva y vacía en vez de en la que la invitó.
+
+**Decisión: `ensureOrganizationForUser` como único punto de entrada.** Antes
+el hook de registro llamaba directamente a `bootstrapOrganizationForUser`, y
+la autorreparación de `getCurrentOrganizationMember` también. Ahora ambos
+pasan por `ensureOrganizationForUser`, que intenta primero aceptar una
+invitación y solo crea organización propia si no hay ninguna. Tener dos sitios
+decidiendo qué significa "tiene organización" era exactamente el tipo de
+divergencia que causó el incidente del login silencioso del 2026-09-18.
+
+**Límite real, mostrado y no escondido: una persona = una organización.** La
+restricción `organization_members_user_unique` (introducida en el fix de la
+condición de carrera del 2026-09-18) impide que un usuario pertenezca a dos
+organizaciones. Por tanto **una invitación solo es utilizable por un email que
+todavía no tiene cuenta**.
+
+En vez de dejar que eso reviente durante el registro, `getInvitationByToken`
+devuelve `EMAIL_ALREADY_REGISTERED` como estado propio y la página lo explica.
+Los cinco estados (`USABLE`, `EXPIRED`, `REVOKED`, `ALREADY_ACCEPTED`,
+`EMAIL_ALREADY_REGISTERED`) se distinguen a propósito: agruparlos en "enlace
+inválido" le quita al lector la única información que le permite actuar.
+Además, `acceptPendingInvitationForUser` deja la invitación en `PENDING` si la
+membresía falla por esa restricción — nunca se marca `ACCEPTED` contra una
+membresía que no se creó.
+
+**Índice único parcial para las invitaciones pendientes.**
+`UNIQUE (organization_id, email) WHERE status = 'PENDING'`. Un `UNIQUE`
+normal sobre esas dos columnas habría impedido volver a invitar a una
+dirección tras revocarla o tras una invitación caducada, que es justo cuando
+más falta hace. Con el índice parcial, dos invitaciones vivas a la vez para el
+mismo destinatario son imposibles — que es lo que evita que dos invitaciones
+compitan por ser aceptadas.
+
+**Kindly no envía emails, y se dice.** No hay infraestructura de correo y no se
+añade aquí (`CLAUDE.md` sección 2: nada de infraestructura sin necesidad
+concreta). Al invitar se genera un enlace que el ADMIN copia y hace llegar por
+sus medios. La UI lo explica en vez de mostrar un "Invitación enviada" que
+sería falso. Cuando haya proveedor de correo, el cambio es aditivo.
+
+**`requireOrganizationAdmin` y nada más.** Un único helper que comprueba
+`role === "ADMIN"`, usado por las acciones de invitar y revocar. Sin matriz de
+permisos ni capacidades (`CLAUDE.md` sección 8). La UI oculta el formulario a
+un DELEGATE y la acción lo rechaza igualmente: defensa en profundidad, mismo
+patrón que `cases/service.ts`.
+
+**Activities con `entityType: "organization"`.** Nuevo valor en
+`ActivityEntityType` — las primeras actividades cuyo sujeto es la propia
+organización — y tres tipos: `MEMBER_INVITED`, `MEMBER_JOINED`,
+`INVITATION_REVOKED`. `MEMBER_JOINED` se registra **fuera** de la transacción
+que crea la membresía: el acceso de la persona a su organización no puede
+depender de que se escriba bien una fila de auditoría.
+
+**Supersede a:** la afirmación de `bootstrap.ts` (PKG-002) de que gestionar
+miembros estaba fuera de alcance, y el Non-goal equivalente de `PKG-002`. La
+restricción de una sola organización por persona sigue vigente y sin cambios.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

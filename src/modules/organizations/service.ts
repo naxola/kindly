@@ -9,7 +9,7 @@ import { organizationMembers, organizations, type OrganizationRole } from "@/mod
 // bootstrapOrganizationForUser lives in ./bootstrap.ts, not here: auth.ts
 // needs it (databaseHooks.user.create.after) and this file imports `auth`,
 // so keeping them together would create an import cycle.
-import { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
+import { bootstrapOrganizationForUser, ensureOrganizationForUser } from "@/modules/organizations/bootstrap";
 export { bootstrapOrganizationForUser };
 
 export interface CurrentOrganizationMember {
@@ -58,7 +58,10 @@ export async function getCurrentOrganizationMember(): Promise<CurrentOrganizatio
   // this, such a user gets bounced back to /login with no error message
   // after a *correct* login, which is indistinguishable from a wrong
   // password — see docs/DECISIONS.md for the incident this fixes.
-  await bootstrapOrganizationForUser(session.user.id, session.user.name);
+  // Same entry point as the signup hook (PKG-006), so a user created
+  // before their invitation existed still joins the inviting Organization
+  // instead of silently getting one of their own.
+  await ensureOrganizationForUser(session.user.id, session.user.name, session.user.email);
   const healed = await findMembership(session.user.id);
   if (!healed) {
     // Only reachable if the insert itself failed (e.g. DB unavailable) —
@@ -99,6 +102,20 @@ export async function requireCurrentOrganizationMember(): Promise<CurrentOrganiz
   const member = await getCurrentOrganizationMember();
   if (!member) {
     throw new Error("Not authenticated or missing organization membership.");
+  }
+  return member;
+}
+
+/**
+ * ADMIN-only guard (PKG-006). Deliberately as blunt as the role model it
+ * enforces — two roles, one check, no permission matrix
+ * (`CLAUDE.md` sección 8). Used by the invitation actions, which are the
+ * first thing in Kindly a DELEGATE must not be able to do.
+ */
+export async function requireOrganizationAdmin(): Promise<CurrentOrganizationMember> {
+  const member = await requireCurrentOrganizationMember();
+  if (member.role !== "ADMIN") {
+    throw new Error("Only an ADMIN can perform this action.");
   }
   return member;
 }

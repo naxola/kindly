@@ -256,20 +256,24 @@ Esto no impide conectar un número (el ADMIN es también su propio delegado),
 pero sí hace imposible el escenario real del producto: un despacho donde el
 ADMIN gestiona varios DELEGATE. Por eso `PKG-006` va antes.
 
-### PKG-006 — Miembros de la organización (invitar delegados)
+### PKG-006 — Miembros de la organización (invitar delegados) — CERRADO 2026-09-20
 
-Construible hoy, sin dependencias externas.
+- [x] Invitar a un miembro a la Organization y asignarle rol ADMIN/DELEGATE.
+- [x] Aceptación de invitación enlazada con el registro de Better Auth
+      (emparejada por email en el hook de creación de usuario, no por token
+      arrastrado por el flujo — ver `docs/DECISIONS.md`).
+- [x] Pantalla de miembros (`/members`): listado, rol, invitaciones
+      pendientes con su enlace, revocar.
+- [x] Página pública `/invite/<token>` que distingue los cinco estados de una
+      invitación en vez de agruparlos en "enlace inválido".
+- [x] Helper `requireOrganizationAdmin` como defensa en profundidad.
+- [x] Bootstrap revisado: `ensureOrganizationForUser` es ahora el único punto
+      de entrada, usado por el hook de registro y por la autorreparación.
 
-- [ ] Invitar a un miembro a la Organization y asignarle rol ADMIN/DELEGATE.
-- [ ] Aceptación de invitación enlazada con el registro de Better Auth
-      (un invitado que se registra entra en la Organization que le invitó, no
-      en una nueva creada por el bootstrap).
-- [ ] Pantalla de miembros: listado, rol, revocar.
-- [ ] Helper de permisos `requireAdmin` como defensa en profundidad, al mismo
-      nivel de simplicidad que el resto (`CLAUDE.md` sección 8: nada de
-      sistemas de permisos elaborados más allá de ADMIN/DELEGATE).
-- [ ] Revisar el bootstrap: no debe crear una Organization nueva a un usuario
-      que llega por invitación.
+Límite conocido y mostrado en la UI: una persona pertenece a una sola
+Organization (`organization_members_user_unique`), así que una invitación solo
+la puede aceptar un email que todavía no tenga cuenta. Y Kindly no envía
+emails: el ADMIN copia el enlace.
 
 ### PKG-007 — Ajustes del delegado y estado del canal (contra stub)
 

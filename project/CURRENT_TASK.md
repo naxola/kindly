@@ -4,16 +4,51 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005 cerrado el 2026-09-20
+## Paquete activo: ninguno — PKG-005 y PKG-006 cerrados el 2026-09-20
 
-`PKG-005 — WhatsApp coexistence (dominio + UI contra stub)` completo. El
-siguiente paquete acordado con el usuario es **`PKG-006 — Miembros de la
-organización`** (ver `project/TASKS.md`), todavía sin empezar.
+`PKG-005 — WhatsApp coexistence (dominio + UI contra stub)` y
+`PKG-006 — Miembros de la organización` completos. Candidatos siguientes, ya
+definidos en `project/TASKS.md`: `PKG-007` (ajustes del delegado y estado del
+canal) y `PKG-008` (alta de WhatsApp: elección y comprobaciones previas).
+`PKG-009` (Embedded Signup real) sigue bloqueado por el alta como Tech
+Provider y por la decisión del Business Manager.
 
-El punto 5 del Scope original (flujo de conexión de canal con advertencias
-previas) salió de este paquete y vive ahora como `PKG-008` en
-`project/TASKS.md` — no se dejó sin hacer, se movió a un paquete propio
-porque creció (ver `docs/DECISIONS.md`, 2026-09-20).
+El punto 5 del Scope original de PKG-005 (flujo de conexión de canal con
+advertencias previas) salió de ese paquete y vive como `PKG-008` — no se dejó
+sin hacer, se movió a un paquete propio porque creció (ver
+`docs/DECISIONS.md`, 2026-09-20).
+
+### PKG-006 — Miembros de la organización (cerrado 2026-09-20)
+
+Desbloquea el escenario real del producto: hasta ahora toda organización
+tenía un único miembro, siempre ADMIN, así que el rol DELEGATE no lo tenía
+nadie y el selector de Delegate de `/channels` siempre ofrecía una sola
+opción.
+
+- Tabla `organization_invitations` con índice único **parcial** sobre
+  `(organization_id, email) WHERE status = 'PENDING'` (migración
+  `0006_organization_invitations.sql`).
+- `/members`: miembros con su rol, invitaciones pendientes con su enlace, e
+  invitar/revocar solo para ADMIN.
+- `/invite/<token>` pública, que distingue los cinco estados de una
+  invitación en vez de agruparlos en "enlace inválido".
+- `ensureOrganizationForUser` como único punto de entrada, usado por el hook
+  de registro de Better Auth y por la autorreparación de
+  `getCurrentOrganizationMember`.
+- `requireOrganizationAdmin` en las acciones, con la UI ocultando además el
+  formulario a un DELEGATE.
+- Activities nuevas con `entityType: "organization"`: `MEMBER_INVITED`,
+  `MEMBER_JOINED`, `INVITATION_REVOKED`.
+
+Límites conocidos, mostrados en la UI y no escondidos: una persona pertenece
+a una sola organización, así que una invitación solo la puede aceptar un email
+sin cuenta previa; y Kindly no envía emails, el ADMIN copia el enlace.
+
+Decisiones completas en `docs/DECISIONS.md` (entrada del 2026-09-20).
+
+---
+
+## Registro: PKG-005 — WhatsApp coexistence (cerrado 2026-09-20)
 
 ### Progreso — todo hecho (2026-09-20)
 
@@ -907,10 +942,10 @@ selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
 engancha a él sin las variables de entorno que la suite necesita. Detalle en
 `docs/DECISIONS.md`, entrada del 2026-09-20.
 
-**Próxima acción concreta:** empezar `PKG-006 — Miembros de la organización`
-(invitar delegados), confirmado por el usuario el 2026-09-20. Su definición
-está en `project/TASKS.md`; al activarlo, traerla aquí con la plantilla
-completa como el resto de paquetes.
+**Próxima acción concreta:** el usuario elige entre `PKG-007` (ajustes del
+delegado y estado del canal) y `PKG-008` (alta de WhatsApp: elección y
+comprobaciones previas), ambos definidos en `project/TASKS.md` y ambos
+construibles hoy contra el stub. No empezar a programar sin esa elección.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

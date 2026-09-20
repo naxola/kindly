@@ -3,7 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/client";
 import { authSchema } from "@/modules/auth/schema";
-import { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
+import { ensureOrganizationForUser } from "@/modules/organizations/bootstrap";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 
@@ -53,12 +53,14 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // PKG-002: every new user gets their own Organization (ADMIN role)
-        // so multi-tenant data (Contacts/Cases/Tasks) has somewhere to
-        // belong. See docs/DECISIONS.md and
-        // src/modules/organizations/bootstrap.ts.
+        // Every new user must end up in exactly one Organization so that
+        // multi-tenant data has somewhere to belong. Since PKG-006 there
+        // are two ways in: accepting a pending invitation (the invitee
+        // joins the inviting Organization with the invited role), or, for
+        // anyone signing up on their own, a brand-new Organization where
+        // they are ADMIN. See src/modules/organizations/bootstrap.ts.
         after: async (user) => {
-          await bootstrapOrganizationForUser(user.id, user.name);
+          await ensureOrganizationForUser(user.id, user.name, user.email);
         },
       },
     },
