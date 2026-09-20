@@ -4,18 +4,23 @@ import { revalidatePath } from "next/cache";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { connectMessagingAccount, disconnectMessagingAccount } from "@/modules/messaging/service";
 
+/**
+ * Connects a channel for the signed-in member — always for themselves
+ * (PKG-007). The form no longer carries a delegate id: every real provider
+ * authenticates the account holder in person, so picking someone else was
+ * never something Kindly could honour.
+ */
 export async function connectMessagingAccountAction(formData: FormData) {
   const member = await requireCurrentOrganizationMember();
   const channel = String(formData.get("channel") ?? "").trim();
-  const delegateId = String(formData.get("delegateId") ?? "").trim();
-  if (!channel || !delegateId) {
-    throw new Error("Channel and delegate are required.");
+  if (!channel) {
+    throw new Error("Channel is required.");
   }
 
   await connectMessagingAccount({
     organizationId: member.organizationId,
     actorUserId: member.userId,
-    delegateId,
+    delegateId: member.userId,
     channel,
   });
 
@@ -24,6 +29,9 @@ export async function connectMessagingAccountAction(formData: FormData) {
 
 export async function disconnectMessagingAccountAction(accountId: string) {
   const member = await requireCurrentOrganizationMember();
-  await disconnectMessagingAccount(member.organizationId, member.userId, accountId);
+  await disconnectMessagingAccount(
+    { organizationId: member.organizationId, userId: member.userId, role: member.role },
+    accountId,
+  );
   revalidatePath("/channels");
 }

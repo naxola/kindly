@@ -44,10 +44,8 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   // Connect the fake channel to this newly registered delegate.
   await page.getByRole("link", { name: "Canales" }).click();
   await expect(page).toHaveURL(/\/channels$/);
-  await page.getByLabel("Canal").selectOption({ label: "fake" });
-  await page.getByLabel("Delegate").selectOption({ label: delegateName });
-  await page.getByRole("button", { name: "Conectar" }).click();
-  await expect(page.getByText("CONNECTED")).toBeVisible();
+  await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
+  await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
   const [account] = await sql`
     select id from messaging_accounts
@@ -116,10 +114,8 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   await registerAndReachDashboard(page, delegateName);
 
   await page.getByRole("link", { name: "Canales" }).click();
-  await page.getByLabel("Canal").selectOption({ label: "fake" });
-  await page.getByLabel("Delegate").selectOption({ label: delegateName });
-  await page.getByRole("button", { name: "Conectar" }).click();
-  await expect(page.getByText("CONNECTED")).toBeVisible();
+  await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
+  await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
   const [account] = await sql`
     select id from messaging_accounts
@@ -169,13 +165,11 @@ test("a conversation outside the provider window explains itself instead of offe
   await registerAndReachDashboard(page, delegateName);
 
   await page.getByRole("link", { name: "Canales" }).click();
-  await page.getByLabel("Canal").selectOption({ label: "fake-coex" });
-  await page.getByLabel("Delegate").selectOption({ label: delegateName });
-  await page.getByRole("button", { name: "Conectar" }).click();
-  await expect(page.getByText("CONNECTED")).toBeVisible();
+  await page.getByRole("button", { name: "Conectar fake-coex", exact: true }).click();
+  await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
   // This channel cannot be ended from Kindly, so no button is offered.
-  await expect(page.getByText("Se desconecta desde el móvil del delegado")).toBeVisible();
+  await expect(page.getByText("Este canal se desconecta desde tu propio móvil")).toBeVisible();
   await expect(page.getByRole("button", { name: "Desconectar" })).toHaveCount(0);
 
   const [account] = await sql`
@@ -221,10 +215,8 @@ test("a second organization sees none of the first organization's inbox", async 
   await registerAndReachDashboard(pageA, delegateName);
 
   await pageA.getByRole("link", { name: "Canales" }).click();
-  await pageA.getByLabel("Canal").selectOption({ label: "fake" });
-  await pageA.getByLabel("Delegate").selectOption({ label: delegateName });
-  await pageA.getByRole("button", { name: "Conectar" }).click();
-  await expect(pageA.getByText("CONNECTED")).toBeVisible();
+  await pageA.getByRole("button", { name: "Conectar fake", exact: true }).click();
+  await expect(pageA.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
   await contextA.close();
 
   const contextB = await browser.newContext();
@@ -232,7 +224,7 @@ test("a second organization sees none of the first organization's inbox", async 
   await registerAndReachDashboard(pageB, "Org B User");
 
   await pageB.getByRole("link", { name: "Canales" }).click();
-  await expect(pageB.getByText("Todavía no hay canales conectados.")).toBeVisible();
+  await expect(pageB.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await expect(pageB.getByText(delegateName)).toHaveCount(0);
 
   await pageB.getByRole("link", { name: "Inbox" }).click();

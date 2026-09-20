@@ -4,19 +4,32 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005 y PKG-006 cerrados el 2026-09-20
+## Paquete activo: ninguno — PKG-005, PKG-006 y PKG-007 cerrados el 2026-09-20
 
-`PKG-005 — WhatsApp coexistence (dominio + UI contra stub)` y
-`PKG-006 — Miembros de la organización` completos. Candidatos siguientes, ya
-definidos en `project/TASKS.md`: `PKG-007` (ajustes del delegado y estado del
-canal) y `PKG-008` (alta de WhatsApp: elección y comprobaciones previas).
-`PKG-009` (Embedded Signup real) sigue bloqueado por el alta como Tech
-Provider y por la decisión del Business Manager.
+Siguiente candidato, ya definido en `project/TASKS.md`: **`PKG-008` — Alta de
+WhatsApp: elección y comprobaciones previas** (el flujo estilo GoHighLevel que
+describió el usuario), construible hoy contra el stub. `PKG-009` (Embedded
+Signup real) sigue bloqueado por el alta como Tech Provider de Meta y por la
+decisión del Business Manager de la organización.
 
-El punto 5 del Scope original de PKG-005 (flujo de conexión de canal con
-advertencias previas) salió de ese paquete y vive como `PKG-008` — no se dejó
-sin hacer, se movió a un paquete propio porque creció (ver
-`docs/DECISIONS.md`, 2026-09-20).
+### PKG-007 — Ajustes del delegado y estado del canal (cerrado 2026-09-20)
+
+`/channels` deja de ser una tabla de la organización y pasa a ser los ajustes
+de canal del profesional.
+
+- Un DELEGATE ve y gestiona solo sus propias `MessagingAccount`; un ADMIN ve
+  además las del resto de la organización.
+- **Retirado el formulario "canal + delegado"**: la conexión es siempre para
+  uno mismo, porque ningún proveedor real permite otra cosa. El servicio lo
+  rechaza, no solo la UI.
+- Desconectar es asimétrico: un DELEGATE solo lo suyo, un ADMIN cualquiera de
+  la organización (dar de baja a quien se va) — salvo en canales que declaran
+  `canDisconnect: false`, donde no puede nadie desde Kindly.
+- `describeAccountStatus` (puro, en `messaging/domain.ts`) traduce cada estado
+  a tono / requiere atención / operativo, y la UI añade la explicación y
+  muestra `lastError`, `lastSyncAt` y `connectedAt`.
+
+Decisiones completas en `docs/DECISIONS.md` (entrada del 2026-09-20).
 
 ### PKG-006 — Miembros de la organización (cerrado 2026-09-20)
 
@@ -942,10 +955,12 @@ selector Canal" o con vueltas inesperadas a `/login`, mira primero si hay un
 engancha a él sin las variables de entorno que la suite necesita. Detalle en
 `docs/DECISIONS.md`, entrada del 2026-09-20.
 
-**Próxima acción concreta:** el usuario elige entre `PKG-007` (ajustes del
-delegado y estado del canal) y `PKG-008` (alta de WhatsApp: elección y
-comprobaciones previas), ambos definidos en `project/TASKS.md` y ambos
-construibles hoy contra el stub. No empezar a programar sin esa elección.
+**Próxima acción concreta:** `PKG-008 — Alta de WhatsApp: elección y
+comprobaciones previas`, definido en `project/TASKS.md` y construible hoy
+contra el stub. Es el flujo que describió el usuario (tres vías excluyentes,
+pantalla de advertencias previas, aviso de redirección y botón final), con la
+regla de que solo la vía de coexistence está decidida y las otras dos se
+muestran como no disponibles en vez de fingir que funcionan.
 
 **En paralelo, fuera del código y del camino del agente:** el usuario arranca
 el alta ante Meta (dominio + landing + política de privacidad pública →

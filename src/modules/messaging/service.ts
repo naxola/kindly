@@ -4,10 +4,34 @@ import { db } from "@/db/client";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
 import { isOrganizationMember } from "@/modules/organizations/service";
+import type { OrganizationRole } from "@/modules/organizations/schema";
 import { recordActivity } from "@/modules/audit/service";
 
 export async function listMessagingAccounts(organizationId: string) {
   return db.select().from(messagingAccounts).where(eq(messagingAccounts.organizationId, organizationId));
+}
+
+/**
+ * The accounts a given member may see (PKG-007). A DELEGATE sees only their
+ * own: the channel is their personal communication identity, not the
+ * organization's (`CLAUDE.md` principio 1), so exposing a colleague's
+ * connection state to them is not "read-only convenience", it is someone
+ * else's phone. An ADMIN sees the whole organization because managing it is
+ * their job.
+ */
+export async function listMessagingAccountsForMember(
+  organizationId: string,
+  member: { userId: string; role: OrganizationRole },
+) {
+  return db
+    .select()
+    .from(messagingAccounts)
+    .where(
+      and(
+        eq(messagingAccounts.organizationId, organizationId),
+        member.role === "ADMIN" ? undefined : eq(messagingAccounts.delegateId, member.userId),
+      ),
+    );
 }
 
 export async function getMessagingAccount(organizationId: string, accountId: string) {
@@ -52,6 +76,16 @@ export async function connectMessagingAccount(input: ConnectMessagingAccountInpu
     throw new Error("Cannot connect a channel for a delegate outside the organization.");
   }
 
+  // Nobody connects a channel on someone else's behalf, not even an ADMIN
+  // (PKG-007). This is not a policy choice: every real provider
+  // authenticates the account holder themselves — a Telegram Business bot
+  // is added from inside the delegate's own Telegram, and WhatsApp's
+  // Embedded Signup runs against their own Meta login. An "ADMIN connects
+  // for a delegate" path could only ever be theatre.
+  if (input.delegateId !== input.actorUserId) {
+    throw new Error("A channel can only be connected by the delegate who owns it.");
+  }
+
   const result = await adapter.connectAccount({
     organizationId: input.organizationId,
     delegateId: input.delegateId,
@@ -88,14 +122,24 @@ export async function connectMessagingAccount(input: ConnectMessagingAccountInpu
   return account;
 }
 
-export async function disconnectMessagingAccount(
-  organizationId: string,
-  actorUserId: string,
-  accountId: string,
-) {
+export interface DisconnectActor {
+  organizationId: string;
+  userId: string;
+  role: OrganizationRole;
+}
+
+export async function disconnectMessagingAccount(actor: DisconnectActor, accountId: string) {
+  const { organizationId, userId: actorUserId } = actor;
   const account = await getMessagingAccount(organizationId, accountId);
   if (!account) {
     return null;
+  }
+
+  // A DELEGATE only governs their own communication identity (PKG-007). An
+  // ADMIN may disconnect any of the organization's accounts — that is
+  // offboarding, and it is their job.
+  if (actor.role !== "ADMIN" && account.delegateId !== actorUserId) {
+    throw new Error("A DELEGATE can only disconnect their own channel.");
   }
 
   const adapter = getMessagingAdapter(account.channel);

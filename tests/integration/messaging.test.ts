@@ -9,7 +9,12 @@ import * as schema from "@/db/schema";
 import { users } from "@/modules/auth/schema";
 import { organizationMembers, organizations } from "@/modules/organizations/schema";
 import { webhookEvents } from "@/modules/messaging/schema";
-import { connectMessagingAccount, disconnectMessagingAccount, getMessagingAccount } from "@/modules/messaging/service";
+import {
+  connectMessagingAccount,
+  disconnectMessagingAccount,
+  getMessagingAccount,
+  listMessagingAccountsForMember,
+} from "@/modules/messaging/service";
 import { listConversationsWithPreview } from "@/modules/conversations/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
 import { receiveWebhook } from "@/modules/messaging/webhook-service";
@@ -99,7 +104,7 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
     const { user, org } = await createTestUserAndOrg("Channel Closer");
     const account = await connectFakeAccount(org.id, user.id);
 
-    const updated = await disconnectMessagingAccount(org.id, user.id, account.id);
+    const updated = await disconnectMessagingAccount({ organizationId: org.id, userId: user.id, role: "ADMIN" }, account.id);
     expect(updated?.status).toBe("DISCONNECTED");
     expect(updated?.disconnectedAt).not.toBeNull();
 
@@ -593,7 +598,9 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
       const { user, org } = await createTestUserAndOrg("Cannot Disconnect Org");
       const account = await connectFakeAccount(org.id, user.id, "fake-coex");
 
-      await expect(disconnectMessagingAccount(org.id, user.id, account.id)).rejects.toThrow(
+      await expect(
+        disconnectMessagingAccount({ organizationId: org.id, userId: user.id, role: "ADMIN" }, account.id),
+      ).rejects.toThrow(
         /cannot be disconnected from Kindly/,
       );
 
@@ -693,6 +700,74 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
           text: "¿Se ha reabierto?",
         }),
       ).rejects.toThrow(/messaging window/);
+    });
+  });
+
+  /**
+   * PKG-007 — a channel is the professional's own communication identity
+   * (CLAUDE.md principio 1), so who may see and end one is not a cosmetic
+   * UI question.
+   */
+  describe("per-delegate scoping of channels", () => {
+    async function addMember(organizationId: string, name: string, role: "ADMIN" | "DELEGATE") {
+      const [user] = await db
+        .insert(users)
+        .values({ id: randomUUID(), name, email: `${randomUUID()}@example.com` })
+        .returning();
+      await db.insert(organizationMembers).values({ organizationId, userId: user.id, role });
+      return user;
+    }
+
+    it("shows a DELEGATE only their own accounts and an ADMIN all of them", async () => {
+      const { user: admin, org } = await createTestUserAndOrg("Scoping Admin");
+      const delegate = await addMember(org.id, "Scoped Delegate", "DELEGATE");
+
+      const adminAccount = await connectFakeAccount(org.id, admin.id);
+      const delegateAccount = await connectFakeAccount(org.id, delegate.id);
+
+      const seenByDelegate = await listMessagingAccountsForMember(org.id, {
+        userId: delegate.id,
+        role: "DELEGATE",
+      });
+      expect(seenByDelegate.map((a) => a.id)).toEqual([delegateAccount.id]);
+
+      const seenByAdmin = await listMessagingAccountsForMember(org.id, { userId: admin.id, role: "ADMIN" });
+      expect(seenByAdmin.map((a) => a.id).sort()).toEqual([adminAccount.id, delegateAccount.id].sort());
+    });
+
+    it("refuses to connect a channel on someone else's behalf, even for an ADMIN", async () => {
+      const { user: admin, org } = await createTestUserAndOrg("Impersonating Admin");
+      const delegate = await addMember(org.id, "Unwilling Delegate", "DELEGATE");
+
+      await expect(
+        connectMessagingAccount({
+          organizationId: org.id,
+          actorUserId: admin.id,
+          delegateId: delegate.id,
+          channel: "fake",
+        }),
+      ).rejects.toThrow(/only be connected by the delegate who owns it/);
+    });
+
+    it("refuses to let a DELEGATE disconnect a colleague's channel, but lets the ADMIN do it", async () => {
+      const { user: admin, org } = await createTestUserAndOrg("Disconnect Scoping Admin");
+      const delegate = await addMember(org.id, "Other Delegate", "DELEGATE");
+      const adminAccount = await connectFakeAccount(org.id, admin.id);
+
+      await expect(
+        disconnectMessagingAccount(
+          { organizationId: org.id, userId: delegate.id, role: "DELEGATE" },
+          adminAccount.id,
+        ),
+      ).rejects.toThrow(/can only disconnect their own channel/);
+      expect((await getMessagingAccount(org.id, adminAccount.id))?.status).toBe("CONNECTED");
+
+      const delegateAccount = await connectFakeAccount(org.id, delegate.id);
+      const updated = await disconnectMessagingAccount(
+        { organizationId: org.id, userId: admin.id, role: "ADMIN" },
+        delegateAccount.id,
+      );
+      expect(updated?.status).toBe("DISCONNECTED");
     });
   });
 

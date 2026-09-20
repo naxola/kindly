@@ -13,9 +13,11 @@ canal), todo con aislamiento multi-tenant real, tests y CI. Paquete
 **`PKG-005` — WhatsApp coexistence (dominio + UI contra stub)** completo el
 2026-09-20: ecos, historial, ventana de servicio y desconexión externa, todo
 contra el stub. **`PKG-006` — Miembros de la organización** completo el mismo
-día: invitaciones, roles reales y `/members`. Sin paquete activo ahora mismo;
-los candidatos son `PKG-007` (ajustes del delegado) y `PKG-008` (alta de
-WhatsApp), ambos definidos en `TASKS.md`. La PoC de
+día: invitaciones, roles reales y `/members`. **`PKG-007` — Ajustes del
+delegado y estado del canal** también completo: `/channels` es ahora una
+vista por delegado con la máquina de estados expuesta. Sin paquete activo
+ahora mismo; el siguiente candidato es `PKG-008` (alta de WhatsApp:
+elección y comprobaciones previas), definido en `TASKS.md`. La PoC de
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
@@ -32,7 +34,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-004** | **Unified Inbox (UI)** | Código (agente) | 🟢 **Completo** (2026-09-18), ver `CURRENT_TASK.md` |
 | **PKG-005** | **WhatsApp coexistence (dominio + UI contra stub)** | Código (agente) | 🟢 **Completo** (2026-09-20), ver `CURRENT_TASK.md` |
 | **PKG-006** | **Miembros de la organización (invitar delegados)** | Código (agente) | 🟢 **Completo** (2026-09-20) |
-| PKG-007 | Ajustes del delegado y estado del canal | Código (agente) | ⚪ No iniciada |
+| **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | PKG-008 | Alta de WhatsApp: elección y comprobaciones previas | Código (agente) | ⚪ No iniciada |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
@@ -157,6 +159,14 @@ Ver `docs/DECISIONS.md` para el detalle completo. Resumen:
   puede aceptar quien no tenga cuenta— se muestra como un estado propio de la
   invitación en vez de reventar durante el registro. Kindly no envía emails:
   el ADMIN copia el enlace, y la UI lo dice. Detalle en `docs/DECISIONS.md`.
+- **(2026-09-20)** `PKG-007`: `/channels` pasa a ser ajustes por delegado.
+  Se **retira el "conectar en nombre de"** (ningún proveedor real lo permite:
+  Telegram se conecta desde la app del propio delegado y WhatsApp desde su
+  login de Meta), un DELEGATE solo ve sus propias cuentas porque el canal es
+  su identidad de comunicación y no la de la organización, desconectar es
+  asimétrico (el ADMIN puede, para dar de baja a quien se va), y la máquina
+  de estados se expone con `describeAccountStatus` en vez de imprimir el
+  enum en crudo. Detalle en `docs/DECISIONS.md`.
 
 ## Qué falta decidir con el usuario
 

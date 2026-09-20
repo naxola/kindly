@@ -275,21 +275,18 @@ Organization (`organization_members_user_unique`), así que una invitación solo
 la puede aceptar un email que todavía no tenga cuenta. Y Kindly no envía
 emails: el ADMIN copia el enlace.
 
-### PKG-007 — Ajustes del delegado y estado del canal (contra stub)
+### PKG-007 — Ajustes del delegado y estado del canal — CERRADO 2026-09-20
 
-Construible hoy. Es la pantalla que el usuario pidió, sin la parte de Meta.
-
-- [ ] Vista de ajustes por delegado: un DELEGATE ve y gestiona **solo sus
-      propias** `MessagingAccount`; un ADMIN ve las de toda la Organization.
-      Respeta el principio 1 (`CLAUDE.md`): la identidad de comunicación es
-      del profesional, no de la organización.
-- [ ] Exponer de verdad la máquina de estados de `MessagingAccount`
-      (`PENDING`/`CONNECTING`/`CONNECTED`/`DEGRADED`/`ERROR`/`REVOKED`/
-      `DISCONNECTED`), hoy reducida a un texto plano en `/channels`.
-- [ ] Mostrar `lastError` y `lastSyncAt` cuando existan — una cuenta en
-      `ERROR` o `DEGRADED` sin explicación es inútil para el usuario.
-- [ ] Sustituir el formulario genérico de `/channels` (canal + delegado) por
-      un alta por canal, que es como funciona de verdad cada proveedor.
+- [x] Vista por delegado en `/channels`: un DELEGATE ve y gestiona solo sus
+      propias `MessagingAccount`; un ADMIN ve además las del resto.
+- [x] Máquina de estados expuesta de verdad vía `describeAccountStatus`
+      (tono, si requiere atención, si los mensajes fluyen) más explicación en
+      castellano por estado.
+- [x] `lastError`, `lastSyncAt` y `connectedAt` visibles.
+- [x] Alta por canal en vez del formulario genérico canal+delegado.
+- [x] **Retirado el "conectar en nombre de"**: ningún proveedor real lo
+      permite, la conexión es siempre para uno mismo, y el servicio lo
+      rechaza además de la UI. Ver `docs/DECISIONS.md`.
 
 ### PKG-008 — Alta de WhatsApp: elección y comprobaciones previas (contra stub)
 

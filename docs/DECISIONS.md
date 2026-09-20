@@ -1007,6 +1007,66 @@ restricción de una sola organización por persona sigue vigente y sin cambios.
 
 ---
 
+## 2026-09-20 — PKG-007: ajustes de canal por delegado
+
+**Se elimina el "conectar en nombre de".** Hasta PKG-006, `/channels` tenía un
+formulario con dos desplegables —canal y delegado— que permitía a cualquier
+miembro conectar un canal a nombre de otro. **Se retira**, y la conexión es
+siempre para uno mismo.
+
+No es una decisión de política ni de permisos: es que **ningún proveedor real
+lo permite**. Un Connected Business Bot de Telegram se añade desde dentro de
+la app de Telegram del propio delegado (`docs/INTEGRATIONS.md` 1.2), y el
+Embedded Signup de WhatsApp corre contra el login de Meta del propio titular
+(2.2 y 2.3). Un camino "el ADMIN conecta por ti" solo podría haber sido
+decorado: al llegar `PKG-009` no habría tenido nada real detrás. Mantenerlo
+habría sido justo lo que prohíbe `CLAUDE.md` sección 3 — construir la UI
+alrededor de una hipótesis que la plataforma no sostiene.
+
+`connectMessagingAccount` rechaza ahora `delegateId !== actorUserId` en el
+propio servicio, no solo en la UI: defensa en profundidad, mismo patrón que la
+comprobación de pertenencia a la organización que se añadió en PKG-004.
+
+**Quién ve qué: un DELEGATE solo sus propias cuentas.** No es ocultación por
+higiene visual. El canal es la identidad de comunicación del profesional
+(`CLAUDE.md` principio 1), así que enseñarle a un delegado el estado de
+conexión de un compañero no es "solo lectura por comodidad": es el teléfono de
+otra persona. Un ADMIN sí ve toda la organización, porque gestionarla es su
+trabajo — saber que el canal de alguien está roto forma parte de eso.
+
+**Desconectar es asimétrico, a propósito.** Un DELEGATE solo puede desconectar
+lo suyo; un ADMIN puede desconectar cualquier cuenta de la organización,
+porque eso es dar de baja a alguien que se va. Se implementa con el rol, no
+con la propiedad de la fila, y convive con la regla de PKG-005: si el canal
+declara `canDisconnect: false`, no lo desconecta nadie desde Kindly, ni
+siquiera el ADMIN.
+
+**La máquina de estados deja de ser texto plano.** Hasta ahora `/channels`
+imprimía el valor del enum tal cual, así que `DEGRADED` y `REVOKED` se veían
+igual de bien que `CONNECTED`. `describeAccountStatus` (en
+`messaging/domain.ts`, puro y testeable) traduce cada estado a tono, si
+requiere atención y si los mensajes fluyen; la UI añade la explicación en
+castellano y muestra `lastError`, `lastSyncAt` y `connectedAt`.
+
+El caso que motiva la distinción entre "operativo" y "requiere atención" es
+`DEGRADED`: los mensajes siguen llegando, **y justo por eso** es el estado que
+se ignora hasta que se convierte en `ERROR`. Un test de unidad fija que
+`CONNECTED` es el único estado a la vez operativo y silencioso.
+
+**Nota de tests.** Dos E2E fallaron al escribirlos por la misma razón, que
+conviene recordar: la Organization se llama `"<nombre> 's organization"`, así
+que el nombre de un miembro aparece también en la cabecera del layout y un
+`getByText(nombre)` casa con dos sitios. Las listas de cuentas llevan ahora
+`aria-label` y los tests consultan por rol y nombre accesible — más preciso, y
+de paso mejor accesibilidad.
+
+**Supersede a:** el formulario de conexión canal+delegado de `PKG-004`
+(`/channels`), que deja de existir. La función `listMessagingAccounts` sigue
+disponible para usos internos sin sesión, pero la UI usa
+`listMessagingAccountsForMember`.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
