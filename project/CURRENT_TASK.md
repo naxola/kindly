@@ -25,7 +25,9 @@ Variables en Vercel (Preview / rama `staging`), ya cargadas por el usuario:
    cargaron después del último build: Vercel solo las lee al construir).
 2. `/channels` → conectar `whatsapp-test` → copiar el `accountId`.
 3. Meta → WhatsApp → Configuración: Callback URL
-   `https://<dominio-staging>/api/webhooks/whatsapp-test/<accountId>`, el
+   `https://kindly-git-staging-naxolas-projects.vercel.app/api/webhooks/whatsapp-test/<accountId>`
+   (la URL de la rama: `kindly-peach` es Production, está protegida y no
+   tiene el adapter), el
    Verify Token, y suscribir el campo `messages`.
 4. Móvil añadido como destinatario en "Probar la API" → escribir al número
    de prueba → debe aparecer en `/inbox` → responder → debe llegar al móvil.

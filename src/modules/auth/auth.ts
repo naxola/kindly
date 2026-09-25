@@ -5,6 +5,7 @@ import { db } from "@/db/client";
 import { authSchema } from "@/modules/auth/schema";
 import { ensureOrganizationForUser } from "@/modules/organizations/bootstrap";
 import { sendEmail } from "@/modules/email/sender";
+import { vercelTrustedOrigins } from "@/modules/auth/trusted-origins";
 import { buildPasswordResetEmail, PASSWORD_RESET_TOKEN_TTL_SECONDS } from "@/modules/auth/password-reset-email";
 
 const secret = process.env.BETTER_AUTH_SECRET;
@@ -33,6 +34,7 @@ if (!secret) {
 export const auth = betterAuth({
   secret,
   baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: vercelTrustedOrigins(),
   // Better Auth's default rate limiting (3 requests per 10s per IP on
   // /sign-up, /sign-in, ...) is disabled outside production — which is
   // exactly why it never showed up in `next dev` during PKG-001/002/003,

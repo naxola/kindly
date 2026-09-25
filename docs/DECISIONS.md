@@ -1386,6 +1386,29 @@ la verificación de negocio de Meta.
 
 ---
 
+## 2026-09-25 — Orígenes de confianza de Better Auth en Vercel
+
+**Contexto:** en staging, registrarse desde
+`kindly-git-staging-naxolas-projects.vercel.app` fallaba porque
+`BETTER_AUTH_URL` apuntaba a otro host (`kindly-peach.vercel.app`): Better
+Auth rechaza las peticiones de cualquier origen distinto de su `baseURL`, y
+un deploy de Vercel responde en varios hosts a la vez.
+
+**Decisión:** `trustedOrigins` = los hosts exactos que Vercel inyecta
+(`VERCEL_URL`, `VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`), con
+`https://`. **Nunca `*.vercel.app`**: confiaría en las apps de cualquier
+otro cliente de Vercel. Fuera de Vercel la lista queda vacía y nada cambia.
+`BETTER_AUTH_URL` sigue siendo el host canónico: con él se construyen los
+enlaces de los emails, así que en Preview debe ser la URL pública de la rama
+`staging`.
+
+**Hallazgo relacionado:** `kindly-peach.vercel.app` (Production) está tras
+Vercel Authentication; la URL de la rama `staging` es pública. Los webhooks
+de Meta tienen que apuntar a la URL pública, que además es donde se registra
+el adapter `whatsapp-test` (variables solo en Preview).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
