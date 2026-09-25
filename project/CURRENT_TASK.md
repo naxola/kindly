@@ -6,7 +6,7 @@
 
 ## Paquete activo: PKG-011 — código completo (2026-09-25), falta la prueba manual
 
-Último commit: `5dd196f`.
+Último commit: `dbbc1d1`.
 
 ### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta
 
@@ -274,7 +274,7 @@ triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
-Último commit: `5dd196f`.
+Último commit: `dbbc1d1`.
 
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra
