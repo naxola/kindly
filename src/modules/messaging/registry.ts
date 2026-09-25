@@ -49,3 +49,12 @@ export function getChannelCapabilities(channel: string): MessagingChannelCapabil
 export function clearMessagingAdapters(): void {
   getRegistry().clear();
 }
+
+/**
+ * Whether the channel's webhook URL has to be registered by hand in the
+ * provider's dashboard (it runs a subscription handshake, PKG-011) — in
+ * which case `/channels` shows the URL to copy.
+ */
+export function channelHasWebhookHandshake(channel: string): boolean {
+  return typeof getMessagingAdapter(channel)?.verifyWebhookChallenge === "function";
+}

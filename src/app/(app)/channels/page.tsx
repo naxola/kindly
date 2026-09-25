@@ -1,6 +1,6 @@
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listMessagingAccountsForMember } from "@/modules/messaging/service";
-import { getChannelCapabilities, listRegisteredChannels } from "@/modules/messaging/registry";
+import { channelHasWebhookHandshake, getChannelCapabilities, listRegisteredChannels } from "@/modules/messaging/registry";
 import { describeAccountStatus, type AccountStatusTone } from "@/modules/messaging/domain";
 import Link from "next/link";
 import { connectMessagingAccountAction, disconnectMessagingAccountAction } from "@/modules/messaging/actions";
@@ -18,7 +18,8 @@ import type { MessagingAccountStatus } from "@/modules/messaging/schema";
  * their own Meta login), so the "connect on behalf of" picker this page had
  * through PKG-006 could only ever have been theatre.
  */
-export default async function ChannelsPage() {
+export default async function ChannelsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const member = await requireCurrentOrganizationMember();
   const [accounts, members] = await Promise.all([
     listMessagingAccountsForMember(member.organizationId, member),
@@ -43,6 +44,12 @@ export default async function ChannelsPage() {
         </p>
       </div>
 
+      {error && (
+        <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+          <span className="font-medium">No se pudo conectar el canal.</span> {error}
+        </p>
+      )}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium">Conectados a tu nombre</h2>
         {myAccounts.length === 0 ? (
@@ -54,6 +61,7 @@ export default async function ChannelsPage() {
                 key={account.id}
                 account={account}
                 canDisconnect={getChannelCapabilities(account.channel)?.canDisconnect ?? false}
+                showWebhookPath={account.status !== "DISCONNECTED" && channelHasWebhookHandshake(account.channel)}
                 isOwn
               />
             ))}
@@ -183,6 +191,7 @@ function AccountCard({
   canDisconnect,
   isOwn = false,
   delegateName,
+  showWebhookPath = false,
 }: {
   account: {
     id: string;
@@ -197,6 +206,7 @@ function AccountCard({
   canDisconnect: boolean;
   isOwn?: boolean;
   delegateName?: string;
+  showWebhookPath?: boolean;
 }) {
   const descriptor = describeAccountStatus(account.status);
   const copy = STATUS_COPY[account.status];
@@ -222,6 +232,13 @@ function AccountCard({
       </div>
 
       <p className="text-xs opacity-90">{copy.detail}</p>
+
+      {showWebhookPath && (
+        <p className="text-xs">
+          <span className="font-medium">URL del webhook</span> (regístrala en el panel del proveedor, precedida del
+          dominio público): <code className="break-all">/api/webhooks/{account.channel}/{account.id}</code>
+        </p>
+      )}
 
       {account.lastError && (
         <p className="text-xs">

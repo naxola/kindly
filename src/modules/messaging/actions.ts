@@ -23,14 +23,24 @@ export async function connectMessagingAccountAction(formData: FormData) {
     throw new Error("Channel is required.");
   }
 
-  await connectMessagingAccount({
-    organizationId: member.organizationId,
-    actorUserId: member.userId,
-    delegateId: member.userId,
-    channel,
-  });
+  try {
+    await connectMessagingAccount({
+      organizationId: member.organizationId,
+      actorUserId: member.userId,
+      delegateId: member.userId,
+      channel,
+    });
+  } catch (error) {
+    // Same rule as the coexistence action below: say what the provider
+    // said. Uncaught, this became Next's bare "This page couldn't load"
+    // with the reason only in the server log (found on staging with the
+    // PKG-011 adapter, 2026-09-25). `redirect` must stay outside `try`.
+    const message = error instanceof Error ? error.message : "Error desconocido al conectar.";
+    redirect(`/channels?error=${encodeURIComponent(message.slice(0, 300))}`);
+  }
 
   revalidatePath("/channels");
+  redirect("/channels");
 }
 
 export async function disconnectMessagingAccountAction(accountId: string) {
