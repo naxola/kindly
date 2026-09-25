@@ -6,7 +6,7 @@
 
 ## Paquete activo: ninguno — PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 
-Último commit: `pending`.
+Último commit: `3350101`.
 
 ### PKG-013 — Conversación en vivo (cerrado 2026-09-25)
 
@@ -288,7 +288,7 @@ triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
-Último commit: `07880c8`.
+Último commit: `3350101`.
 
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra
