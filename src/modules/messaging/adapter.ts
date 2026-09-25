@@ -192,4 +192,12 @@ export interface MessagingAdapter {
     account: MessagingAccountRecord,
   ): boolean;
   parseWebhookEvents(rawBody: string, headers: Record<string, string>): NormalizedInboundEvent[];
+  /**
+   * Optional subscription handshake some providers run before accepting a
+   * webhook URL — Meta's `GET ?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`
+   * (PKG-011). Returns the string to echo back, or null to reject.
+   * Channels that don't need one (Telegram, the fakes) omit it and the
+   * route answers 404.
+   */
+  verifyWebhookChallenge?(query: URLSearchParams): string | null;
 }

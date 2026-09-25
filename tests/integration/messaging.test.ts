@@ -17,10 +17,12 @@ import {
 } from "@/modules/messaging/service";
 import { listConversationsWithPreview } from "@/modules/conversations/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
-import { receiveWebhook } from "@/modules/messaging/webhook-service";
+import { receiveWebhook, verifyWebhookSubscription } from "@/modules/messaging/webhook-service";
 import { getConversation, listConversations, listMessages, sendOutboundMessage } from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
+import { WhatsAppTestAdapter } from "@/modules/messaging/testing/whatsapp-test-adapter";
+import { createHmac } from "node:crypto";
 
 /**
  * Integration tests for PKG-003 (Messaging core, backend): MessagingAccount
@@ -824,5 +826,100 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
         }),
       ).rejects.toThrow();
     });
+  });
+});
+
+/**
+ * PKG-011: the same pipeline, driven by the real Meta adapter with a real
+ * HMAC signature and Meta-shaped JSON. Only Graph API calls are stubbed.
+ * The phone number id is random per run because
+ * `UNIQUE(channel, external_account_id)` survives between runs.
+ */
+describe("PKG-011 WhatsApp test adapter through the webhook pipeline (integration)", () => {
+  const phoneNumberId = String(Date.now());
+  const appSecret = "integration-app-secret";
+  const fetchImpl = (async (url: string | URL | Request) => {
+    const body = String(url).endsWith("/messages")
+      ? { messages: [{ id: `wamid.out-${randomUUID()}` }] }
+      : { display_phone_number: "+1 555-173-9132", verified_name: "Test Number" };
+    return new Response(JSON.stringify(body), { status: 200 });
+  }) as typeof fetch;
+  const adapter = new WhatsAppTestAdapter({ phoneNumberId, accessToken: "t", appSecret, verifyToken: "vt", fetchImpl });
+
+  beforeAll(() => {
+    registerMessagingAdapter(adapter);
+  });
+
+  function inbound(from: string, id: string, text: string) {
+    return JSON.stringify({
+      object: "whatsapp_business_account",
+      entry: [
+        {
+          id: "waba",
+          changes: [
+            {
+              field: "messages",
+              value: {
+                metadata: { phone_number_id: phoneNumberId },
+                contacts: [{ wa_id: from, profile: { name: "Cliente Real" } }],
+                messages: [{ from, id, timestamp: String(Math.floor(Date.now() / 1000)), type: "text", text: { body: text } }],
+              },
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  const signed = (body: string) => ({ "x-hub-signature-256": `sha256=${createHmac("sha256", appSecret).update(body).digest("hex")}` });
+
+  it("ingests a signed Meta message into a Conversation and replies through the Graph API", async () => {
+    const { user, org } = await createTestUserAndOrg("WhatsApp Test Owner");
+    const account = await connectMessagingAccount({ organizationId: org.id, actorUserId: user.id, delegateId: user.id, channel: "whatsapp-test" });
+    expect(account.externalAccountId).toBe(phoneNumberId);
+    expect(account.phoneE164).toBe("+15551739132");
+
+    const body = inbound("34600111222", `wamid.in-${randomUUID()}`, "Hola desde el móvil");
+    const outcome = await receiveWebhook("whatsapp-test", account.id, body, signed(body));
+    if (outcome.status !== 200) throw new Error(`expected 200, got ${outcome.status}`);
+    await outcome.process();
+
+    const [conversation] = await listConversations(org.id);
+    expect(conversation.externalConversationId).toBe("34600111222");
+    expect((await listMessages(org.id, conversation.id)).map((m) => m.body)).toEqual(["Hola desde el móvil"]);
+
+    // The inbound message just opened the 24 h window, so a reply is allowed.
+    await sendOutboundMessage({ organizationId: org.id, actorUserId: user.id, conversationId: conversation.id, text: "Respuesta" });
+    const thread = await listMessages(org.id, conversation.id);
+    expect(thread.find((m) => m.body === "Respuesta")?.deliveryStatus).toBe("SENT");
+  });
+
+  it("rejects a body signed with another secret and persists nothing", async () => {
+    const { user, org } = await createTestUserAndOrg("WhatsApp Forged");
+    const second = new WhatsAppTestAdapter({ phoneNumberId: `${phoneNumberId}2`, accessToken: "t", appSecret, verifyToken: "vt", fetchImpl });
+    registerMessagingAdapter(second);
+    const account = await connectMessagingAccount({ organizationId: org.id, actorUserId: user.id, delegateId: user.id, channel: "whatsapp-test" });
+    registerMessagingAdapter(adapter);
+
+    const body = inbound("34600999888", "wamid.forged", "forged");
+    const forged = { "x-hub-signature-256": `sha256=${createHmac("sha256", "wrong").update(body).digest("hex")}` };
+    expect((await receiveWebhook("whatsapp-test", account.id, body, forged)).status).toBe(401);
+    const rows = await db.select().from(webhookEvents).where(eq(webhookEvents.messagingAccountId, account.id));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("answers Meta's subscription handshake only with the right verify token", async () => {
+    const { user, org } = await createTestUserAndOrg("WhatsApp Handshake");
+    const third = new WhatsAppTestAdapter({ phoneNumberId: `${phoneNumberId}3`, accessToken: "t", appSecret, verifyToken: "vt", fetchImpl });
+    registerMessagingAdapter(third);
+    const account = await connectMessagingAccount({ organizationId: org.id, actorUserId: user.id, delegateId: user.id, channel: "whatsapp-test" });
+    registerMessagingAdapter(adapter);
+
+    const query = (token: string) => new URLSearchParams({ "hub.mode": "subscribe", "hub.verify_token": token, "hub.challenge": "42" });
+    expect(await verifyWebhookSubscription("whatsapp-test", account.id, query("vt"))).toEqual({ status: 200, body: "42" });
+    expect((await verifyWebhookSubscription("whatsapp-test", account.id, query("bad"))).status).toBe(403);
+    expect((await verifyWebhookSubscription("whatsapp-test", randomUUID(), query("vt"))).status).toBe(404);
+    // Channels without a handshake don't pretend to have one.
+    expect((await verifyWebhookSubscription("fake", account.id, query("vt"))).status).toBe(404);
   });
 });

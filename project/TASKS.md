@@ -363,6 +363,112 @@ toca Meta de verdad.
 - [ ] Credenciales en almacén seguro vía `credentials_reference` — nunca en
       la fila de la base de datos, el código o los logs (`CLAUDE.md` 5).
 
+### PKG-011 — WhatsApp Cloud API, número de prueba de Meta (validación de la tubería real) — CÓDIGO COMPLETO 2026-09-25
+
+- [x] `WhatsAppTestAdapter` (`src/modules/messaging/testing/whatsapp-test-adapter.ts`):
+      envío de texto libre, firma HMAC real, parseo de `messages`/`statuses`,
+      filtrado por `phone_number_id`.
+- [x] `connectAccount` valida credenciales contra Meta y suscribe la WABA
+      (`subscribed_apps`) si hay `WHATSAPP_TEST_WABA_ID`.
+- [x] `verifyWebhookChallenge` opcional en `MessagingAdapter` + `GET` en la
+      ruta del webhook (`verifyWebhookSubscription`).
+- [x] Registro condicional en `src/instrumentation.ts` (flag + todas las
+      credenciales, nunca con `VERCEL_ENV=production`).
+- [x] Tests unit + integración.
+- [ ] **Prueba manual real** con el móvil en staging (usuario), ver
+      `CURRENT_TASK.md`.
+
+**No bloqueado.** No depende del alta como Tech Provider ni de la
+verificación de negocio — usa el número de prueba gratuito que Meta da al
+crear la app (sin App Review), el mismo que el usuario ya validó a mano con
+`curl` el 2026-09-23. Corre en paralelo a `PKG-009`, no lo sustituye ni lo
+adelanta.
+
+**Objetivo:** probar la tubería `Webhook de Meta → Conversation → Inbox` con
+payloads y firma reales de Meta, en vez del adapter falso. Retira riesgo del
+código (parseo real, verificación de firma real) mientras el trámite largo de
+Meta corre por su cuenta.
+
+**Distinción crítica con `PKG-009`, que no se difumina:**
+
+- Este **no es coexistence**. El número de prueba es un número dedicado de
+  Cloud API sin ningún teléfono físico detrás — no hay `smb_message_echoes`,
+  no hay historial de 180 días, no hay `PARTNER_REMOVED`. `canDisconnect:
+  true` (Cloud API sí tiene Deregister API para un número dedicado, a
+  diferencia de coexistence).
+- **Nunca se ofrece como opción real de conexión a un delegado.** Viola el
+  principio de identidad de `CLAUDE.md` sección 2 punto 1 (un número
+  compartido de pruebas, no el WhatsApp personal del delegado) si se ofreciera
+  así. Es una herramienta de validación de ingeniería, con el mismo espíritu
+  que `FakeMessagingAdapter` pero contra Meta de verdad — nunca en producción.
+- Canal registrado como `"whatsapp-test"`, nunca `"whatsapp"` — ese nombre lo
+  reserva `PKG-009` para el adapter real, para que no puedan colisionar ni
+  confundirse en `messaging_accounts`.
+
+**Scope:**
+
+- **`WhatsAppTestAdapter`** (`src/modules/messaging/testing/` o similar,
+  mismo criterio que `fake-adapter.ts`: vive bajo `src/`, no bajo `tests/`,
+  porque `src/instrumentation.ts` necesita registrarlo condicionalmente).
+  Capacidades: `serviceWindowHours: 24`, `canDisconnect: true`, `onboarding:
+  "DIRECT"`.
+  - `sendMessage`: `POST` real a `https://graph.facebook.com/v25.0/{phone_number_id}/messages`
+    con Bearer token. Solo texto libre dentro de la ventana de 24 h — sin
+    gestión de plantillas (sigue fuera de alcance, igual que en `PKG-005`).
+  - `verifyWebhookSignature`: HMAC-SHA256 real sobre el body crudo con el
+    **App Secret**, comparado contra `X-Hub-Signature-256`. Primera
+    verificación de firma real del proyecto (la del canal falso es un secreto
+    compartido literal).
+  - `parseWebhookEvents`: parsea el JSON real de Meta
+    (`entry[].changes[].value.messages[]` → `MESSAGE`,
+    `entry[].changes[].value.statuses[]` → `DELIVERY_UPDATE`).
+  - `connectAccount`: sin OAuth — usa credenciales ya obtenidas a mano
+    (`WHATSAPP_TEST_PHONE_NUMBER_ID`, `WHATSAPP_TEST_ACCESS_TOKEN`,
+    `WHATSAPP_TEST_APP_SECRET` como variables de entorno), consistente con
+    `onboarding: "DIRECT"` — un clic en `/channels`, sin pantalla de
+    Facebook.
+- **Registro condicional**, mismo patrón que el canal falso
+  (`E2E_FAKE_MESSAGING_CHANNEL`): una variable explícita
+  (`WHATSAPP_TEST_ADAPTER_ENABLED=true`), **además** de que existan las
+  credenciales — nunca solo por la presencia de las credenciales, para que
+  copiar variables de staging a producción por error no baste para
+  activarlo. Se fija únicamente en las variables de entorno de Preview/rama
+  `staging` en Vercel, nunca en Production.
+- **Extensión de la interfaz `MessagingAdapter`**: método opcional
+  `verifyWebhookChallenge(query: URLSearchParams): string | null`, y el
+  route handler (`src/app/api/webhooks/[channel]/[accountId]/route.ts`)
+  gana un `GET` que lo invoca si el adapter lo implementa. Es el *handshake*
+  `hub.mode=subscribe&hub.verify_token=...&hub.challenge=...` que Meta exige
+  antes de aceptar la URL del webhook — ningún canal existente lo necesitaba
+  hasta ahora.
+
+**Non-goals (explícitamente fuera):**
+
+- Gestión de plantillas, reintentos de envío fallido — igual que `PKG-005`.
+- Cualquier UI que ofrezca este canal como opción real de conexión fuera de
+  un entorno de prueba.
+- Tocar `PKG-009`, `WhatsAppAdapter` real, o el registro del canal
+  `"whatsapp"`.
+
+**Prerrequisitos manuales del usuario, antes de programar:**
+
+1. **Token permanente**: System User en Meta Business Settings (el token
+   temporal de `API Setup` caduca en ~24 h).
+2. **App Secret**: Configuración de la app → Básica.
+3. Ambos, más `WHATSAPP_TEST_PHONE_NUMBER_ID`, como variables de entorno en
+   Vercel con scope Preview/rama `staging` — nunca en `.env.example` con
+   valores reales, nunca en Production.
+4. Tras el primer deploy con el adapter conectado (para tener el `accountId`
+   real en la URL), registrar la Callback URL
+   (`https://kindly-peach.vercel.app/api/webhooks/whatsapp-test/<accountId>`)
+   y un Verify Token propio en Meta → WhatsApp → Configuration.
+
+**Tests:** unit (verificación de firma real con un secreto conocido, parseo
+del JSON real de Meta con un payload de ejemplo capturado); integration
+(webhook con firma inválida/válida contra el endpoint genérico, igual que el
+resto de canales); manual, no automatizable (envío/recepción real contra el
+número de prueba de Meta, verificado a ojo en el Inbox).
+
 ## Fase 6 — Cases
 
 - [ ] Ciclo de vida completo de `Case` (transiciones de estado).

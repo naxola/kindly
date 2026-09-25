@@ -1296,6 +1296,57 @@ Meta exige).
 
 ---
 
+## 2026-09-25 — PKG-011: adapter de WhatsApp contra el número de prueba de Meta
+
+**Contexto:** `PKG-009` (coexistence real) sigue bloqueado por el alta como
+Tech Provider. Mientras, se quiere validar contra Meta de verdad la tubería
+`webhook → Conversation → Inbox → respuesta`, usando el número de prueba
+gratuito de la app.
+
+**Decisión:**
+
+- Canal `"whatsapp-test"`, nunca `"whatsapp"`. Vive en
+  `src/modules/messaging/testing/`, como el adapter falso: es una herramienta
+  de ingeniería, no una forma de conectar un delegado (violaría el principio
+  de identidad, `CLAUDE.md` 2.1).
+- Solo se registra con `WHATSAPP_TEST_ADAPTER_ENABLED=true` **y** las cuatro
+  credenciales, y se niega en `VERCEL_ENV=production` aunque el flag esté
+  puesto. Las credenciales viven en variables de entorno de Vercel
+  (Preview); `credentials_reference` guarda solo `env://…`.
+- `MessagingAdapter` gana un método **opcional**
+  `verifyWebhookChallenge(query)`, y la ruta del webhook un `GET` que lo usa
+  (el handshake `hub.challenge` de Meta). Los canales sin handshake
+  responden 404; no se persiste nada, no es un evento.
+- La conversación se identifica por el `wa_id` del Contact
+  (`externalConversationId = externalContactId = wa_id`). Es el
+  identificador que da el proveedor, así que cumple `docs/DATABASE.md` 6,
+  aunque en la práctica coincida con los dígitos del teléfono. **Pregunta
+  abierta para `PKG-009`:** Meta está introduciendo identificadores de
+  usuario por negocio (nombres de usuario de WhatsApp); cuando se
+  confirmen en la documentación oficial, habrá que decidir si la identidad
+  técnica pasa a ser ese identificador.
+- `parseWebhookEvents` descarta lo que no va dirigido a su
+  `phone_number_id`: una app recibe en su callback los eventos de todos los
+  números de todas las WABA suscritas.
+- Un envío rechazado por Meta (ventana cerrada, destinatario no permitido)
+  se guarda como mensaje `FAILED` con id sintético `failed-<uuid>` en vez
+  de lanzar excepción, para que se vea en el hilo; el motivo va al log del
+  servidor, porque ninguna columna lo guarda todavía.
+- `connectAccount` llama a Meta (lee el número y hace `POST
+  /{waba}/subscribed_apps`): unas credenciales erróneas fallan en
+  `/channels`, no en silencio en el primer envío.
+- `disconnectAccount` es solo del lado de Kindly: nunca se da de baja el
+  número de prueba compartido.
+- Mensajes que no son de texto se muestran con un texto provisional en vez
+  de descartarse.
+
+**Límite conocido:** `UNIQUE(channel, external_account_id)` impide volver a
+conectar el mismo número de prueba tras desconectarlo (la fila
+`DISCONNECTED` sigue ahí). Para esta herramienta es aceptable; `PKG-009`
+tendrá que resolver la reconexión de verdad.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

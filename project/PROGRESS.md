@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-20.
+Última actualización: 2026-09-25.
 
 ## Resumen en una línea
 
@@ -25,7 +25,10 @@ faltan los datos legales reales, la revisión jurídica y el despliegue. La PoC 
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
-2026-09-19: se adopta coexistence** (ver `docs/DECISIONS.md`).
+2026-09-19: se adopta coexistence** (ver `docs/DECISIONS.md`). **`PKG-011`**
+(2026-09-25) conecta por primera vez con Meta de verdad, contra el número de
+prueba y solo en staging, para validar la tubería real mientras `PKG-009`
+sigue bloqueado.
 
 ## Estado por fase / paquete
 
@@ -41,6 +44,7 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-008** | **Alta de WhatsApp: elección y comprobaciones previas** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-010** | **Sitio público y documentos legales** | Código (agente) | 🟢 **Completo** (2026-09-20) — falta rellenar datos legales, revisión jurídica y despliegue |
+| **PKG-011** | **WhatsApp Cloud API contra el número de prueba de Meta** | Código (agente) + prueba manual (usuario) | 🟡 **Código completo** (2026-09-25) — falta la prueba real con el móvil en staging |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

@@ -4,11 +4,41 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005 a PKG-008 y PKG-010 cerrados el 2026-09-20
+## Paquete activo: PKG-011 — código completo (2026-09-25), falta la prueba manual
+
+Último commit: ver `git log` (hash registrado al cerrar la sesión abajo).
+
+### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta
+
+Hecho: `WhatsAppTestAdapter` (canal `whatsapp-test`), `GET` de verificación
+del webhook, registro condicional en `src/instrumentation.ts`, tests unit e
+integración. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+Variables en Vercel (Preview / rama `staging`), ya cargadas por el usuario:
+`WHATSAPP_TEST_ADAPTER_ENABLED`, `WHATSAPP_TEST_PHONE_NUMBER_ID`,
+`WHATSAPP_TEST_WABA_ID`, `WHATSAPP_TEST_ACCESS_TOKEN`,
+`WHATSAPP_TEST_APP_SECRET`, `WHATSAPP_TEST_VERIFY_TOKEN`.
+
+**Falta (usuario, manual):**
+
+1. Deploy de `staging` con este commit (y redeploy si las variables se
+   cargaron después del último build: Vercel solo las lee al construir).
+2. `/channels` → conectar `whatsapp-test` → copiar el `accountId`.
+3. Meta → WhatsApp → Configuración: Callback URL
+   `https://<dominio-staging>/api/webhooks/whatsapp-test/<accountId>`, el
+   Verify Token, y suscribir el campo `messages`.
+4. Móvil añadido como destinatario en "Probar la API" → escribir al número
+   de prueba → debe aparecer en `/inbox` → responder → debe llegar al móvil.
+5. Si todo va bien, marcar la última casilla de PKG-011 en `TASKS.md`.
+
+Si un envío sale como `FAILED`, el motivo exacto de Meta está en los logs
+de Vercel (`[whatsapp-test] send failed: …`).
+
+## Contexto previo: alta ante Meta (sigue vigente para PKG-009)
 
 El producto tiene ya el mínimo para que el usuario haga sus propias pruebas.
-Lo que queda **no es código**: es el alta de Kindly ante Meta, y ahora mismo
-es lo único que separa a WhatsApp de funcionar de verdad.
+Lo que queda para WhatsApp real **no es código**: es el alta de Kindly ante
+Meta.
 
 ### Lo que tiene que hacer el usuario, en este orden
 
