@@ -1243,6 +1243,59 @@ hubiera sesión o no.
 
 ---
 
+## 2026-09-23 — Base de datos en la nube: Neon vía integración nativa de Vercel
+
+**Contexto:** el desarrollo local usa PostgreSQL en Docker (`docker-compose.yml`,
+`PKG-001`). Hace falta un entorno de staging accesible por internet — entre
+otras cosas porque Meta exige un dominio con HTTPS público (ver la entrada de
+PKG-010 arriba) — y eventualmente producción, cada uno con su propia base de
+datos aislada.
+
+**Decisión:**
+
+- Se usa la integración nativa Neon del Vercel Marketplace, no una cuenta de
+  Neon gestionada a mano por fuera de Vercel. Vercel es ya el proveedor de
+  despliegue de la aplicación (decisión del usuario, fuera de este documento).
+- Un solo proyecto de Neon, con **branches** de base de datos en vez de
+  proyectos separados: `production` (mapeado al entorno Production de
+  Vercel) y `staging` (branch de Git de larga duración, con dominio fijo en
+  Vercel, mapeado a un branch `preview/staging` de Neon). El desarrollo local
+  sigue contra Docker, sin cambios — nunca contra Neon.
+- Cualquier otro branch de Git desplegado como Preview en Vercel obtiene su
+  propia base de datos efímera de Neon automáticamente (comportamiento propio
+  de la integración, sin configuración adicional), que se borra sola al
+  borrar el branch de Git. Es un efecto colateral aceptado, no algo que haya
+  que gestionar.
+- `drizzle.config.ts` usa `DATABASE_URL_UNPOOLED` para migraciones cuando
+  existe (staging/producción), con `DATABASE_URL` como fallback (local). La
+  app en runtime (`src/db/client.ts`) sigue usando siempre `DATABASE_URL`
+  (pooled) — sin cambios ahí.
+- **Las migraciones no se ejecutan automáticamente en cada build de Vercel.**
+  Se ejecutan a mano (`npm run db:migrate` con la URL del entorno que toque)
+  cuando se quiere aplicar un cambio de esquema a staging o producción. Un
+  build automático de migraciones en cada deploy correría también en
+  cualquier Preview de una rama de feature, lo cual no es lo que se quiere.
+
+**Por qué:**
+
+- La URL *pooled* de Neon pasa por PgBouncer en modo transacción, que no
+  soporta de forma fiable el bloqueo a nivel de sesión que usa `drizzle-kit`
+  al migrar — de ahí la URL directa aparte, solo para ese caso.
+- Usar branches de una sola base de datos lógica (en vez de instancias
+  Postgres separadas) es el patrón recomendado por Neon para este caso y
+  evita gestionar credenciales y aprovisionamiento a mano por entorno.
+- No es una nueva categoría de infraestructura de las vetadas en
+  `docs/ARCHITECTURE.md` ("no construir todavía"): sigue siendo
+  PostgreSQL + pgvector, solo alojado de forma gestionada.
+
+**Alternativas consideradas:** cuenta de Neon independiente conectada a mano
+(más control, pero credenciales y aprovisionamiento manuales por entorno sin
+necesidad real de ese control todavía); ejecutar staging también en Docker
+detrás de un túnel (no da un dominio ni TLS estables, y no sirve para lo que
+Meta exige).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
