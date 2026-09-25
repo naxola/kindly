@@ -34,6 +34,20 @@ Variables en Vercel (Preview / rama `staging`), ya cargadas por el usuario:
 Si un envío sale como `FAILED`, el motivo exacto de Meta está en los logs
 de Vercel (`[whatsapp-test] send failed: …`).
 
+### PKG-012 — Email (Resend) y recuperación de contraseña (cerrado 2026-09-25)
+
+Hecho: `/forgot-password` → email con enlace → `/reset-password`, sobre el
+flujo nativo de Better Auth, con Resend detrás de `EmailSender`. Decisiones
+en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+**Falta (usuario):** en Vercel (Preview, y Production cuando toque),
+`RESEND_API_KEY` y `EMAIL_FROM`; comprobar que `BETTER_AUTH_URL` es la URL
+pública de staging (el enlace del email se construye con ella). Hasta
+verificar dominio en Resend, solo llega al email dueño de la cuenta de
+Resend.
+
+**Siguiente paso de código propuesto:** invitaciones por email (aditivo).
+
 ## Contexto previo: alta ante Meta (sigue vigente para PKG-009)
 
 El producto tiene ya el mínimo para que el usuario haga sus propias pruebas.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/modules/auth/auth-client";
 
@@ -76,6 +77,12 @@ export default function LoginPage() {
           minLength={8}
           required
         />
+
+        {mode === "sign-in" && (
+          <Link href="/forgot-password" className="self-end text-xs text-zinc-500 underline">
+            ¿Has olvidado tu contraseña?
+          </Link>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 

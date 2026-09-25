@@ -469,6 +469,19 @@ del JSON real de Meta con un payload de ejemplo capturado); integration
 resto de canales); manual, no automatizable (envío/recepción real contra el
 número de prueba de Meta, verificado a ojo en el Inbox).
 
+### PKG-012 — Email (Resend) y recuperación de contraseña — CERRADO 2026-09-25
+
+- [x] `EmailSender` + `ResendEmailSender` (`src/modules/email/`), consola en
+      desarrollo, sin sustituto en producción.
+- [x] `sendResetPassword` en Better Auth: token de 1 h, un solo uso, revoca
+      sesiones.
+- [x] `/forgot-password`, `/reset-password` y enlace desde `/login`.
+- [x] `npm run auth:reset-password` (herramienta de operador).
+- [x] Tests unit, integración (flujo completo con el token real) y E2E.
+- [ ] (Siguiente, aditivo) Enviar también por email las invitaciones de
+      `/members`, manteniendo el enlace copiable como alternativa.
+- [ ] (Usuario) Verificar el dominio propio en Resend y fijar `EMAIL_FROM`.
+
 ## Fase 6 — Cases
 
 - [ ] Ciclo de vida completo de `Case` (transiciones de estado).

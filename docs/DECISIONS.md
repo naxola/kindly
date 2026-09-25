@@ -1347,6 +1347,45 @@ tendrá que resolver la reconexión de verdad.
 
 ---
 
+## 2026-09-25 — PKG-012: email con Resend y recuperación de contraseña
+
+**Contexto:** el usuario perdió la contraseña de su cuenta de staging y no
+había forma de recuperarla sin tocar la base de datos. Es la necesidad
+concreta que faltaba para introducir email, que PKG-006 dejó fuera a
+propósito ("Kindly no envía emails, y se dice"). **Supersede parcialmente**
+esa línea: Kindly ya envía email, pero solo para el reset de contraseña; las
+invitaciones siguen compartiéndose con enlace copiado (cambio aditivo
+pendiente, ver `project/TASKS.md`).
+
+**Decisión:**
+
+- Proveedor: **Resend**, elegido por el usuario. Llamada REST directa
+  (`POST https://api.resend.com/emails`) sin el SDK: una sola llamada no
+  justifica una dependencia.
+- Detrás de una interfaz `EmailSender` (`src/modules/email/sender.ts`), mismo
+  criterio que `MessagingAdapter`/`LLMProvider`: cambiar de proveedor no toca
+  a quien envía.
+- Sin `RESEND_API_KEY`: fuera de producción se imprime el correo en consola
+  (el desarrollo local no necesita cuenta); **en producción no hay
+  sustituto**, el envío falla y Better Auth lo registra en el log. Un enlace
+  de reset en un log es una credencial en un log (`CLAUDE.md` sección 5).
+- Reset con el flujo nativo de Better Auth (`sendResetPassword`): token de
+  un solo uso que caduca en 1 hora, respuesta idéntica exista o no el email
+  (sin enumeración de cuentas), rate limit por defecto de 3 solicitudes por
+  minuto e IP, y `revokeSessionsOnPasswordReset: true`: quien restablece la
+  contraseña puede estar echando a alguien que la tenía.
+- Páginas públicas `/forgot-password` y `/reset-password`, fuera del grupo
+  `(app)`.
+- `scripts/reset-password.ts` (`npm run auth:reset-password`) se mantiene
+  como herramienta de operador para cuando el email no está disponible.
+
+**Límite conocido:** hasta que se verifique un dominio en Resend, el
+remitente solo puede ser `onboarding@resend.dev` y Resend solo entrega al
+email dueño de la cuenta de Resend. Es el mismo dominio propio que ya exige
+la verificación de negocio de Meta.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
