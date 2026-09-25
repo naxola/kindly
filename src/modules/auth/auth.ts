@@ -5,7 +5,7 @@ import { db } from "@/db/client";
 import { authSchema } from "@/modules/auth/schema";
 import { ensureOrganizationForUser } from "@/modules/organizations/bootstrap";
 import { sendEmail } from "@/modules/email/sender";
-import { vercelTrustedOrigins } from "@/modules/auth/trusted-origins";
+import { authBaseOrigin, vercelTrustedOrigins } from "@/modules/auth/trusted-origins";
 import { buildPasswordResetEmail, PASSWORD_RESET_TOKEN_TTL_SECONDS } from "@/modules/auth/password-reset-email";
 
 const secret = process.env.BETTER_AUTH_SECRET;
@@ -33,7 +33,7 @@ if (!secret) {
  */
 export const auth = betterAuth({
   secret,
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: authBaseOrigin(),
   trustedOrigins: vercelTrustedOrigins(),
   // Better Auth's default rate limiting (3 requests per 10s per IP on
   // /sign-up, /sign-in, ...) is disabled outside production — which is

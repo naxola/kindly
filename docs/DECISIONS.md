@@ -1402,8 +1402,16 @@ otro cliente de Vercel. Fuera de Vercel la lista queda vacía y nada cambia.
 enlaces de los emails, así que en Preview debe ser la URL pública de la rama
 `staging`.
 
-**Hallazgo relacionado:** `kindly-peach.vercel.app` (Production) está tras
-Vercel Authentication; la URL de la rama `staging` es pública. Los webhooks
+**`BETTER_AUTH_URL` se reduce a su origen** (`authBaseOrigin`): con una ruta
+(`https://host/login`, copiado de la barra del navegador) Better Auth la toma
+como base completa de sus endpoints y todo `/api/auth/*` respondía 404 en
+staging. Kindly siempre sirve auth en `/api/auth`, así que solo el origen
+tiene sentido; un valor sin protocolo falla al arrancar en vez de a medias.
+
+**Hallazgo relacionado:** `kindly-peach.vercel.app` es un alias de los
+deploys de la rama `staging` (entorno Preview), pero a diferencia de la URL
+de la rama responde con Vercel Authentication a peticiones sin sesión de
+Vercel; la URL de la rama es pública. Los webhooks
 de Meta tienen que apuntar a la URL pública, que además es donde se registra
 el adapter `whatsapp-test` (variables solo en Preview).
 

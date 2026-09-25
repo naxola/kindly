@@ -13,3 +13,22 @@ export function vercelTrustedOrigins(env: Record<string, string | undefined> = p
   const hosts = [env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL];
   return [...new Set(hosts.filter((host): host is string => Boolean(host)).map((host) => `https://${host}`))];
 }
+
+/**
+ * `BETTER_AUTH_URL` reduced to its origin. Better Auth treats a URL that
+ * carries a path as the full endpoint base, so a value pasted from the
+ * address bar (`https://host/login`) moved every endpoint off
+ * `/api/auth/*` and each sign-up/sign-in 404'd (found on staging,
+ * 2026-09-25). Kindly always serves auth at `/api/auth`, so only the
+ * origin is ever meaningful here.
+ */
+export function authBaseOrigin(value: string | undefined = process.env.BETTER_AUTH_URL): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    throw new Error(`BETTER_AUTH_URL is not a valid URL: "${value}". Expected something like https://example.com`);
+  }
+}
