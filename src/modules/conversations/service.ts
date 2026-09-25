@@ -3,7 +3,12 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
 import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
-import { getServiceWindowState, isConversationUnread, type ServiceWindowState } from "@/modules/conversations/domain";
+import {
+  getServiceWindowState,
+  isConversationUnread,
+  shouldApplyDeliveryStatus,
+  type ServiceWindowState,
+} from "@/modules/conversations/domain";
 import { contacts } from "@/modules/contacts/schema";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getCase } from "@/modules/cases/service";
@@ -225,12 +230,13 @@ export async function applyDeliveryUpdate(
   externalMessageId: string,
   deliveryStatus: "SENT" | "DELIVERED" | "READ" | "FAILED",
 ) {
-  await db
-    .update(messages)
-    .set({ deliveryStatus, updatedAt: new Date() })
-    .where(
-      and(eq(messages.messagingAccountId, messagingAccountId), eq(messages.externalMessageId, externalMessageId)),
-    );
+  const where = and(eq(messages.messagingAccountId, messagingAccountId), eq(messages.externalMessageId, externalMessageId));
+  const [current] = await db.select({ deliveryStatus: messages.deliveryStatus }).from(messages).where(where).limit(1);
+  // Out-of-order callbacks must not move a status backwards (PKG-013).
+  if (!current || !shouldApplyDeliveryStatus(current.deliveryStatus, deliveryStatus)) {
+    return;
+  }
+  await db.update(messages).set({ deliveryStatus, updatedAt: new Date() }).where(where);
 }
 
 /**
@@ -593,3 +599,109 @@ export async function reassignConversationContact(
 
   return updated ?? null;
 }
+
+/**
+ * What the conversation screen needs of a message, serializable so the
+ * same shape serves the first render and every poll (PKG-013).
+ */
+export interface ThreadMessage {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  body: string;
+  deliveryStatus: "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  sentFromDevice: boolean;
+  createdAt: string;
+}
+
+export function toThreadMessage(message: typeof messages.$inferSelect): ThreadMessage {
+  return {
+    id: message.id,
+    direction: message.direction,
+    body: message.body,
+    deliveryStatus: message.deliveryStatus,
+    sentFromDevice: message.sentFromDevice,
+    createdAt: message.createdAt.toISOString(),
+  };
+}
+
+export interface ConversationThreadState {
+  messages: ThreadMessage[];
+  serviceWindow: { status: ServiceWindowState["status"]; expiresAt: string | null };
+}
+
+/**
+ * The live part of a conversation — its messages and whether the reply
+ * window is open — for the first render and for the screen's polling
+ * (PKG-013). Having it open is what "read" means (PKG-004), so every poll
+ * that sees new inbound messages keeps the conversation read.
+ */
+export async function getConversationThreadState(
+  organizationId: string,
+  conversationId: string,
+): Promise<ConversationThreadState | null> {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    return null;
+  }
+  await markConversationRead(organizationId, conversationId);
+  const [rows, serviceWindow] = await Promise.all([
+    listMessages(organizationId, conversationId),
+    getConversationServiceWindow(organizationId, conversationId, conversation.channel),
+  ]);
+  return {
+    messages: rows.map(toThreadMessage),
+    serviceWindow: { status: serviceWindow.status, expiresAt: serviceWindow.expiresAt?.toISOString() ?? null },
+  };
+}
+
+/** Whether the conversation's channel can show "typing…" to the Contact (PKG-013). */
+export function channelSupportsTypingIndicator(channel: string): boolean {
+  return typeof getMessagingAdapter(channel)?.sendTypingIndicator === "function";
+}
+
+/**
+ * Shows "typing…" to the Contact while a member composes a reply
+ * (PKG-013). On WhatsApp the same call marks the Contact's latest message
+ * as read — they see the blue double tick — which the user accepted
+ * explicitly (docs/DECISIONS.md, 2026-09-25). Best effort: a failure here
+ * must never get in the way of writing the reply, so it is logged, not
+ * thrown.
+ */
+export async function signalTyping(organizationId: string, conversationId: string): Promise<void> {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    throw new Error("Conversation not found in this organization.");
+  }
+  const adapter = getMessagingAdapter(conversation.channel);
+  if (!adapter?.sendTypingIndicator) {
+    return;
+  }
+  // Outside the window the provider would reject it, and there is no reply
+  // on its way anyway: the composer is hidden.
+  const serviceWindow = await getConversationServiceWindow(organizationId, conversationId, conversation.channel);
+  if (serviceWindow.status === "CLOSED") {
+    return;
+  }
+  const account = await getMessagingAccount(organizationId, conversation.messagingAccountId);
+  const [lastInbound] = await db
+    .select({ externalMessageId: messages.externalMessageId })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.organizationId, organizationId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.direction, "INBOUND"),
+      ),
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  if (!account || !lastInbound) {
+    return;
+  }
+  try {
+    await adapter.sendTypingIndicator(account, conversation, lastInbound.externalMessageId);
+  } catch (error) {
+    console.warn(`[typing] ${conversation.channel}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+

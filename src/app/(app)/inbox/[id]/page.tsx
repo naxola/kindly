@@ -2,13 +2,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import {
-  getConversationServiceWindow,
+  channelSupportsTypingIndicator,
+  getConversationThreadState,
   getConversationWithDetails,
-  listMessages,
-  markConversationRead,
 } from "@/modules/conversations/service";
 import { listContacts } from "@/modules/contacts/service";
-import { sendReplyAction, markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
+import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
+import { ConversationThread } from "@/app/(app)/inbox/[id]/conversation-thread";
 
 export default async function ConversationDetailPage({
   params,
@@ -23,21 +23,20 @@ export default async function ConversationDetailPage({
     notFound();
   }
 
-  // Opening the conversation is what "read" means here — no separate
-  // action to wire up, and this route is already fully dynamic (session
-  // read on every request), never cached (docs/conversations/service.ts).
-  await markConversationRead(member.organizationId, id);
-
-  const [messages, members, contacts, serviceWindow] = await Promise.all([
-    listMessages(member.organizationId, id),
+  // Opening the conversation is what "read" means here (PKG-004);
+  // `getConversationThreadState` marks it read, on first render and on
+  // every poll of the open screen (PKG-013).
+  const [threadState, members, contacts] = await Promise.all([
+    getConversationThreadState(member.organizationId, id),
     listOrganizationMembers(member.organizationId),
     listContacts(member.organizationId),
-    getConversationServiceWindow(member.organizationId, id, details.conversation.channel),
   ]);
+  if (!threadState) {
+    notFound();
+  }
 
   const delegateName = members.find((m) => m.userId === details.delegateId)?.name ?? "—";
   const otherContacts = contacts.filter((c) => c.id !== details.contact.id);
-  const sendReplyToThisConversation = sendReplyAction.bind(null, id);
   const markThisContactIdentified = markContactIdentifiedAction.bind(null, details.contact.id, id);
   const reassignThisConversation = reassignConversationContactAction.bind(null, id);
 
@@ -92,67 +91,12 @@ export default async function ConversationDetailPage({
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {messages.map((message) => (
-          <li
-            key={message.id}
-            className={`flex ${message.direction === "OUTBOUND" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-md rounded px-3 py-2 text-sm ${
-                message.direction === "OUTBOUND" ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
-              }`}
-            >
-              <p>{message.body}</p>
-              <p className={`mt-1 text-xs ${message.direction === "OUTBOUND" ? "text-zinc-300" : "text-zinc-400"}`}>
-                {message.createdAt.toLocaleString("es-ES")}
-                {message.direction === "OUTBOUND" && ` · ${message.deliveryStatus}`}
-                {/* Coexistence: an outbound message may have been written on
-                    the delegate's own phone, not here (PKG-005). */}
-                {message.direction === "OUTBOUND" && message.sentFromDevice && " · desde el móvil"}
-              </p>
-            </div>
-          </li>
-        ))}
-        {messages.length === 0 && <li className="py-4 text-center text-sm text-zinc-400">Sin mensajes todavía.</li>}
-      </ul>
-
-      {serviceWindow.status === "CLOSED" ? (
-        <div className="flex flex-col gap-1 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-900">No puedes responder en texto libre ahora mismo</p>
-          <p className="text-amber-800">
-            El proveedor solo permite respuestas libres durante un tiempo limitado desde el último mensaje del
-            contacto. Esa ventana está cerrada
-            {serviceWindow.expiresAt
-              ? ` desde el ${serviceWindow.expiresAt.toLocaleString("es-ES")}`
-              : " porque el contacto todavía no ha escrito"}
-            .
-          </p>
-          <p className="text-amber-800">
-            Los mensajes que el delegado envía desde su propio móvil <strong>no reabren</strong> esta ventana: solo
-            la reabre un mensaje nuevo del contacto. Hasta entonces, la única vía son las plantillas aprobadas, que
-            todavía no están disponibles en Kindly.
-          </p>
-        </div>
-      ) : (
-        <form action={sendReplyToThisConversation} className="flex flex-col gap-2 rounded border border-zinc-200 p-3">
-          {serviceWindow.status === "OPEN" && serviceWindow.expiresAt && (
-            <p className="text-xs text-zinc-500">
-              Ventana de respuesta libre abierta hasta el {serviceWindow.expiresAt.toLocaleString("es-ES")}.
-            </p>
-          )}
-          <textarea
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            name="text"
-            placeholder="Escribe una respuesta..."
-            rows={3}
-            required
-          />
-          <button type="submit" className="w-fit rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white">
-            Enviar
-          </button>
-        </form>
-      )}
+      <ConversationThread
+        key={id}
+        conversationId={id}
+        initialState={threadState}
+        supportsTyping={channelSupportsTypingIndicator(details.conversation.channel)}
+      />
     </div>
   );
 }

@@ -45,7 +45,8 @@ sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 | **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-008** | **Alta de WhatsApp: elección y comprobaciones previas** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-010** | **Sitio público y documentos legales** | Código (agente) | 🟢 **Completo** (2026-09-20) — falta rellenar datos legales, revisión jurídica y despliegue |
-| **PKG-011** | **WhatsApp Cloud API contra el número de prueba de Meta** | Código (agente) + prueba manual (usuario) | 🟡 **Código completo** (2026-09-25) — falta la prueba real con el móvil en staging |
+| **PKG-011** | **WhatsApp Cloud API contra el número de prueba de Meta** | Código (agente) + prueba manual (usuario) | 🟢 **Completo** (2026-09-25) — recibir y responder validados con el móvil |
+| **PKG-013** | **Conversación en vivo (optimista, checks, sondeo, escribiendo)** | Código (agente) | 🟢 **Completo** (2026-09-25) |
 | **PKG-012** | **Email (Resend) y recuperación de contraseña** | Código (agente) | 🟢 **Completo** (2026-09-25) — falta `RESEND_API_KEY` en Vercel y dominio verificado |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |

@@ -176,6 +176,27 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
     }
   }
 
+  /**
+   * Meta's typing indicator: shown for up to 25 s or until the reply
+   * arrives, and — in the same call — marks the Contact's message as read.
+   * https://developers.facebook.com/docs/whatsapp/cloud-api/typing-indicators
+   */
+  async sendTypingIndicator(
+    _account: MessagingAccountRecord,
+    _conversation: ConversationRecord,
+    replyToExternalMessageId: string,
+  ): Promise<void> {
+    await this.graphRequest(`${this.config.phoneNumberId}/messages`, {
+      method: "POST",
+      body: {
+        messaging_product: "whatsapp",
+        status: "read",
+        message_id: replyToExternalMessageId,
+        typing_indicator: { type: "text" },
+      },
+    });
+  }
+
   /** HMAC-SHA256 of the raw body with the App Secret, as Meta sends it in `X-Hub-Signature-256`. */
   verifyWebhookSignature(rawBody: string, headers: Record<string, string>): boolean {
     const header = headers["x-hub-signature-256"];

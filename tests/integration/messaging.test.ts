@@ -18,7 +18,15 @@ import {
 import { listConversationsWithPreview } from "@/modules/conversations/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
 import { receiveWebhook, verifyWebhookSubscription } from "@/modules/messaging/webhook-service";
-import { getConversation, listConversations, listMessages, sendOutboundMessage } from "@/modules/conversations/service";
+import {
+  applyDeliveryUpdate,
+  getConversation,
+  getConversationThreadState,
+  listConversations,
+  listMessages,
+  sendOutboundMessage,
+  signalTyping,
+} from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
 import { WhatsAppTestAdapter } from "@/modules/messaging/testing/whatsapp-test-adapter";
@@ -923,3 +931,62 @@ describe("PKG-011 WhatsApp test adapter through the webhook pipeline (integratio
     expect((await verifyWebhookSubscription("fake", account.id, query("vt"))).status).toBe(404);
   });
 });
+
+/**
+ * PKG-013: delivery receipts that arrive out of order, the thread state the
+ * conversation screen polls, and "typing…" anchored to the latest inbound.
+ */
+describe("PKG-013 live conversation (integration)", () => {
+  async function conversationWithInbound(name: string) {
+    const { user, org } = await createTestUserAndOrg(name);
+    const account = await connectFakeAccount(org.id, user.id);
+    const externalConversationId = `chat-${randomUUID()}`;
+    const inboundIds = [`in-${randomUUID()}`, `in-${randomUUID()}`];
+    for (const [index, externalMessageId] of inboundIds.entries()) {
+      const body = JSON.stringify({
+        externalConversationId,
+        externalMessageId,
+        externalContactId: `c-${externalConversationId}`,
+        text: `inbound ${index}`,
+      });
+      const outcome = await receiveWebhook("fake", account.id, body, fakeAdapter.signatureHeaders());
+      if (outcome.status !== 200) throw new Error("unreachable");
+      await outcome.process();
+    }
+    const [conversation] = await listConversations(org.id);
+    return { user, org, account, conversation, inboundIds };
+  }
+
+  it("never moves a delivery status backwards when receipts arrive out of order", async () => {
+    const { user, org, account, conversation } = await conversationWithInbound("Receipts Org");
+    const sent = await sendOutboundMessage({ organizationId: org.id, actorUserId: user.id, conversationId: conversation.id, text: "hola" });
+
+    await applyDeliveryUpdate(account.id, sent.externalMessageId, "READ");
+    await applyDeliveryUpdate(account.id, sent.externalMessageId, "DELIVERED");
+
+    const thread = await getConversationThreadState(org.id, conversation.id);
+    expect(thread?.messages.find((m) => m.id === sent.id)?.deliveryStatus).toBe("READ");
+  });
+
+  it("returns the thread for the member's organization only, and marks it read", async () => {
+    const { org, conversation } = await conversationWithInbound("Thread Org");
+    const thread = await getConversationThreadState(org.id, conversation.id);
+    expect(thread?.messages.map((m) => m.body)).toEqual(["inbound 0", "inbound 1"]);
+    expect(thread?.serviceWindow.status).toBe("NOT_APPLICABLE");
+    expect((await getConversation(org.id, conversation.id))?.lastReadAt).not.toBeNull();
+
+    const other = await createTestUserAndOrg("Thread Intruder");
+    expect(await getConversationThreadState(other.org.id, conversation.id)).toBeNull();
+  });
+
+  it("anchors 'typing…' to the Contact's latest inbound message", async () => {
+    const { org, conversation, inboundIds } = await conversationWithInbound("Typing Org");
+    fakeAdapter.typingSignals = [];
+    await signalTyping(org.id, conversation.id);
+    expect(fakeAdapter.typingSignals).toEqual([{ conversationId: conversation.id, replyToExternalMessageId: inboundIds[1] }]);
+
+    const other = await createTestUserAndOrg("Typing Intruder");
+    await expect(signalTyping(other.org.id, conversation.id)).rejects.toThrow("not found");
+  });
+});
+

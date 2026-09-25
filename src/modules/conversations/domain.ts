@@ -64,3 +64,38 @@ export function getServiceWindowState(
     expiresAt,
   };
 }
+
+export type DeliveryStatusValue = "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+
+const DELIVERY_RANK: Record<Exclude<DeliveryStatusValue, "FAILED">, number> = {
+  PENDING: 0,
+  SENT: 1,
+  DELIVERED: 2,
+  READ: 3,
+};
+
+/**
+ * Whether a provider status callback should overwrite the stored one
+ * (PKG-013). Meta delivers `sent`/`delivered`/`read` webhooks in no
+ * guaranteed order, so a late `delivered` must never undo a `read` — once
+ * the double tick is on screen it would visibly go backwards.
+ *
+ * FAILED only overrides a message that hadn't reached the phone yet; and a
+ * later DELIVERED/READ beats a FAILED, because the phone saying it has the
+ * message is the stronger evidence.
+ */
+export function shouldApplyDeliveryStatus(current: DeliveryStatusValue, next: DeliveryStatusValue): boolean {
+  if (current === next) {
+    return false;
+  }
+  if (next === "FAILED") {
+    return current === "PENDING" || current === "SENT";
+  }
+  if (current === "FAILED") {
+    return next === "DELIVERED" || next === "READ";
+  }
+  return DELIVERY_RANK[next] > DELIVERY_RANK[current];
+}
+
+/** How often the typing indicator may be re-sent; Meta shows it for up to 25 s (PKG-013). */
+export const TYPING_INDICATOR_THROTTLE_MS = 20_000;

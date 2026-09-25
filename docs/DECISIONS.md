@@ -1417,6 +1417,57 @@ el adapter `whatsapp-test` (variables solo en Preview).
 
 ---
 
+## 2026-09-25 — PKG-013: conversación en vivo (envío optimista, checks, sondeo, "escribiendo…")
+
+**Contexto:** en la primera prueba real con WhatsApp (PKG-011) el usuario
+reenvió varias veces el mismo mensaje porque la pantalla no daba señal de
+envío, y la conversación no se actualizaba sola. Pidió además el indicador
+de "escribiendo…" en ambos sentidos.
+
+**Capacidad del proveedor, verificada** (`CLAUDE.md` sección 3) en
+https://developers.facebook.com/docs/whatsapp/cloud-api/typing-indicators :
+
+- La empresa **sí** puede mostrar "escribiendo…" al contacto
+  (`status: "read"` + `typing_indicator`, anclado a un mensaje entrante),
+  hasta 25 s o hasta la respuesta. **La misma llamada marca ese mensaje
+  como leído**: el contacto ve el doble check azul.
+- **No existe** ningún webhook que avise de que el contacto está
+  escribiendo. Kindly **no lo muestra** y no lo simula.
+
+**Decisiones (validadas por el usuario):**
+
+- **"Escribiendo…" hacia el contacto: activado**, aceptando explícitamente
+  que marca su último mensaje como leído. Se envía al teclear, como mucho
+  una vez cada 20 s (`TYPING_INDICATOR_THROTTLE_MS`), solo con la ventana
+  de servicio abierta. Es best effort: si falla se registra en el log y no
+  molesta al escribir. Es un método **opcional** del adapter
+  (`sendTypingIndicator`); los canales que no lo tengan no lo ofrecen.
+- **Tiempo real por sondeo, no infraestructura nueva:** la conversación
+  abierta consulta `GET /api/conversations/[id]/thread` cada 3 s con la
+  pestaña visible, y la lista `/inbox` se refresca cada 5 s. Vercel no
+  mantiene conexiones abiertas, y un servicio de tiempo real (Pusher, Ably)
+  sería un proveedor más sin necesidad demostrada. Cuando el volumen lo
+  justifique, se revisa aquí.
+- **Envío optimista:** el mensaje aparece al instante con un reloj, el
+  campo se vacía (un segundo clic ya no envía nada) y la acción devuelve el
+  mensaje guardado o un error que se muestra junto al mensaje con
+  "Reintentar". Intro envía y Mayús+Intro hace salto de línea.
+- **Checks:** ✓ enviado, ✓✓ entregado, ✓✓ azul leído, a partir de los
+  webhooks `statuses` que ya se guardaban. El azul depende de que el
+  contacto tenga activadas las confirmaciones de lectura.
+- **Los estados de entrega ya no retroceden** (`shouldApplyDeliveryStatus`):
+  Meta no garantiza el orden de `sent`/`delivered`/`read`. `FAILED` solo
+  sustituye a un mensaje que no llegó al teléfono, y un
+  `delivered`/`read` posterior prevalece sobre `FAILED`.
+
+**Límites conocidos:** sin clave de idempotencia en el servidor (el
+reintento de un envío que en realidad sí salió podría duplicarlo; es
+improbable porque el fallo devuelto viene de Meta rechazándolo). Si el
+webhook `delivered` llegara antes de que se guarde el propio envío, esa
+actualización se perdería; no se ha observado.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

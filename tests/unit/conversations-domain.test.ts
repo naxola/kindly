@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getServiceWindowState, isConversationUnread } from "@/modules/conversations/domain";
+import { getServiceWindowState, isConversationUnread, shouldApplyDeliveryStatus } from "@/modules/conversations/domain";
 
 describe("isConversationUnread (unit, no database)", () => {
   it("is read when there is no message yet", () => {
@@ -53,5 +53,25 @@ describe("getServiceWindowState", () => {
     const lastInbound = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     expect(getServiceWindowState(lastInbound, 24, now).status).toBe("CLOSED");
     expect(getServiceWindowState(new Date(lastInbound.getTime() + 1), 24, now).status).toBe("OPEN");
+  });
+});
+
+describe("shouldApplyDeliveryStatus (PKG-013)", () => {
+  it("only moves forward along sent → delivered → read", () => {
+    expect(shouldApplyDeliveryStatus("SENT", "DELIVERED")).toBe(true);
+    expect(shouldApplyDeliveryStatus("DELIVERED", "READ")).toBe(true);
+    expect(shouldApplyDeliveryStatus("SENT", "READ")).toBe(true);
+    // Meta's callbacks arrive out of order: a late "delivered" never undoes "read".
+    expect(shouldApplyDeliveryStatus("READ", "DELIVERED")).toBe(false);
+    expect(shouldApplyDeliveryStatus("DELIVERED", "SENT")).toBe(false);
+    expect(shouldApplyDeliveryStatus("READ", "READ")).toBe(false);
+  });
+
+  it("lets FAILED replace only a message that never reached the phone, and lets the phone overrule it", () => {
+    expect(shouldApplyDeliveryStatus("SENT", "FAILED")).toBe(true);
+    expect(shouldApplyDeliveryStatus("PENDING", "FAILED")).toBe(true);
+    expect(shouldApplyDeliveryStatus("DELIVERED", "FAILED")).toBe(false);
+    expect(shouldApplyDeliveryStatus("FAILED", "DELIVERED")).toBe(true);
+    expect(shouldApplyDeliveryStatus("FAILED", "SENT")).toBe(false);
   });
 });

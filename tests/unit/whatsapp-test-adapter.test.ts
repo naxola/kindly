@@ -207,3 +207,23 @@ describe("WhatsAppTestAdapter — Graph API", () => {
     );
   });
 });
+
+describe("WhatsAppTestAdapter — typing indicator (PKG-013)", () => {
+  it("sends Meta's read + typing_indicator payload anchored to the Contact's message", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ success: true }));
+    await makeAdapter(fetchImpl).sendTypingIndicator(
+      {} as MessagingAccountRecord,
+      { externalConversationId: "34600111222" } as ConversationRecord,
+      "wamid.IN1",
+    );
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(`https://graph.facebook.com/v25.0/${PHONE_NUMBER_ID}/messages`);
+    expect(JSON.parse(init.body)).toEqual({
+      messaging_product: "whatsapp",
+      status: "read",
+      message_id: "wamid.IN1",
+      typing_indicator: { type: "text" },
+    });
+  });
+});
+

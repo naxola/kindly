@@ -94,6 +94,17 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     return { externalMessageId, deliveryStatus: "SENT" };
   }
 
+  /** Every "typing…" signal, so tests can assert what the Contact would have seen (PKG-013). */
+  public typingSignals: Array<{ conversationId: string; replyToExternalMessageId: string }> = [];
+
+  async sendTypingIndicator(
+    _account: MessagingAccountRecord,
+    conversation: ConversationRecord,
+    replyToExternalMessageId: string,
+  ): Promise<void> {
+    this.typingSignals.push({ conversationId: conversation.id, replyToExternalMessageId });
+  }
+
   verifyWebhookSignature(_rawBody: string, headers: Record<string, string>): boolean {
     return headers["x-fake-signature"] === this.secret;
   }

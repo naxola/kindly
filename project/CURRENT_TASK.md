@@ -4,11 +4,25 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: PKG-011 — código completo (2026-09-25), falta la prueba manual
+## Paquete activo: ninguno — PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 
-Último commit: `07880c8`.
+Último commit: `pending`.
 
-### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta
+### PKG-013 — Conversación en vivo (cerrado 2026-09-25)
+
+Envío optimista con checks (✓, ✓✓, ✓✓ azul), estados de entrega que no
+retroceden, sondeo de la conversación (3 s) y de `/inbox` (5 s), y
+"escribiendo…" hacia el contacto (marca su mensaje como leído, aceptado por
+el usuario). El contacto escribiendo no se puede mostrar: Meta no lo
+notifica. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+**Falta (usuario):** probarlo en staging con el móvil.
+
+**Próximos pasos propuestos:** invitaciones por email (PKG-012, aditivo);
+reconexión de un canal desconectado; seguir con el alta ante Meta para
+PKG-009.
+
+### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta (cerrado 2026-09-25: prueba real con el móvil superada)
 
 Hecho: `WhatsAppTestAdapter` (canal `whatsapp-test`), `GET` de verificación
 del webhook, registro condicional en `src/instrumentation.ts`, tests unit e

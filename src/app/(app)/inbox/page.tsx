@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AutoRefresh } from "@/app/(app)/inbox/auto-refresh";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listConversationsWithPreview } from "@/modules/conversations/service";
 
@@ -33,6 +34,7 @@ export default async function InboxPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AutoRefresh intervalMs={5_000} />
       <div>
         <h1 className="text-xl font-semibold">Inbox</h1>
         <p className="text-sm text-zinc-500">

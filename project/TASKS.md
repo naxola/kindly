@@ -363,7 +363,7 @@ toca Meta de verdad.
 - [ ] Credenciales en almacén seguro vía `credentials_reference` — nunca en
       la fila de la base de datos, el código o los logs (`CLAUDE.md` 5).
 
-### PKG-011 — WhatsApp Cloud API, número de prueba de Meta (validación de la tubería real) — CÓDIGO COMPLETO 2026-09-25
+### PKG-011 — WhatsApp Cloud API, número de prueba de Meta (validación de la tubería real) — CERRADO 2026-09-25
 
 - [x] `WhatsAppTestAdapter` (`src/modules/messaging/testing/whatsapp-test-adapter.ts`):
       envío de texto libre, firma HMAC real, parseo de `messages`/`statuses`,
@@ -375,8 +375,8 @@ toca Meta de verdad.
 - [x] Registro condicional en `src/instrumentation.ts` (flag + todas las
       credenciales, nunca con `VERCEL_ENV=production`).
 - [x] Tests unit + integración.
-- [ ] **Prueba manual real** con el móvil en staging (usuario), ver
-      `CURRENT_TASK.md`.
+- [x] **Prueba manual real** con el móvil en staging (usuario): recibir y
+      responder funcionan (2026-09-25).
 
 **No bloqueado.** No depende del alta como Tech Provider ni de la
 verificación de negocio — usa el número de prueba gratuito que Meta da al
@@ -481,6 +481,16 @@ número de prueba de Meta, verificado a ojo en el Inbox).
 - [ ] (Siguiente, aditivo) Enviar también por email las invitaciones de
       `/members`, manteniendo el enlace copiable como alternativa.
 - [ ] (Usuario) Verificar el dominio propio en Resend y fijar `EMAIL_FROM`.
+
+### PKG-013 — Conversación en vivo — CERRADO 2026-09-25
+
+- [x] Envío optimista con reintento; Intro envía.
+- [x] Checks ✓ / ✓✓ / ✓✓ azul; estados de entrega que nunca retroceden.
+- [x] Sondeo de la conversación abierta (3 s) y de `/inbox` (5 s).
+- [x] "Escribiendo…" hacia el contacto (marca como leído, aceptado); el
+      contacto escribiendo **no** se puede mostrar (Meta no lo notifica).
+- [x] Tests unit, integración y E2E.
+- [ ] (Usuario) Probarlo en staging con el móvil.
 
 ## Fase 6 — Cases
 

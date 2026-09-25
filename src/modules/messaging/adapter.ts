@@ -200,4 +200,16 @@ export interface MessagingAdapter {
    * route answers 404.
    */
   verifyWebhookChallenge?(query: URLSearchParams): string | null;
+  /**
+   * Optional: show "typing…" to the Contact, anchored to their latest
+   * inbound message (PKG-013). On WhatsApp Cloud API the same call marks
+   * that message as read; there is no inbound equivalent (Meta sends no
+   * webhook when the Contact types), so Kindly never shows the Contact
+   * typing. Channels without it omit the method.
+   */
+  sendTypingIndicator?(
+    account: MessagingAccountRecord,
+    conversation: ConversationRecord,
+    replyToExternalMessageId: string,
+  ): Promise<void>;
 }

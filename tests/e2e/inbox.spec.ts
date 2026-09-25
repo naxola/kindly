@@ -115,8 +115,36 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await page.getByText(contactName).click();
   await page.getByPlaceholder("Escribe una respuesta...").fill("Claro, cuéntame más");
   await page.getByRole("button", { name: "Enviar" }).click();
+  // PKG-013: shown at once, composer emptied, then confirmed with one tick.
   await expect(page.getByText("Claro, cuéntame más")).toBeVisible();
-  await expect(page.getByText("SENT")).toBeVisible();
+  await expect(page.getByPlaceholder("Escribe una respuesta...")).toHaveValue("");
+  await expect(page.getByRole("img", { name: "Enviado" })).toBeVisible();
+
+  // PKG-013: the open conversation picks up the delivery receipt and a new
+  // inbound message by itself — no reload.
+  const [sent] = await sql`
+    select external_message_id from messages
+    where messaging_account_id = ${account.id} and direction = 'OUTBOUND'
+    order by created_at desc limit 1
+  `;
+  const [conversationRow] = await sql`
+    select external_conversation_id from conversations where messaging_account_id = ${account.id} limit 1
+  `;
+  const receipts = await request.post(`/api/webhooks/fake/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify([
+      { kind: "DELIVERY_UPDATE", externalMessageId: sent.external_message_id, deliveryStatus: "DELIVERED" },
+      {
+        externalConversationId: conversationRow.external_conversation_id,
+        externalMessageId: `msg-${randomUUID()}`,
+        externalContactId: `provider-${randomUUID()}`,
+        text: "Gracias, te escribo los detalles",
+      },
+    ]),
+  });
+  expect(receipts.status()).toBe(200);
+  await expect(page.getByText("Gracias, te escribo los detalles")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("img", { name: "Entregado" })).toBeVisible({ timeout: 15_000 });
 });
 
 /**
