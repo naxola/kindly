@@ -6,7 +6,7 @@
 
 ## Paquete activo: PKG-011 — código completo (2026-09-25), falta la prueba manual
 
-Último commit: ver `git log` (hash registrado al cerrar la sesión abajo).
+Último commit: `30f1375`.
 
 ### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta
 
