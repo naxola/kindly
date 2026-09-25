@@ -35,8 +35,7 @@ export async function connectMessagingAccountAction(formData: FormData) {
     // said. Uncaught, this became Next's bare "This page couldn't load"
     // with the reason only in the server log (found on staging with the
     // PKG-011 adapter, 2026-09-25). `redirect` must stay outside `try`.
-    const message = error instanceof Error ? error.message : "Error desconocido al conectar.";
-    redirect(`/channels?error=${encodeURIComponent(message.slice(0, 300))}`);
+    redirect(`/channels?error=${encodeURIComponent(describeConnectionError(error).slice(0, 300))}`);
   }
 
   revalidatePath("/channels");
@@ -105,4 +104,16 @@ export async function startCoexistenceConnectionAction(channel: string, formData
 
   revalidatePath("/channels");
   redirect("/channels");
+}
+
+/**
+ * Drizzle wraps database errors as "Failed query: <the whole SQL>", with
+ * Postgres's actual reason in `cause` — which the truncated message never
+ * reached (found on staging, 2026-09-25). Prefer the cause.
+ */
+function describeConnectionError(error: unknown): string {
+  if (error instanceof Error && error.cause instanceof Error) {
+    return error.cause.message;
+  }
+  return error instanceof Error ? error.message : "Error desconocido al conectar.";
 }
