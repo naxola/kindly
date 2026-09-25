@@ -288,7 +288,7 @@ triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
-Último commit: `3350101`.
+Último commit: `80a7ebf`.
 
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra
