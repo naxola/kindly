@@ -221,6 +221,12 @@ privacidad y relevancia.
 
 ## 11. Frontend
 
+> **Diseño de interfaz: la fuente de verdad es `docs/ui/`** (tokens,
+> componentes, shell, Inbox, conversación en Sheet, organización,
+> accesibilidad, roadmap por fases). Esta sección solo resume la estructura
+> funcional. Tokens en `src/styles/tokens.css`, componentes en
+> `src/components/`.
+
 Navegación principal: Inbox, Contacts, Cases, Tasks, Knowledge, AI,
 Analytics, Administration. Pantalla inicial: **Inbox**, porque la
 comunicación es el centro del producto.

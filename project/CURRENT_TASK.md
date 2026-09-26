@@ -4,9 +4,56 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
+## Paquete activo: rediseño UI/UX — UI-0 y UI-1 cerrados el 2026-09-26; siguiente UI-2
 
-Último commit: `3350101`.
+Último commit: `PENDIENTE`.
+
+### Rediseño UI/UX (encargo del 2026-09-26)
+
+El usuario pidió rediseñar toda la interfaz con Supabase como referencia de
+calidad y patrones (no de aspecto), por fases y documentado para que otra
+IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
+`docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisión en
+`docs/DECISIONS.md` (entrada del 2026-09-26).
+
+**Hecho en esta sesión:**
+
+- UI-0: auditoría (`docs/ui/AUDIT.md`), estudio del repo de Supabase
+  (`docs/ui/SUPABASE_REFERENCE.md`), documentos de principios, tokens,
+  componentes, navegación, organización, Inbox, chat, accesibilidad,
+  responsive y roadmap.
+- UI-1: `src/styles/tokens.css` (primitivas → semánticos → utilidades,
+  tokens de componente, z-index, movimiento, `focus-ring`/`focus-inset`,
+  roles `type-*`); `src/lib/cn.ts`; componentes base en
+  `src/components/ui/` (Button, SubmitButton, Spinner, Input, Textarea,
+  NativeSelect, Checkbox, Label, Field, Badge, CountBadge, Card, Alert,
+  EmptyState, Skeleton, Separator, Kbd, Avatar); catálogo `/ui-kit`;
+  `tests/unit/ui-tokens.test.ts` (contraste WCAG + "solo tokens").
+- Dependencias nuevas: `class-variance-authority`, `clsx`,
+  `tailwind-merge`, `lucide-react`.
+- Las páginas existentes **no** se han tocado (siguen con la paleta de
+  Tailwind hasta UI-4). Único cambio visual: `ink-faint` del sitio público,
+  por contraste.
+
+**Próximo paso concreto (UI-2, shell):** instalar `radix-ui`; crear
+`src/components/shell/` (`AppShell`, `AppHeader` con migas
+Organización/Módulo y menús de organización y usuario, `AppSidebar`
+contraíble con cookie `kindly_sidebar`, `SkipToContent`, menú móvil en
+Sheet) según `docs/ui/LAYOUT_NAVIGATION.md`; montar en
+`src/app/(app)/layout.tsx`; post-login a `/inbox`. Cuidado con los E2E:
+buscan los enlaces "Inbox" (exact) y "Canales" y la URL `/dashboard` tras
+registrarse (`tests/e2e/*.spec.ts`) — actualizarlos en el mismo commit.
+
+**Preguntas abiertas para el usuario (no bloquean UI-2):**
+
+- ¿Se añade la acción de dominio "cambiar rol de un miembro" (UI-7)?
+- ¿Tema oscuro en UI-8, o solo claro?
+- ¿Modo "anclado" de la conversación en pantallas anchas tras probar el
+  Sheet modal (`docs/ui/CHAT.md` §5)?
+
+## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
+
+Último commit de esos paquetes: `3350101`.
 
 ### PKG-013 — Conversación en vivo (cerrado 2026-09-25)
 

@@ -1,0 +1,466 @@
+/**
+ * Kindly design tokens — the single source of every visual value.
+ *
+ * Three layers (docs/ui/TOKENS.md):
+ *
+ *   1. Primitives (`--palette-*`): raw values. Nothing outside this file
+ *      references them, so a rebrand is an edit here only.
+ *   2. Semantic (`--color-*`, `--radius-*`, `--shadow-*`, …): what a value
+ *      is *for* (foreground-light, surface-200, border-control). Components
+ *      use only these, through the Tailwind utilities `@theme` generates.
+ *   3. Component (`--control-h-*`, `--sidebar-w`, `--sheet-w-*`, `--z-*`):
+ *      dimensions that several components must agree on.
+ *
+ * Names follow a slash-free path (`color-surface-200` ↔ Figma variable
+ * `color/surface/200`) so a future Figma Variables / DTCG export is a
+ * mechanical rename, not a mapping table.
+ *
+ * Every text/background pair used by components is contrast-checked in
+ * tests/unit/ui-tokens.test.ts — change a value here and that test tells you
+ * whether it still meets WCAG AA.
+ */
+
+/* ── 1. Primitives ─────────────────────────────────────────────────────── */
+:root {
+  /* Ink: a genuinely blue near-black and its cool greys ("ink on cool
+     paper", docs/DECISIONS.md PKG-010). */
+  --palette-white: #ffffff;
+  --palette-ink-25: #fafbfc;
+  --palette-ink-50: #f5f7f9;
+  --palette-ink-100: #eef1f5;
+  --palette-ink-150: #e6eaf0;
+  --palette-ink-200: #dde3ea;
+  --palette-ink-300: #c5cdd9;
+  --palette-ink-400: #9aa5b8;
+  --palette-ink-500: #6f7c94;
+  --palette-ink-600: #5b6880;
+  --palette-ink-700: #46556f;
+  --palette-ink-800: #28354d;
+  --palette-ink-900: #101c33;
+  --palette-ink-950: #0a1222;
+
+  /* Stamp green: the "vigente" stamp — the product's one accent. */
+  --palette-green-50: #eef6f2;
+  --palette-green-100: #e6f0eb;
+  --palette-green-200: #c2ddcf;
+  --palette-green-500: #1f7a5a;
+  --palette-green-600: #15654a;
+  --palette-green-700: #0f5540;
+  --palette-green-800: #0b4031;
+
+  --palette-red-50: #fdf1f0;
+  --palette-red-100: #f9e0de;
+  --palette-red-200: #f0c3bf;
+  --palette-red-600: #b42318;
+  --palette-red-700: #8c2f2f;
+  --palette-red-800: #6e2323;
+
+  --palette-amber-50: #fcf6e6;
+  --palette-amber-100: #f7ebcc;
+  --palette-amber-200: #ecd7a3;
+  --palette-amber-600: #8a6314;
+  --palette-amber-700: #6f4f0f;
+
+  --palette-blue-50: #eff4fb;
+  --palette-blue-100: #dfe8f6;
+  --palette-blue-200: #bcd0ec;
+  --palette-blue-600: #2f5aa8;
+  --palette-blue-700: #244786;
+
+  /* Shadow tint: ink, never pure black, so elevation reads as paper. */
+  --palette-shadow: 16 28 51;
+}
+
+/* ── 2. Semantic (light theme — the default) ───────────────────────────── */
+:root {
+  /* Backgrounds, from the page up. Higher surfaces are separated by shadow
+     and border rather than by getting darker. */
+  --background: var(--palette-white);
+  --background-muted: var(--palette-ink-50);
+  --surface-100: var(--palette-white);
+  --surface-200: var(--palette-white);
+  --surface-300: var(--palette-ink-100);
+  --overlay: rgb(var(--palette-shadow) / 0.36);
+  --control: var(--palette-white);
+  --control-disabled: var(--palette-ink-50);
+
+  /* Interaction states for rows, menu items and nav links. */
+  --state-hover: var(--palette-ink-100);
+  --state-selected: var(--palette-ink-150);
+
+  /* Text. `foreground-muted` fails AA on purpose: it is for disabled and
+     decorative text only (WCAG exempts both). Anything a user must read is
+     `foreground-lighter` or stronger. */
+  --foreground: var(--palette-ink-900);
+  --foreground-light: var(--palette-ink-700);
+  --foreground-lighter: var(--palette-ink-600);
+  --foreground-muted: var(--palette-ink-400);
+  --foreground-inverse: var(--palette-white);
+
+  /* Borders. `border-control` is the only border that separates a control
+     from its background, so it alone must reach 3:1 (WCAG 1.4.11). */
+  --border: var(--palette-ink-200);
+  --border-strong: var(--palette-ink-300);
+  --border-control: var(--palette-ink-500);
+
+  /* Functional accent: primary actions, selection, links. */
+  --primary: var(--palette-green-600);
+  --primary-hover: var(--palette-green-700);
+  --primary-foreground: var(--palette-white);
+  --primary-soft: var(--palette-green-50);
+  --primary-soft-foreground: var(--palette-green-700);
+  --primary-border: var(--palette-green-200);
+  --ring: var(--palette-green-500);
+
+  /* Status. Each has a solid (buttons), a soft background, a foreground to
+     put on that soft background, and a border for callouts. */
+  --destructive: var(--palette-red-600);
+  --destructive-hover: var(--palette-red-700);
+  --destructive-foreground: var(--palette-white);
+  --destructive-soft: var(--palette-red-50);
+  --destructive-soft-foreground: var(--palette-red-700);
+  --destructive-border: var(--palette-red-200);
+
+  --warning: var(--palette-amber-600);
+  --warning-soft: var(--palette-amber-50);
+  --warning-soft-foreground: var(--palette-amber-700);
+  --warning-border: var(--palette-amber-200);
+
+  --success: var(--palette-green-600);
+  --success-soft: var(--palette-green-50);
+  --success-soft-foreground: var(--palette-green-700);
+  --success-border: var(--palette-green-200);
+
+  --info: var(--palette-blue-600);
+  --info-soft: var(--palette-blue-50);
+  --info-soft-foreground: var(--palette-blue-700);
+  --info-border: var(--palette-blue-200);
+
+  /* Domain values with their own colour (docs/PRODUCT.md §10). Separate
+     tokens from destructive/warning even when the hue matches: they are
+     different things and must stay free to diverge. */
+  --evidence-sufficient: var(--palette-green-600);
+  --evidence-partial: var(--palette-amber-600);
+  --evidence-insufficient: var(--palette-red-700);
+  --alert: var(--palette-red-700);
+
+  /* Chat bubbles (docs/ui/CHAT.md). */
+  --bubble-inbound: var(--palette-ink-100);
+  --bubble-inbound-foreground: var(--palette-ink-900);
+  --bubble-outbound: var(--palette-green-50);
+  --bubble-outbound-foreground: var(--palette-ink-900);
+  --bubble-outbound-border: var(--palette-green-200);
+  --read-receipt: var(--palette-blue-600);
+
+  /* Legacy names used by the public site (PKG-010). Kept as aliases so the
+     landing and legal pages render exactly as before. */
+  --ink: var(--palette-ink-900);
+  --ink-soft: var(--palette-ink-700);
+  --ink-faint: var(--palette-ink-600);
+  --paper: var(--palette-ink-50);
+  --line: var(--palette-ink-200);
+  --stamp: var(--palette-green-600);
+  --stamp-soft: var(--palette-green-100);
+
+  /* ── 3. Component dimensions ── */
+  --control-h-sm: 1.75rem; /* 28px — dense rows, table actions */
+  --control-h-md: 2.125rem; /* 34px — default */
+  --control-h-lg: 2.5rem; /* 40px — auth forms, touch-first */
+  --touch-target-min: 1.5rem; /* 24px, WCAG 2.2 SC 2.5.8 */
+
+  --header-h: 3rem;
+  --sidebar-w: 14rem;
+  --sidebar-w-collapsed: 3.5rem;
+  --context-nav-w: 13rem;
+  --inbox-list-w: 24rem;
+
+  --sheet-w-sm: 24rem;
+  --sheet-w-md: 35rem;
+  --sheet-w-lg: 45rem;
+  --dialog-w-sm: 25rem;
+  --dialog-w-md: 32rem;
+  --dialog-w-lg: 40rem;
+
+  --page-w-sm: 48rem;
+  --page-w-md: 64rem;
+  --page-w-lg: 80rem;
+  --page-gutter: 1rem;
+
+  /* Stacking order. Always use these (`z-(--z-modal)`), never a number. */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-header: 20;
+  --z-sidebar: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+  --z-skip-link: 90;
+
+  /* Motion. Short: this is a work tool; nothing waits on an animation. */
+  --duration-fast: 100ms;
+  --duration-base: 150ms;
+  --duration-slow: 250ms;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --page-gutter: 1.5rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  :root {
+    --page-gutter: 2rem;
+  }
+}
+
+/* ── Tailwind bridge: semantic tokens → utilities ──────────────────────── */
+@theme inline {
+  /* Our breakpoints replace Tailwind's (same values plus `xs`). Default
+     radii/shadows stay defined until legacy pages migrate (Phase 9). */
+  --breakpoint-*: initial;
+  --breakpoint-xs: 30rem;
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+  --breakpoint-2xl: 96rem;
+
+  --color-background: var(--background);
+  --color-background-muted: var(--background-muted);
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+  --color-overlay: var(--overlay);
+  --color-control: var(--control);
+  --color-control-disabled: var(--control-disabled);
+  --color-state-hover: var(--state-hover);
+  --color-state-selected: var(--state-selected);
+
+  --color-foreground: var(--foreground);
+  --color-foreground-light: var(--foreground-light);
+  --color-foreground-lighter: var(--foreground-lighter);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-inverse: var(--foreground-inverse);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-control: var(--border-control);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-foreground: var(--primary-soft-foreground);
+  --color-primary-border: var(--primary-border);
+  --color-ring: var(--ring);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-destructive-border: var(--destructive-border);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-success-border: var(--success-border);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-foreground: var(--info-soft-foreground);
+  --color-info-border: var(--info-border);
+
+  --color-evidence-sufficient: var(--evidence-sufficient);
+  --color-evidence-partial: var(--evidence-partial);
+  --color-evidence-insufficient: var(--evidence-insufficient);
+  --color-alert: var(--alert);
+
+  --color-bubble-inbound: var(--bubble-inbound);
+  --color-bubble-inbound-foreground: var(--bubble-inbound-foreground);
+  --color-bubble-outbound: var(--bubble-outbound);
+  --color-bubble-outbound-foreground: var(--bubble-outbound-foreground);
+  --color-bubble-outbound-border: var(--bubble-outbound-border);
+  --color-read-receipt: var(--read-receipt);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-paper: var(--paper);
+  --color-line: var(--line);
+  --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+
+  /* Typography. Sans is the interface; the serif is reserved for what the
+     product produces as a document (copilot drafts, citations, legal). */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-document: var(--font-literata), Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-control: 0.375rem;
+  --radius-card: 0.5rem;
+  --radius-overlay: 0.625rem;
+  --radius-bubble: 0.75rem;
+
+  --shadow-xs: 0 1px 2px 0 rgb(var(--palette-shadow) / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(var(--palette-shadow) / 0.08), 0 1px 2px -1px rgb(var(--palette-shadow) / 0.08);
+  --shadow-md: 0 4px 12px -2px rgb(var(--palette-shadow) / 0.1), 0 2px 4px -2px rgb(var(--palette-shadow) / 0.06);
+  --shadow-lg: 0 16px 40px -8px rgb(var(--palette-shadow) / 0.2), 0 4px 8px -4px rgb(var(--palette-shadow) / 0.08);
+
+  /* Dimensions as spacing so `h-control-md`, `w-sidebar`, `px-gutter` work. */
+  --spacing-control-sm: var(--control-h-sm);
+  --spacing-control-md: var(--control-h-md);
+  --spacing-control-lg: var(--control-h-lg);
+  --spacing-touch: var(--touch-target-min);
+  --spacing-header: var(--header-h);
+  --spacing-sidebar: var(--sidebar-w);
+  --spacing-sidebar-collapsed: var(--sidebar-w-collapsed);
+  --spacing-context-nav: var(--context-nav-w);
+  --spacing-inbox-list: var(--inbox-list-w);
+  --spacing-gutter: var(--page-gutter);
+
+  --container-page-sm: var(--page-w-sm);
+  --container-page-md: var(--page-w-md);
+  --container-page-lg: var(--page-w-lg);
+  --container-sheet-sm: var(--sheet-w-sm);
+  --container-sheet-md: var(--sheet-w-md);
+  --container-sheet-lg: var(--sheet-w-lg);
+  --container-dialog-sm: var(--dialog-w-sm);
+  --container-dialog-md: var(--dialog-w-md);
+  --container-dialog-lg: var(--dialog-w-lg);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-spin: spin 0.8s linear infinite;
+  --animate-pulse: pulse 1.6s var(--ease-standard) infinite;
+  --animate-fade-in: fade-in var(--duration-base) var(--ease-standard);
+  --animate-fade-out: fade-out var(--duration-fast) var(--ease-standard);
+  --animate-slide-in-right: slide-in-right var(--duration-slow) var(--ease-emphasized);
+  --animate-slide-out-right: slide-out-right var(--duration-base) var(--ease-standard);
+  --animate-slide-in-left: slide-in-left var(--duration-slow) var(--ease-emphasized);
+  --animate-slide-out-left: slide-out-left var(--duration-base) var(--ease-standard);
+  --animate-dialog-in: dialog-in var(--duration-base) var(--ease-emphasized);
+  --animate-dialog-out: dialog-out var(--duration-fast) var(--ease-standard);
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes pulse {
+    50% {
+      opacity: 0.5;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes slide-out-right {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes slide-out-left {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.98);
+    }
+  }
+  @keyframes dialog-out {
+    to {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+}
+
+/* ── Shared interaction utilities (docs/ui/ACCESSIBILITY.md) ───────────── */
+
+/* The one focus indicator. An outline, not a box-shadow ring, so it survives
+   Windows forced-colors mode. Never animated. */
+@utility focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  &:focus-visible {
+    outline-color: var(--ring);
+  }
+}
+
+/* Same indicator drawn inside the element, for flush/dense surfaces such as
+   list rows and table rows where an outer offset would be clipped. */
+@utility focus-inset {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  &:focus-visible {
+    outline-color: var(--ring);
+  }
+}
+
+/* Typographic roles — each maps 1:1 to a Figma text style (type/<role>). */
+@utility type-page-title {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+@utility type-section-title {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+@utility type-body {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+@utility type-label {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+}
+@utility type-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+@utility type-overline {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

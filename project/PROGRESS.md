@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-25.
+Última actualización: 2026-09-26.
 
 ## Resumen en una línea
 
@@ -30,6 +30,10 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 prueba y solo en staging, para validar la tubería real mientras `PKG-009`
 sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 (Resend) para recuperar la contraseña.
+**Rediseño UI/UX** (2026-09-26): arranca por fases `UI-0`…`UI-9` con
+`docs/ui/` como fuente de verdad. `UI-0` (auditoría + estudio de Supabase +
+documentación) y `UI-1` (tokens en tres capas + componentes base +
+`/ui-kit`) completos; siguiente: `UI-2`, shell de aplicación.
 
 ## Estado por fase / paquete
 
@@ -48,6 +52,9 @@ sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 | **PKG-011** | **WhatsApp Cloud API contra el número de prueba de Meta** | Código (agente) + prueba manual (usuario) | 🟢 **Completo** (2026-09-25) — recibir y responder validados con el móvil |
 | **PKG-013** | **Conversación en vivo (optimista, checks, sondeo, escribiendo)** | Código (agente) | 🟢 **Completo** (2026-09-25) |
 | **PKG-012** | **Email (Resend) y recuperación de contraseña** | Código (agente) | 🟢 **Completo** (2026-09-25) — falta `RESEND_API_KEY` en Vercel y dominio verificado |
+| **UI-0** | **Rediseño UI/UX: auditoría y documentación (`docs/ui/`)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| **UI-1** | **Design system: tokens y componentes base** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| UI-2 … UI-9 | Shell, componentes avanzados, páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

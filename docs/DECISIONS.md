@@ -1468,6 +1468,68 @@ actualización se perdería; no se ha observado.
 
 ---
 
+## 2026-09-26 — Rediseño UI/UX: sistema de diseño por tokens inspirado en Supabase (fases UI-0 y UI-1)
+
+**Contexto:** el usuario pide rediseñar la interfaz de forma integral con el
+dashboard de Supabase como referencia de calidad y de patrones (no de
+aspecto), por fases, dejando la estrategia documentada para que otra IA
+pueda continuarla. La app autenticada no tenía componentes compartidos ni
+tokens: usaba la paleta de Tailwind en crudo (27 archivos), sin sidebar,
+sin confirmaciones y con el Inbox navegando fuera de la lista.
+
+**Decisión:**
+
+1. **`docs/ui/` es la fuente de verdad de UI/UX** (principios, tokens,
+   componentes, navegación, organización, Inbox, chat, accesibilidad,
+   responsive, roadmap). Amplía la estructura `docs/` + `project/` en vez
+   de crear una paralela; las fases son paquetes `UI-0`…`UI-9` en
+   `project/TASKS.md`.
+2. **Tokens en tres capas** (primitivas → semánticos → utilidades
+   Tailwind, más tokens de componente) en `src/styles/tokens.css`, con
+   nombres de la gramática de Supabase (`foreground-light`, `surface-200`,
+   `border-control`) y compatibles con Figma Variables. Dos tests los
+   protegen: contraste WCAG de cada par usado y prohibición de valores
+   sueltos en los directorios migrados.
+3. **Identidad propia, no la de Supabase:** se conserva la de PKG-010
+   (tinta sobre papel frío, verde sello). El verde pasa a ser el acento
+   funcional (`primary`), como el verde en Supabase. **Tema claro** por
+   defecto; el oscuro de Supabase se descarta por ahora (la capa semántica
+   lo deja preparado).
+4. **Primitivas accesibles: Radix (vía patrón shadcn)**, que ya estaba en
+   el stack de `docs/ARCHITECTURE.md`. En la Fase 1 solo entran
+   `class-variance-authority`, `clsx`, `tailwind-merge` y `lucide-react`;
+   `radix-ui` y `sonner` en las Fases 2–3 cuando haya el primer uso.
+5. **Una sola familia de confirmación** (`ConfirmDialog` parametrizado, con
+   texto a escribir opcional para irreversibles) en lugar del trío
+   AlertDialog/ConfirmationModal/TextConfirmDialog de Supabase.
+6. **La conversación se abre en un Sheet derecho modal** sobre la lista,
+   con rutas paralelas + interceptadas de Next 16 para que `/inbox/<id>`
+   siga siendo enlazable. El modo "anclado" no modal en pantallas anchas
+   se evalúa y se aplaza (`docs/ui/CHAT.md` §5).
+7. **La organización entra en la navegación** (miga del header + módulo
+   `/organization` con General, Miembros, Canales); `/members` y
+   `/channels` se moverán con redirecciones en la Fase 7.
+8. **El Inbox no inventa estados**: "pendiente de respuesta" se deriva del
+   último mensaje entrante; asignación/archivo/etiquetas no existen en el
+   dominio y no se simulan.
+
+**Alternativas consideradas:** copiar `packages/ui` de Supabase (arrastra
+su derivación OKLCH, su tema oscuro y dependencias que no necesitamos);
+seguir con Tailwind en crudo y extraer componentes sobre la marcha (es lo
+que produjo 30 copias del mismo input); un JSON DTCG como fuente con
+generación de CSS (tooling prematuro: se añade un exportador en la Fase 9).
+
+**Por qué:** el orden de criterio fijado por el usuario (función →
+accesibilidad → consistencia → Supabase → reutilización → simplicidad →
+estética) favorece un sistema pequeño, propio y verificable por tests
+frente a una copia visual.
+
+**Efecto visible colateral:** `ink-faint` del sitio público pasa de
+`#7a879e` (3,6:1, no cumplía AA) a `#5b6880`. Es el único cambio visual
+fuera de la app autenticada.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

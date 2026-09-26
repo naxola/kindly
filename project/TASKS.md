@@ -492,6 +492,64 @@ número de prueba de Meta, verificado a ojo en el Inbox).
 - [x] Tests unit, integración y E2E.
 - [ ] (Usuario) Probarlo en staging con el móvil.
 
+## Rediseño UI/UX (paquetes UI-0 … UI-9) — fuente de verdad: `docs/ui/`
+
+Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
+`docs/ui/ROADMAP.md`. Aquí solo el seguimiento.
+
+### UI-0 — Auditoría — CERRADO 2026-09-26
+
+- [x] Auditoría del estado actual (`docs/ui/AUDIT.md`).
+- [x] Estudio del repositorio de Supabase (`docs/ui/SUPABASE_REFERENCE.md`).
+- [x] Documentación completa de `docs/ui/` y decisión en `docs/DECISIONS.md`.
+
+### UI-1 — Design system: tokens y componentes base — CERRADO 2026-09-26
+
+- [x] `src/styles/tokens.css` (tres capas) y `globals.css` sobre tokens.
+- [x] `src/lib/cn.ts` y componentes base en `src/components/ui/`.
+- [x] `/ui-kit` como catálogo vivo.
+- [x] Tests de contraste y de "solo tokens" (`tests/unit/ui-tokens.test.ts`).
+
+### UI-2 — Shell de aplicación
+
+- [ ] `AppShell`, `AppHeader` (migas Organización/Módulo, menús), `AppSidebar` contraíble (cookie), `SkipToContent`, menú móvil.
+- [ ] `radix-ui`: DropdownMenu, Tooltip, Sheet base.
+- [ ] Post-login a `/inbox`; `/dashboard` redirige.
+- [ ] Contador de no leídas en la sidebar.
+- [ ] E2E del shell; E2E existentes en verde.
+
+### UI-3 — Componentes avanzados
+
+- [ ] Dialog, ConfirmDialog, DiscardChangesDialog, Sheet completo, Tabs, Popover, Toaster, Table, DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime, (CommandMenu).
+- [ ] Entorno de tests de componentes (jsdom + Testing Library) — registrar decisión.
+
+### UI-4 — Arquitectura de páginas
+
+- [ ] PageContainer/PageHeader/PageSection y migración de todas las páginas de `(app)` y auth.
+- [ ] Textos en español (Contactos, Casos, Tareas) con E2E actualizados.
+- [ ] `src/app/(app)` añadido al test de tokens.
+
+### UI-5 — Inbox
+
+- [ ] Vistas con contadores, búsqueda y filtros por URL, fila densa, teclado.
+- [ ] Consulta de servidor eficiente (último mensaje, búsqueda, contadores) con tests de aislamiento.
+
+### UI-6 — Conversación en Sheet
+
+- [ ] Rutas paralelas/interceptadas, `ConversationSheet` y todos sus estados.
+
+### UI-7 — Organización
+
+- [ ] `/organization` (General, Miembros, Canales) con redirecciones y diálogos.
+
+### UI-8 — Accesibilidad y responsive
+
+- [ ] axe en E2E, auditoría manual, 320–1440 px.
+
+### UI-9 — Consolidación
+
+- [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
+
 ## Fase 6 — Cases
 
 - [ ] Ciclo de vida completo de `Case` (transiciones de estado).
