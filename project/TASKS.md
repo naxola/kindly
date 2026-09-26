@@ -521,10 +521,18 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [x] E2E del shell (`tests/e2e/shell.spec.ts`); E2E existentes en verde
       (8 specs necesitaron `exact: true` en "Canales", ver `docs/ui/ROADMAP.md`).
 
-### UI-3 — Componentes avanzados
+### UI-3 — Componentes avanzados — CERRADO 2026-09-26
 
-- [ ] Dialog, ConfirmDialog, DiscardChangesDialog, Sheet completo, Tabs, Popover, Toaster, Table, DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime, (CommandMenu).
-- [ ] Entorno de tests de componentes (jsdom + Testing Library) — registrar decisión.
+- [x] Dialog, ConfirmDialog, DiscardChangesDialog + useConfirmOnClose,
+      Sheet completo (patrón de formulario sucio), Tabs, Popover, Toaster,
+      Table, DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime.
+- [x] Entorno de tests de componentes (jsdom + Testing Library, activado
+      por archivo con `// @vitest-environment jsdom`); tests de teclado
+      para ConfirmDialog, DataList y Sheet (12 tests nuevos).
+- [x] Corregido un *hydration mismatch* real en `RelativeTime` (formateo
+      de fecha/hora dependiente de ICU del servidor vs. del navegador).
+- [ ] `CommandMenu` (`cmdk`): aplazado, sin página que lo necesite aún.
+- [ ] Patrón `loading.tsx`/`error.tsx`: aplazado a UI-4 (depende de `PageContainer`).
 
 ### UI-4 — Arquitectura de páginas
 

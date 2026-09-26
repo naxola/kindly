@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0, UI-1 y UI-2 cerrados el 2026-09-26; siguiente UI-3
+## Paquete activo: rediseño UI/UX — UI-0…UI-3 cerrados el 2026-09-26; siguiente UI-4
 
-Último commit: `34332a3`.
+Último commit: `PENDIENTE`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -16,57 +16,69 @@ IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
 `docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisión en
 `docs/DECISIONS.md` (entrada del 2026-09-26).
 
-**Hecho en sesiones anteriores (UI-0, UI-1):** auditoría, estudio de
-Supabase, documentación completa de `docs/ui/`; tokens en tres capas
-(`src/styles/tokens.css`), componentes base (`src/components/ui/`),
-catálogo `/ui-kit`, test de contraste + "solo tokens". Detalle en
-`docs/ui/ROADMAP.md` (Fases 0 y 1).
+**Hecho en sesiones anteriores:**
 
-**Hecho en esta sesión (UI-2 — shell de aplicación):**
+- **UI-0/UI-1**: auditoría, estudio de Supabase, documentación completa de
+  `docs/ui/`; tokens en tres capas (`src/styles/tokens.css`), componentes
+  base (`src/components/ui/`), catálogo `/ui-kit`.
+- **UI-2**: shell de aplicación (`src/components/shell/`: `AppShell`,
+  `AppHeader`, `AppSidebar` contraíble con cookie, `MobileNav`,
+  `UserMenu`, `SkipToContent`, `ContextNav` preparado). Post-login →
+  `/inbox`. Sidebar y migas de organización se mantienen **planas** a
+  propósito hasta que `/organization` exista (UI-7). Detalle completo en
+  `docs/ui/ROADMAP.md` (Fases 0-2).
 
-- `src/components/shell/`: `AppShell` (rejilla `h-dvh`, header fijo +
-  `<main>` con scroll propio), `AppHeader`, `AppSidebar` (contraíble,
-  persistida en la cookie `kindly_sidebar`; lectura en
-  `sidebar-cookie.ts`, escritura en `sidebar-actions.ts`), `MobileNav`
-  (Sheet izquierdo, `< md`), `UserMenu` (DropdownMenu: nombre/email/rol +
-  "Cerrar sesión"), `SkipToContent`, `ContextNav` (construido, sin
-  consumidores hasta UI-5/UI-7), `nav-items.ts` (lista plana de la
-  sidebar, ver desviación abajo).
-- `src/components/ui/`: `sheet.tsx`, `dropdown-menu.tsx`, `tooltip.tsx`
-  (adelantadas de UI-3, sobre `radix-ui`, ya instalado).
-- `countUnreadConversations` en `src/modules/conversations/service.ts`
-  (cuenta conversaciones no leídas de toda la organización — el Inbox es
-  compartido, no por delegado; 3 tests de integración nuevos).
-- Post-login → `/inbox` (antes `/dashboard`, que ahora solo redirige);
-  cambiado en `login/page.tsx`, `invite/[token]/sign-up-form.tsx` y
-  `dashboard/page.tsx`. `src/app/(app)/sign-out-button.tsx` eliminado (su
-  lógica vive en `UserMenu`).
-- **Desviación deliberada** (registrada en `docs/ui/ROADMAP.md`, Fase 2):
-  la miga de organización del header es texto plano, no un menú — un menú
-  a `/organization` no tiene sentido antes de que esa ruta exista (UI-7).
-  Por lo mismo, la sidebar sigue **plana** (mismos ítems/URLs que el nav
-  anterior: Inbox, Contacts, Cases, Tasks, Canales, Miembros), sin agrupar
-  Canales/Miembros bajo "Organización" todavía.
-- E2E: `tests/e2e/shell.spec.ts` nuevo (skip link, `aria-current`,
-  contraer/expandir persistido tras recarga, Sheet móvil). Los 6 specs
-  existentes se actualizaron: `/dashboard$/` → `/inbox$/` en todos los
-  registros/logins, y 8 clics a `getByRole("link", {name:"Canales"})`
-  pasaron a `exact: true` (el Inbox, nueva pantalla de aterrizaje, tiene
-  "Todos los canales" como filtro, que coincidía como subcadena).
-  27/27 E2E, 195/195 unit+integration, lint y typecheck en verde.
-- Nota de entorno (no es un bug de producto): con `next start` reutilizado
-  entre ejecuciones (`playwright.config.ts`, `reuseExistingServer`), los
-  hits del rate limiter de Better Auth se acumulan en memoria del mismo
-  proceso; si el E2E falla con "Too many requests", matar el proceso
-  `next-server` en el puerto 3000 y repetir.
+**Hecho en esta sesión (UI-3 — componentes avanzados):**
 
-**Próximo paso concreto (UI-3, componentes avanzados):** ver
-`docs/ui/ROADMAP.md` Fase 3 y `docs/ui/COMPONENTS.md` §2 para el listado
-completo (Dialog, ConfirmDialog, DiscardChangesDialog, Tabs, Popover,
-Toaster/`sonner`, Table, DataList, SearchInput, FilterBar,
-SegmentedControl, RelativeTime). Empezar por `Dialog` (base para
-`ConfirmDialog`) y decidir el entorno de test de componentes (jsdom +
-Testing Library) que esa fase necesita.
+- `src/components/ui/`: `dialog.tsx`, `confirm-dialog.tsx` (el único
+  componente de confirmación: `title`/`description`/`confirmLabel`/
+  `variant`/`confirmText`/`onConfirm`; el error se captura automático si
+  `onConfirm` lanza, no es una prop controlada), `discard-changes-dialog.tsx`
+  + `use-confirm-on-close.ts` (mismo API que documenta Supabase:
+  `confirmOnClose`/`handleOpenChange`/`modalProps`), `tabs.tsx`,
+  `popover.tsx`, `toast.tsx` (Sonner con `unstyled: true` + `classNames`
+  propios, montado en `AppShell`), `table.tsx`, `data-list.tsx`,
+  `search-input.tsx`, `filter-bar.tsx`, `segmented-control.tsx`,
+  `relative-time.tsx`.
+- **Aplazado con motivo** (en `docs/ui/ROADMAP.md`): `CommandMenu`/`cmdk`
+  (nada lo necesita aún) y el patrón `loading.tsx`/`error.tsx` (depende de
+  `PageContainer`, que es UI-4).
+- **Entorno de test de componentes, decidido**: Vitest + jsdom + Testing
+  Library, activado *por archivo* con `// @vitest-environment jsdom` (sin
+  config separada); `tests/setup.ts` registra `afterEach(cleanup)` a mano
+  (RTL no se auto-limpia sin `test.globals: true`, que no usamos) y carga
+  `@testing-library/jest-dom/vitest`. `tests/components/`: `data-list`,
+  `confirm-dialog`, `sheet` (12 tests: teclado, foco, Esc, backdrop).
+- **Bug real encontrado y corregido**: `RelativeTime` usaba
+  `toLocaleString(..., { dateStyle, timeStyle })`; el conector que ICU
+  compone ("a las" / ",") difería entre el Node del servidor y Chromium,
+  y como `DataList.renderItem` es una función (obliga a ejecución cliente
+  — las funciones no cruzan Server→Client), **cualquier página real** que
+  meta `RelativeTime` dentro de un `DataList` habría tenido el mismo
+  *hydration mismatch* que apareció al construir la demo en `/ui-kit`.
+  Corregido formateando fecha y hora por separado, unidas con un
+  separador propio, no compuesto por ICU.
+- `/ui-kit` ampliado (`phase3-interactive.tsx`, cliente) con demos de los
+  doce componentes; verificado visualmente con capturas reales (no solo
+  tests). 221 unit+integration (209 + 12 de componentes), 27 E2E, lint y
+  typecheck en verde.
+- Nota de entorno (no es un bug de producto, ya anotada en la sesión de
+  UI-2): con `next start` reutilizado entre ejecuciones, los hits del
+  rate limiter de Better Auth se acumulan en memoria del mismo proceso;
+  si el E2E falla con "Too many requests", matar el proceso `next-server`
+  en el puerto 3000 y repetir.
+
+**Próximo paso concreto (UI-4, arquitectura de páginas):** ver
+`docs/ui/ROADMAP.md` Fase 4. Construir `PageContainer`/`PageHeader`/
+`PageSection` (`src/components/patterns/`, según `docs/ui/COMPONENTS.md`
+§3) y migrar TODAS las páginas de `(app)` y auth a ellos + a los
+componentes de UI-1/UI-3, sustituyendo la paleta de Tailwind por tokens.
+Incluye pasar los formularios de alta (Contacts, Tasks…) a Sheet/Dialog,
+las confirmaciones sueltas ("Revocar", "Desconectar") a `ConfirmDialog`,
+y traducir los textos que aún están en inglés (Contacts/Cases/Tasks) con
+sus E2E actualizados en el mismo commit. Añadir `src/app/(app)` al test
+de tokens (`tests/unit/ui-tokens.test.ts`, `TOKENISED_DIRECTORIES`) según
+avance, no todo de golpe.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

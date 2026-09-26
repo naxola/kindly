@@ -33,9 +33,11 @@ sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 **Rediseño UI/UX** (2026-09-26): arranca por fases `UI-0`…`UI-9` con
 `docs/ui/` como fuente de verdad. `UI-0` (auditoría + estudio de Supabase +
 documentación), `UI-1` (tokens en tres capas + componentes base +
-`/ui-kit`) y `UI-2` (shell: header, sidebar contraíble, menú móvil,
-organización/usuario en el header) completos; siguiente: `UI-3`,
-componentes avanzados (Dialog, ConfirmDialog, Table, DataList…).
+`/ui-kit`), `UI-2` (shell: header, sidebar contraíble, menú móvil,
+organización/usuario en el header) y `UI-3` (Dialog, ConfirmDialog,
+DiscardChangesDialog, Sheet completo, Tabs, Popover, Toast, Table,
+DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime)
+completos; siguiente: `UI-4`, arquitectura de páginas.
 
 ## Estado por fase / paquete
 
@@ -57,7 +59,8 @@ componentes avanzados (Dialog, ConfirmDialog, Table, DataList…).
 | **UI-0** | **Rediseño UI/UX: auditoría y documentación (`docs/ui/`)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-1** | **Design system: tokens y componentes base** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-2** | **Shell de aplicación (header, sidebar, menú móvil)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
-| UI-3 … UI-9 | Componentes avanzados, páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-3** | **Componentes avanzados (Dialog, ConfirmDialog, Table, DataList…)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| UI-4 … UI-9 | Páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/shell/app-sidebar";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { getSidebarCollapsed } from "@/components/shell/sidebar-cookie";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toast";
 import { countUnreadConversations } from "@/modules/conversations/service";
 import type { CurrentOrganizationMember } from "@/modules/organizations/service";
 
@@ -39,6 +40,7 @@ export async function AppShell({
           </main>
         </div>
       </div>
+      <Toaster />
     </TooltipProvider>
   );
 }

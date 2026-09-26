@@ -41,22 +41,22 @@ Estado: ✅ implementado · 🟡 parcial · ⚪ pendiente (fase).
 
 | Componente | Estado | Especificación |
 |---|---|---|
-| `Dialog` | ⚪ | Aún sin construir (la Fase 2 solo necesitó Sheet). Centrado, `max-w-dialog-*`, `surface-200`, `shadow-lg`, `radius-overlay`, `z-modal`. Header (título + descripción obligatoria para `aria-describedby`), cuerpo, footer con acciones (primaria a la derecha). Focus trap, `Esc`, clic en velo, foco devuelto al disparador |
-| `ConfirmDialog` | ⚪ | **El único componente de confirmación.** Props: `title`, `description` (consecuencia), `confirmLabel` (repite la acción), `confirmLoadingLabel`, `cancelLabel` ("Cancelar"), `variant` (`default` \| `danger`), `confirmText` (opcional: exige escribir un texto exacto para irreversibles — TextConfirmDialog de Supabase), `children` (contexto extra), `onConfirm` (async; mientras corre: botón en loading, cierre bloqueado), `error` (se muestra dentro, sobre las acciones, sin cerrar). Acepta `action` (server action + campos ocultos) para usarse en páginas servidor. Tras éxito: cierra y lanza toast de éxito opcional (`successMessage`) |
-| `DiscardChangesDialog` + `useConfirmOnClose` | ⚪ | Cerrar un Dialog/Sheet con formulario sucio pide "Descartar cambios" / "Seguir editando" |
-| `Sheet` | 🟡 | `ui/sheet.tsx`. Construido en UI-2 (adelantado): lados `left`/`right`, tamaños `sm/md/lg/full`, `SheetHeader`/`SheetTitle`/`SheetDescription`/`SheetBody`/`SheetFooter`, cierre integrado. Modal únicamente (velo, focus trap, `Esc`) — usado hoy por `MobileNav` (`side="left"`). Falta para la Fase 3/6: `modal={false}` para el modo anclado sin velo que usa la conversación en `xl+` (`CHAT.md` §4), y el patrón de formulario sucio (`useConfirmOnClose`) |
+| `Dialog` | ✅ | `ui/dialog.tsx`. Centrado, `max-w-dialog-*`, `surface-200`, `shadow-lg`, `radius-overlay`, `z-modal`. `DialogHeader`/`Title`/`Description`/`Body`/`Footer`. Base de `ConfirmDialog` y `DiscardChangesDialog` |
+| `ConfirmDialog` | ✅ | `ui/confirm-dialog.tsx`. **El único componente de confirmación.** Props tal como se diseñaron, salvo `error`/`action`: el error no es una prop controlada — se captura automáticamente si `onConfirm` lanza (`error.message`, o "No se pudo completar la acción." si no es un `Error`), que es como ya se comportan las server actions de este proyecto (lanzan, no devuelven `{ok,error}`). Sin prop `action`: se llama desde `onConfirm`, que puede envolver cualquier server action |
+| `DiscardChangesDialog` + `useConfirmOnClose` | ✅ | `ui/discard-changes-dialog.tsx` + `ui/use-confirm-on-close.ts`. Mismo API que documenta Supabase (`confirmOnClose`, `handleOpenChange`, `modalProps`). Demo con `Sheet` en `/ui-kit` |
+| `Sheet` | 🟡 | `ui/sheet.tsx`. Lados `left`/`right`, tamaños `sm/md/lg/full`, `SheetHeader`/`SheetTitle`/`SheetDescription`/`SheetBody`/`SheetFooter`, cierre integrado, patrón de formulario sucio (con `useConfirmOnClose`, ver demo en `/ui-kit`). Modal únicamente (velo, focus trap, `Esc`). Falta solo para la Fase 6: `modal={false}` para el modo anclado sin velo que usa la conversación en `xl+` (`CHAT.md` §4) |
 | `DropdownMenu` | ✅ | `ui/dropdown-menu.tsx`. Usado hoy por `UserMenu` (menú de cuenta del header). `DropdownMenuItem` acepta `tone="destructive"`; "Cerrar sesión" lo usa porque cerrar sesión no es una acción irreversible sobre datos (no necesita `ConfirmDialog`) — un futuro ítem que sí borre algo debe abrir uno en vez de ejecutar directamente |
 | `Tooltip` | ✅ | `ui/tooltip.tsx`. Usado hoy por la sidebar contraída (nombre del ítem). Pendiente: integrarlo con `Button.disabledReason` en un caso real |
-| `Tabs` | ⚪ | Pestañas en página; si cambian la URL, usar `ContextNav` horizontal (enlaces), no Tabs |
-| `Popover` | ⚪ | Filtros compuestos, selectores |
-| `Toaster` (`sonner`) + `toast()` | ⚪ | Feedback no bloqueante o cuando la superficie de origen ya no está visible. Errores de formulario **no** van a toast. `aria-live=polite`; errores `assertive` |
-| `Table` (+ Header/Body/Row/Head/Cell/Empty) | ⚪ | Presentacional. Fila interactiva con `focus-inset`. Columna de acciones con cabecera `sr-only` |
-| `DataList` | ⚪ | Lista densa de filas-enlace con navegación por teclado (roving focus, `J/K`), usada por Inbox, Contactos, Tareas |
-| `SearchInput` | ⚪ | Input con icono, `type="search"`, atajo `/`, limpia con `Esc` |
-| `FilterBar` | ⚪ | Fila de búsqueda + filtros (segmented / select) + acciones a la derecha (patrón "acciones donde ya miras") |
-| `SegmentedControl` | ⚪ | Vistas mutuamente excluyentes (Todas / No leídas / Pendientes); radiogroup con flechas |
-| `CommandMenu` (`cmdk`) | ⚪ | ⌘K: navegar a módulo, buscar contacto/conversación, acciones globales. Opcional dentro de Fase 3 |
-| `RelativeTime` | ⚪ | "hace 5 min" con `<time dateTime>` y título con la fecha completa |
+| `Tabs` | ✅ | `ui/tabs.tsx`. Pestañas en página; si cambian la URL, usar `ContextNav` horizontal (enlaces), no Tabs |
+| `Popover` | ✅ | `ui/popover.tsx`. Filtros compuestos, selectores |
+| `Toaster` (`sonner`) + `toast()` | ✅ | `ui/toast.tsx`, montado en `AppShell`. `unstyled: true` + `classNames` propios (los estilos de Sonner son grises fijos, no nuestros tokens). Feedback no bloqueante o cuando la superficie de origen ya no está visible; errores de formulario **no** van a toast. `aria-live` lo gestiona Sonner (`polite`/`assertive` según tipo) |
+| `Table` (+ Header/Body/Row/Head/Cell/Empty) | ✅ | `ui/table.tsx`. Presentacional. `TableRow interactive onActivate`: clic en cualquier celda salvo un control anidado (botón/enlace/input), `Enter`/`Espacio` solo cuando el foco está en la propia fila (`focus-inset`). `TableEmpty` reutiliza `EmptyState variant="inline"` en una fila de ancho completo |
+| `DataList` | ✅ | `ui/data-list.tsx`. Roving tabindex en **estado de React** (`activeIndex`), no mutado en el DOM — sobrevive a un re-render con un `items` nuevo (ver "Hallazgo real" en `ROADMAP.md`, Fase 3). Tab entra una vez; `J`/`K`/flechas mueven la parada; `Home`/`End` a los extremos |
+| `SearchInput` | ✅ | `ui/search-input.tsx`. Input con icono, `type="search"`, atajo `/` (ignorado si ya se está escribiendo en un campo), `onClear` en `Esc` (el valor es del que llama, un componente controlado no puede limpiarse él solo) |
+| `FilterBar` | ✅ | `ui/filter-bar.tsx`. Layout puro (`search`/`filters`/`actions`), no un motor de filtros — los filtros de Kindly son un puñado de selects/segmentos por página, no consultas compuestas |
+| `SegmentedControl` | ✅ | `ui/segmented-control.tsx`. `role="radiogroup"`, flechas mueven el foco. Dos modos por ítem: `href` (navega — así serán las vistas de Inbox, docs/ui/INBOX.md) o sin él (estado de React vía `onChange`) |
+| `CommandMenu` (`cmdk`) | ⚪ | **Aplazado** (era opcional): ninguna página tiene aún búsqueda global que justifique ⌘K. Se construye cuando la primera lo necesite |
+| `RelativeTime` | ✅ | `ui/relative-time.tsx`. "hace 5 min" con `<time dateTime>` y título con la fecha completa. Fecha y hora se formatean por separado y se unen con un separador propio — no con `toLocaleString(..., { dateStyle, timeStyle })`, cuyo conector lo compone ICU y puede diferir entre servidor y navegador (real, no teórico: ver "Hallazgo real" en `ROADMAP.md`, Fase 3) |
 
 ## 3. Patrones de página (Fases 2 y 4)
 

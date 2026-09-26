@@ -1606,6 +1606,58 @@ antes que fidelidad al diseño).
 
 ---
 
+## 2026-09-26 — Rediseño UI/UX, UI-3: componentes avanzados
+
+**Contexto:** completar el catálogo de componentes (Dialog, ConfirmDialog,
+Sheet con formulario sucio, Tabs, Popover, Toast, Table, DataList,
+SearchInput, FilterBar, SegmentedControl, RelativeTime) y decidir cómo
+probarlos.
+
+**Decisión:**
+
+1. **Entorno de test de componentes: Vitest + jsdom + Testing Library,
+   activado por archivo** (`// @vitest-environment jsdom`), no una config
+   de Vitest separada ni un runner distinto. El resto de la suite sigue en
+   `environment: "node"`. `tests/setup.ts` añade `afterEach(cleanup)` a
+   mano, porque React Testing Library solo se auto-limpia cuando
+   `test.globals: true` (no es el caso aquí); sin esto, el DOM de un test
+   sobrevive al siguiente dentro del mismo archivo.
+2. **`ConfirmDialog` captura el error de `onConfirm` automáticamente** en
+   vez de recibir una prop `error` controlada: las server actions de este
+   proyecto lanzan en vez de devolver `{ok, error}`, así que atrapar la
+   excepción y mostrar `error.message` es lo que de verdad ahorra código
+   en cada sitio que lo use.
+3. **`CommandMenu` (`cmdk`) y el patrón `loading.tsx`/`error.tsx` se
+   aplazan**, con motivo: el primero no tiene ninguna página que lo
+   necesite todavía (ninguna tiene búsqueda global); el segundo depende de
+   `PageContainer`, que es UI-4. Construirlos ahora habría sido
+   especulativo.
+4. **Bug real de hidratación en `RelativeTime`, corregido antes de
+   cerrar la fase.** Calculaba el tooltip con
+   `toLocaleString(..., { dateStyle: "long", timeStyle: "short" })`. Esa
+   opción compone internamente el conector entre fecha y hora ("a las" en
+   una implementación de ICU, "," en otra) a partir de los datos CLDR
+   empaquetados con cada motor — y el Node del servidor y el Chromium del
+   navegador no siempre coinciden. Como `DataList` recibe `renderItem`
+   como función —y una función no puede cruzar el límite Server→Client de
+   Next.js—, cualquier página que ponga un `RelativeTime` dentro de un
+   `DataList` fuerza su ejecución en cliente, así que ambos pases
+   (servidor y cliente) lo ejecutan por separado y pueden divergir. Se
+   detectó al construir la demo de `/ui-kit`, no en un test: los 12 tests
+   de componentes pasaban igual, porque ninguno renderiza a la vez en
+   servidor y cliente como sí hace Next. **Corrección:** formatear fecha y
+   hora por separado (`Intl.DateTimeFormat` con opciones simples) y
+   unirlas con un separador que elegimos nosotros, nunca compuesto por
+   ICU. Deja constancia de que la verificación visual real (no solo tests
+   unitarios) sigue encontrando cosas que los tests no cubren.
+
+**Por qué:** en los cuatro casos, el criterio de `docs/ui/PRINCIPLES.md`
+§3 (necesidad funcional → simplicidad) evita construir infraestructura sin
+un consumidor real y prioriza corregir un bug de plataforma verificado
+sobre añadir alcance nuevo.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

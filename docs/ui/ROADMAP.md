@@ -106,20 +106,47 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 - **No modificado**: contenido de las páginas; `src/modules/**` salvo la
   función de solo lectura `countUnreadConversations`.
 
-## Fase 3 — Componentes avanzados · ⚪
+## Fase 3 — Componentes avanzados · 🟢 Completa (2026-09-26)
 
 - **Objetivo**: el resto de piezas del sistema (`COMPONENTS.md` §2).
 - **Alcance**: Dialog, ConfirmDialog (con `confirmText`), DiscardChangesDialog
-  + `useConfirmOnClose`, Sheet completo, Tabs, Popover, Toaster (`sonner`),
-  Table, DataList (roving focus), SearchInput, FilterBar,
-  SegmentedControl, RelativeTime, CommandMenu (opcional, `cmdk`),
-  `loading.tsx`/`error.tsx` patrón.
-- **Dependencias**: Fase 1 (Fase 2 aporta DropdownMenu/Tooltip/Sheet base).
-- **Criterios de aceptación**: focus trap y retorno de foco en Dialog/Sheet;
-  ConfirmDialog con loading/disabled/error/éxito; todo en `/ui-kit`;
-  entorno de test de componentes (Vitest + jsdom + Testing Library solo
-  para `src/components`, decisión a registrar) con tests de teclado para
-  ConfirmDialog, DataList y Sheet.
+  + `useConfirmOnClose`, Sheet completo (patrón de formulario sucio),
+  Tabs, Popover, Toaster (`sonner`), Table, DataList (roving focus),
+  SearchInput, FilterBar, SegmentedControl, RelativeTime. Todo en
+  `/ui-kit` (`phase3-interactive.tsx`, cliente; el resto de la página
+  sigue siendo servidor).
+- **Aplazado, con motivo:**
+  - **`CommandMenu` (`cmdk`)**: era opcional en el alcance original; sin
+    página que necesite ⌘K todavía (ninguna tiene aún búsqueda global).
+    Se construye cuando la primera lo pida (probablemente Fase 5, Inbox).
+  - **`loading.tsx`/`error.tsx` patrón**: depende de `PageContainer` (Fase
+    4) para tener una forma de página que envolver; sin páginas migradas
+    todavía, un esqueleto por ruta sería prematuro. Pasa a la Fase 4.
+- **Entorno de test de componentes (decisión tomada):** Vitest +
+  `jsdom` + Testing Library, activado **por archivo** con el docblock
+  `// @vitest-environment jsdom` (no una config separada) — el resto de
+  la suite sigue en `environment: "node"`. `tests/setup.ts` registra
+  `afterEach(cleanup)` a mano (RTL solo se auto-limpia con
+  `test.globals: true`, que este proyecto no usa) y carga
+  `@testing-library/jest-dom/vitest`. Tests nuevos en `tests/components/`:
+  `data-list.test.tsx`, `confirm-dialog.test.tsx`, `sheet.test.tsx`
+  (teclado, foco, Esc, backdrop — los tres criterios pedidos).
+- **Hallazgo real corregido**: `RelativeTime` calculaba el título completo
+  con `toLocaleString(..., { dateStyle, timeStyle })`, cuyo conector
+  ("a las" / ",") lo compone ICU y puede diferir entre Node y un
+  navegador. Como `DataList.renderItem` es una función (no serializable
+  Server→Client, obliga a ejecutarse en cliente), cualquier página real
+  que use `RelativeTime` dentro de un `DataList` habría tenido el mismo
+  *hydration mismatch* que apareció en `/ui-kit`. Corregido formateando
+  fecha y hora por separado y uniéndolas con un separador propio.
+- **Dependencias**: Fase 1 (Fase 2 aportó DropdownMenu/Tooltip/Sheet base).
+- **Criterios de aceptación**: ✅ focus trap y retorno de foco en
+  Dialog/Sheet (verificado en E2E real — Radix; jsdom no reproduce el
+  timing del retorno de foco de forma fiable, así que el test de
+  componente solo verifica que el foco entra); ✅ ConfirmDialog con
+  loading/disabled/error/éxito; ✅ todo en `/ui-kit`; ✅ entorno de test de
+  componentes con tests de teclado para ConfirmDialog, DataList y Sheet
+  (12 tests nuevos, 221 en total).
 
 ## Fase 4 — Arquitectura de páginas · ⚪
 

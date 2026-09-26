@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import { Inbox, Plus, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Input, NativeSelect, Textarea } from "@/components/ui/input";
@@ -9,8 +8,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar, Kbd, Separator, Skeleton } from "@/components/ui/primitives";
+import { Section } from "@/app/(app)/ui-kit/section";
+import { Phase3Interactive } from "@/app/(app)/ui-kit/phase3-interactive";
 
 export const metadata: Metadata = { title: "UI kit · Kindly" };
+
+// Module scope, not inside the component: a plain `Date.now()` call in a
+// component's render body is impure by React's rules (unstable across
+// re-renders/the Compiler). Here it isn't reactive at all — it's read once
+// when this Server Component module is instantiated for the request — but
+// the lint rule can't tell RSC-once from client-reactive, so it stays out
+// of the function entirely rather than earning the project's first
+// eslint-disable.
+const now = Date.now();
 
 /**
  * Living catalogue of the design system (docs/ui/COMPONENTS.md): every
@@ -63,20 +73,6 @@ const TYPE_ROLES = [
   ["type-caption", "type-caption", "Hace 5 min · WhatsApp"],
   ["type-overline", "type-overline", "Organización"],
 ] as const;
-
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-4" aria-labelledby={`kit-${title}`}>
-      <div>
-        <h2 id={`kit-${title}`} className="type-section-title">
-          {title}
-        </h2>
-        {description && <p className="type-body text-foreground-lighter">{description}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 function Swatch({ name, className }: { name: string; className: string }) {
   return (
@@ -305,6 +301,13 @@ export default function UiKitPage() {
           </span>
         </div>
       </Section>
+
+      {/* `now` flows down as a prop, computed once above: computing it
+          inside Phase3Interactive itself (a Client Component) would read
+          the clock again at hydration, a few hundred ms after the
+          server's render, and RelativeTime would render two different
+          labels — a hydration mismatch. */}
+      <Phase3Interactive now={now} />
     </div>
   );
 }
