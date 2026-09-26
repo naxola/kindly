@@ -1530,6 +1530,29 @@ fuera de la app autenticada.
 
 ---
 
+## 2026-09-26 — Rediseño UI/UX: respuestas del usuario a las preguntas abiertas
+
+**Contexto:** tras cerrar UI-0/UI-1 quedaron tres preguntas para el usuario.
+**Decisión (del usuario):**
+
+1. **Cambiar el rol de un miembro: sí.** Se añade la acción de dominio en
+   UI-7, con validación en servidor (solo ADMIN, misma organización, nunca
+   dejar la organización sin ADMIN) y sus tests. Amplía PKG-006, que solo
+   fijaba el rol al invitar.
+2. **Tema oscuro: sí**, en UI-8, con selector Claro / Oscuro / Sistema
+   (por defecto Sistema) y el test de contraste extendido al tema oscuro.
+3. **Conversación anclada y sin velo en pantallas anchas.** A partir de
+   `xl` (1280 px) el panel de conversación se ancla a la derecha sin velo
+   y la lista sigue interactiva; por debajo sigue siendo Sheet modal, y a
+   pantalla completa en móvil. Se asume la pérdida del focus trap en ese
+   modo, compensada con región etiquetada, foco inicial explícito, `F6`
+   entre regiones y `Esc` para cerrar (`docs/ui/CHAT.md` §4–5).
+
+**Supersede a:** los puntos 3 (oscuro "descartado por ahora") y 6 (modo
+anclado "aplazado") de la entrada anterior del mismo día.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

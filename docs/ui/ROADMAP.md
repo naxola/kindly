@@ -59,7 +59,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   `ink-faint` por contraste).
 - **Qué no se tocó**: páginas existentes de `(app)` (siguen con la paleta
   de Tailwind hasta la Fase 4).
-- **Pendiente**: tema oscuro (Fase 8, opcional); exportador DTCG para
+- **Pendiente**: tema oscuro (Fase 8, aprobado); exportador DTCG para
   Figma (Fase 9).
 
 ## Fase 2 — Shell de aplicación · ⚪
@@ -127,6 +127,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 
 - **Objetivo**: `CHAT.md` completo.
 - **Alcance**: rutas paralelas/interceptadas, `ConversationSheet`, header,
+  modos anclado sin velo (`xl+`) / modal / pantalla completa,
   historial con separadores por día y "mensajes nuevos", compositor
   autoajustable con borrador por conversación, navegación
   anterior/siguiente, todos los estados. Lógica de PKG-013 intacta.
@@ -141,8 +142,8 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 - **Alcance**: `/organization` (General), `/organization/members`,
   `/organization/channels` (+ `connect/…`), redirecciones desde `/members`
   y `/channels`, invitar en Dialog con "Copiar enlace", revocar/desconectar
-  con ConfirmDialog. Cambiar rol solo si se aprueba la acción de dominio
-  (preguntar al usuario).
+  con ConfirmDialog. **Cambiar rol** (aprobado 2026-09-26): acción de
+  dominio nueva con sus reglas y tests (`ORGANIZATION.md` §4).
 - **Criterios de aceptación**: E2E de miembros, canales y onboarding
   actualizados; permisos por rol visibles y explicados.
 
@@ -151,8 +152,11 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 - **Objetivo**: auditar el sistema completo contra `ACCESSIBILITY.md` y
   `RESPONSIVE.md`.
 - **Alcance**: `@axe-core/playwright` en E2E principales; recorrido de
-  teclado y lector de pantalla; 320/768/1024/1440 px; tema oscuro
-  (opcional, si el usuario lo pide).
+  teclado y lector de pantalla; 320/768/1024/1440 px; **tema oscuro**
+  (aprobado 2026-09-26): capa semántica bajo `[data-theme="dark"]`,
+  selector Claro / Oscuro / Sistema en el menú de usuario (por defecto
+  Sistema), preferencia en cookie para pintarlo en servidor sin parpadeo,
+  test de contraste también para el tema oscuro, `/ui-kit` en ambos.
 - **Criterios de aceptación**: sin violaciones axe serias/críticas;
   checklist manual documentado aquí.
 

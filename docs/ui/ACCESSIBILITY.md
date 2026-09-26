@@ -24,6 +24,9 @@ componente; una fase no está terminada si su checklist falla.
   `<main id="main" tabIndex={-1}>`, que **no** contiene la sidebar.
 - Dialog/Sheet modales: focus trap (Radix), foco inicial explícito (campo
   principal o título), `Esc` cierra, foco devuelto al disparador.
+- Paneles anclados no modales (conversación en `xl+`): sin trap, pero
+  región `aside` etiquetada, foco inicial explícito, `F6` / `Ctrl+F6` para
+  alternar entre lista y panel, `Esc` cierra y devuelve el foco.
 - Navegación entre rutas: el foco va al `h1` de la página nueva (o al
   `main`), para que el lector anuncie el cambio.
 - Listas largas (`DataList`): roving tabindex — una sola parada de Tab para

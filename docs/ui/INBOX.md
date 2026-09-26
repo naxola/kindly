@@ -92,6 +92,7 @@ Dos líneas, ~64 px, toda la fila es un enlace (`focus-inset`):
 | `J` / `K` o `↓` / `↑` | Moverse entre filas (roving focus en `DataList`) |
 | `Intro` | Abrir la conversación en el Sheet |
 | `Esc` | Cerrar el Sheet (el foco vuelve a la fila) / limpiar búsqueda |
+| `F6` / `Ctrl+F6` (modo anclado) | Saltar entre la lista y la conversación |
 | `Alt+↓` / `Alt+↑` (con Sheet abierto) | Siguiente / anterior conversación sin cerrar |
 
 Los atajos de una letra no se activan si el foco está en un campo de
@@ -113,7 +114,8 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
 
 ## 7. Responsive
 
-- `xl+`: ContextNav vertical + lista; Sheet `md` sobre la lista.
+- `xl+`: ContextNav vertical + lista; conversación **anclada sin velo** a
+  la derecha, la lista sigue interactiva (`CHAT.md` §4).
 - `lg`: ContextNav vertical estrecho; Sheet ocupa más.
 - `md`: vistas como `SegmentedControl` horizontal sobre la lista.
 - `< md`: lista a ancho completo; filtros tras un botón "Filtros" (Sheet

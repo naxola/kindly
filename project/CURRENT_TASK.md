@@ -44,12 +44,10 @@ Sheet) según `docs/ui/LAYOUT_NAVIGATION.md`; montar en
 buscan los enlaces "Inbox" (exact) y "Canales" y la URL `/dashboard` tras
 registrarse (`tests/e2e/*.spec.ts`) — actualizarlos en el mismo commit.
 
-**Preguntas abiertas para el usuario (no bloquean UI-2):**
-
-- ¿Se añade la acción de dominio "cambiar rol de un miembro" (UI-7)?
-- ¿Tema oscuro en UI-8, o solo claro?
-- ¿Modo "anclado" de la conversación en pantallas anchas tras probar el
-  Sheet modal (`docs/ui/CHAT.md` §5)?
+**Preguntas resueltas por el usuario (2026-09-26, en `docs/DECISIONS.md`):**
+cambiar rol → sí (UI-7); tema oscuro → sí (UI-8, selector con "Sistema"
+por defecto); conversación → anclada y sin velo desde 1280 px, modal por
+debajo (UI-6). Ya reflejado en `docs/ui/`.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

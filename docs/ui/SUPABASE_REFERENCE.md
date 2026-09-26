@@ -50,7 +50,7 @@ consultar, estas son las rutas.
 | 22 | Tablas: `Table` presentacional; `DataTable` (TanStack) solo con orden/filtro/paginación reales | No meter una librería para una lista | **Adoptado**. Sin TanStack hasta que un listado lo necesite |
 | 23 | Empty states: *presentacional* (onboarding, con acción) vs *informativo* (misma forma que la lista), y "sin resultados" distinto de "sin datos" | Menos saltos de layout | **Adoptado** |
 | 24 | Copywriting: verbos, consecuencias, sin disculpas, *sentence case* | Tareas rápidas | **Adoptado** y traducido (`PRINCIPLES.md` §5) |
-| 25 | Dark mode por defecto en Studio | Público desarrollador | **Descartado por ahora.** Nuestro usuario trabaja en despacho, de día; tema claro por defecto. La capa semántica deja el oscuro a un bloque de CSS |
+| 25 | Dark mode por defecto en Studio | Público desarrollador | **Adaptado.** Tema oscuro aprobado para la Fase 8 con selector Claro / Oscuro / Sistema (por defecto Sistema), no oscuro por defecto. La capa semántica lo reduce a un bloque de CSS |
 | 26 | Shadcn/Radix como primitivas | Accesibilidad resuelta (foco, ARIA, portales) | **Adoptado**: ya estaba en el stack de `docs/ARCHITECTURE.md` §13 |
 
 ## 2. Lo que conscientemente no tomamos
@@ -61,5 +61,5 @@ consultar, estas son las rutas.
 - El asistente AI lateral que *actúa* sobre el proyecto: contradice la regla
   "la AI no autoenvía". Nuestro copiloto vive dentro de la conversación como
   borrador revisable.
-- El tema oscuro por defecto y la estética "developer tool" (monoespaciado
+- El oscuro como tema *por defecto* y la estética "developer tool" (monoespaciado
   prominente, verde neón).

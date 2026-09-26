@@ -537,14 +537,17 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 ### UI-6 — Conversación en Sheet
 
 - [ ] Rutas paralelas/interceptadas, `ConversationSheet` y todos sus estados.
+- [ ] Modo anclado sin velo en `xl+`; modal por debajo; pantalla completa en móvil.
 
 ### UI-7 — Organización
 
 - [ ] `/organization` (General, Miembros, Canales) con redirecciones y diálogos.
+- [ ] Acción de dominio "cambiar rol" con reglas en servidor y tests (aprobada 2026-09-26).
 
 ### UI-8 — Accesibilidad y responsive
 
 - [ ] axe en E2E, auditoría manual, 320–1440 px.
+- [ ] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26).
 
 ### UI-9 — Consolidación
 

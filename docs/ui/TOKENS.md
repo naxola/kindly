@@ -23,8 +23,8 @@ Componentes (Button, Field, Badge…) + tokens de componente (--control-h-md, --
 Consecuencias:
 
 - **Rebrand** = cambiar primitivas. **Tema oscuro** = redefinir la capa
-  semántica bajo `[data-theme="dark"]` (no implementado; ver `ROADMAP.md`
-  Fase 8). **Densidad** = cambiar tokens de componente (`--control-h-*`).
+  semántica bajo `[data-theme="dark"]` (aprobado, se implementa en la
+  Fase 8; ver `ROADMAP.md`). **Densidad** = cambiar tokens de componente (`--control-h-*`).
   Ningún caso exige tocar componentes.
 - Un componente **nunca** usa `--palette-*`, ni la paleta por defecto de
   Tailwind (`zinc-500`…), ni hex, ni `z-50`, ni `duration-150`, ni
