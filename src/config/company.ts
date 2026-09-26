@@ -16,16 +16,17 @@ export const company = {
   productName: "Kindly",
 
   /** Legal entity name, exactly as registered. Meta matches this literally. */
-  legalName: "REVISAR: razón social exacta (p. ej. Kindly Software, S.L.)",
+  legalName: "Hayat Iberia S.L.",
 
   /** NIF/CIF. */
-  taxId: "REVISAR: NIF/CIF",
+  taxId: "B53487885",
 
   /** Full registered address, no abbreviations — Meta rejects abbreviated forms. */
-  address: "REVISAR: dirección fiscal completa, sin abreviaturas",
+  address: "Rambla baja 97, 1i",
 
   /** Registry details. Required by Spanish LSSI-CE for a company; leave empty for an autónomo. */
-  registryDetails: "REVISAR: datos registrales (Registro Mercantil, tomo, folio, hoja)",
+  registryDetails:
+    "REVISAR: datos registrales (Registro Mercantil, tomo, folio, hoja)",
 
   /**
    * Contact email on your own domain. Meta rejects free providers
@@ -37,7 +38,7 @@ export const company = {
   privacyEmail: "REVISAR: privacidad@tudominio.com",
 
   /** Verifiable business phone, international format. */
-  phone: "REVISAR: +34 ...",
+  phone: "REVISAR: +34 675349979",
 
   /** Canonical origin, no trailing slash. Must match the domain you verify with Meta. */
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "https://REVISAR-tu-dominio.com",
@@ -48,7 +49,9 @@ export const company = {
 
 /** True when the legal identity still holds placeholders — drives the visible warning banner. */
 export function hasPlaceholderCompanyData(): boolean {
-  return Object.values(company).some((value) => typeof value === "string" && value.startsWith("REVISAR:"));
+  return Object.values(company).some(
+    (value) => typeof value === "string" && value.startsWith("REVISAR:"),
+  );
 }
 
 /**
@@ -63,12 +66,14 @@ export function hasPlaceholderCompanyData(): boolean {
 export const subProcessors = [
   {
     name: "Meta Platforms Ireland Ltd.",
-    purpose: "Sincronización de mensajes de WhatsApp Business a través de la WhatsApp Business Platform.",
+    purpose:
+      "Sincronización de mensajes de WhatsApp Business a través de la WhatsApp Business Platform.",
     location: "Unión Europea, con transferencias a Estados Unidos.",
   },
   {
     name: "Telegram FZ-LLC",
-    purpose: "Sincronización de mensajes de Telegram cuando el profesional conecta ese canal.",
+    purpose:
+      "Sincronización de mensajes de Telegram cuando el profesional conecta ese canal.",
     location: "Emiratos Árabes Unidos.",
   },
   {
