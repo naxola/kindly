@@ -62,27 +62,49 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 - **Pendiente**: tema oscuro (Fase 8, aprobado); exportador DTCG para
   Figma (Fase 9).
 
-## Fase 2 — Shell de aplicación · ⚪
+## Fase 2 — Shell de aplicación · 🟢 Completa (2026-09-26)
 
 - **Objetivo**: header + sidebar global + organización en el modelo de
   navegación (`LAYOUT_NAVIGATION.md`).
-- **Alcance**: `src/components/shell/` (`AppShell`, `AppHeader` con migas
-  y menú de organización/usuario, `AppSidebar` contraíble con cookie,
-  `SkipToContent`, menú móvil); `src/app/(app)/layout.tsx`; destino
-  post-login `/inbox` y redirección de `/dashboard`; contador de no leídas
-  en la sidebar (consulta ligera nueva en servicio). Requiere `radix-ui`
-  para DropdownMenu/Tooltip/Sheet del menú móvil → **adelanta de la Fase 3
-  esas tres primitivas**.
-- **Componentes**: AppShell, AppHeader, AppSidebar, ContextNav,
-  DropdownMenu, Tooltip, Sheet (base).
+- **Alcance**: `src/components/shell/` (`AppShell`, `AppHeader`,
+  `AppSidebar` contraíble con cookie, `MobileNav`, `UserMenu`,
+  `SkipToContent`, `ContextNav` preparado); `src/app/(app)/layout.tsx`;
+  destino post-login `/inbox` y redirección de `/dashboard`; contador de
+  no leídas en la sidebar (`countUnreadConversations`, nueva consulta en
+  servicio). `radix-ui` instalado; primitivas Tooltip, DropdownMenu y
+  Sheet construidas ahora (adelantadas de la Fase 3, como estaba previsto).
+- **Componentes**: AppShell, AppHeader, AppSidebar, MobileNav, UserMenu,
+  ContextNav (construido, sin consumidores todavía), DropdownMenu,
+  Tooltip, Sheet (base).
+- **Desviación deliberada del diseño original**: la miga de organización
+  del header **no es un menú** todavía — es texto plano
+  (`{organización} · {rol}`). El diseño original (`LAYOUT_NAVIGATION.md`
+  §2) la quería como desplegable a "Ajustes de la organización / Miembros
+  / Canales", pero `/organization` no existe hasta la Fase 7: un menú que
+  llevase ahí sería un menú a ninguna parte. Por el mismo motivo, la
+  sidebar se mantiene **plana** (Inbox, Contacts, Cases, Tasks, Canales,
+  Miembros — mismas etiquetas y URLs que el nav anterior) en vez de
+  agrupar Canales/Miembros bajo "Organización"; la agrupación llega en la
+  Fase 7 cuando esas rutas se mueven a `/organization/*`. El menú de
+  usuario tampoco incluye el atajo "Mis canales" que preveía el diseño
+  original, por ser redundante con el ítem de sidebar ya existente.
+- **Decisión de layout no anticipada**: el shell usa una rejilla
+  `h-dvh`/`grid-rows-[auto_1fr]` (header fijo, `<main>` con scroll propio)
+  en vez de un `sticky` con `calc()` — mismo patrón que el propio Studio de
+  Supabase. Cambia el modelo de scroll de la app (antes la página entera
+  hacía scroll); no afectó a ningún E2E existente.
 - **Dependencias**: Fase 1.
-- **Criterios de aceptación**: navegación completa por teclado; activo
-  con `aria-current`; sidebar contraída conserva nombres (tooltip +
-  `aria-label`); sin parpadeo de ancho al recargar; móvil con menú en
-  Sheet; E2E existentes en verde (el enlace "Inbox" exacto y "Canales"
-  siguen existiendo o se actualizan los specs); E2E nuevo del shell
-  (contraer/expandir, navegar, skip link).
-- **No modificar**: contenido de las páginas (solo el marco).
+- **Criterios de aceptación**: ✅ navegación completa por teclado; ✅
+  activo con `aria-current`; ✅ sidebar contraída conserva nombres
+  (tooltip + `aria-label`); ✅ sin parpadeo de ancho al recargar (cookie
+  `kindly_sidebar`, leída en servidor); ✅ móvil con menú en Sheet,
+  cerrado al navegar; ✅ E2E existentes en verde (`tests/e2e/shell.spec.ts`
+  nuevo: skip link, `aria-current`, contraer/expandir persistido,
+  Sheet móvil); ⚠️ el enlace "Canales" pasó a necesitar `exact: true` en
+  8 specs — la nueva página de aterrizaje (`/inbox`) contiene "Todos los
+  canales" como texto de filtro, que coincidía como subcadena.
+- **No modificado**: contenido de las páginas; `src/modules/**` salvo la
+  función de solo lectura `countUnreadConversations`.
 
 ## Fase 3 — Componentes avanzados · ⚪
 

@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0 y UI-1 cerrados el 2026-09-26; siguiente UI-2
+## Paquete activo: rediseño UI/UX — UI-0, UI-1 y UI-2 cerrados el 2026-09-26; siguiente UI-3
 
-Último commit: `d579197`.
+Último commit: `PENDIENTE`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -16,38 +16,57 @@ IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
 `docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisión en
 `docs/DECISIONS.md` (entrada del 2026-09-26).
 
-**Hecho en esta sesión:**
+**Hecho en sesiones anteriores (UI-0, UI-1):** auditoría, estudio de
+Supabase, documentación completa de `docs/ui/`; tokens en tres capas
+(`src/styles/tokens.css`), componentes base (`src/components/ui/`),
+catálogo `/ui-kit`, test de contraste + "solo tokens". Detalle en
+`docs/ui/ROADMAP.md` (Fases 0 y 1).
 
-- UI-0: auditoría (`docs/ui/AUDIT.md`), estudio del repo de Supabase
-  (`docs/ui/SUPABASE_REFERENCE.md`), documentos de principios, tokens,
-  componentes, navegación, organización, Inbox, chat, accesibilidad,
-  responsive y roadmap.
-- UI-1: `src/styles/tokens.css` (primitivas → semánticos → utilidades,
-  tokens de componente, z-index, movimiento, `focus-ring`/`focus-inset`,
-  roles `type-*`); `src/lib/cn.ts`; componentes base en
-  `src/components/ui/` (Button, SubmitButton, Spinner, Input, Textarea,
-  NativeSelect, Checkbox, Label, Field, Badge, CountBadge, Card, Alert,
-  EmptyState, Skeleton, Separator, Kbd, Avatar); catálogo `/ui-kit`;
-  `tests/unit/ui-tokens.test.ts` (contraste WCAG + "solo tokens").
-- Dependencias nuevas: `class-variance-authority`, `clsx`,
-  `tailwind-merge`, `lucide-react`.
-- Las páginas existentes **no** se han tocado (siguen con la paleta de
-  Tailwind hasta UI-4). Único cambio visual: `ink-faint` del sitio público,
-  por contraste.
+**Hecho en esta sesión (UI-2 — shell de aplicación):**
 
-**Próximo paso concreto (UI-2, shell):** instalar `radix-ui`; crear
-`src/components/shell/` (`AppShell`, `AppHeader` con migas
-Organización/Módulo y menús de organización y usuario, `AppSidebar`
-contraíble con cookie `kindly_sidebar`, `SkipToContent`, menú móvil en
-Sheet) según `docs/ui/LAYOUT_NAVIGATION.md`; montar en
-`src/app/(app)/layout.tsx`; post-login a `/inbox`. Cuidado con los E2E:
-buscan los enlaces "Inbox" (exact) y "Canales" y la URL `/dashboard` tras
-registrarse (`tests/e2e/*.spec.ts`) — actualizarlos en el mismo commit.
+- `src/components/shell/`: `AppShell` (rejilla `h-dvh`, header fijo +
+  `<main>` con scroll propio), `AppHeader`, `AppSidebar` (contraíble,
+  persistida en la cookie `kindly_sidebar`; lectura en
+  `sidebar-cookie.ts`, escritura en `sidebar-actions.ts`), `MobileNav`
+  (Sheet izquierdo, `< md`), `UserMenu` (DropdownMenu: nombre/email/rol +
+  "Cerrar sesión"), `SkipToContent`, `ContextNav` (construido, sin
+  consumidores hasta UI-5/UI-7), `nav-items.ts` (lista plana de la
+  sidebar, ver desviación abajo).
+- `src/components/ui/`: `sheet.tsx`, `dropdown-menu.tsx`, `tooltip.tsx`
+  (adelantadas de UI-3, sobre `radix-ui`, ya instalado).
+- `countUnreadConversations` en `src/modules/conversations/service.ts`
+  (cuenta conversaciones no leídas de toda la organización — el Inbox es
+  compartido, no por delegado; 3 tests de integración nuevos).
+- Post-login → `/inbox` (antes `/dashboard`, que ahora solo redirige);
+  cambiado en `login/page.tsx`, `invite/[token]/sign-up-form.tsx` y
+  `dashboard/page.tsx`. `src/app/(app)/sign-out-button.tsx` eliminado (su
+  lógica vive en `UserMenu`).
+- **Desviación deliberada** (registrada en `docs/ui/ROADMAP.md`, Fase 2):
+  la miga de organización del header es texto plano, no un menú — un menú
+  a `/organization` no tiene sentido antes de que esa ruta exista (UI-7).
+  Por lo mismo, la sidebar sigue **plana** (mismos ítems/URLs que el nav
+  anterior: Inbox, Contacts, Cases, Tasks, Canales, Miembros), sin agrupar
+  Canales/Miembros bajo "Organización" todavía.
+- E2E: `tests/e2e/shell.spec.ts` nuevo (skip link, `aria-current`,
+  contraer/expandir persistido tras recarga, Sheet móvil). Los 6 specs
+  existentes se actualizaron: `/dashboard$/` → `/inbox$/` en todos los
+  registros/logins, y 8 clics a `getByRole("link", {name:"Canales"})`
+  pasaron a `exact: true` (el Inbox, nueva pantalla de aterrizaje, tiene
+  "Todos los canales" como filtro, que coincidía como subcadena).
+  27/27 E2E, 195/195 unit+integration, lint y typecheck en verde.
+- Nota de entorno (no es un bug de producto): con `next start` reutilizado
+  entre ejecuciones (`playwright.config.ts`, `reuseExistingServer`), los
+  hits del rate limiter de Better Auth se acumulan en memoria del mismo
+  proceso; si el E2E falla con "Too many requests", matar el proceso
+  `next-server` en el puerto 3000 y repetir.
 
-**Preguntas resueltas por el usuario (2026-09-26, en `docs/DECISIONS.md`):**
-cambiar rol → sí (UI-7); tema oscuro → sí (UI-8, selector con "Sistema"
-por defecto); conversación → anclada y sin velo desde 1280 px, modal por
-debajo (UI-6). Ya reflejado en `docs/ui/`.
+**Próximo paso concreto (UI-3, componentes avanzados):** ver
+`docs/ui/ROADMAP.md` Fase 3 y `docs/ui/COMPONENTS.md` §2 para el listado
+completo (Dialog, ConfirmDialog, DiscardChangesDialog, Tabs, Popover,
+Toaster/`sonner`, Table, DataList, SearchInput, FilterBar,
+SegmentedControl, RelativeTime). Empezar por `Dialog` (base para
+`ConfirmDialog`) y decidir el entorno de test de componentes (jsdom +
+Testing Library) que esa fase necesita.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

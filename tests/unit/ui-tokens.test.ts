@@ -119,6 +119,9 @@ function listFiles(directory: string): string[] {
 // Directories that must be fully tokenised. Legacy pages under src/app are
 // migrated in UI phase 4 and added here then (docs/ui/ROADMAP.md).
 const TOKENISED_DIRECTORIES = ["src/components", "src/app/(app)/ui-kit"];
+// src/app/(app)/dashboard and the two auth redirects touched in UI-2 carry
+// no visual value at all (dashboard/page.tsx: a redirect; login/invite:
+// only the redirect target string changed) — nothing to add here yet.
 
 const FORBIDDEN: Array<[label: string, pattern: RegExp]> = [
   [

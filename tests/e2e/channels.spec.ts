@@ -23,7 +23,7 @@ async function register(page: import("@playwright/test").Page, name: string, ema
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
 }
 
 test("a DELEGATE sees only their own channel, the ADMIN sees the whole organization", async ({ browser }) => {
@@ -51,10 +51,10 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
   await delegatePage.getByPlaceholder("Nombre").fill(delegateName);
   await delegatePage.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await delegatePage.getByRole("button", { name: "Aceptar invitación" }).click();
-  await expect(delegatePage).toHaveURL(/\/dashboard$/);
+  await expect(delegatePage).toHaveURL(/\/inbox$/);
 
   // The delegate connects their own channel.
-  await delegatePage.getByRole("link", { name: "Canales" }).click();
+  await delegatePage.getByRole("link", { name: "Canales", exact: true }).click();
   await expect(delegatePage.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await delegatePage.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(delegatePage.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
@@ -66,7 +66,7 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
   await expect(delegatePage.getByRole("list", { name: "Canales conectados a tu nombre" })).toBeVisible();
 
   // The ADMIN connects their own too, and sees both.
-  await adminPage.getByRole("link", { name: "Canales" }).click();
+  await adminPage.getByRole("link", { name: "Canales", exact: true }).click();
   await adminPage.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(adminPage.getByText("Los mensajes se sincronizan con normalidad.").first()).toBeVisible();
   const othersList = adminPage.getByRole("list", { name: "Canales del resto de la organización" });

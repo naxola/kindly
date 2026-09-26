@@ -1553,6 +1553,59 @@ anclado "aplazado") de la entrada anterior del mismo día.
 
 ---
 
+## 2026-09-26 — Rediseño UI/UX, UI-2: shell de aplicación
+
+**Contexto:** construir el header y la sidebar globales (`docs/ui/LAYOUT_NAVIGATION.md`)
+sin romper ninguna URL, texto o selector de los que dependen los E2E, y sin
+adelantar trabajo de fases futuras (Organización no existe hasta UI-7).
+
+**Decisión:**
+
+1. **La miga de organización del header es texto plano, no un menú**, pese
+   a que `LAYOUT_NAVIGATION.md` §2 la diseña como desplegable a "Ajustes /
+   Miembros / Canales". Esa ruta (`/organization`) no existe hasta UI-7;
+   un menú que abriera ahí sería un menú a ninguna parte. Se retoma cuando
+   la ruta exista.
+2. **La sidebar se mantiene plana** (Inbox, Contacts, Cases, Tasks,
+   Canales, Miembros — mismas etiquetas y URLs que el nav anterior) en
+   vez de agrupar Canales/Miembros bajo "Organización" ya. Misma razón que
+   el punto 1; se agrupan en UI-7 cuando esas páginas se muevan a
+   `/organization/*`.
+3. **Destino tras registro/login pasa de `/dashboard` a `/inbox`**
+   (`docs/ARCHITECTURE.md` §11: la comunicación es el centro del
+   producto). `/dashboard` queda como redirección para enlaces
+   antiguos. Efecto en cascada: los 6 specs E2E que aserian
+   `toHaveURL(/\/dashboard$/)` tras un alta pasan a `/inbox$/`, y 8 clics
+   a `getByRole("link", {name:"Canales"})` necesitaron `exact: true`
+   porque el Inbox (nueva pantalla de aterrizaje) contiene el texto
+   "Todos los canales" como filtro, que coincidía como subcadena del
+   nombre accesible no-exacto.
+4. **Shell de scroll fijo** (`h-dvh` + `grid-rows-[auto_1fr]`): el header
+   nunca se desplaza y `<main>` tiene su propio scroll, en vez de un
+   `sticky` con `calc()`. Mismo patrón que el Studio de Supabase. Cambia
+   el modelo de scroll de toda la app autenticada (antes la página entera
+   hacía scroll); no rompió ningún E2E existente.
+5. **Preferencia de sidebar contraída en cookie** (`kindly_sidebar`),
+   leída en un Server Component (`sidebar-cookie.ts`) y escrita por una
+   Server Action en un archivo separado (`sidebar-actions.ts`) — un
+   archivo `"use server"` expone cada export como RPC invocable desde el
+   cliente, y una simple lectura de cookie no tiene por qué serlo.
+6. **`countUnreadConversations` es de toda la organización, no por
+   delegado.** El Inbox ya era compartido por todos los miembros
+   (`listConversationsWithPreview` no filtra por `delegateId`, decisión de
+   PKG-004); el contador de la sidebar tenía que ser coherente con eso.
+   Solo Canales es por delegado (PKG-007).
+7. **`Cerrar sesión` se movió a un menú** (`UserMenu`, sobre
+   `DropdownMenu`) y dejó de ser un botón suelto en la cabecera.
+
+**Por qué:** en cada caso, construir la pieza "completa" tal como la
+diseña `docs/ui/` habría exigido adelantar trabajo de una fase posterior
+(rutas que no existen) o inventar navegación sin destino real — contrario
+al criterio de decisión de `docs/ui/PRINCIPLES.md` §3 (necesidad funcional
+antes que fidelidad al diseño).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

@@ -20,7 +20,7 @@ test("register, create a Contact, a Case for it, and a Task, then complete it", 
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill(password);
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
 
   // Create a Contact.
   await page.getByRole("link", { name: "Contacts" }).click();
@@ -66,7 +66,7 @@ test("a second organization cannot see the first organization's contacts", async
   await pageA.getByPlaceholder("Email").fill(`${randomUUID()}@example.com`);
   await pageA.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await pageA.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(pageA).toHaveURL(/\/dashboard$/);
+  await expect(pageA).toHaveURL(/\/inbox$/);
   await pageA.getByRole("link", { name: "Contacts" }).click();
   await pageA.getByPlaceholder("Nombre").fill(contactName);
   await pageA.getByRole("button", { name: "Crear" }).click();
@@ -81,7 +81,7 @@ test("a second organization cannot see the first organization's contacts", async
   await pageB.getByPlaceholder("Email").fill(`${randomUUID()}@example.com`);
   await pageB.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await pageB.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(pageB).toHaveURL(/\/dashboard$/);
+  await expect(pageB).toHaveURL(/\/inbox$/);
   await pageB.getByRole("link", { name: "Contacts" }).click();
   await expect(pageB.getByText("Todavía no hay contacts.")).toBeVisible();
   await expect(pageB.getByRole("link", { name: contactName })).toHaveCount(0);

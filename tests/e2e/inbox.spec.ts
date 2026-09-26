@@ -44,7 +44,7 @@ async function connectCoexistenceChannel(page: import("@playwright/test").Page) 
   await expect(page).toHaveURL(/\/channels$/);
 }
 
-async function registerAndReachDashboard(page: import("@playwright/test").Page, name: string) {
+async function registerAndReachInbox(page: import("@playwright/test").Page, name: string) {
   const email = `${randomUUID()}@example.com`;
   await page.goto("/login");
   await page.getByText("¿No tienes cuenta? Regístrate").click();
@@ -52,16 +52,16 @@ async function registerAndReachDashboard(page: import("@playwright/test").Page, 
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
   return email;
 }
 
 test("connect the fake channel, receive a message, identify it, and reply", async ({ page, request }) => {
   const delegateName = `Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
   // Connect the fake channel to this newly registered delegate.
-  await page.getByRole("link", { name: "Canales" }).click();
+  await page.getByRole("link", { name: "Canales", exact: true }).click();
   await expect(page).toHaveURL(/\/channels$/);
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
@@ -158,9 +158,9 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   request,
 }) => {
   const delegateName = `Echo Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales" }).click();
+  await page.getByRole("link", { name: "Canales", exact: true }).click();
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
@@ -209,9 +209,9 @@ test("a conversation outside the provider window explains itself instead of offe
   request,
 }) => {
   const delegateName = `Window Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales" }).click();
+  await page.getByRole("link", { name: "Canales", exact: true }).click();
   // fake-coex declares the WhatsApp coexistence onboarding, so connecting
   // it means walking the flow rather than pressing one button (PKG-008).
   await connectCoexistenceChannel(page);
@@ -261,18 +261,18 @@ test("a second organization sees none of the first organization's inbox", async 
   const contextA = await browser.newContext();
   const pageA = await contextA.newPage();
   const delegateName = `Isolated Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(pageA, delegateName);
+  await registerAndReachInbox(pageA, delegateName);
 
-  await pageA.getByRole("link", { name: "Canales" }).click();
+  await pageA.getByRole("link", { name: "Canales", exact: true }).click();
   await pageA.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(pageA.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
   await contextA.close();
 
   const contextB = await browser.newContext();
   const pageB = await contextB.newPage();
-  await registerAndReachDashboard(pageB, "Org B User");
+  await registerAndReachInbox(pageB, "Org B User");
 
-  await pageB.getByRole("link", { name: "Canales" }).click();
+  await pageB.getByRole("link", { name: "Canales", exact: true }).click();
   await expect(pageB.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await expect(pageB.getByText(delegateName)).toHaveCount(0);
 

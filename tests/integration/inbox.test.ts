@@ -14,6 +14,7 @@ import { connectMessagingAccount } from "@/modules/messaging/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
 import { receiveWebhook } from "@/modules/messaging/webhook-service";
 import {
+  countUnreadConversations,
   getConversation,
   getConversationWithDetails,
   listConversationsWithPreview,
@@ -178,6 +179,48 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
     });
   });
 
+  describe("countUnreadConversations", () => {
+    it("counts conversations, not messages, and updates once one is marked read", async () => {
+      const { user, org } = await createTestUserAndOrg("Unread Count Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const conversationId = `chat-${randomUUID()}`;
+      await receiveInboundMessage(account.id, { externalConversationId: conversationId, text: "Uno" });
+      // A second message in the same Conversation must not double-count it.
+      await receiveInboundMessage(account.id, { externalConversationId: conversationId, text: "Dos" });
+      await receiveInboundMessage(account.id, { text: "Otra conversación" });
+
+      expect(await countUnreadConversations(org.id)).toBe(2);
+
+      const [firstConversation] = await listConversations(org.id);
+      await markConversationRead(org.id, firstConversation.id);
+      expect(await countUnreadConversations(org.id)).toBe(1);
+    });
+
+    it("is organization-wide, not per delegate (Inbox is shared, unlike Channels)", async () => {
+      const { user: admin, org } = await createTestUserAndOrg("Shared Inbox Org");
+      const otherDelegate = await db
+        .insert(users)
+        .values({ id: randomUUID(), name: "Other Delegate", email: `${randomUUID()}@example.com` })
+        .returning();
+      await db
+        .insert(organizationMembers)
+        .values({ organizationId: org.id, userId: otherDelegate[0].id, role: "DELEGATE" });
+      const account = await connectFakeAccount(org.id, otherDelegate[0].id);
+      await receiveInboundMessage(account.id);
+
+      // The count seen by the ADMIN (who did not connect this account)
+      // includes conversations on every delegate's channel.
+      expect(await countUnreadConversations(org.id)).toBe(1);
+      void admin;
+    });
+
+    it("returns 0 for an organization with no conversations", async () => {
+      const { org } = await createTestUserAndOrg("Empty Unread Org");
+      expect(await countUnreadConversations(org.id)).toBe(0);
+    });
+  });
+
   describe("multi-tenant isolation", () => {
     it("an organization cannot list, read, mark-read, or reassign another organization's Conversation", async () => {
       const { user: userA, org: orgA } = await createTestUserAndOrg("Isolation Inbox A");
@@ -188,6 +231,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       const [conversationA] = await listConversations(orgA.id);
 
       expect(await listConversationsWithPreview(orgB.id, {})).toHaveLength(0);
+      expect(await countUnreadConversations(orgB.id)).toBe(0);
       expect(await getConversationWithDetails(orgB.id, conversationA.id)).toBeNull();
       expect(await getConversation(orgB.id, conversationA.id)).toBeNull();
 

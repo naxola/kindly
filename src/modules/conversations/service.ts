@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
 import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
@@ -19,6 +19,38 @@ import type { MessagingAccountRecord } from "@/modules/messaging/adapter";
 
 export async function listConversations(organizationId: string) {
   return db.select().from(conversations).where(eq(conversations.organizationId, organizationId));
+}
+
+/**
+ * Unread count for the sidebar badge (UI-2, docs/ui/LAYOUT_NAVIGATION.md
+ * §3). Organization-wide, same visibility as `listConversationsWithPreview`
+ * — the Inbox is shared by the whole organization, not per delegate
+ * (`docs/DECISIONS.md`, PKG-004; only Channels are per-delegate). Counts
+ * conversations rather than messages, and does the "unread" check in SQL
+ * with the same rule as `isConversationUnread` instead of loading every
+ * message, since this runs on every authenticated page render.
+ */
+export async function countUnreadConversations(organizationId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.organizationId, organizationId),
+        exists(
+          db
+            .select({ one: messages.id })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.conversationId, conversations.id),
+                or(isNull(conversations.lastReadAt), gt(messages.createdAt, conversations.lastReadAt)),
+              ),
+            ),
+        ),
+      ),
+    );
+  return row?.value ?? 0;
 }
 
 export async function getConversation(organizationId: string, conversationId: string) {

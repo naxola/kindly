@@ -33,7 +33,7 @@ export function InvitationSignUpForm({ email }: { email: string }) {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/inbox");
     router.refresh();
   }
 

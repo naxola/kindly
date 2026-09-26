@@ -16,8 +16,8 @@ async function registerAndReachChannels(page: import("@playwright/test").Page) {
   await page.getByPlaceholder("Email").fill(`${randomUUID()}@example.com`);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await page.getByRole("link", { name: "Canales" }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await page.getByRole("link", { name: "Canales", exact: true }).click();
   await expect(page).toHaveURL(/\/channels$/);
 }
 

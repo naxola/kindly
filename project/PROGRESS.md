@@ -32,8 +32,10 @@ sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 (Resend) para recuperar la contraseña.
 **Rediseño UI/UX** (2026-09-26): arranca por fases `UI-0`…`UI-9` con
 `docs/ui/` como fuente de verdad. `UI-0` (auditoría + estudio de Supabase +
-documentación) y `UI-1` (tokens en tres capas + componentes base +
-`/ui-kit`) completos; siguiente: `UI-2`, shell de aplicación.
+documentación), `UI-1` (tokens en tres capas + componentes base +
+`/ui-kit`) y `UI-2` (shell: header, sidebar contraíble, menú móvil,
+organización/usuario en el header) completos; siguiente: `UI-3`,
+componentes avanzados (Dialog, ConfirmDialog, Table, DataList…).
 
 ## Estado por fase / paquete
 
@@ -54,7 +56,8 @@ documentación) y `UI-1` (tokens en tres capas + componentes base +
 | **PKG-012** | **Email (Resend) y recuperación de contraseña** | Código (agente) | 🟢 **Completo** (2026-09-25) — falta `RESEND_API_KEY` en Vercel y dominio verificado |
 | **UI-0** | **Rediseño UI/UX: auditoría y documentación (`docs/ui/`)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-1** | **Design system: tokens y componentes base** | Código (agente) | 🟢 **Completo** (2026-09-26) |
-| UI-2 … UI-9 | Shell, componentes avanzados, páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-2** | **Shell de aplicación (header, sidebar, menú móvil)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| UI-3 … UI-9 | Componentes avanzados, páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

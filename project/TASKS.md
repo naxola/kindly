@@ -510,13 +510,16 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [x] `/ui-kit` como catálogo vivo.
 - [x] Tests de contraste y de "solo tokens" (`tests/unit/ui-tokens.test.ts`).
 
-### UI-2 — Shell de aplicación
+### UI-2 — Shell de aplicación — CERRADO 2026-09-26
 
-- [ ] `AppShell`, `AppHeader` (migas Organización/Módulo, menús), `AppSidebar` contraíble (cookie), `SkipToContent`, menú móvil.
-- [ ] `radix-ui`: DropdownMenu, Tooltip, Sheet base.
-- [ ] Post-login a `/inbox`; `/dashboard` redirige.
-- [ ] Contador de no leídas en la sidebar.
-- [ ] E2E del shell; E2E existentes en verde.
+- [x] `AppShell`, `AppHeader` (texto de organización — el menú llega en
+      UI-7, ver `docs/ui/ROADMAP.md`), `AppSidebar` contraíble (cookie),
+      `SkipToContent`, menú móvil (`MobileNav`), `UserMenu`.
+- [x] `radix-ui`: DropdownMenu, Tooltip, Sheet base.
+- [x] Post-login a `/inbox`; `/dashboard` redirige.
+- [x] Contador de no leídas en la sidebar (`countUnreadConversations`).
+- [x] E2E del shell (`tests/e2e/shell.spec.ts`); E2E existentes en verde
+      (8 specs necesitaron `exact: true` en "Canales", ver `docs/ui/ROADMAP.md`).
 
 ### UI-3 — Componentes avanzados
 

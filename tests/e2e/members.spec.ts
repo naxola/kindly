@@ -27,7 +27,7 @@ async function register(page: import("@playwright/test").Page, name: string, ema
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
 }
 
 test("an ADMIN invites a DELEGATE, who accepts and joins the same organization", async ({ browser }) => {
@@ -58,7 +58,7 @@ test("an ADMIN invites a DELEGATE, who accepts and joins the same organization",
   await inviteePage.getByPlaceholder("Nombre").fill(inviteeName);
   await inviteePage.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await inviteePage.getByRole("button", { name: "Aceptar invitación" }).click();
-  await expect(inviteePage).toHaveURL(/\/dashboard$/);
+  await expect(inviteePage).toHaveURL(/\/inbox$/);
 
   // They are inside the ADMIN's organization, seeing the ADMIN as a peer.
   // Scoped to the members table: the org is named after the ADMIN, so their

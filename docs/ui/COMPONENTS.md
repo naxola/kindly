@@ -41,12 +41,12 @@ Estado: ✅ implementado · 🟡 parcial · ⚪ pendiente (fase).
 
 | Componente | Estado | Especificación |
 |---|---|---|
-| `Dialog` | ⚪ | Centrado, `max-w-dialog-*`, `surface-200`, `shadow-lg`, `radius-overlay`, `z-modal`. Header (título + descripción obligatoria para `aria-describedby`), cuerpo, footer con acciones (primaria a la derecha). Focus trap, `Esc`, clic en velo, foco devuelto al disparador |
+| `Dialog` | ⚪ | Aún sin construir (la Fase 2 solo necesitó Sheet). Centrado, `max-w-dialog-*`, `surface-200`, `shadow-lg`, `radius-overlay`, `z-modal`. Header (título + descripción obligatoria para `aria-describedby`), cuerpo, footer con acciones (primaria a la derecha). Focus trap, `Esc`, clic en velo, foco devuelto al disparador |
 | `ConfirmDialog` | ⚪ | **El único componente de confirmación.** Props: `title`, `description` (consecuencia), `confirmLabel` (repite la acción), `confirmLoadingLabel`, `cancelLabel` ("Cancelar"), `variant` (`default` \| `danger`), `confirmText` (opcional: exige escribir un texto exacto para irreversibles — TextConfirmDialog de Supabase), `children` (contexto extra), `onConfirm` (async; mientras corre: botón en loading, cierre bloqueado), `error` (se muestra dentro, sobre las acciones, sin cerrar). Acepta `action` (server action + campos ocultos) para usarse en páginas servidor. Tras éxito: cierra y lanza toast de éxito opcional (`successMessage`) |
 | `DiscardChangesDialog` + `useConfirmOnClose` | ⚪ | Cerrar un Dialog/Sheet con formulario sucio pide "Descartar cambios" / "Seguir editando" |
-| `Sheet` | ⚪ | Panel lateral, derecha por defecto. `size`: `sm/md/lg/full` → `max-w-sheet-*`; siempre `w-full` por debajo de `md` (pantalla completa en móvil). Slots: `SheetHeader` (sticky), `SheetBody` (scroll propio), `SheetFooter` (sticky). `modal` por defecto (velo, focus trap, `Esc`); `modal={false}` para el modo anclado sin velo (región `aside` etiquetada, sin trap) que usa la conversación en `xl+` (`CHAT.md` §4). Animación `slide-in-right`/`slide-out-right` |
-| `DropdownMenu` | ⚪ | Menú de acciones (fila, usuario, organización). Ítem `destructive` abre `ConfirmDialog`, nunca ejecuta directamente |
-| `Tooltip` | ⚪ | Solo para explicar el porqué (una frase). Nunca contenido imprescindible. Se integra con `Button.disabledReason` |
+| `Sheet` | 🟡 | `ui/sheet.tsx`. Construido en UI-2 (adelantado): lados `left`/`right`, tamaños `sm/md/lg/full`, `SheetHeader`/`SheetTitle`/`SheetDescription`/`SheetBody`/`SheetFooter`, cierre integrado. Modal únicamente (velo, focus trap, `Esc`) — usado hoy por `MobileNav` (`side="left"`). Falta para la Fase 3/6: `modal={false}` para el modo anclado sin velo que usa la conversación en `xl+` (`CHAT.md` §4), y el patrón de formulario sucio (`useConfirmOnClose`) |
+| `DropdownMenu` | ✅ | `ui/dropdown-menu.tsx`. Usado hoy por `UserMenu` (menú de cuenta del header). `DropdownMenuItem` acepta `tone="destructive"`; "Cerrar sesión" lo usa porque cerrar sesión no es una acción irreversible sobre datos (no necesita `ConfirmDialog`) — un futuro ítem que sí borre algo debe abrir uno en vez de ejecutar directamente |
+| `Tooltip` | ✅ | `ui/tooltip.tsx`. Usado hoy por la sidebar contraída (nombre del ítem). Pendiente: integrarlo con `Button.disabledReason` en un caso real |
 | `Tabs` | ⚪ | Pestañas en página; si cambian la URL, usar `ContextNav` horizontal (enlaces), no Tabs |
 | `Popover` | ⚪ | Filtros compuestos, selectores |
 | `Toaster` (`sonner`) + `toast()` | ⚪ | Feedback no bloqueante o cuando la superficie de origen ya no está visible. Errores de formulario **no** van a toast. `aria-live=polite`; errores `assertive` |
@@ -62,10 +62,10 @@ Estado: ✅ implementado · 🟡 parcial · ⚪ pendiente (fase).
 
 | Componente | Estado | Especificación |
 |---|---|---|
-| `AppShell` | ⚪ | Header + Sidebar + `<main id="main">`; `SkipToContent` primero |
-| `AppHeader` | ⚪ | Ver `LAYOUT_NAVIGATION.md` §2 |
-| `AppSidebar` | ⚪ | Ver `LAYOUT_NAVIGATION.md` §3 |
-| `ContextNav` | ⚪ | Navegación contextual del módulo: vertical (`w-context-nav`) en `lg+`, horizontal con scroll en móvil. Enlaces con `aria-current="page"` |
+| `AppShell` | ✅ | `shell/app-shell.tsx`. Rejilla `h-dvh`/`grid-rows-[auto_1fr]`: header fijo, `<main id="main" tabIndex={-1}>` con scroll propio (no un `sticky`+`calc()`) |
+| `AppHeader` | 🟡 | `shell/app-header.tsx`. Logo, `MobileNav`, texto de organización (aún no interactivo: ver nota de UI-2 en `ROADMAP.md`), `UserMenu`. Sin buscador/⌘K (Fase 3) |
+| `AppSidebar` | ✅ | `shell/app-sidebar.tsx` (`< md`: `shell/mobile-nav.tsx`). Contraíble, persistido en la cookie `kindly_sidebar` (lectura: `shell/sidebar-cookie.ts`; escritura: `shell/sidebar-actions.ts`). Items en `shell/nav-items.ts`, planos por ahora (ver nota de UI-2 en `ROADMAP.md`) |
+| `ContextNav` | 🟡 | `shell/context-nav.tsx`. Construido en UI-2; sin páginas que lo usen todavía — primeros consumidores en UI-5 (Inbox) y UI-7 (Organización) |
 | `PageContainer` | ⚪ | `size`: `sm` (ajustes/formularios), `md` (listas y detalle), `lg`, `full` (Inbox) |
 | `PageHeader` | ⚪ | Título (`h1`, `type-page-title`), descripción declarativa sin punto final, `aside` para acciones |
 | `PageSection` | ⚪ | Título de sección + descripción + aside + contenido; separación `gap` por token |
