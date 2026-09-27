@@ -3,6 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { authClient } from "@/modules/auth/auth-client";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
@@ -36,10 +39,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
   if (done) {
     return (
       <>
-        <p className="text-sm text-zinc-600">
+        <p className="type-body text-foreground-light">
           Contraseña cambiada. Por seguridad se han cerrado todas las sesiones abiertas con la anterior.
         </p>
-        <Link href="/login" className="text-sm underline">
+        <Link href="/login" className="w-fit type-body underline focus-ring rounded-sm">
           Iniciar sesión
         </Link>
       </>
@@ -48,34 +51,44 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
-        type="password"
-        placeholder="Contraseña nueva"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        minLength={8}
-        autoComplete="new-password"
-        required
-      />
-      <input
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
-        type="password"
-        placeholder="Repite la contraseña"
-        value={confirmation}
-        onChange={(event) => setConfirmation(event.target.value)}
-        minLength={8}
-        autoComplete="new-password"
-        required
-      />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <div>
+        <Label htmlFor="password" className="sr-only">
+          Contraseña nueva
+        </Label>
+        <Input
+          id="password"
+          type="password"
+          placeholder="Contraseña nueva"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          minLength={8}
+          autoComplete="new-password"
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="confirmation" className="sr-only">
+          Repite la contraseña
+        </Label>
+        <Input
+          id="confirmation"
+          type="password"
+          placeholder="Repite la contraseña"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          minLength={8}
+          autoComplete="new-password"
+          required
+        />
+      </div>
+      {error && (
+        <p role="alert" className="type-body text-destructive-soft-foreground">
+          {error}
+        </p>
+      )}
+      <Button type="submit" variant="primary" loading={isSubmitting}>
         Cambiar contraseña
-      </button>
+      </Button>
     </form>
   );
 }

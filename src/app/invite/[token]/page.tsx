@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getInvitationByToken } from "@/modules/organizations/invitations";
 import { InvitationSignUpForm } from "@/app/invite/[token]/sign-up-form";
+import { AuthShell } from "@/components/patterns/auth-shell";
 
 /**
  * Public invitation page (PKG-006). Outside the `(app)` group on purpose:
@@ -16,34 +17,34 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   if (!invitation) {
     return (
-      <Shell title="Esta invitación no existe">
-        <p className="text-sm text-zinc-600">
+      <AuthShell subtitle="Esta invitación no existe">
+        <p className="type-body text-foreground-light">
           El enlace no corresponde a ninguna invitación. Puede que se haya copiado incompleto — pide a quien te
           invitó que te lo mande otra vez.
         </p>
-      </Shell>
+      </AuthShell>
     );
   }
 
   if (invitation.usability !== "USABLE") {
     return (
-      <Shell title={`Invitación a ${invitation.organizationName}`}>
-        <p className="text-sm text-zinc-600">{EXPLANATIONS[invitation.usability]}</p>
-        <Link href="/login" className="text-sm underline">
+      <AuthShell subtitle={`Invitación a ${invitation.organizationName}`}>
+        <p className="type-body text-foreground-light">{EXPLANATIONS[invitation.usability]}</p>
+        <Link href="/login" className="w-fit type-body underline focus-ring rounded-sm">
           Ir a Kindly
         </Link>
-      </Shell>
+      </AuthShell>
     );
   }
 
   return (
-    <Shell title={`Te han invitado a ${invitation.organizationName}`}>
-      <p className="text-sm text-zinc-600">
-        Vas a entrar como <strong>{invitation.role}</strong> con el email <strong>{invitation.email}</strong>. Crea
-        tu contraseña para aceptar.
+    <AuthShell subtitle={`Te han invitado a ${invitation.organizationName}`}>
+      <p className="type-body text-foreground-light">
+        Vas a entrar como <strong className="text-foreground">{invitation.role}</strong> con el email{" "}
+        <strong className="text-foreground">{invitation.email}</strong>. Crea tu contraseña para aceptar.
       </p>
       <InvitationSignUpForm email={invitation.email} />
-    </Shell>
+    </AuthShell>
   );
 }
 
@@ -54,15 +55,3 @@ const EXPLANATIONS: Record<string, string> = {
   EMAIL_ALREADY_REGISTERED:
     "Ese email ya tiene una cuenta en Kindly, y de momento cada persona pertenece a una sola organización. Para unirte a esta, hace falta invitar a una dirección distinta.",
 };
-
-function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center gap-6 px-6">
-      <div>
-        <h1 className="text-xl font-semibold">Kindly</h1>
-        <p className="text-sm text-zinc-500">{title}</p>
-      </div>
-      {children}
-    </main>
-  );
-}

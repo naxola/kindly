@@ -127,11 +127,15 @@ const TOKENISED_DIRECTORIES = [
   "src/app/(app)/activity-feed.tsx",
   "src/app/(app)/channels",
   "src/app/(app)/members",
+  "src/app/login",
+  "src/app/forgot-password",
+  "src/app/reset-password",
+  "src/app/invite",
 ];
-// src/app/(app)/dashboard and the two auth redirects touched in UI-2 carry
-// no visual value at all (dashboard/page.tsx: a redirect; login/invite:
-// only the redirect target string changed) — nothing to add here yet.
-// Auth pages join once UI-4 migrates them too.
+// src/app/(app)/dashboard carries no visual value (a redirect).
+// This covers every page under src/app/(app) and the auth surfaces —
+// UI-4 is done. Only the public site (src/app/(public)) is left outside
+// on purpose (docs/ui/ROADMAP.md: no visual changes there by design).
 
 const FORBIDDEN: Array<[label: string, pattern: RegExp]> = [
   [
