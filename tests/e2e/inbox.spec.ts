@@ -95,7 +95,10 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
-  await expect(page.getByText("Sin identificar")).toBeVisible();
+  // "Sin identificar" also names a ContextNav view — scope to the list so
+  // the badge is unambiguous.
+  const conversationList = page.getByRole("list", { name: "Conversaciones" });
+  await expect(conversationList.getByText("Sin identificar", { exact: true })).toBeVisible();
 
   await page.getByText(contactName).click();
   await expect(page).toHaveURL(/\/inbox\/.+/);
@@ -108,7 +111,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   // Back in the list, the unread dot and the badge are both gone.
   await page.getByRole("link", { name: "Inbox", exact: true }).click();
   await expect(page).toHaveURL(/\/inbox$/);
-  await expect(page.getByText("Sin identificar")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Conversaciones" }).getByText("Sin identificar", { exact: true })).toHaveCount(0);
   await expect(page.getByText(contactName)).not.toHaveClass(/font-semibold/);
 
   // Reply from the conversation.
@@ -187,8 +190,11 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   });
   expect(echoResponse.status()).toBe(200);
 
+  // The last message is OUTBOUND (echoed from the phone), so there is
+  // nothing "pending" from the Contact — the default view hides it
+  // (docs/ui/INBOX.md §2); it still shows up under "Todas".
   await expect(async () => {
-    await page.goto("/inbox");
+    await page.goto("/inbox?view=all");
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 

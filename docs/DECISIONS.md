@@ -1705,6 +1705,59 @@ de por intuición visual.
 
 ---
 
+## 2026-09-27 — Rediseño UI/UX, UI-5: Inbox
+
+**Contexto:** construir la bandeja según `docs/ui/INBOX.md` (vistas,
+búsqueda, filtros, fila densa, sondeo sin saltos) sobre un servicio que
+hoy cargaba todos los mensajes de todas las conversaciones para hallar el
+último de cada una — no escalaba a las vistas/contadores que pedía el
+diseño.
+
+**Decisión:**
+
+1. **El unread de la fila es un punto, no un `CountBadge`.** El dominio
+   solo compara `lastReadAt` contra el último mensaje
+   (`isConversationUnread`) — no cuenta mensajes no leídos por
+   conversación. `INBOX.md` §3 pedía un `CountBadge`; se corrige a un
+   punto simple. Si el dominio llega a contar mensajes no leídos, el
+   `CountBadge` va en `InboxRow` (`src/app/(app)/inbox/inbox-row.tsx`).
+2. **El indicador de ventana de servicio no se muestra en la fila de
+   lista**, solo en la conversación abierta. Añadirlo a cada fila exigiría
+   un segundo `LEFT JOIN LATERAL` (último mensaje `INBOUND`) más una
+   consulta a las capacidades del adapter por canal, repetida en cada
+   sondeo de 5 s de una lista de N filas — coste que no se justifica hoy.
+3. **Las vistas son una condición SQL de la misma consulta
+   (`inboxViewCondition`), no un filtro en memoria.** `pending` (último
+   mensaje `INBOUND`), `unread`, `unassigned`, `all` se resuelven en el
+   servidor exactamente igual para la lista y para los contadores
+   (`countConversationsByView`) — evita que ambos puedan discrepar.
+4. **Los contadores del ContextNav no reaccionan a la búsqueda de texto**,
+   solo a canal/delegado. Igual que las carpetas de Gmail: si el número
+   saltara con cada tecla escrita, dejaría de leerse como "cuánto hay
+   pendiente" para leerse como "cuántos resultados hay ahora".
+5. **`NativeSelect` cambia a qué elemento aplica `className`.** Su
+   contenedor (`<span>`) llevaba `w-full` fijo sin forma de overridirlo —
+   el `className="w-auto"` que necesitaba el `FilterBar` de Inbox solo
+   llegaba al `<select>` interno. Ahora `className` controla el
+   contenedor y el `<select>` interno es siempre `w-full` del contenedor.
+   Ningún otro consumidor (Tareas, Casos, Miembros) pasaba `className`,
+   así que no cambia su render.
+
+**Alternativas consideradas:** para (2), mantener el indicador en la lista
+con un lateral adicional — descartado por coste repetido en cada sondeo
+sin una necesidad de producto que lo pida hoy (la conversación abierta ya
+lo muestra antes de escribir). Para (5), añadir una prop nueva
+(`wrapperClassName`) en vez de redirigir `className` — descartado por
+introducir dos formas de pasar clases al mismo componente cuando ningún
+consumidor existente necesitaba las dos a la vez.
+
+**Por qué:** ninguna corrección inventa un dato que el dominio no tiene
+(no leídos, ventana por fila); la reescritura del servidor es la que hace
+viable el resto del diseño de `INBOX.md` sin cargar toda la tabla de
+mensajes en cada render de la bandeja.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

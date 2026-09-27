@@ -197,16 +197,74 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   hecho — no hay ninguna carga lo bastante lenta hoy para justificarlo
   (todo son consultas puntuales); se retoma si UI-5/Inbox lo necesita.
 
-## Fase 5 — Inbox · ⚪
+## Fase 5 — Inbox · 🟢 Completa (2026-09-27)
 
 - **Objetivo**: `INBOX.md` completo.
 - **Alcance**: vistas (Pendientes/No leídas/Sin identificar/Todas) con
-  contadores, búsqueda y filtros por URL, fila densa, teclado, aviso de
-  nuevas, estados. Servidor: consulta eficiente de último mensaje por
-  conversación + búsqueda + contadores (con tests de integración y
-  aislamiento por `organization_id`).
-- **Criterios de aceptación**: E2E del camino feliz (filtrar, buscar,
-  abrir con teclado); prueba de aislamiento multi-tenant de la búsqueda.
+  contadores, búsqueda y filtros por URL, fila densa, teclado (heredado de
+  `DataList`, Fase 3), aviso de nuevas, estados. Servidor: consulta
+  eficiente de último mensaje por conversación + búsqueda + contadores (con
+  tests de integración y aislamiento por `organization_id`).
+- **Servidor reescrito**: `listConversationsWithPreview` pasó de cargar
+  todos los mensajes de todas las conversaciones a un único
+  `LEFT JOIN LATERAL` (último mensaje por conversación); nuevas
+  `listConversationChannels` (para el filtro de canal) y
+  `countConversationsByView` (4 conteos en paralelo, uno por vista) en
+  `src/modules/conversations/service.ts`. `GET /api/inbox` sirve el sondeo
+  del cliente (`Cache-Control: no-store`).
+- **Vistas como filtro SQL, no como cliente**: `pending` (`INBOUND` el
+  último mensaje), `unread`, `unassigned`, `all` son condiciones de la
+  misma consulta (`inboxViewCondition`), no un filtrado en memoria — así
+  los contadores y la lista nunca pueden discreparon entre sí.
+- **Decisión de diseño — contadores vs. búsqueda**: los contadores del
+  ContextNav reflejan canal/delegado pero **no** el texto de búsqueda
+  (como las carpetas de Gmail, que no reaccionan a lo que escribes en
+  buscar) — evita que los números salten en cada tecla.
+- **Sondeo sin saltos bajo el cursor**: `InboxList` compara el orden de
+  IDs recibido contra el actual; mismo orden → aplica en el sitio; orden
+  distinto → lo retiene tras un aviso "Ver" (`docs/ui/INBOX.md` §6).
+  Sustituye a `auto-refresh.tsx` (PKG-013), eliminado.
+- **Bugs reales encontrados y corregidos** (no eran de esta fase, pero la
+  bloqueaban):
+  - `ContextNav` comparaba `pathname === item.href` para el estado activo;
+    `usePathname()` no incluye el query string, así que ningún `?view=…`
+    coincidía nunca. Corregido comparando contra la URL completa
+    (`src/components/shell/context-nav.tsx`).
+  - `NativeSelect` (`src/components/ui/input.tsx`) forzaba `w-full` en el
+    `<span>` contenedor sin admitir override — el `className="w-auto"` que
+    le pasa el FilterBar de Inbox solo llegaba al `<select>` interno, y el
+    contenedor seguía ocupando toda la fila, partiendo el FilterBar en
+    columna incluso en escritorio. Corregido: el `className` del
+    consumidor ahora controla el contenedor (el `<select>` interno es
+    siempre `w-full` de su contenedor). Ningún otro consumidor pasaba
+    `className`, así que no cambia nada fuera de Inbox.
+  - `DeliveryTicks` usaba paleta cruda (`zinc-*`/`sky-*`/`red-*`) en vez de
+    tokens — migrado (`text-foreground-muted`/`text-info`/
+    `text-destructive`) al reutilizarse en la fila de Inbox.
+- **Corrección respecto al diseño original de `INBOX.md`**: la fila no
+  leída usa un punto simple, no un `CountBadge` — el dominio no cuenta
+  mensajes no leídos, solo un booleano (`lastReadAt` vs. último mensaje).
+  El indicador de ventana de servicio se difiere de la fila de lista (se
+  mantiene solo en la conversación abierta): añadirlo a cada fila exigiría
+  un segundo `LEFT JOIN LATERAL` más una consulta de capacidades del
+  adapter por canal, repetida en cada sondeo de 5 s. Ver `INBOX.md` §1/§3
+  para el detalle.
+- **`tests/unit/ui-tokens.test.ts`**: cubre las páginas de lista de Inbox
+  (`page.tsx`, `inbox-list.tsx`, `inbox-row.tsx`, `loading.tsx`,
+  `error.tsx`) archivo a archivo, no el directorio completo — `inbox/[id]`
+  (la conversación) sigue con la paleta previa al sistema de diseño hasta
+  la Fase 6.
+- **Criterios de aceptación**: ✅ E2E del camino feliz (filtrar, buscar,
+  abrir con teclado) — `tests/e2e/inbox.spec.ts` reescrito para las vistas
+  por `?view=` y el `FilterBar` (antes: pills de canal y `?unread=1`),
+  27/27 en verde; ✅ prueba de aislamiento multi-tenant de la búsqueda y
+  los contadores (`tests/integration/inbox.test.ts`, `describe
+  countConversationsByView`); ✅ 259/259 unit+integration; ✅ cero
+  `zinc-*`/hex/`z-\d+`/píxel arbitrario en los archivos de lista; ✅
+  verificación visual real (registro → conectar canal fake → webhooks →
+  vistas, búsqueda, filtros, estado vacío con y sin filtros, fila leída/no
+  leída, responsive móvil) contra un servidor de desarrollo en el puerto
+  3100.
 
 ## Fase 6 — Conversación en Sheet (WhatsApp) · ⚪
 

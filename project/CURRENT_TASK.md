@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0…UI-4 cerrados el 2026-09-27; siguiente UI-5
+## Paquete activo: rediseño UI/UX — UI-0…UI-5 cerrados el 2026-09-27; siguiente UI-6
 
-Último commit: `4bf29e7`.
+Último commit: `PENDIENTE_DE_COMMIT` (ver `## Estado` al final de esta sección para el hash real tras el commit de cierre de UI-5).
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -31,8 +31,8 @@ IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
   Testing Library, por archivo). `CommandMenu` y `loading.tsx`/`error.tsx`
   aplazados con motivo.
 
-**Hecho en esta sesión (UI-4 — arquitectura de páginas), en 4 commits de
-checkpoint, cada uno con lint+typecheck+tests+E2E+captura visual real
+**Hecho en sesión anterior (UI-4 — arquitectura de páginas), en 4 commits
+de checkpoint, cada uno con lint+typecheck+tests+E2E+captura visual real
 antes del siguiente:**
 
 1. `PageContainer`/`PageHeader`/`PageSection` (`src/components/patterns/`)
@@ -64,10 +64,42 @@ antes del siguiente:**
    estos campos por `getByPlaceholder`; cambiar esa asociación habría
    tocado casi toda la suite sin ganancia real adicional.
 
-**Estado final**: `tests/unit/ui-tokens.test.ts` cubre ya todo `src/app/(app)`
-y las 4 rutas de auth (97 tests de tokens; 249 unit+integration+componentes
-en total). 27/27 E2E. Solo el sitio público (`(public)`) queda fuera del
-test de tokens, a propósito.
+**Hecho en esta sesión (UI-5 — Inbox), un solo commit de cierre con
+lint+typecheck+tests+E2E+captura visual real:**
+
+1. **Servidor reescrito** (`src/modules/conversations/service.ts`):
+   `listConversationsWithPreview` pasa de cargar todos los mensajes de
+   todas las conversaciones a un único `LEFT JOIN LATERAL` (último mensaje
+   por conversación). Nuevas `listConversationChannels` (filtro de canal) y
+   `countConversationsByView` (4 conteos en paralelo, uno por vista:
+   `pending`/`unread`/`unassigned`/`all`, cada una una condición SQL de la
+   misma consulta — `inboxViewCondition` —, no un filtro en memoria).
+   `GET /api/inbox` sirve el sondeo del cliente.
+2. **UI de la lista**: `InboxList` (cliente: vistas/búsqueda/filtros en la
+   URL, sondeo cada 5 s que retiene los cambios de orden tras un aviso "Ver"
+   en vez de mover filas bajo el cursor — sustituye a `auto-refresh.tsx`,
+   eliminado), `InboxRow` (fila de dos líneas), `loading.tsx`/`error.tsx`
+   nuevos para la ruta. `page.tsx` reescrito como orquestador de servidor.
+3. **Dos bugs reales corregidos, no eran de esta fase**: `ContextNav`
+   comparaba `pathname` sin el query string, así que ningún `?view=…`
+   marcaba nunca el ítem activo; `NativeSelect` ignoraba el `className` del
+   consumidor para el ancho de su contenedor (siempre `w-full`), partiendo
+   el `FilterBar` de Inbox en columna incluso en escritorio. Detalle
+   completo en `docs/DECISIONS.md` (entrada UI-5) y `docs/ui/COMPONENTS.md`.
+4. **Corrección respecto al diseño original de `INBOX.md`**: fila no leída
+   con punto simple, no `CountBadge` (el dominio no cuenta mensajes no
+   leídos); indicador de ventana de servicio diferido de la fila de lista
+   (se mantiene solo en la conversación abierta).
+5. `tests/e2e/inbox.spec.ts` reescrito para las vistas por `?view=` y el
+   `FilterBar` (antes: pills de canal y `?unread=1`); `tests/unit/
+   ui-tokens.test.ts` cubre los archivos de la lista de Inbox (no
+   `inbox/[id]`, que sigue con la paleta previa hasta UI-6).
+
+**Estado final**: `tests/unit/ui-tokens.test.ts` cubre `src/app/(app)`, las
+4 rutas de auth y ahora la lista de Inbox (102 tests de tokens; 259
+unit+integration+componentes en total). 27/27 E2E. Solo el sitio público
+(`(public)`) y `inbox/[id]` (Fase 6) quedan fuera del test de tokens, a
+propósito.
 
 **Nota de entorno (no es un bug de producto, ya anotada antes):** con
 `next start` reutilizado entre ejecuciones, los hits del rate limiter de
@@ -75,15 +107,13 @@ Better Auth se acumulan en memoria del mismo proceso; si el E2E falla con
 "Too many requests", matar el proceso `next-server` en el puerto 3000 y
 repetir.
 
-**Próximo paso concreto (UI-5, Inbox):** ver `docs/ui/ROADMAP.md` Fase 5 y
-`docs/ui/INBOX.md`. Necesita trabajo de servidor antes que de UI: una
-consulta eficiente de "último mensaje por conversación" (hoy
-`listConversationsWithPreview` carga todos los mensajes de todas las
-conversaciones para hallarlo — ver `docs/ui/INBOX.md` §1), más búsqueda y
-contadores por vista. Luego: vistas (Pendientes/No leídas/Sin
-identificar/Todas) vía `ContextNav` (ya construido en UI-2, primer
-consumidor real), `SegmentedControl`/`FilterBar`/`SearchInput` (UI-3) para
-filtros, `DataList` (UI-3) para las filas con navegación por teclado.
+**Próximo paso concreto (UI-6, Conversación en Sheet):** ver
+`docs/ui/ROADMAP.md` Fase 6 y `docs/ui/CHAT.md`. `Sheet` (UI-3) necesita
+`modal={false}` para el modo anclado sin velo en `xl+` (hoy solo modal);
+`inbox/[id]/page.tsx` y `conversation-thread.tsx` siguen con la paleta
+previa al sistema de diseño (excluidos a propósito de
+`tests/unit/ui-tokens.test.ts` hasta esta fase) y hoy navegan a página
+completa en vez de abrir en Sheet — es el trabajo central de esta fase.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

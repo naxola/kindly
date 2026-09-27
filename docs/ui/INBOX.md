@@ -11,10 +11,10 @@ Del dominio actual (`src/modules/conversations`):
 
 | Señal | Origen | Significado en UI |
 |---|---|---|
-| No leída | `lastReadAt` < último mensaje | Negrita + punto + `CountBadge` |
+| No leída | `lastReadAt` < último mensaje | Punto (`bg-primary`) + negrita en el nombre y la hora. **Sin `CountBadge`**: el dominio no cuenta mensajes no leídos, solo `boolean` (§ corrección más abajo) |
 | **Pendiente de respuesta** | Último mensaje `INBOUND` | Derivado: el contacto habló el último. Es la señal principal de "necesita atención" |
 | Sin identificar | `contact.isUnassigned` | `Badge tone="warning"` "Sin identificar" |
-| Ventana de servicio | `getConversationServiceWindow` | Cerrada → icono + texto "Ventana cerrada"; < 2 h → "Cierra en 1 h" (warning) |
+| Ventana de servicio | `getConversationServiceWindow` | Cerrada → icono + texto "Ventana cerrada"; < 2 h → "Cierra en 1 h" (warning). **Diferido en la fila de lista** (§ corrección más abajo); sigue mostrándose en la conversación (`CHAT.md`) |
 | Canal | `conversation.channel` | Icono del canal en el avatar (+ nombre accesible) |
 | Delegado | `delegateId` | Solo visible para ADMIN (el DELEGATE solo ve las suyas) |
 | Último mensaje | `lastMessage` | Preview de 1 línea; si es saliente, prefijo "Tú:" |
@@ -23,10 +23,26 @@ Del dominio actual (`src/modules/conversations`):
 persona, archivado, etiquetas, prioridad, SLA. Si se añaden al dominio,
 este documento define dónde van (§4).
 
-Dependencia técnica: `listConversationsWithPreview` carga todos los
-mensajes para hallar el último. La búsqueda y los contadores por vista
-requieren una consulta dedicada (último mensaje por conversación con
-`DISTINCT ON` o columna desnormalizada) — tarea de servidor de la Fase 5.
+**Correcciones de implementación (Fase 5, cierre):**
+
+- **Sin `CountBadge` en la fila.** El dominio solo guarda
+  `conversations.lastReadAt` y compara contra el último mensaje
+  (`isConversationUnread`, `src/modules/conversations/domain.ts`) — no hay
+  un contador de mensajes no leídos por conversación. Mostrar un número
+  inventado (p.ej. "2") sería un dato falso. La fila usa un punto simple
+  (`InboxRow`, `src/app/(app)/inbox/inbox-row.tsx`); si el dominio llega a
+  contar mensajes no leídos, aquí es donde se añade el `CountBadge`.
+- **Indicador de ventana de servicio diferido en la lista.** Calcularlo por
+  fila requeriría, además del `LEFT JOIN LATERAL` del último mensaje, un
+  segundo lateral (último mensaje `INBOUND`) más una consulta a las
+  capacidades del adapter por canal — cara de repetir para cada fila de una
+  lista que ya sondea cada 5 s. Se mantiene en `ConversationThread` (una
+  sola conversación abierta), no en la lista. Revisar si esto importa
+  cuando el número de conversaciones por canal con ventana crezca.
+- **Consulta de servidor resuelta.** `listConversationsWithPreview` usa
+  `LEFT JOIN LATERAL` para el último mensaje por conversación (una consulta,
+  no N+1); `countConversationsByView` cuenta cada vista en paralelo. Ver
+  `src/modules/conversations/service.ts`.
 
 ## 2. Layout
 
@@ -64,10 +80,12 @@ Dos líneas, ~64 px, toda la fila es un enlace (`focus-inset`):
   hora relativa a la derecha (`RelativeTime`; `primary` y negrita si no
   leída).
 - Línea 2: preview truncada (`foreground-lighter`; `foreground-light` si no
-  leída) con "Tú:" y ticks si es saliente · a la derecha `CountBadge` o
-  indicador de ventana.
+  leída) con "Tú:" y ticks (`DeliveryTicks`) si es saliente. Sin indicador de
+  ventana de servicio (diferido, ver corrección en §1).
 - Seleccionada (conversación abierta en el Sheet): `state-selected` +
-  barra `primary` a la izquierda + `aria-current="true"`.
+  barra `primary` a la izquierda + `aria-current="true"` — **pendiente de
+  Fase 6** (hoy la fila navega a `/inbox/[id]` a página completa, no hay
+  Sheet todavía).
 - Nombre accesible de la fila compuesto: "Ada Lovelace, WhatsApp, no
   leída, pendiente de respuesta, sin identificar, 10:42, Necesito ayuda…".
 - Clase `font-semibold` en el nombre no leído: la usa hoy
@@ -100,10 +118,14 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
 
 ## 6. Tiempo real y estados
 
-- Sondeo cada 5 s mientras la pestaña está visible (`AutoRefresh`,
-  PKG-013) — se mantiene. Una conversación que sube a la cima **no** mueve
-  el foco del teclado; si el usuario está en mitad de la lista, un aviso
-  "3 conversaciones nuevas · Ver" evita saltos bajo el cursor.
+- Sondeo cada 5 s mientras la pestaña está visible, ahora en el cliente
+  (`InboxList`, `src/app/(app)/inbox/inbox-list.tsx`; reemplaza el antiguo
+  `auto-refresh.tsx` de PKG-013, eliminado) — compara el orden de los IDs
+  recibidos contra el actual: mismo orden → aplica en el sitio (previews,
+  no leída); orden distinto → lo retiene y muestra un aviso
+  "N conversaciones nuevas · Ver" en vez de mover filas bajo el cursor. Los
+  contadores del ContextNav sí se actualizan siempre, aunque el aviso siga
+  pendiente de aceptar.
 - Cargando: skeleton de 8 filas con la forma real. Vacío inicial:
   `EmptyState` "Todavía no hay conversaciones" + "Conectar canal" (si no
   hay canales) o explicación (si los hay). Sin resultados: `EmptyState

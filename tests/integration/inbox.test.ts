@@ -9,11 +9,13 @@ import * as schema from "@/db/schema";
 import { users } from "@/modules/auth/schema";
 import { organizationMembers, organizations } from "@/modules/organizations/schema";
 import { contacts } from "@/modules/contacts/schema";
+import { conversations as conversationsTable, messages as messagesTable } from "@/modules/conversations/schema";
 import { createContact, markContactIdentified } from "@/modules/contacts/service";
 import { connectMessagingAccount } from "@/modules/messaging/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
 import { receiveWebhook } from "@/modules/messaging/webhook-service";
 import {
+  countConversationsByView,
   countUnreadConversations,
   getConversation,
   getConversationWithDetails,
@@ -21,6 +23,7 @@ import {
   listConversations,
   markConversationRead,
   reassignConversationContact,
+  sendOutboundMessage,
 } from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
@@ -151,7 +154,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
   });
 
   describe("listConversationsWithPreview", () => {
-    it("filters by channel and unreadOnly, and orders by the latest message", async () => {
+    it("filters by channel and the unread view, and orders by the latest message", async () => {
       const { user, org } = await createTestUserAndOrg("Listing Org");
       const account = await connectFakeAccount(org.id, user.id);
 
@@ -173,9 +176,126 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       const conversationToMarkRead = all.find((c) => c.lastMessage?.body === "Primero")!;
       await markConversationRead(org.id, conversationToMarkRead.id);
 
-      const unreadOnly = await listConversationsWithPreview(org.id, { unreadOnly: true });
+      const unreadOnly = await listConversationsWithPreview(org.id, { view: "unread" });
       expect(unreadOnly.map((c) => c.id)).not.toContain(conversationToMarkRead.id);
       expect(unreadOnly).toHaveLength(1);
+    });
+
+    it("the pending view is the last message being INBOUND, independent of read state", async () => {
+      const { user, org } = await createTestUserAndOrg("Pending View Org");
+      const account = await connectFakeAccount(org.id, user.id);
+
+      const answeredConversationId = `chat-${randomUUID()}`;
+      await receiveInboundMessage(account.id, {
+        externalConversationId: answeredConversationId,
+        text: "¿Podéis ayudarme?",
+      });
+      await sendOutboundMessage({
+        organizationId: org.id,
+        actorUserId: user.id,
+        conversationId: (await listConversations(org.id))[0].id,
+        text: "Claro, cuéntame",
+      });
+      const stillWaitingConversationId = `chat-${randomUUID()}`;
+      await receiveInboundMessage(account.id, {
+        externalConversationId: stillWaitingConversationId,
+        text: "¿Hay novedades?",
+      });
+
+      // Read both, so `pending` cannot be confused with `unread`.
+      for (const conversation of await listConversations(org.id)) {
+        await markConversationRead(org.id, conversation.id);
+      }
+
+      const pending = await listConversationsWithPreview(org.id, { view: "pending" });
+      expect(pending).toHaveLength(1);
+      expect(pending[0].lastMessage?.body).toBe("¿Hay novedades?");
+      expect(pending.every((c) => !c.unread)).toBe(true);
+    });
+
+    it("the unassigned view matches the Contact's isUnassigned flag", async () => {
+      const { user, org } = await createTestUserAndOrg("Unassigned View Org");
+      const account = await connectFakeAccount(org.id, user.id);
+      await receiveInboundMessage(account.id, { contactDisplayName: "Someone New" });
+      await createContact({ organizationId: org.id, actorUserId: user.id, name: "Known Contact" });
+
+      const unassigned = await listConversationsWithPreview(org.id, { view: "unassigned" });
+      expect(unassigned).toHaveLength(1);
+      expect(unassigned[0].contactIsUnassigned).toBe(true);
+    });
+
+    it("search matches the contact's name, phone or the last message's text", async () => {
+      const { user, org } = await createTestUserAndOrg("Search Org");
+      const account = await connectFakeAccount(org.id, user.id);
+      await receiveInboundMessage(account.id, {
+        contactDisplayName: "Ada Lovelace",
+        text: "Necesito el certificado de empadronamiento",
+      });
+
+      // A phone number only ever comes from a manually created Contact
+      // (the fake adapter's inbound payload has no phone field, same as
+      // the real WhatsApp one before a Contact is identified) — wired to a
+      // Conversation/Message by hand, the same way other Contact/Case
+      // fixtures in this suite bypass the webhook pipeline.
+      const contact = await createContact({
+        organizationId: org.id,
+        actorUserId: user.id,
+        name: "Grace Hopper",
+        phoneE164: "+34600111222",
+      });
+      const [conversation] = await db
+        .insert(conversationsTable)
+        .values({
+          organizationId: org.id,
+          messagingAccountId: account.id,
+          contactId: contact.id,
+          channel: "fake",
+          externalConversationId: `chat-${randomUUID()}`,
+        })
+        .returning();
+      await db.insert(messagesTable).values({
+        organizationId: org.id,
+        conversationId: conversation.id,
+        messagingAccountId: account.id,
+        externalMessageId: `msg-${randomUUID()}`,
+        direction: "INBOUND",
+        body: "Hola de nuevo",
+      });
+
+      await expect(listConversationsWithPreview(org.id, { search: "lovelace" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { search: "empadronamiento" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { search: "600111222" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { search: "no-existe" })).resolves.toHaveLength(0);
+    });
+  });
+
+  describe("countConversationsByView", () => {
+    it("counts each view independently, ignoring nothing but the search box", async () => {
+      const { user, org } = await createTestUserAndOrg("Counts Org");
+      const account = await connectFakeAccount(org.id, user.id);
+      await receiveInboundMessage(account.id, { contactDisplayName: "Unassigned One" });
+      const secondConversationId = `chat-${randomUUID()}`;
+      await receiveInboundMessage(account.id, {
+        externalConversationId: secondConversationId,
+        contactDisplayName: "Unassigned Two",
+      });
+      await markConversationRead(org.id, (await listConversations(org.id))[0].id);
+
+      const counts = await countConversationsByView(org.id);
+      expect(counts).toEqual({ pending: 2, unread: 1, unassigned: 2, all: 2 });
+
+      const byChannel = await countConversationsByView(org.id, { channel: "other" });
+      expect(byChannel).toEqual({ pending: 0, unread: 0, unassigned: 0, all: 0 });
+    });
+
+    it("is scoped to the organization", async () => {
+      const { org: orgA } = await createTestUserAndOrg("Counts Isolation A");
+      const { user: userB, org: orgB } = await createTestUserAndOrg("Counts Isolation B");
+      const accountB = await connectFakeAccount(orgB.id, userB.id);
+      await receiveInboundMessage(accountB.id);
+
+      expect(await countConversationsByView(orgA.id)).toEqual({ pending: 0, unread: 0, unassigned: 0, all: 0 });
+      expect((await countConversationsByView(orgB.id)).all).toBe(1);
     });
   });
 

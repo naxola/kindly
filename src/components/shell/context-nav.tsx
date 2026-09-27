@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
 
 export interface ContextNavItem {
@@ -12,20 +12,25 @@ export interface ContextNavItem {
 
 /**
  * Module-level sub-navigation (docs/ui/LAYOUT_NAVIGATION.md §4): a vertical
- * column on `lg+`, a horizontal scroller below it. Not called by any page
- * yet — Inbox's views (UI-5) and Organización's sections (UI-7) are its
- * first callers; built now so those phases compose it instead of each
- * inventing its own tab strip.
+ * column on `lg+`, a horizontal scroller below it. First real consumer is
+ * Inbox's views (UI-5, `?view=`) — Organización's sections (UI-7) are
+ * plain paths with no query string.
+ *
+ * Active is the *full* current URL (path + query), not just the path:
+ * `usePathname()` alone drops the query string, so every `?view=…` item
+ * would otherwise compare equal to none of them.
  */
 export function ContextNav({ label, items }: { label: string; items: ContextNavItem[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentHref = searchParams.size > 0 ? `${pathname}?${searchParams.toString()}` : pathname;
   return (
     <nav
       aria-label={label}
       className="flex gap-1 overflow-x-auto lg:w-context-nav lg:shrink-0 lg:flex-col lg:overflow-visible"
     >
       {items.map((item) => {
-        const active = pathname === item.href;
+        const active = currentHref === item.href;
         return (
           <Link
             key={item.href}

@@ -549,10 +549,25 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [ ] `loading.tsx`/`error.tsx` por ruta: aplazado, sin carga lo bastante
       lenta hoy para justificarlo; se retoma si UI-5 lo necesita.
 
-### UI-5 — Inbox
+### UI-5 — Inbox — CERRADO 2026-09-27
 
-- [ ] Vistas con contadores, búsqueda y filtros por URL, fila densa, teclado.
-- [ ] Consulta de servidor eficiente (último mensaje, búsqueda, contadores) con tests de aislamiento.
+- [x] Vistas (Pendientes/No leídas/Sin identificar/Todas) con contadores,
+      búsqueda y filtros por URL, fila densa (`InboxRow`), teclado (`DataList`).
+- [x] Consulta de servidor eficiente: `LEFT JOIN LATERAL` para el último
+      mensaje por conversación (antes: cargaba todos los mensajes), 4
+      conteos por vista en paralelo, búsqueda por nombre/teléfono/texto del
+      último mensaje — con tests de integración y aislamiento por
+      `organization_id`.
+- [x] Sondeo cada 5 s sin mover filas bajo el cursor (aviso "N
+      conversaciones nuevas · Ver"); `auto-refresh.tsx` (PKG-013) eliminado.
+- [x] Bugs reales corregidos: `ContextNav` no marcaba activo ningún
+      `?view=…` (comparaba solo `pathname`); `NativeSelect` ignoraba el
+      `className` del consumidor para el ancho de su contenedor.
+- [x] Corrección respecto al diseño original: fila no leída con punto
+      simple (no `CountBadge`, el dominio no cuenta mensajes no leídos);
+      indicador de ventana de servicio diferido de la fila de lista.
+- [x] `tests/e2e/inbox.spec.ts` reescrito para vistas por `?view=` y
+      `FilterBar`; `tests/unit/ui-tokens.test.ts` cubre la lista de Inbox.
 
 ### UI-6 — Conversación en Sheet
 

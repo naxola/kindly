@@ -76,7 +76,9 @@ export function DataList<T extends DataListItem>({
             tabIndex={index === safeActiveIndex ? 0 : -1}
             onFocus={() => setActiveIndex(index)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className="block focus-inset"
+            // `group`: lets `renderItem`'s content use `group-hover:`/
+            // `group-focus:` (e.g. a hover background on the whole row).
+            className="group block focus-inset"
           >
             {renderItem(item, index)}
           </Link>

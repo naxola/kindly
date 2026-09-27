@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, count, desc, eq, exists, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
-import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
+import { conversationCases, conversations, messages, type MessageDeliveryStatus } from "@/modules/conversations/schema";
 import {
   getServiceWindowState,
   isConversationUnread,
@@ -19,6 +19,22 @@ import type { MessagingAccountRecord } from "@/modules/messaging/adapter";
 
 export async function listConversations(organizationId: string) {
   return db.select().from(conversations).where(eq(conversations.organizationId, organizationId));
+}
+
+/**
+ * Distinct channels with at least one Conversation, for the Inbox's channel
+ * filter (UI-5). Deliberately independent of the current view/search/
+ * delegate filters — narrowing it to "channels visible in the current
+ * view" would make the dropdown shrink as you filter, hiding the very
+ * option that would show the rest again.
+ */
+export async function listConversationChannels(organizationId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ channel: conversations.channel })
+    .from(conversations)
+    .where(eq(conversations.organizationId, organizationId))
+    .orderBy(asc(conversations.channel));
+  return rows.map((row) => row.channel);
 }
 
 /**
@@ -470,80 +486,186 @@ export interface ConversationPreview {
   contactIsUnassigned: boolean;
   channel: string;
   delegateId: string;
-  lastMessage: { body: string; direction: "INBOUND" | "OUTBOUND"; createdAt: Date } | null;
+  lastMessage: {
+    body: string;
+    direction: "INBOUND" | "OUTBOUND";
+    createdAt: Date;
+    deliveryStatus: MessageDeliveryStatus;
+    sentFromDevice: boolean;
+  } | null;
   unread: boolean;
 }
 
+/**
+ * The Inbox's four views (docs/ui/INBOX.md §2), in "who needs attention"
+ * order. `pending`: the Contact spoke last (docs/ui/INBOX.md §1, the
+ * primary "needs attention" signal) — it is not `unread`, since a
+ * conversation can be read but still awaiting a reply.
+ */
+export type InboxView = "pending" | "unread" | "unassigned" | "all";
+
 export interface ListConversationsFilters {
   channel?: string;
-  unreadOnly?: boolean;
+  delegateId?: string;
+  view?: InboxView;
+  /** Matches contact name, contact phone, or the last message's text. */
+  search?: string;
 }
 
 /**
- * Inbox listing (PKG-004): every Conversation of the organization with its
- * Contact, channel, delegate and last message, newest activity first — a
- * Conversation's own `updatedAt` never changes when a Message arrives, so
- * ordering by the last message's `createdAt` (not the Conversation row) is
- * what actually reflects "most recently active".
+ * One `last_message` per Conversation via `LEFT JOIN LATERAL` — a fresh
+ * `.as()` per call, since the same aliased subquery cannot be joined more
+ * than once across the independent queries below (the list, and each of
+ * the four view counts).
+ */
+function lastMessageLateralQuery() {
+  return db
+    .select({
+      id: messages.id,
+      body: messages.body,
+      direction: messages.direction,
+      createdAt: messages.createdAt,
+      deliveryStatus: messages.deliveryStatus,
+      sentFromDevice: messages.sentFromDevice,
+    })
+    .from(messages)
+    .where(eq(messages.conversationId, conversations.id))
+    .orderBy(desc(messages.createdAt))
+    .limit(1)
+    .as("last_message");
+}
+
+/**
+ * The condition that defines each view. `unread` additionally requires a
+ * real last message (`isNotNull(lastMessage.id)`): without it, a
+ * message-less Conversation with no `lastReadAt` would otherwise read as
+ * "unread" by the bare "never read" rule.
+ */
+function inboxViewCondition(view: InboxView, lastMessage: ReturnType<typeof lastMessageLateralQuery>) {
+  switch (view) {
+    case "pending":
+      return eq(lastMessage.direction, "INBOUND");
+    case "unread":
+      return and(
+        isNotNull(lastMessage.id),
+        or(isNull(conversations.lastReadAt), gt(lastMessage.createdAt, conversations.lastReadAt)),
+      );
+    case "unassigned":
+      return eq(contacts.isUnassigned, true);
+    case "all":
+      return undefined;
+  }
+}
+
+function inboxFilterConditions(
+  organizationId: string,
+  filters: Pick<ListConversationsFilters, "channel" | "delegateId" | "search">,
+  lastMessage: ReturnType<typeof lastMessageLateralQuery>,
+) {
+  return and(
+    eq(conversations.organizationId, organizationId),
+    filters.channel ? eq(conversations.channel, filters.channel) : undefined,
+    filters.delegateId ? eq(messagingAccounts.delegateId, filters.delegateId) : undefined,
+    filters.search
+      ? or(
+          ilike(contacts.name, `%${filters.search}%`),
+          ilike(contacts.phoneE164, `%${filters.search}%`),
+          ilike(lastMessage.body, `%${filters.search}%`),
+        )
+      : undefined,
+  );
+}
+
+/**
+ * Inbox listing (PKG-004, rebuilt in UI-5 on a `LATERAL` join): every
+ * Conversation of the organization with its Contact, channel, delegate and
+ * last message, newest activity first. Replaces the original "load every
+ * message of every conversation to find the newest one" query
+ * (docs/ui/INBOX.md §1) — this fetches exactly one message row per
+ * conversation, in the database, and does the view/search filtering and
+ * the ordering in SQL instead of in JS.
  */
 export async function listConversationsWithPreview(
   organizationId: string,
   filters: ListConversationsFilters = {},
 ): Promise<ConversationPreview[]> {
+  const lastMessage = lastMessageLateralQuery();
   const rows = await db
     .select({
       conversation: conversations,
       contactName: contacts.name,
       contactIsUnassigned: contacts.isUnassigned,
       delegateId: messagingAccounts.delegateId,
+      // Individual columns, not the whole `lastMessage` subquery as one
+      // field: Drizzle only allows embedding a joined subquery as-is when
+      // it selects exactly one column (its "scalar subquery" shape).
+      lastMessageId: lastMessage.id,
+      lastMessageBody: lastMessage.body,
+      lastMessageDirection: lastMessage.direction,
+      lastMessageCreatedAt: lastMessage.createdAt,
+      lastMessageDeliveryStatus: lastMessage.deliveryStatus,
+      lastMessageSentFromDevice: lastMessage.sentFromDevice,
     })
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .leftJoinLateral(lastMessage, sql`true`)
     .where(
       and(
-        eq(conversations.organizationId, organizationId),
-        filters.channel ? eq(conversations.channel, filters.channel) : undefined,
+        inboxFilterConditions(organizationId, filters, lastMessage),
+        inboxViewCondition(filters.view ?? "all", lastMessage),
       ),
-    );
+    )
+    .orderBy(desc(lastMessage.createdAt));
 
-  const conversationIds = rows.map((row) => row.conversation.id);
-  const lastMessagesByConversation = new Map<string, (typeof messages.$inferSelect)>();
-  if (conversationIds.length > 0) {
-    const recentMessages = await db
-      .select()
-      .from(messages)
-      .where(inArray(messages.conversationId, conversationIds))
-      .orderBy(desc(messages.createdAt));
-    for (const message of recentMessages) {
-      if (!lastMessagesByConversation.has(message.conversationId)) {
-        lastMessagesByConversation.set(message.conversationId, message);
-      }
-    }
-  }
+  return rows.map((row): ConversationPreview => ({
+    id: row.conversation.id,
+    contactId: row.conversation.contactId,
+    contactName: row.contactName,
+    contactIsUnassigned: row.contactIsUnassigned,
+    channel: row.conversation.channel,
+    delegateId: row.delegateId,
+    lastMessage: row.lastMessageId
+      ? {
+          body: row.lastMessageBody!,
+          direction: row.lastMessageDirection!,
+          createdAt: row.lastMessageCreatedAt!,
+          deliveryStatus: row.lastMessageDeliveryStatus!,
+          sentFromDevice: row.lastMessageSentFromDevice!,
+        }
+      : null,
+    unread: isConversationUnread(row.lastMessageCreatedAt, row.conversation.lastReadAt),
+  }));
+}
 
-  const previews = rows.map((row): ConversationPreview => {
-    const lastMessage = lastMessagesByConversation.get(row.conversation.id) ?? null;
-    return {
-      id: row.conversation.id,
-      contactId: row.conversation.contactId,
-      contactName: row.contactName,
-      contactIsUnassigned: row.contactIsUnassigned,
-      channel: row.conversation.channel,
-      delegateId: row.delegateId,
-      lastMessage: lastMessage
-        ? { body: lastMessage.body, direction: lastMessage.direction, createdAt: lastMessage.createdAt }
-        : null,
-      unread: isConversationUnread(lastMessage?.createdAt ?? null, row.conversation.lastReadAt),
-    };
-  });
+export type InboxViewCounts = Record<InboxView, number>;
 
-  const filtered = filters.unreadOnly ? previews.filter((preview) => preview.unread) : previews;
-  return filtered.sort((a, b) => {
-    const aTime = a.lastMessage?.createdAt.getTime() ?? 0;
-    const bTime = b.lastMessage?.createdAt.getTime() ?? 0;
-    return bTime - aTime;
-  });
+/**
+ * Counts for the Inbox's `ContextNav` badges (docs/ui/INBOX.md §2).
+ * Answers "how many, ignoring the search box" — `channel`/`delegateId`
+ * narrow which mailbox you're counting, same as the list; free-text
+ * `search` does not, the same way Gmail's folder counts do not react to
+ * whatever is currently typed in its search bar.
+ */
+export async function countConversationsByView(
+  organizationId: string,
+  filters: Pick<ListConversationsFilters, "channel" | "delegateId"> = {},
+): Promise<InboxViewCounts> {
+  const views: InboxView[] = ["pending", "unread", "unassigned", "all"];
+  const entries = await Promise.all(
+    views.map(async (view) => {
+      const lastMessage = lastMessageLateralQuery();
+      const [row] = await db
+        .select({ value: count() })
+        .from(conversations)
+        .innerJoin(contacts, eq(contacts.id, conversations.contactId))
+        .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+        .leftJoinLateral(lastMessage, sql`true`)
+        .where(and(inboxFilterConditions(organizationId, filters, lastMessage), inboxViewCondition(view, lastMessage)));
+      return [view, row?.value ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(entries) as InboxViewCounts;
 }
 
 export interface ConversationDetails {

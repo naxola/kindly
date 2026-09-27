@@ -73,10 +73,10 @@ export const NativeSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(fun
   ref,
 ) {
   return (
-    <span className="relative inline-flex w-full">
+    <span className={cn("relative inline-flex w-full", className)}>
       <select
         ref={ref}
-        className={cn(controlVariants({ size }), "cursor-pointer appearance-none pr-8", className)}
+        className={cn(controlVariants({ size }), "w-full cursor-pointer appearance-none pr-8")}
         {...props}
       >
         {children}
