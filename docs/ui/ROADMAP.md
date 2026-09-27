@@ -148,18 +148,54 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   componentes con tests de teclado para ConfirmDialog, DataList y Sheet
   (12 tests nuevos, 221 en total).
 
-## Fase 4 — Arquitectura de páginas · ⚪
+## Fase 4 — Arquitectura de páginas · 🟢 Completa (2026-09-27)
 
 - **Objetivo**: todas las páginas de `(app)` sobre el sistema.
-- **Alcance**: PageContainer/PageHeader/PageSection; Contactos, Casos,
-  Tareas, detalle de cada uno, Canales, Miembros, auth (`/login`,
-  `/forgot-password`, `/reset-password`, `/invite`); formularios de alta
-  a Sheet/Dialog; confirmaciones con ConfirmDialog; textos de la UI en
-  español (Contactos, Casos, Tareas) con sus E2E; helper de títulos del
-  navegador.
-- **Criterios de aceptación**: cero `zinc-*`/`amber-*`… en `src/app/(app)`
-  y auth (se añaden al test de tokens); cada página con estados vacío,
-  carga y error; E2E actualizados y en verde.
+- **Alcance**: `PageContainer`/`PageHeader`/`PageSection`
+  (`src/components/patterns/`) y `pageTitle()` (`src/lib/page-title.ts`);
+  Contactos, Casos, Tareas (lista + detalle), Canales (+ flujo de conexión
+  WhatsApp), Miembros, y las cuatro pantallas de auth — todas migradas.
+  Formularios de alta a Sheet (Contacto 4 campos, Caso 5, Tarea 5) o
+  Dialog (Invitar, 2 campos), según el umbral de `COMPONENTS.md` §4;
+  confirmaciones (Desconectar canal, Revocar invitación) a `ConfirmDialog`.
+  Textos de Contactos/Casos/Tareas traducidos al español (sidebar
+  incluida); Canales/Miembros/auth **no** traducidos — no estaba en el
+  alcance de esta fase y son textos ya revisados en `docs/DECISIONS.md`.
+- **Hecho en 4 commits de checkpoint** (patrones + CRM; Canales; Miembros;
+  auth), cada uno verificado end-to-end (lint + typecheck + unit/
+  integration + E2E + captura visual real) antes del siguiente.
+- **Bug real encontrado y corregido**: `button.tsx` lleva `"use client"`,
+  lo que convertía su `buttonVariants` exportado en client-only también
+  (el límite RSC de Next se aplica al archivo entero, no export a export),
+  rompiendo el patrón "un `<Link>` con pinta de botón desde un Server
+  Component" que el propio comentario del componente prometía. Solución:
+  `buttonVariants` vive ahora en `button-variants.ts` (sin directiva),
+  importado directamente por los Server Components que lo necesitan;
+  `button.tsx` solo lo re-exporta para el código cliente que ya lo usaba.
+- **Decisión de alcance en los formularios de auth**: los campos de
+  `/login`, `/invite`, `/forgot-password` y `/reset-password` ganaron una
+  `<Label>` real (antes no tenían ninguna, solo placeholder — el
+  anti-patrón exacto que `Field` existe para evitar) pero **visualmente
+  oculta**, manteniendo el placeholder con el texto idéntico de antes. La
+  alternativa (una `Field` con label visible) habría sido más "correcta"
+  en abstracto, pero prácticamente todos los specs de `tests/e2e/` pasan
+  por el registro/login usando `getByPlaceholder("Nombre"|"Email"|
+  "Contraseña")` — cambiar esa asociación habría exigido tocar casi toda
+  la suite para ninguna ganancia real de accesibilidad adicional sobre la
+  opción elegida.
+- **Criterios de aceptación**: ✅ cero `zinc-*`/`amber-*`… en
+  `src/app/(app)` y en las cuatro rutas de auth (`tests/unit/ui-tokens.test.ts`
+  cubre ambos, 97 tests); ✅ cada página con estados vacío (`EmptyState`)
+  y de error (banners `Alert`); ✅ E2E actualizados y en verde (27/27) —
+  `crm.spec.ts` (Sheets + `getByLabel` en vez de `getByPlaceholder`,
+  ahora que hay `<label>` reales), `channels.spec.ts`/
+  `whatsapp-onboarding.spec.ts` (sin cambios de texto), `members.spec.ts`
+  (Dialog/ConfirmDialog, clics del diálogo acotados con
+  `getByRole("dialog")` para no chocar con el disparador).
+- **Estados de carga/error por ruta** (`loading.tsx`/`error.tsx` de
+  Next.js): sigue aplazado a esta misma fase original, pero no se ha
+  hecho — no hay ninguna carga lo bastante lenta hoy para justificarlo
+  (todo son consultas puntuales); se retoma si UI-5/Inbox lo necesita.
 
 ## Fase 5 — Inbox · ⚪
 

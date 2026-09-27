@@ -1658,6 +1658,53 @@ sobre añadir alcance nuevo.
 
 ---
 
+## 2026-09-27 — Rediseño UI/UX, UI-4: arquitectura de páginas
+
+**Contexto:** migrar todas las páginas de `(app)` y las cuatro de auth al
+sistema de diseño (`PageContainer`/`PageHeader`/`PageSection`, altas a
+Sheet/Dialog, confirmaciones a `ConfirmDialog`, Contactos/Casos/Tareas en
+español).
+
+**Decisión:**
+
+1. **`buttonVariants` se separa de `button.tsx` a `button-variants.ts`,
+   sin `"use client"`.** El límite Server/Client de Next.js se aplica al
+   archivo entero, no exportación a exportación: como `button.tsx` lleva
+   `"use client"` (por el `useId()` del motivo de deshabilitado),
+   `buttonVariants` —una función pura, sin hooks— se había vuelto
+   client-only también, y llamarla desde un Server Component (el patrón
+   "`<Link>` con pinta de botón" que el propio comentario del componente
+   documentaba) fallaba en tiempo de ejecución con un error que TypeScript
+   no detecta. Apareció al migrar `channels/page.tsx`. Los Server
+   Components que necesiten `buttonVariants` importan ahora desde
+   `button-variants.ts` directamente.
+2. **Los campos de las pantallas de auth (login, invitar, olvidé/cambiar
+   contraseña) ganan un `<label>` real pero visualmente oculto**, no un
+   `Field` con label visible. El diseño visual (compacto, con el nombre
+   del campo solo como placeholder) se mantiene sin cambios; el
+   `placeholder` se mantiene con el texto idéntico. Motivo: casi todos los
+   specs E2E del proyecto (cualquiera que registre o inicie sesión)
+   rellenan estos campos por `getByPlaceholder("Nombre"|"Email"|
+   "Contraseña")`. Un label visible habría exigido, como mínimo,
+   reconsiderar esa asociación en decenas de sitios para una ganancia de
+   accesibilidad marginal sobre la opción elegida (que ya corrige el
+   problema real: antes no había ningún `<label>`, ni oculto).
+3. **Canales, Miembros y el flujo de conexión de WhatsApp no se
+   traducen** en esta fase — a diferencia de Contactos/Casos/Tareas. Su
+   texto ya pasó revisión (`docs/DECISIONS.md`, entradas de PKG-006/007/008/010)
+   y no estaba en el alcance que `docs/ui/ROADMAP.md` fijó para UI-4.
+4. **Altas por umbral de campos, aplicado de forma consistente**:
+   Contacto (4 campos) y Tarea (5) y Caso (5, no 2 como parecía a
+   primera vista — el formulario real incluye prioridad, asignación y
+   descripción) van a Sheet; Invitar miembro (2 campos) va a Dialog.
+
+**Por qué:** cada decisión prioriza no repetir trabajo ya validado
+(Canales/Miembros), no tocar más superficie de la necesaria (auth), y
+seguir el criterio de `docs/ui/COMPONENTS.md` §4 de forma literal en vez
+de por intuición visual.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

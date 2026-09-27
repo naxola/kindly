@@ -26,7 +26,8 @@ Estado: ✅ implementado · 🟡 parcial · ⚪ pendiente (fase).
 
 | Componente | Archivo | Estado | Notas de uso |
 |---|---|---|---|
-| `Button`, `buttonVariants` | `ui/button.tsx` | ✅ | Variantes `primary` (una por vista), `default`, `outline`, `ghost`, `link`, `danger` (solo dentro de una confirmación). Tamaños `sm/md/lg/icon-sm/icon-md`. `loading` + `loadingText`, `icon`, `disabledReason` (deshabilitado pero enfocable, motivo anunciado) |
+| `Button` | `ui/button.tsx` | ✅ | Variantes `primary` (una por vista), `default`, `outline`, `ghost`, `link`, `danger` (solo dentro de una confirmación). Tamaños `sm/md/lg/icon-sm/icon-md`. `loading` + `loadingText`, `icon`, `disabledReason` (deshabilitado pero enfocable, motivo anunciado) |
+| `buttonVariants` | `ui/button-variants.ts` | ✅ | Para estilizar un `<Link>` como botón (`className={buttonVariants({variant})}`), **desde un Server Component**: vive en su propio módulo sin `"use client"` a propósito (UI-4) — importarlo desde `ui/button.tsx` en vez de aquí lo convierte en client-only y rompe el patrón, con un error de Next solo visible en tiempo de ejecución, no en el tipado |
 | `SubmitButton` | `ui/submit-button.tsx` | ✅ | Para `<form action={serverAction}>`: loading automático con `useFormStatus` |
 | `Spinner` | `ui/spinner.tsx` | ✅ | Decorativo salvo que reciba `label` |
 | `Input`, `Textarea`, `NativeSelect`, `Checkbox`, `controlVariants` | `ui/input.tsx` | ✅ | Misma altura que `Button` del mismo `size`. `NativeSelect` es el select por defecto (sin JS, picker nativo en móvil) |
@@ -66,9 +67,11 @@ Estado: ✅ implementado · 🟡 parcial · ⚪ pendiente (fase).
 | `AppHeader` | 🟡 | `shell/app-header.tsx`. Logo, `MobileNav`, texto de organización (aún no interactivo: ver nota de UI-2 en `ROADMAP.md`), `UserMenu`. Sin buscador/⌘K (Fase 3) |
 | `AppSidebar` | ✅ | `shell/app-sidebar.tsx` (`< md`: `shell/mobile-nav.tsx`). Contraíble, persistido en la cookie `kindly_sidebar` (lectura: `shell/sidebar-cookie.ts`; escritura: `shell/sidebar-actions.ts`). Items en `shell/nav-items.ts`, planos por ahora (ver nota de UI-2 en `ROADMAP.md`) |
 | `ContextNav` | 🟡 | `shell/context-nav.tsx`. Construido en UI-2; sin páginas que lo usen todavía — primeros consumidores en UI-5 (Inbox) y UI-7 (Organización) |
-| `PageContainer` | ⚪ | `size`: `sm` (ajustes/formularios), `md` (listas y detalle), `lg`, `full` (Inbox) |
-| `PageHeader` | ⚪ | Título (`h1`, `type-page-title`), descripción declarativa sin punto final, `aside` para acciones |
-| `PageSection` | ⚪ | Título de sección + descripción + aside + contenido; separación `gap` por token |
+| `PageContainer` | ✅ | `patterns/page-container.tsx`. `size`: `sm` (ajustes/formularios), `md` (listas y detalle, por defecto), `lg`, `full` (Inbox). Posee el ancho, el gutter horizontal y el ritmo vertical (`gap-8`) — `AppShell` ya no aplica ninguno de los dos |
+| `PageHeader` | ✅ | `patterns/page-header.tsx`. Título (`h1`, `type-page-title`), descripción declarativa sin punto final, icono opcional, `aside` para acciones |
+| `PageSection` | ✅ | `patterns/page-section.tsx`. Título de sección + descripción + aside + contenido |
+| `AuthShell` | ✅ | `patterns/auth-shell.tsx`. Layout compartido de las pantallas previas a la sesión (login, olvidé/cambiar contraseña, invitación) — fuera de `AppShell`, deliberadamente estrecho y sin cambios visuales respecto a antes de UI-4 |
+| `useCloseAfterAction` | ✅ | `patterns/use-close-after-action.ts`. Envuelve una Server Action para que su Sheet/Dialog se cierre solo al resolver — el patrón "crear y cerrar" de cada alta (Contacto, Caso, Tarea, Invitar). Los errores no se capturan aquí: salen igual que ya salían fuera de un Sheet, sin recuperación en línea nueva en este paso |
 
 ## 4. Reglas de elección
 

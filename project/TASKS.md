@@ -534,11 +534,20 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [ ] `CommandMenu` (`cmdk`): aplazado, sin página que lo necesite aún.
 - [ ] Patrón `loading.tsx`/`error.tsx`: aplazado a UI-4 (depende de `PageContainer`).
 
-### UI-4 — Arquitectura de páginas
+### UI-4 — Arquitectura de páginas — CERRADO 2026-09-27
 
-- [ ] PageContainer/PageHeader/PageSection y migración de todas las páginas de `(app)` y auth.
-- [ ] Textos en español (Contactos, Casos, Tareas) con E2E actualizados.
-- [ ] `src/app/(app)` añadido al test de tokens.
+- [x] PageContainer/PageHeader/PageSection y migración de todas las páginas
+      de `(app)` (Contactos, Casos, Tareas, Canales + flujo WhatsApp,
+      Miembros) y las cuatro de auth (login, forgot/reset password, invite).
+- [x] Altas a Sheet (Contacto, Caso, Tarea) o Dialog (Invitar) según el
+      umbral de campos; confirmaciones (Desconectar, Revocar) a `ConfirmDialog`.
+- [x] Textos en español (Contactos, Casos, Tareas, sidebar) con E2E
+      actualizados; Canales/Miembros/auth mantienen su texto ya revisado.
+- [x] `src/app/(app)` y las 4 rutas de auth añadidas al test de tokens (97 tests).
+- [x] Bug real corregido: `buttonVariants` era client-only por el `"use
+      client"` de `button.tsx` (`button-variants.ts` nuevo, sin directiva).
+- [ ] `loading.tsx`/`error.tsx` por ruta: aplazado, sin carga lo bastante
+      lenta hoy para justificarlo; se retoma si UI-5 lo necesita.
 
 ### UI-5 — Inbox
 

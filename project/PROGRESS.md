@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-26.
+Última actualización: 2026-09-27.
 
 ## Resumen en una línea
 
@@ -30,14 +30,16 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 prueba y solo en staging, para validar la tubería real mientras `PKG-009`
 sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
 (Resend) para recuperar la contraseña.
-**Rediseño UI/UX** (2026-09-26): arranca por fases `UI-0`…`UI-9` con
+**Rediseño UI/UX** (2026-09-26/27): arranca por fases `UI-0`…`UI-9` con
 `docs/ui/` como fuente de verdad. `UI-0` (auditoría + estudio de Supabase +
 documentación), `UI-1` (tokens en tres capas + componentes base +
 `/ui-kit`), `UI-2` (shell: header, sidebar contraíble, menú móvil,
-organización/usuario en el header) y `UI-3` (Dialog, ConfirmDialog,
+organización/usuario en el header), `UI-3` (Dialog, ConfirmDialog,
 DiscardChangesDialog, Sheet completo, Tabs, Popover, Toast, Table,
-DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime)
-completos; siguiente: `UI-4`, arquitectura de páginas.
+DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime) y `UI-4`
+(todas las páginas de `(app)` y las cuatro de auth migradas al sistema;
+Contactos/Casos/Tareas traducidas; altas a Sheet/Dialog; confirmaciones a
+`ConfirmDialog`) completos; siguiente: `UI-5`, Inbox.
 
 ## Estado por fase / paquete
 
@@ -60,7 +62,8 @@ completos; siguiente: `UI-4`, arquitectura de páginas.
 | **UI-1** | **Design system: tokens y componentes base** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-2** | **Shell de aplicación (header, sidebar, menú móvil)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-3** | **Componentes avanzados (Dialog, ConfirmDialog, Table, DataList…)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
-| UI-4 … UI-9 | Páginas, Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-4** | **Arquitectura de páginas (todas las páginas de `(app)` y auth)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
+| UI-5 … UI-9 | Inbox, conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

@@ -4,81 +4,86 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0…UI-3 cerrados el 2026-09-26; siguiente UI-4
+## Paquete activo: rediseño UI/UX — UI-0…UI-4 cerrados el 2026-09-27; siguiente UI-5
 
-Último commit: `099ba9d`.
+Último commit: `e34036b`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
 El usuario pidió rediseñar toda la interfaz con Supabase como referencia de
 calidad y patrones (no de aspecto), por fases y documentado para que otra
 IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
-`docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisión en
-`docs/DECISIONS.md` (entrada del 2026-09-26).
+`docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisiones en
+`docs/DECISIONS.md` (entradas del 2026-09-26 y 2026-09-27).
 
-**Hecho en sesiones anteriores:**
+**Hecho en sesiones anteriores (UI-0…UI-3), resumen — detalle en
+`docs/ui/ROADMAP.md`:**
 
-- **UI-0/UI-1**: auditoría, estudio de Supabase, documentación completa de
+- **UI-0/UI-1**: auditoría, estudio de Supabase, documentación de
   `docs/ui/`; tokens en tres capas (`src/styles/tokens.css`), componentes
   base (`src/components/ui/`), catálogo `/ui-kit`.
-- **UI-2**: shell de aplicación (`src/components/shell/`: `AppShell`,
-  `AppHeader`, `AppSidebar` contraíble con cookie, `MobileNav`,
-  `UserMenu`, `SkipToContent`, `ContextNav` preparado). Post-login →
-  `/inbox`. Sidebar y migas de organización se mantienen **planas** a
-  propósito hasta que `/organization` exista (UI-7). Detalle completo en
-  `docs/ui/ROADMAP.md` (Fases 0-2).
+- **UI-2**: shell de aplicación (`src/components/shell/`). Sidebar y migas
+  de organización **planas** a propósito hasta que `/organization` exista
+  (UI-7).
+- **UI-3**: Dialog, ConfirmDialog, DiscardChangesDialog + useConfirmOnClose,
+  Tabs, Popover, Toast, Table, DataList, SearchInput, FilterBar,
+  SegmentedControl, RelativeTime. Entorno de test de componentes (jsdom +
+  Testing Library, por archivo). `CommandMenu` y `loading.tsx`/`error.tsx`
+  aplazados con motivo.
 
-**Hecho en esta sesión (UI-3 — componentes avanzados):**
+**Hecho en esta sesión (UI-4 — arquitectura de páginas), en 4 commits de
+checkpoint, cada uno con lint+typecheck+tests+E2E+captura visual real
+antes del siguiente:**
 
-- `src/components/ui/`: `dialog.tsx`, `confirm-dialog.tsx` (el único
-  componente de confirmación: `title`/`description`/`confirmLabel`/
-  `variant`/`confirmText`/`onConfirm`; el error se captura automático si
-  `onConfirm` lanza, no es una prop controlada), `discard-changes-dialog.tsx`
-  + `use-confirm-on-close.ts` (mismo API que documenta Supabase:
-  `confirmOnClose`/`handleOpenChange`/`modalProps`), `tabs.tsx`,
-  `popover.tsx`, `toast.tsx` (Sonner con `unstyled: true` + `classNames`
-  propios, montado en `AppShell`), `table.tsx`, `data-list.tsx`,
-  `search-input.tsx`, `filter-bar.tsx`, `segmented-control.tsx`,
-  `relative-time.tsx`.
-- **Aplazado con motivo** (en `docs/ui/ROADMAP.md`): `CommandMenu`/`cmdk`
-  (nada lo necesita aún) y el patrón `loading.tsx`/`error.tsx` (depende de
-  `PageContainer`, que es UI-4).
-- **Entorno de test de componentes, decidido**: Vitest + jsdom + Testing
-  Library, activado *por archivo* con `// @vitest-environment jsdom` (sin
-  config separada); `tests/setup.ts` registra `afterEach(cleanup)` a mano
-  (RTL no se auto-limpia sin `test.globals: true`, que no usamos) y carga
-  `@testing-library/jest-dom/vitest`. `tests/components/`: `data-list`,
-  `confirm-dialog`, `sheet` (12 tests: teclado, foco, Esc, backdrop).
-- **Bug real encontrado y corregido**: `RelativeTime` usaba
-  `toLocaleString(..., { dateStyle, timeStyle })`; el conector que ICU
-  compone ("a las" / ",") difería entre el Node del servidor y Chromium,
-  y como `DataList.renderItem` es una función (obliga a ejecución cliente
-  — las funciones no cruzan Server→Client), **cualquier página real** que
-  meta `RelativeTime` dentro de un `DataList` habría tenido el mismo
-  *hydration mismatch* que apareció al construir la demo en `/ui-kit`.
-  Corregido formateando fecha y hora por separado, unidas con un
-  separador propio, no compuesto por ICU.
-- `/ui-kit` ampliado (`phase3-interactive.tsx`, cliente) con demos de los
-  doce componentes; verificado visualmente con capturas reales (no solo
-  tests). 221 unit+integration (209 + 12 de componentes), 27 E2E, lint y
-  typecheck en verde.
-- Nota de entorno (no es un bug de producto, ya anotada en la sesión de
-  UI-2): con `next start` reutilizado entre ejecuciones, los hits del
-  rate limiter de Better Auth se acumulan en memoria del mismo proceso;
-  si el E2E falla con "Too many requests", matar el proceso `next-server`
-  en el puerto 3000 y repetir.
+1. `PageContainer`/`PageHeader`/`PageSection` (`src/components/patterns/`)
+   + `pageTitle()` (`src/lib/page-title.ts`) + `useCloseAfterAction`
+   (`patterns/use-close-after-action.ts`: cierra un Sheet/Dialog al
+   resolver la Server Action que envuelve). Migradas y **traducidas**
+   Contactos/Casos/Tareas (lista + detalle; sidebar incluida); altas a
+   Sheet (4-5 campos); `crm.spec.ts` con `getByLabel` en vez de
+   `getByPlaceholder` (ya hay `<label>` reales).
+2. Canales + flujo de conexión WhatsApp: texto **sin traducir** (ya
+   revisado en `docs/DECISIONS.md`), solo re-skin; "Desconectar" ahora
+   pide confirmación (`ConfirmDialog`). Aquí apareció el bug real más
+   importante de la fase: `button.tsx` es `"use client"`, así que su
+   `buttonVariants` exportado también se volvía client-only (el límite
+   RSC de Next aplica al archivo entero) — rompía "estilizar un `<Link>`
+   como botón desde un Server Component". Solución: `buttonVariants` vive
+   en `button-variants.ts` sin directiva; los Server Components lo
+   importan de ahí, no de `button.tsx`.
+3. Miembros: invitar → Dialog (2 campos); revocar → `ConfirmDialog` con el
+   email real en la consecuencia. `members.spec.ts`/`channels.spec.ts`: el
+   disparador y el botón de confirmación comparten subcadena ("Invitar",
+   "Revocar"), así que el clic de dentro del diálogo se acota con
+   `getByRole("dialog")`.
+4. Las cuatro pantallas de auth (login, forgot/reset password, invite):
+   diseño visual sin cambios (compacto, placeholder), pero cada campo
+   ganó un `<label>` real (antes no había ninguno) **visualmente oculto**
+   — decisión deliberada: usar `Field` con label visible habría sido más
+   "correcto" en abstracto, pero casi todos los E2E del proyecto rellenan
+   estos campos por `getByPlaceholder`; cambiar esa asociación habría
+   tocado casi toda la suite sin ganancia real adicional.
 
-**Próximo paso concreto (UI-4, arquitectura de páginas):** ver
-`docs/ui/ROADMAP.md` Fase 4. Construir `PageContainer`/`PageHeader`/
-`PageSection` (`src/components/patterns/`, según `docs/ui/COMPONENTS.md`
-§3) y migrar TODAS las páginas de `(app)` y auth a ellos + a los
-componentes de UI-1/UI-3, sustituyendo la paleta de Tailwind por tokens.
-Incluye pasar los formularios de alta (Contacts, Tasks…) a Sheet/Dialog,
-las confirmaciones sueltas ("Revocar", "Desconectar") a `ConfirmDialog`,
-y traducir los textos que aún están en inglés (Contacts/Cases/Tasks) con
-sus E2E actualizados en el mismo commit. Añadir `src/app/(app)` al test
-de tokens (`tests/unit/ui-tokens.test.ts`, `TOKENISED_DIRECTORIES`) según
-avance, no todo de golpe.
+**Estado final**: `tests/unit/ui-tokens.test.ts` cubre ya todo `src/app/(app)`
+y las 4 rutas de auth (97 tests de tokens; 249 unit+integration+componentes
+en total). 27/27 E2E. Solo el sitio público (`(public)`) queda fuera del
+test de tokens, a propósito.
+
+**Nota de entorno (no es un bug de producto, ya anotada antes):** con
+`next start` reutilizado entre ejecuciones, los hits del rate limiter de
+Better Auth se acumulan en memoria del mismo proceso; si el E2E falla con
+"Too many requests", matar el proceso `next-server` en el puerto 3000 y
+repetir.
+
+**Próximo paso concreto (UI-5, Inbox):** ver `docs/ui/ROADMAP.md` Fase 5 y
+`docs/ui/INBOX.md`. Necesita trabajo de servidor antes que de UI: una
+consulta eficiente de "último mensaje por conversación" (hoy
+`listConversationsWithPreview` carga todos los mensajes de todas las
+conversaciones para hallarlo — ver `docs/ui/INBOX.md` §1), más búsqueda y
+contadores por vista. Luego: vistas (Pendientes/No leídas/Sin
+identificar/Todas) vía `ContextNav` (ya construido en UI-2, primer
+consumidor real), `SegmentedControl`/`FilterBar`/`SearchInput` (UI-3) para
+filtros, `DataList` (UI-3) para las filas con navegación por teclado.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 
