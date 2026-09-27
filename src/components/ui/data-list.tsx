@@ -20,11 +20,14 @@ export interface DataListItem {
 export function DataList<T extends DataListItem>({
   items,
   renderItem,
+  isSelected,
   "aria-label": ariaLabel,
   className,
 }: {
   items: T[];
   renderItem: (item: T, index: number) => ReactNode;
+  /** Marks a row as the one currently open elsewhere (e.g. Inbox's open conversation, docs/ui/CHAT.md §3): `state-selected` + a left bar + `aria-current="true"`. */
+  isSelected?: (item: T) => boolean;
   "aria-label": string;
   className?: string;
 }) {
@@ -66,24 +69,31 @@ export function DataList<T extends DataListItem>({
 
   return (
     <ul aria-label={ariaLabel} className={cn("flex flex-col", className)}>
-      {items.map((item, index) => (
-        <li key={item.key}>
-          <Link
-            ref={(node) => {
-              rowRefs.current[index] = node;
-            }}
-            href={item.href}
-            tabIndex={index === safeActiveIndex ? 0 : -1}
-            onFocus={() => setActiveIndex(index)}
-            onKeyDown={(event) => handleKeyDown(event, index)}
-            // `group`: lets `renderItem`'s content use `group-hover:`/
-            // `group-focus:` (e.g. a hover background on the whole row).
-            className="group block focus-inset"
-          >
-            {renderItem(item, index)}
-          </Link>
-        </li>
-      ))}
+      {items.map((item, index) => {
+        const selected = isSelected?.(item) ?? false;
+        return (
+          <li key={item.key}>
+            <Link
+              ref={(node) => {
+                rowRefs.current[index] = node;
+              }}
+              href={item.href}
+              tabIndex={index === safeActiveIndex ? 0 : -1}
+              aria-current={selected ? "true" : undefined}
+              onFocus={() => setActiveIndex(index)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+              // `group`: lets `renderItem`'s content use `group-hover:`/
+              // `group-focus:` (e.g. a hover background on the whole row).
+              className={cn(
+                "group block focus-inset",
+                selected && "bg-state-selected border-l-2 border-l-primary",
+              )}
+            >
+              {renderItem(item, index)}
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }

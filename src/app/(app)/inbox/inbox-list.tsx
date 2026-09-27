@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { ConversationPreview, InboxView, InboxViewCounts } from "@/modules/conversations/service";
+import type { InboxFilters } from "@/app/(app)/inbox/inbox-data";
+import { buildHref } from "@/app/(app)/inbox/inbox-href";
 import { ContextNav, type ContextNavItem } from "@/components/shell/context-nav";
 import { DataList } from "@/components/ui/data-list";
 import { FilterBar } from "@/components/ui/filter-bar";
@@ -13,6 +15,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/primitives";
 import { InboxRow } from "@/app/(app)/inbox/inbox-row";
+import { useInboxOrderPublisher } from "@/app/(app)/inbox/inbox-order-context";
 
 const POLL_INTERVAL_MS = 5_000;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -24,23 +27,6 @@ const VIEW_LABELS: Record<InboxView, string> = {
   unassigned: "Sin identificar",
   all: "Todas",
 };
-
-interface InboxFilters {
-  view: InboxView;
-  search: string;
-  channel: string;
-  delegateId: string;
-}
-
-function buildHref(pathname: string, filters: InboxFilters): string {
-  const params = new URLSearchParams();
-  if (filters.view !== "pending") params.set("view", filters.view);
-  if (filters.search) params.set("search", filters.search);
-  if (filters.channel) params.set("channel", filters.channel);
-  if (filters.delegateId) params.set("delegateId", filters.delegateId);
-  const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
-}
 
 /**
  * The Inbox list (UI-5, docs/ui/INBOX.md): views + search/filters (all in
@@ -66,6 +52,7 @@ export function InboxList({
   const router = useRouter();
   const pathname = usePathname();
   const [, startTransition] = useTransition();
+  const { setOrder, focusListRef } = useInboxOrderPublisher();
 
   const [conversations, setConversations] = useState(initialConversations);
   const [counts, setCounts] = useState(initialCounts);
@@ -75,8 +62,26 @@ export function InboxList({
   const [searchValue, setSearchValue] = useState(filters.search);
   const currentIdsRef = useRef(initialConversations.map((c) => c.id));
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   const delegateNameById = useMemo(() => new Map(members.map((m) => [m.userId, m.name])), [members]);
+
+  // A conversation open in the panel is always `/inbox/<id>` exactly —
+  // never one of this route's own subpaths — so this can't misfire.
+  const openConversationId = /^\/inbox\/([^/]+)$/.exec(pathname)?.[1] ?? null;
+
+  useEffect(() => {
+    setOrder(conversations.map((c) => c.id));
+  }, [conversations, setOrder]);
+
+  useEffect(() => {
+    focusListRef.current = () => {
+      listContainerRef.current?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+    };
+    return () => {
+      focusListRef.current = null;
+    };
+  }, [focusListRef]);
 
   const navigate = useCallback(
     (next: Partial<InboxFilters>) => {
@@ -253,17 +258,25 @@ export function InboxList({
             <EmptyState variant="inline" title="Todavía no hay conversaciones." />
           )
         ) : (
-          <DataList
-            aria-label="Conversaciones"
-            items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
-            renderItem={(item) => (
-              <InboxRow
-                conversation={item.conversation}
-                delegateName={delegateNameById.get(item.conversation.delegateId)}
-                showDelegate={isAdmin}
-              />
-            )}
-          />
+          <div ref={listContainerRef} className="@container">
+            {/* `@container`: the row's secondary bits (delegate name) hide
+                by the *list column's* own width, not the viewport — the
+                anchored conversation panel (docs/ui/CHAT.md §4) can make
+                this column much narrower than the browser window, which a
+                `sm:` viewport breakpoint would never notice. */}
+            <DataList
+              aria-label="Conversaciones"
+              items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
+              isSelected={(item) => item.conversation.id === openConversationId}
+              renderItem={(item) => (
+                <InboxRow
+                  conversation={item.conversation}
+                  delegateName={delegateNameById.get(item.conversation.delegateId)}
+                  showDelegate={isAdmin}
+                />
+              )}
+            />
+          </div>
         )}
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
+import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import {
   channelSupportsTypingIndicator,
   getConversationThreadState,
@@ -8,95 +7,81 @@ import {
 } from "@/modules/conversations/service";
 import { listContacts } from "@/modules/contacts/service";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
-import { ConversationThread } from "@/app/(app)/inbox/[id]/conversation-thread";
+import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
+import { buildHref } from "@/app/(app)/inbox/inbox-href";
+import { InboxList } from "@/app/(app)/inbox/inbox-list";
+import { ConversationSheet } from "@/app/(app)/inbox/[id]/conversation-sheet";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
 
+/**
+ * A direct load of `/inbox/<id>` (URL typed in, bookmarked, or a refresh):
+ * interception does not apply here (docs/ui/CHAT.md §1), so this is the
+ * *only* thing rendered for the route — it recreates the list-next-to-panel
+ * layout itself instead of relying on `@sheet`, which falls back to null.
+ * Closing goes back to `/inbox` with the current filters (`closeMode`
+ * "push"): there is no soft-navigation history entry to pop.
+ */
 export default async function ConversationDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<InboxSearchParams>;
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
   const details = await getConversationWithDetails(member.organizationId, id);
-
   if (!details) {
     notFound();
   }
 
-  // Opening the conversation is what "read" means here (PKG-004);
-  // `getConversationThreadState` marks it read, on first render and on
-  // every poll of the open screen (PKG-013).
-  const [threadState, members, contacts] = await Promise.all([
+  const [threadState, listData, contacts] = await Promise.all([
     getConversationThreadState(member.organizationId, id),
-    listOrganizationMembers(member.organizationId),
+    getInboxListData(member, await searchParams),
     listContacts(member.organizationId),
   ]);
   if (!threadState) {
     notFound();
   }
 
+  const { filters, conversations, counts, members, availableChannels } = listData;
   const delegateName = members.find((m) => m.userId === details.delegateId)?.name ?? "—";
-  const otherContacts = contacts.filter((c) => c.id !== details.contact.id);
-  const markThisContactIdentified = markContactIdentifiedAction.bind(null, details.contact.id, id);
-  const reassignThisConversation = reassignConversationContactAction.bind(null, id);
+  const otherContacts = contacts.filter((c) => c.id !== details.contact.id).map((c) => ({ id: c.id, name: c.name }));
+  const closeHref = buildHref("/inbox", filters);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link href="/inbox" className="text-sm text-zinc-500 underline">
-          ← Inbox
-        </Link>
-        <h1 className="text-xl font-semibold">
-          <Link href={`/contacts/${details.contact.id}`} className="underline">
-            {details.contact.name}
-          </Link>
-        </h1>
-        <p className="text-sm text-zinc-500">
-          {details.conversation.channel} · {delegateName}
-        </p>
+    <>
+      <div className="h-full min-w-0 flex-1 overflow-y-auto">
+        <PageContainer size="full">
+          <PageHeader
+            title="Inbox"
+            description="Conversaciones de todos los canales conectados. El sistema decide el canal al responder"
+          />
+          <InboxList
+            key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
+            filters={filters}
+            initialConversations={conversations}
+            initialCounts={counts}
+            members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+            isAdmin={member.role === "ADMIN"}
+            availableChannels={availableChannels}
+          />
+        </PageContainer>
       </div>
-
-      {details.contact.isUnassigned && (
-        <div className="flex flex-col gap-2 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-900">
-            Contact no identificado — creado automáticamente a partir de este mensaje.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <form action={markThisContactIdentified}>
-              <button type="submit" className="rounded bg-zinc-900 px-2 py-1 text-xs font-medium text-white">
-                Marcar como identificado
-              </button>
-            </form>
-            <Link href={`/contacts/${details.contact.id}`} className="text-xs underline">
-              Editar sus datos
-            </Link>
-            {otherContacts.length > 0 && (
-              <form action={reassignThisConversation} className="flex items-center gap-2">
-                <select name="targetContactId" aria-label="Reasignar a" className="rounded border border-amber-300 px-2 py-1 text-xs" defaultValue="">
-                  <option value="" disabled>
-                    Reasignar a...
-                  </option>
-                  {otherContacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <button type="submit" className="rounded border border-amber-400 px-2 py-1 text-xs font-medium text-amber-900">
-                  Reasignar
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      <ConversationThread
-        key={id}
+      <ConversationSheet
         conversationId={id}
-        initialState={threadState}
+        contact={{ id: details.contact.id, name: details.contact.name, isUnassigned: details.contact.isUnassigned }}
+        channel={details.conversation.channel}
+        delegateName={delegateName}
+        otherContacts={otherContacts}
+        threadState={threadState}
         supportsTyping={channelSupportsTypingIndicator(details.conversation.channel)}
+        closeMode="push"
+        closeHref={closeHref}
+        markContactIdentified={markContactIdentifiedAction.bind(null, details.contact.id, id)}
+        reassignConversation={reassignConversationContactAction.bind(null, id)}
       />
-    </div>
+    </>
   );
 }

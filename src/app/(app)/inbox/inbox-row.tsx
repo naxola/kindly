@@ -31,7 +31,16 @@ export function InboxRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           {unread && <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />}
-          <span className={cn("truncate type-label", unread ? "font-semibold text-foreground" : "text-foreground")}>
+          {/* `min-w-0 flex-1`: the name is the row's primary signal (who),
+              so it claims space first — the delegate name below is capped
+              instead, so a long one can never squeeze this out entirely
+              (real, seen with the anchored panel narrowing the list, UI-6). */}
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate type-label",
+              unread ? "font-semibold text-foreground" : "text-foreground",
+            )}
+          >
             {conversation.contactName}
           </span>
           {conversation.contactIsUnassigned && (
@@ -40,7 +49,7 @@ export function InboxRow({
             </Badge>
           )}
           {showDelegate && delegateName && (
-            <span className="hidden shrink-0 truncate type-caption text-foreground-lighter sm:inline">
+            <span className="hidden max-w-24 shrink-0 truncate type-caption text-foreground-lighter @sm:inline">
               · {delegateName}
             </span>
           )}

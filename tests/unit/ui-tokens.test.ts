@@ -131,13 +131,8 @@ const TOKENISED_DIRECTORIES = [
   "src/app/forgot-password",
   "src/app/reset-password",
   "src/app/invite",
-  // Only the list (UI-5). `inbox/[id]/*` — the conversation view — is
-  // UI-6's, and still uses the pre-design-system palette until then.
-  "src/app/(app)/inbox/page.tsx",
-  "src/app/(app)/inbox/inbox-list.tsx",
-  "src/app/(app)/inbox/inbox-row.tsx",
-  "src/app/(app)/inbox/loading.tsx",
-  "src/app/(app)/inbox/error.tsx",
+  // The whole Inbox, list (UI-5) and conversation panel (UI-6) alike.
+  "src/app/(app)/inbox",
 ];
 // src/app/(app)/dashboard carries no visual value (a redirect).
 // This covers every page under src/app/(app) and the auth surfaces —

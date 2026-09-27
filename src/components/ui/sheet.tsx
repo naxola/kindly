@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef } from "react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import { X } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -88,10 +89,19 @@ export function SheetDescription({ className, ...props }: React.ComponentProps<t
   return <SheetPrimitive.Description className={cn("type-body text-foreground-lighter", className)} {...props} />;
 }
 
-/** Scrolls independently of the header/footer, which stay put. */
-export function SheetBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex-1 overflow-y-auto px-4 py-4", className)} {...props} />;
-}
+/**
+ * Scrolls independently of the header/footer, which stay put. `forwardRef`
+ * so a caller can track this element's own scroll position (e.g. the
+ * conversation history's "mensajes nuevos" banner, docs/ui/CHAT.md §2) —
+ * it has no Radix behaviour of its own, just shared styling, so it is safe
+ * to reuse outside a `Sheet` too (the anchored, non-modal panel).
+ */
+export const SheetBody = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(function SheetBody(
+  { className, ...props },
+  ref,
+) {
+  return <div ref={ref} className={cn("flex-1 overflow-y-auto px-4 py-4", className)} {...props} />;
+});
 
 export function SheetFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

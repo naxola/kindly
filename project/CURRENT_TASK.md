@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0…UI-5 cerrados el 2026-09-27; siguiente UI-6
+## Paquete activo: rediseño UI/UX — UI-0…UI-6 cerrados el 2026-09-27; siguiente UI-7
 
-Último commit: `d82dd45`.
+Último commit: `PENDIENTE_DE_COMMIT` (ver el commit de cierre de esta sesión; se actualiza este hash tras crearlo).
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -64,7 +64,7 @@ antes del siguiente:**
    estos campos por `getByPlaceholder`; cambiar esa asociación habría
    tocado casi toda la suite sin ganancia real adicional.
 
-**Hecho en esta sesión (UI-5 — Inbox), un solo commit de cierre con
+**Hecho en sesión anterior (UI-5 — Inbox), un solo commit de cierre con
 lint+typecheck+tests+E2E+captura visual real:**
 
 1. **Servidor reescrito** (`src/modules/conversations/service.ts`):
@@ -95,11 +95,55 @@ lint+typecheck+tests+E2E+captura visual real:**
    ui-tokens.test.ts` cubre los archivos de la lista de Inbox (no
    `inbox/[id]`, que sigue con la paleta previa hasta UI-6).
 
-**Estado final**: `tests/unit/ui-tokens.test.ts` cubre `src/app/(app)`, las
-4 rutas de auth y ahora la lista de Inbox (102 tests de tokens; 259
-unit+integration+componentes en total). 27/27 E2E. Solo el sitio público
-(`(public)`) y `inbox/[id]` (Fase 6) quedan fuera del test de tokens, a
-propósito.
+**Hecho en esta sesión (UI-6 — Conversación en Sheet), verificado con
+lint+typecheck+tests+E2E+captura visual real en los tres modos:**
+
+1. **Rutas paralelas/interceptadas**: `inbox/layout.tsx` (`{children}+
+   {sheet}` en fila), `@sheet/default.tsx` + `@sheet/page.tsx` (los dos
+   hacen falta — un `<Link>` normal a `/inbox` no cierra el panel solo con
+   `default.tsx`, ver `docs/ui/CHAT.md` §1) + `@sheet/(.)[id]/page.tsx`
+   (navegación suave) + `[id]/page.tsx` reescrito (carga directa: compone
+   lista + panel él mismo, ya que la intercepción no aplica ahí).
+   `inbox-data.ts`/`inbox-href.ts` nuevos, factorizando lo que antes vivía
+   solo en `page.tsx`.
+2. **`ConversationSheet`** (`inbox/[id]/conversation-sheet.tsx`): decide su
+   carcasa por `useMediaQuery` — `<aside>` propio sin Radix en anclado
+   (`xl+`), `Sheet` modal o pantalla completa por debajo. Header
+   (anterior/siguiente, `⋯` con "Ver contacto", cerrar), aviso de contacto
+   no identificado, `ConversationThread` reescrito con separadores por
+   día, aviso "Mensajes nuevos", compositor autoajustable y borrador por
+   conversación en `sessionStorage`. Lógica de PKG-013 intacta.
+3. **Compartido entre slots de rutas paralelas** (que no pueden pasarse
+   props): `inbox-order-context.tsx` (orden de la lista, para anterior/
+   siguiente y `F6`/`Ctrl+F6`) y `shell/sidebar-auto-collapse.ts` (la
+   sidebar se contrae mientras el panel está anclado, vía evento de
+   `window` — nunca persiste esta preferencia temporal).
+4. **Seis bugs reales encontrados y corregidos** (detalle completo en
+   `docs/DECISIONS.md` y `docs/ui/CHAT.md` §1/§5): `buildHref` client-only
+   (misma trampa RSC de `buttonVariants`, UI-4); `@sheet/default.tsx` no
+   cierra el panel en una navegación suave normal; `SheetTitle`/
+   `SheetDescription` lanzan fuera de un `Dialog.Root` (inutilizables en
+   el `<aside>` anclado); el nombre del Contact en `InboxRow` colapsando a
+   0 px en modo anclado a 1280 px (el nombre del delegado se ocultaba por
+   un breakpoint de *viewport*, no de *contenedor* — corregido con
+   `@container`/`@sm:inline` de Tailwind v4); condición de carrera en el
+   borrador de `sessionStorage` bajo Strict Mode; el orden de
+   conversaciones compartido por una `ref` pura nunca se recalculaba en un
+   `useMemo` (corregido con `useSyncExternalStore`).
+5. **Hallazgo de proceso**: `eslint-plugin-react-hooks` 7.x añade reglas
+   nuevas ("React Compiler": `set-state-in-effect`, `purity`,
+   `immutability`, `refs`…) que marcan como error patrones antes
+   habituales (`setState` síncrono en un efecto de montaje, `ref.current`
+   leído durante el render). `useMediaQuery` e `InboxOrderProvider` se
+   reescribieron sobre `useSyncExternalStore`/`useState` respectivamente
+   para cumplirlas sin `eslint-disable`. Probablemente reaparezca en fases
+   futuras.
+6. `tests/e2e/inbox.spec.ts`: nuevo test de carga directa (`page.reload()`
+   sobre una conversación ya abierta, verificando lista + panel).
+
+**Estado final**: `tests/unit/ui-tokens.test.ts` cubre ya todo `inbox/`
+(lista y conversación) además de `src/app/(app)` y las 4 rutas de auth.
+268/268 unit+integration. 27/27 E2E.
 
 **Nota de entorno (no es un bug de producto, ya anotada antes):** con
 `next start` reutilizado entre ejecuciones, los hits del rate limiter de
@@ -107,13 +151,18 @@ Better Auth se acumulan en memoria del mismo proceso; si el E2E falla con
 "Too many requests", matar el proceso `next-server` en el puerto 3000 y
 repetir.
 
-**Próximo paso concreto (UI-6, Conversación en Sheet):** ver
-`docs/ui/ROADMAP.md` Fase 6 y `docs/ui/CHAT.md`. `Sheet` (UI-3) necesita
-`modal={false}` para el modo anclado sin velo en `xl+` (hoy solo modal);
-`inbox/[id]/page.tsx` y `conversation-thread.tsx` siguen con la paleta
-previa al sistema de diseño (excluidos a propósito de
-`tests/unit/ui-tokens.test.ts` hasta esta fase) y hoy navegan a página
-completa en vez de abrir en Sheet — es el trabajo central de esta fase.
+**Nota de entorno nueva (Turbopack en desarrollo, no en producción)**: tras
+añadir rutas nuevas con `next dev` ya corriendo, puede aparecer un error
+transitorio "Invalid interception route: .../(.)(.)(.)…" que se resuelve
+con un reinicio limpio (`rm -rf .next` + reiniciar el dev server). Nunca
+se reprodujo contra `next build && next start` (lo que usa la suite E2E).
+
+**Próximo paso concreto (UI-7, Organización):** ver `docs/ui/ROADMAP.md`
+Fase 7 y `docs/ui/ORGANIZATION.md`. `/organization` (General, Miembros,
+Canales) con redirecciones y diálogos; acción de dominio "cambiar rol" con
+reglas en servidor y tests (aprobada 2026-09-26, ver
+`docs/DECISIONS.md`). La sidebar y las migas de organización siguen
+**planas** a propósito desde UI-2 hasta que esta ruta exista.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

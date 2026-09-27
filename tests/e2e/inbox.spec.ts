@@ -102,11 +102,22 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
 
   await page.getByText(contactName).click();
   await expect(page).toHaveURL(/\/inbox\/.+/);
-  await expect(page.getByText("Necesito ayuda con mi caso")).toBeVisible();
-  await expect(page.getByText("Contact no identificado")).toBeVisible();
+  // The list stays visible next to (or behind) the open conversation
+  // (docs/ui/CHAT.md) — scope to its message log so a row's own preview
+  // text (which can read the same words) is never an ambiguous match.
+  const thread = page.getByRole("log", { name: "Mensajes" });
+  await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
+  await expect(page.getByText("Contacto no identificado")).toBeVisible();
+
+  // A direct load of the same URL (docs/ui/CHAT.md §1: interception only
+  // applies to the soft navigation that just opened it) must render the
+  // exact same list-next-to-conversation view, not a bare page or a 404.
+  await page.reload();
+  await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
+  await expect(conversationList.getByText(contactName)).toBeVisible();
 
   await page.getByRole("button", { name: "Marcar como identificado" }).click();
-  await expect(page.getByText("Contact no identificado")).toHaveCount(0);
+  await expect(page.getByText("Contacto no identificado")).toHaveCount(0);
 
   // Back in the list, the unread dot and the badge are both gone.
   await page.getByRole("link", { name: "Inbox", exact: true }).click();
@@ -119,7 +130,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await page.getByPlaceholder("Escribe una respuesta...").fill("Claro, cuéntame más");
   await page.getByRole("button", { name: "Enviar" }).click();
   // PKG-013: shown at once, composer emptied, then confirmed with one tick.
-  await expect(page.getByText("Claro, cuéntame más")).toBeVisible();
+  await expect(thread.getByText("Claro, cuéntame más")).toBeVisible();
   await expect(page.getByPlaceholder("Escribe una respuesta...")).toHaveValue("");
   await expect(page.getByRole("img", { name: "Enviado" })).toBeVisible();
 
@@ -146,7 +157,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
     ]),
   });
   expect(receipts.status()).toBe(200);
-  await expect(page.getByText("Gracias, te escribo los detalles")).toBeVisible({ timeout: 15_000 });
+  await expect(thread.getByText("Gracias, te escribo los detalles")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("img", { name: "Entregado" })).toBeVisible({ timeout: 15_000 });
 });
 
@@ -200,8 +211,9 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
 
   await page.getByText(contactName).click();
   await expect(page).toHaveURL(/\/inbox\/.+/);
-  await expect(page.getByText("Te confirmo la cita mañana")).toBeVisible();
-  await expect(page.getByText("desde el móvil")).toBeVisible();
+  const thread = page.getByRole("log", { name: "Mensajes" });
+  await expect(thread.getByText("Te confirmo la cita mañana")).toBeVisible();
+  await expect(thread.getByText("desde el móvil")).toBeVisible();
 });
 
 /**

@@ -266,7 +266,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   leída, responsive móvil) contra un servidor de desarrollo en el puerto
   3100.
 
-## Fase 6 — Conversación en Sheet (WhatsApp) · ⚪
+## Fase 6 — Conversación en Sheet (WhatsApp) · 🟢 Completa (2026-09-27)
 
 - **Objetivo**: `CHAT.md` completo.
 - **Alcance**: rutas paralelas/interceptadas, `ConversationSheet`, header,
@@ -274,10 +274,84 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   historial con separadores por día y "mensajes nuevos", compositor
   autoajustable con borrador por conversación, navegación
   anterior/siguiente, todos los estados. Lógica de PKG-013 intacta.
-- **Criterios de aceptación**: abrir/cerrar sin perder la lista ni su
-  scroll; `Esc`/Atrás cierran; foco devuelto a la fila; carga directa de
-  `/inbox/<id>`; móvil a pantalla completa; E2E de `inbox.spec.ts`
-  adaptado y en verde.
+- **Rutas**: `inbox/layout.tsx` (`{children}+{sheet}` en fila), `@sheet/
+  default.tsx` + `@sheet/page.tsx` (los dos hacen falta — ver corrección en
+  `CHAT.md` §1) + `@sheet/(.)[id]/page.tsx` (navegación suave) +
+  `[id]/page.tsx` reescrito (carga directa: compone lista + panel él
+  mismo). `inbox-data.ts`/`inbox-href.ts` nuevos, factorizando lo que antes
+  vivía solo en `page.tsx`, para que ambas rutas de entrada usen la misma
+  consulta y el mismo `buildHref`.
+- **`ConversationSheet`** (`inbox/[id]/conversation-sheet.tsx`) decide su
+  propia carcasa por `useMediaQuery` (nuevo, `src/lib/use-media-query.ts`,
+  sobre `useSyncExternalStore` — ver "Hallazgo real" abajo): `<aside>` sin
+  Radix en anclado, `Sheet` modal (con velo) o a pantalla completa por
+  debajo de `xl`. El contenido (header, aviso de contacto no identificado,
+  historial, compositor) es el mismo en los tres casos.
+- **Compartir el orden de la lista entre slots**: `inbox-order-context.tsx`
+  — la lista y el panel viven en slots de rutas paralelas distintos y no
+  pueden pasarse props directamente. Usado para anterior/siguiente
+  (`Alt+↑/↓`) y para `F6`/`Ctrl+F6` (alternar foco lista↔panel, el
+  sustituto del focus trap que el modo anclado no tiene a propósito).
+- **Bugs reales encontrados y corregidos** (ver detalle en `CHAT.md` y
+  `docs/DECISIONS.md`):
+  - `buildHref` exportado desde un archivo `"use client"` rompía al
+    llamarlo desde `[id]/page.tsx` (Server Component) — la misma trampa de
+    límite RSC de `buttonVariants` en UI-4. Solución idéntica: extraerlo a
+    un módulo sin directiva (`inbox-href.ts`).
+  - `@sheet/default.tsx` no cierra el panel al navegar con un `<Link>`
+    normal a `/inbox` — hace falta además un `@sheet/page.tsx` real
+    (documentado como caveat en la propia guía de Next). Sin él, el panel
+    quedaba "fantasma" abierto.
+  - El nombre del Contact en la fila de la lista podía colapsar a 0 px y
+    desaparecer en modo anclado a 1280 px (el viewport por defecto de
+    Playwright) — detalle completo y la solución (`min-w-0 flex-1` +
+    `@container`/`@sm:inline` en vez de `sm:inline`) en `CHAT.md` §5.
+  - La sidebar no se contraía automáticamente como pedía `CHAT.md` §4 —
+    sin ese ahorro de ~170 px, el bug anterior era aún peor. Implementado
+    con un evento de `window` (`sidebar-auto-collapse.ts`), no Contexto:
+    la sidebar vive en `AppShell`, por encima de toda la ruta.
+  - `SheetTitle`/`SheetDescription` envuelven `Dialog.Title`/`Description`
+    de Radix, que **lanzan** fuera de un `Dialog.Root` — inutilizables en
+    el `<aside>` anclado (a propósito no es un Dialog). `PanelTitle`/
+    `PanelDescription` (locales a `conversation-sheet.tsx`) renderizan
+    `h2`/`p` con las mismas clases cuando está anclado.
+  - Condición de carrera en el borrador (`sessionStorage`): el efecto que
+    lo escribe podía borrar lo que el efecto que lo lee acababa de
+    encontrar, si ambos corrían en el mismo montaje antes de que el
+    `setTimeout` del segundo aplicara el texto — visible en concreto bajo
+    el doble-montaje de Strict Mode en desarrollo. Corregido con un
+    `hasReadDraftRef` que retiene el efecto de escritura hasta que el de
+    lectura termina.
+  - El orden de conversaciones compartido por Contexto usaba al principio
+    una `ref` pura — un `useMemo` que la lee nunca se recalculaba (las
+    `ref` no disparan render), así que anterior/siguiente quedaba
+    congelado en el orden del primer montaje. Corregido con una
+    mini-tienda externa (`useSyncExternalStore`).
+- **Hallazgo real — reglas nuevas de ESLint** (`eslint-plugin-react-hooks`
+  7.x, el set "React Compiler"): `react-hooks/set-state-in-effect` marca
+  como error un `setState` síncrono dentro de un efecto — el patrón
+  habitual para sincronizar con un sistema externo en el montaje (leer
+  `matchMedia`, leer `sessionStorage`). `useMediaQuery` se reescribió sobre
+  `useSyncExternalStore` (el patrón que la propia regla prefiere); el
+  borrador de conversación no tiene un equivalente igual de limpio
+  (`sessionStorage` no dispara eventos en la misma pestaña), así que ahí se
+  difirió con un `setTimeout(…, 0)`, igual que el efecto de `isLive` ya
+  existente. Quedará más código futuro chocando con este mismo set de
+  reglas — no son solo `Date.now()`/`new Date()` como en fases anteriores.
+- **Turbopack en desarrollo (no en producción)**: un error transitorio
+  "Invalid interception route: .../(.)(.)(.)…" apareció tras añadir rutas
+  nuevas con el servidor de `next dev` ya corriendo; se resolvió con un
+  reinicio limpio (`rm -rf .next`) y no volvió a aparecer. Nunca se
+  reprodujo contra `next build && next start` (lo que usa toda la suite
+  E2E, siempre en verde) — anotado por si reaparece en una sesión futura.
+- **Criterios de aceptación**: ✅ abrir/cerrar sin perder la lista ni su
+  scroll; ✅ `Esc`/Atrás cierran; ✅ foco devuelto a la fila; ✅ carga
+  directa de `/inbox/<id>` (nuevo test en `inbox.spec.ts`: abre suave,
+  recarga, verifica que list+panel siguen ahí); ✅ móvil a pantalla
+  completa; ✅ `tests/e2e/inbox.spec.ts` adaptado, 27/27 E2E en verde; ✅
+  268/268 unit+integration; ✅ verificación visual real en los tres modos
+  (anclado a 1280 px y 1440 px, modal a 900 px, pantalla completa a 390 px)
+  más borrador persistente entre cierre/reapertura.
 
 ## Fase 7 — Organización · ⚪
 

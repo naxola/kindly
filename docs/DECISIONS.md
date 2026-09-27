@@ -1758,6 +1758,93 @@ mensajes en cada render de la bandeja.
 
 ---
 
+## 2026-09-27 — Rediseño UI/UX, UI-6: conversación en Sheet
+
+**Contexto:** construir la conversación según `docs/ui/CHAT.md` — rutas
+paralelas/interceptadas, `ConversationSheet` en tres modos (anclado sin
+velo en `xl+`, modal, pantalla completa), reutilizando la lógica en vivo
+de PKG-013 (`conversation-thread.tsx`) sobre el sistema de diseño.
+
+**Decisión:**
+
+1. **`@sheet/default.tsx` no basta para cerrar el panel.** Hace falta
+   además un `@sheet/page.tsx` real (no interceptado) que devuelva `null`,
+   idéntico al `@auth/page.tsx` del propio ejemplo de Next.js sobre
+   parallel routes: en una navegación suave a una URL sin ruta real para
+   un slot, Next.js **deja el slot mostrando lo último que tenía** en vez
+   de recurrir a `default.tsx` (eso solo pasa en carga directa/refresco).
+   Sin el archivo, un `<Link>` normal al `/inbox` bare (el del nav global,
+   no el `router.back()` del propio panel) dejaba el panel abierto encima
+   de la lista.
+2. **El modo anclado (`<aside>`) es un componente aparte, no
+   `Sheet modal={false}`.** `SheetTitle`/`SheetDescription` envuelven
+   `Dialog.Title`/`Description` de Radix, que llaman a
+   `useDialogContext()` internamente y **lanzan** si no hay un
+   `Dialog.Root` por encima. El modo anclado deliberadamente no es un
+   Dialog (sin velo, sin focus trap — `CHAT.md` §4/§5), así que no puede
+   reutilizarlos: `PanelTitle`/`PanelDescription` (locales a
+   `conversation-sheet.tsx`) renderizan un `h2`/`p` con las mismas clases.
+   `SheetHeader`/`SheetBody`/`SheetFooter` sí se reutilizan tal cual en
+   los tres modos — son estilo puro, sin ningún primitivo de Radix detrás.
+3. **La sidebar se contrae mientras el panel está anclado, vía evento de
+   `window`, no Contexto de React.** El sidebar cuelga de `AppShell`, por
+   encima de toda la ruta; el panel vive varios segmentos de ruta más
+   abajo, en un slot de rutas paralelas distinto al de la sidebar — no hay
+   ningún Server Component común por el que enhebrar un Provider sin
+   reestructurar `AppShell`. Es un override **temporal**: nunca escribe la
+   cookie que guarda la preferencia manual del usuario
+   (`sidebar-actions.ts`), se revierte solo al cerrar el panel.
+4. **El orden de conversaciones compartido entre slots usa
+   `useSyncExternalStore`, no una `ref` mutable directa.** Primer diseño:
+   una `ref` que la lista actualiza y el panel lee dentro de un `useMemo`
+   para anterior/siguiente — como las `ref` no disparan render, ese
+   `useMemo` nunca se recalculaba tras el montaje inicial, y anterior/
+   siguiente quedaba congelado en el primer orden visto. Una mini-tienda
+   externa (`getOrder`/`setOrder`/`subscribe`) resuelve esto sin recurrir
+   a `useState` en la lista (que sí re-renderizaría en cada sondeo de 5 s
+   aunque el orden real no cambiase).
+5. **`useMediaQuery` se construye sobre `useSyncExternalStore`, no
+   `useState`+`useEffect`.** `eslint-plugin-react-hooks` 7.x (el set de
+   reglas "React Compiler") añade `react-hooks/set-state-in-effect`, que
+   marca como error un `setState` síncrono dentro de un efecto — el patrón
+   que se escribiría de forma natural para leer `matchMedia` en el
+   montaje. `useSyncExternalStore` es el patrón que la propia regla
+   prefiere para sincronizar con un sistema externo.
+6. **El borrador de la conversación (`sessionStorage`) necesitó un guard
+   contra una condición de carrera real, no solo un `eslint-disable`.**
+   El efecto que lee el borrador difiere su `setText` un tick (mismo
+   patrón que el efecto `isLive` ya existente, para no anunciar el
+   historial inicial a un lector de pantalla); pero el efecto que
+   *escribe* el borrador corre en el mismo montaje, ve `text=""` (el
+   borrador real todavía no se ha aplicado) y borra lo que el otro efecto
+   acababa de leer — reproducido de forma consistente bajo el
+   doble-montaje de Strict Mode en desarrollo. Un `hasReadDraftRef` retiene
+   el efecto de escritura hasta que el de lectura confirma haber corrido.
+7. **Corrección de un bug real de layout, no solo del panel**: el nombre
+   del Contact en `InboxRow` podía colapsar a 0 px en modo anclado a
+   1280 px (detalle en `docs/ui/CHAT.md` §5) — el nombre del delegado se
+   ocultaba por un breakpoint de *viewport* (`sm:`), irrelevante cuando lo
+   que se estrecha es la *columna* de la lista, no la ventana. Se cambia a
+   un breakpoint de *contenedor* de Tailwind v4 (`@container`/`@sm:inline`)
+   y el nombre del Contact pasa a `min-w-0 flex-1` para reclamar espacio
+   antes que el resto de la fila.
+
+**Alternativas consideradas:** para (3), un Contexto de React montado en
+`AppShell` — descartado por exigir tocar un componente de Fase 2 no
+relacionado con esta fase para un override que ni siquiera es la
+preferencia persistida del usuario. Para (7), ocultar el badge o la hora
+en vez del nombre del delegado — descartado porque ambos son señales más
+cortas y ya acotadas (`shrink-0`), mientras que el nombre del delegado no
+tenía techo de ancho alguno.
+
+**Por qué:** cada corrección resuelve un caso reproducido de verdad (no
+hipotético) durante la verificación visual de los tres modos responsive,
+no una preferencia estética — la mayoría solo se manifiesta en modo
+anclado a la anchura mínima del propio umbral (1280 px, que además es el
+viewport por defecto de Playwright).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

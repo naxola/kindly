@@ -569,10 +569,25 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [x] `tests/e2e/inbox.spec.ts` reescrito para vistas por `?view=` y
       `FilterBar`; `tests/unit/ui-tokens.test.ts` cubre la lista de Inbox.
 
-### UI-6 — Conversación en Sheet
+### UI-6 — Conversación en Sheet — CERRADO 2026-09-27
 
-- [ ] Rutas paralelas/interceptadas, `ConversationSheet` y todos sus estados.
-- [ ] Modo anclado sin velo en `xl+`; modal por debajo; pantalla completa en móvil.
+- [x] Rutas paralelas/interceptadas (`layout.tsx`, `@sheet/{default,page,
+      (.)[id]/page}.tsx`, `[id]/page.tsx` reescrito), `ConversationSheet`
+      y sus estados (cargando/error/404 diferidos — ver `docs/ui/CHAT.md`).
+- [x] Modo anclado sin velo en `xl+` (`<aside>` propio, sin Radix); modal
+      por debajo; pantalla completa en móvil. Sidebar auto-contraíble
+      mientras el panel está anclado (evento de `window`, nunca persistido).
+- [x] Historial con separadores por día y aviso "Mensajes nuevos";
+      compositor autoajustable con borrador por conversación (`sessionStorage`).
+- [x] Anterior/siguiente (`Alt+↑/↓`) y `F6`/`Ctrl+F6` compartiendo el orden
+      de la lista entre slots de rutas paralelas (`inbox-order-context.tsx`).
+- [x] Bugs reales corregidos: `buildHref` client-only (misma trampa RSC de
+      `buttonVariants`, UI-4); `@sheet/default.tsx` no cierra el panel en
+      una navegación suave normal; nombre del Contact colapsando a 0 px en
+      modo anclado a 1280 px; condición de carrera en el borrador de
+      sessionStorage bajo Strict Mode.
+- [x] `tests/e2e/inbox.spec.ts` con un test de carga directa (`page.reload()`
+      sobre una conversación abierta); 27/27 E2E, 268/268 unit+integration.
 
 ### UI-7 — Organización
 

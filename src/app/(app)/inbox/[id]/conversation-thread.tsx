@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDown, Send } from "lucide-react";
 import { sendReplyAction, signalTypingAction } from "@/modules/conversations/actions";
 import type { ConversationThreadState, ThreadMessage } from "@/modules/conversations/service";
 import { TYPING_INDICATOR_THROTTLE_MS } from "@/modules/conversations/domain";
 import { DeliveryTicks, type DisplayStatus } from "@/app/(app)/inbox/[id]/delivery-ticks";
+import { SheetBody, SheetFooter } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/cn";
 
 const POLL_INTERVAL_MS = 3_000;
+const COMPOSER_MAX_ROWS = 6;
+const NEAR_BOTTOM_PX = 80;
 
 interface PendingMessage {
   tempId: string;
@@ -16,17 +24,53 @@ interface PendingMessage {
   error?: string;
 }
 
+const dayFormatter = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" });
+const timeFormatter = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+function dayKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function dayLabel(iso: string, todayKey: string, yesterdayKey: string): string {
+  const key = dayKey(iso);
+  if (key === todayKey) return "Hoy";
+  if (key === yesterdayKey) return "Ayer";
+  return dayFormatter.format(new Date(iso));
+}
+
+interface TimelineEntry {
+  message: ThreadMessage;
+  separator: string | null;
+}
+
 /**
- * The live part of a conversation (PKG-013): messages, delivery ticks and
- * the composer.
+ * Pairs each message with the day separator that goes before it, if any.
+ * A plain function outside the component: the "last day seen so far"
+ * running value it tracks while walking the list would otherwise be a
+ * mutable variable reassigned during render (`react-hooks/immutability`).
+ */
+function buildTimeline(messages: ThreadMessage[], todayKey: string, yesterdayKey: string): TimelineEntry[] {
+  let lastDay = "";
+  return messages.map((message) => {
+    const day = dayKey(message.createdAt);
+    const separator = day !== lastDay ? dayLabel(message.createdAt, todayKey, yesterdayKey) : null;
+    lastDay = day;
+    return { message, separator };
+  });
+}
+
+/**
+ * The live part of a conversation (PKG-013 logic, docs/ui/CHAT.md §2-3):
+ * history with day separators, composer, delivery ticks, "escribiendo…".
  *
  * - Sending is optimistic: the message appears at once with a clock, the
- *   textarea empties, and the real send happens behind it. Before this the
- *   page stayed still until the provider answered, and a user who saw
- *   nothing happen sent the same message several times.
- * - The thread polls every few seconds while the tab is visible, which is
- *   how new inbound messages and ✓✓ updates arrive without reloading.
- * - Typing sends "typing…" to the Contact, at most once per throttle window.
+ *   textarea empties, and the real send happens behind it.
+ * - Polls every few seconds while the tab is visible for new inbound
+ *   messages and ✓✓ updates.
+ * - If the reader has scrolled up, a new message does not yank them to the
+ *   bottom — it surfaces a "Mensajes nuevos ↓" banner instead.
+ * - The draft survives closing the panel (`sessionStorage`, keyed by
+ *   conversation) — closing never discards it, so no confirmation is asked.
  */
 export function ConversationThread({
   conversationId,
@@ -41,8 +85,66 @@ export function ConversationThread({
   const [serviceWindow, setServiceWindow] = useState(initialState.serviceWindow);
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [text, setText] = useState("");
+  const [isLive, setIsLive] = useState(false);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
   const lastTypingSentAt = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLLIElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasReadDraftRef = useRef(false);
+  const draftKey = `inbox:draft:${conversationId}`;
+
+  // Skip the live-region announcement for the initial history: only new
+  // arrivals from here on are worth interrupting a screen reader for.
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLive(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const draft = sessionStorage.getItem(draftKey);
+    // Deferred a tick, same as the `isLive` effect above: reading storage
+    // is inherently a post-mount concern (there is none during SSR), and
+    // this keeps it off the synchronous "setState in an effect" pattern.
+    const timer = setTimeout(() => {
+      if (draft) {
+        setText(draft);
+      }
+      // Only now does the write-effect below start touching storage — set
+      // synchronously, before `setText` schedules its own render, so that
+      // effect's next run (still with the pre-hydration empty `text`,
+      // React Strict Mode's remount runs this whole effect twice) does not
+      // see it as "cleared" and delete what we just read (real bug, caught
+      // against a dev server: the mount's own first pass wiped the draft
+      // before its second pass ever read it).
+      hasReadDraftRef.current = true;
+    }, 0);
+    return () => clearTimeout(timer);
+    // Only on mount, for this conversation's own key — draftKey is stable per instance (conversationId is the React key upstream).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!hasReadDraftRef.current) {
+      return;
+    }
+    if (text) {
+      sessionStorage.setItem(draftKey, text);
+    } else {
+      sessionStorage.removeItem(draftKey);
+    }
+  }, [text, draftKey]);
+
+  const isNearBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+  }, []);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    bottomRef.current?.scrollIntoView({ block: "end", behavior });
+    setHasNewMessages(false);
+  }, []);
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/conversations/${conversationId}/thread`, { cache: "no-store" }).catch(() => null);
@@ -50,9 +152,19 @@ export function ConversationThread({
       return;
     }
     const state = (await response.json()) as ConversationThreadState;
+    const grew = state.messages.length > messages.length;
+    const stayAtBottom = isNearBottom();
     setMessages(state.messages);
     setServiceWindow(state.serviceWindow);
-  }, [conversationId]);
+    if (grew && !stayAtBottom) {
+      setHasNewMessages(true);
+    }
+    // messages.length read for the growth check, not a reactive dependency
+    // (would re-subscribe the interval on every message): the interval
+    // closure always calls the latest `refresh` since it is re-created each
+    // render and the effect below re-registers it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, isNearBottom]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -69,9 +181,20 @@ export function ConversationThread({
   }, [refresh]);
 
   const itemCount = messages.length + pending.length;
+  const wasAtBottomRef = useRef(true);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    if (wasAtBottomRef.current) {
+      scrollToBottom(pending.length > 0 ? "smooth" : "auto");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemCount]);
+
+  function handleScroll() {
+    wasAtBottomRef.current = isNearBottom();
+    if (wasAtBottomRef.current) {
+      setHasNewMessages(false);
+    }
+  }
 
   async function deliver(item: PendingMessage) {
     const result = await sendReplyAction(conversationId, item.body);
@@ -100,6 +223,7 @@ export function ConversationThread({
       status: "SENDING",
     };
     setText("");
+    wasAtBottomRef.current = true;
     setPending((current) => [...current, item]);
     void deliver(item);
   }
@@ -112,6 +236,12 @@ export function ConversationThread({
 
   function handleChange(value: string) {
     setText(value);
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = "auto";
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight || "20");
+      el.style.height = `${Math.min(el.scrollHeight, lineHeight * COMPOSER_MAX_ROWS)}px`;
+    }
     const now = Date.now();
     if (supportsTyping && value.trim() && now - lastTypingSentAt.current > TYPING_INDICATOR_THROTTLE_MS) {
       lastTypingSentAt.current = now;
@@ -120,85 +250,133 @@ export function ConversationThread({
   }
 
   const expiresAt = serviceWindow.expiresAt ? new Date(serviceWindow.expiresAt) : null;
+  const now = new Date();
+  const todayKey = dayKey(now.toISOString());
+  const yesterdayKey = dayKey(new Date(now.getTime() - 86_400_000).toISOString());
+  const timeline = buildTimeline(messages, todayKey, yesterdayKey);
 
   return (
-    <>
-      <ul className="flex flex-col gap-2" aria-label="Mensajes">
-        {messages.map((message) => (
-          <Bubble
-            key={message.id}
-            direction={message.direction}
-            body={message.body}
-            createdAt={message.createdAt}
-            status={message.deliveryStatus}
-            sentFromDevice={message.sentFromDevice}
-          />
-        ))}
-        {pending.map((item) => (
-          <Bubble
-            key={item.tempId}
-            direction="OUTBOUND"
-            body={item.body}
-            createdAt={item.createdAt}
-            status={item.status}
-            sentFromDevice={false}
-            error={item.error}
-            onRetry={item.status === "FAILED" ? () => retry(item) : undefined}
-          />
-        ))}
-        {itemCount === 0 && <li className="py-4 text-center text-sm text-zinc-400">Sin mensajes todavía.</li>}
-        <li ref={bottomRef} aria-hidden />
-      </ul>
-
-      {serviceWindow.status === "CLOSED" ? (
-        <div className="flex flex-col gap-1 rounded border border-amber-200 bg-amber-50 p-3 text-sm">
-          <p className="font-medium text-amber-900">No puedes responder en texto libre ahora mismo</p>
-          <p className="text-amber-800">
-            El proveedor solo permite respuestas libres durante un tiempo limitado desde el último mensaje del
-            contacto. Esa ventana está cerrada
-            {expiresAt ? ` desde el ${expiresAt.toLocaleString("es-ES")}` : " porque el contacto todavía no ha escrito"}.
-          </p>
-          <p className="text-amber-800">
-            Los mensajes que el delegado envía desde su propio móvil <strong>no reabren</strong> esta ventana: solo
-            la reabre un mensaje nuevo del contacto. Hasta entonces, la única vía son las plantillas aprobadas, que
-            todavía no están disponibles en Kindly.
-          </p>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-2 rounded border border-zinc-200 p-3">
-          {serviceWindow.status === "OPEN" && expiresAt && (
-            <p className="text-xs text-zinc-500">
-              Ventana de respuesta libre abierta hasta el {expiresAt.toLocaleString("es-ES")}.
-            </p>
-          )}
-          <textarea
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            name="text"
-            placeholder="Escribe una respuesta..."
-            rows={3}
-            value={text}
-            onChange={(event) => handleChange(event.target.value)}
-            onKeyDown={(event) => {
-              // Enter sends, Shift+Enter breaks the line — as in WhatsApp Web.
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                handleSubmit();
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative min-h-0 flex-1">
+        <SheetBody ref={scrollRef} onScroll={handleScroll} className="flex flex-col gap-1">
+          <ul role="log" aria-live={isLive ? "polite" : "off"} aria-label="Mensajes" className="flex flex-col gap-1">
+            {itemCount === 0 && (
+              <li>
+                <EmptyState variant="inline" title="Todavía no hay mensajes." />
+              </li>
+            )}
+            {timeline.flatMap(({ message, separator }) => {
+              const nodes = [
+                <li key={message.id}>
+                  <Bubble
+                    direction={message.direction}
+                    body={message.body}
+                    createdAt={message.createdAt}
+                    status={message.deliveryStatus}
+                    sentFromDevice={message.sentFromDevice}
+                  />
+                </li>,
+              ];
+              if (separator) {
+                nodes.unshift(
+                  <li key={`${message.id}-day`}>
+                    <DaySeparator label={separator} />
+                  </li>,
+                );
               }
-            }}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-zinc-400">Intro para enviar · Mayús+Intro para salto de línea</p>
-            <button
-              type="submit"
-              disabled={!text.trim()}
-              className="w-fit rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+              return nodes;
+            })}
+            {pending.map((item) => (
+              <li key={item.tempId}>
+                <Bubble
+                  direction="OUTBOUND"
+                  body={item.body}
+                  createdAt={item.createdAt}
+                  status={item.status}
+                  sentFromDevice={false}
+                  error={item.error}
+                  onRetry={item.status === "FAILED" ? () => retry(item) : undefined}
+                />
+              </li>
+            ))}
+            <li ref={bottomRef} aria-hidden />
+          </ul>
+        </SheetBody>
+        {hasNewMessages && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={<ArrowDown className="size-3.5" />}
+              className="pointer-events-auto bg-surface-200 shadow-md"
+              onClick={() => scrollToBottom()}
             >
-              Enviar
-            </button>
+              Mensajes nuevos
+            </Button>
           </div>
-        </form>
-      )}
-    </>
+        )}
+      </div>
+
+      <SheetFooter className="flex-col items-stretch">
+        {serviceWindow.status === "CLOSED" ? (
+          <Alert tone="warning" title="No puedes responder en texto libre ahora mismo">
+            <p>
+              El proveedor solo permite respuestas libres durante un tiempo limitado desde el último mensaje del
+              contacto. Esa ventana está cerrada
+              {expiresAt ? ` desde el ${expiresAt.toLocaleString("es-ES")}` : " porque el contacto todavía no ha escrito"}.
+            </p>
+            <p>
+              Los mensajes que el delegado envía desde su propio móvil <strong>no reabren</strong> esta ventana: solo
+              la reabre un mensaje nuevo del contacto. Hasta entonces, la única vía son las plantillas aprobadas, que
+              todavía no están disponibles en Kindly.
+            </p>
+          </Alert>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex w-full flex-col gap-2">
+            {serviceWindow.status === "OPEN" && expiresAt && (
+              <p className="type-caption text-foreground-lighter">
+                Ventana de respuesta libre abierta hasta el {expiresAt.toLocaleString("es-ES")}.
+              </p>
+            )}
+            <textarea
+              ref={textareaRef}
+              className={cn(
+                "min-h-control-lg w-full resize-none rounded-control border border-border-control bg-control px-2.5 py-2 type-body text-foreground",
+                "placeholder:text-foreground-lighter focus-ring focus-visible:border-ring",
+              )}
+              name="text"
+              placeholder="Escribe una respuesta..."
+              rows={1}
+              value={text}
+              onChange={(event) => handleChange(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter sends, Shift+Enter breaks the line — as in WhatsApp Web.
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  handleSubmit();
+                }
+              }}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="type-caption text-foreground-muted">Intro para enviar · Mayús+Intro salto de línea</p>
+              <Button type="submit" size="sm" disabled={!text.trim()} icon={<Send className="size-4" />}>
+                Enviar
+              </Button>
+            </div>
+          </form>
+        )}
+      </SheetFooter>
+    </div>
+  );
+}
+
+function DaySeparator({ label }: { label: string }) {
+  return (
+    <div role="separator" className="my-2 flex items-center gap-2 type-caption text-foreground-lighter">
+      <span className="h-px flex-1 bg-border" />
+      {label}
+      <span className="h-px flex-1 bg-border" />
+    </div>
   );
 }
 
@@ -221,21 +399,23 @@ function Bubble({
 }) {
   const outbound = direction === "OUTBOUND";
   return (
-    <li className={`flex ${outbound ? "justify-end" : "justify-start"}`}>
+    <div className={cn("flex", outbound ? "justify-end" : "justify-start")}>
       <div
-        className={`max-w-md rounded px-3 py-2 text-sm ${
-          outbound ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-900"
-        } ${status === "SENDING" ? "opacity-80" : ""}`}
+        className={cn(
+          "max-w-[85%] rounded-bubble px-3 py-2 type-body",
+          outbound ? "bg-bubble-outbound text-bubble-outbound-foreground border border-bubble-outbound-border" : "bg-bubble-inbound text-bubble-inbound-foreground",
+          status === "SENDING" && "opacity-80",
+        )}
       >
         <p className="whitespace-pre-wrap">{body}</p>
-        <p className={`mt-1 flex items-center justify-end gap-1 text-xs ${outbound ? "text-zinc-300" : "text-zinc-400"}`}>
-          <span>{new Date(createdAt).toLocaleString("es-ES")}</span>
+        <p className="mt-1 flex items-center justify-end gap-1 type-caption text-foreground-lighter">
+          <span>{timeFormatter.format(new Date(createdAt))}</span>
           {/* Coexistence: an outbound message may have been written on the delegate's own phone (PKG-005). */}
           {outbound && sentFromDevice && <span>· desde el móvil</span>}
           {outbound && <DeliveryTicks status={status} />}
         </p>
         {error && (
-          <p className="mt-1 text-xs text-red-300">
+          <p role="alert" className="mt-1 type-caption text-destructive">
             No enviado: {error}{" "}
             {onRetry && (
               <button type="button" onClick={onRetry} className="underline">
@@ -245,6 +425,6 @@ function Bubble({
           </p>
         )}
       </div>
-    </li>
+    </div>
   );
 }

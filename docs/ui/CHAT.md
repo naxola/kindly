@@ -12,19 +12,39 @@ por defecto).
 
 ```text
 src/app/(app)/inbox/
-  layout.tsx              → renderiza {children} + {sheet}
+  layout.tsx              → renderiza {children} + {sheet} (docs/ui/CHAT.md §1)
   page.tsx                → lista
-  @sheet/default.tsx      → null
+  [id]/page.tsx           → carga directa / refresco: lista + panel, compuestos aquí mismo
+  @sheet/page.tsx         → null (match real de /inbox — ver corrección abajo)
+  @sheet/default.tsx      → null (fallback de carga directa/refresco)
   @sheet/(.)[id]/page.tsx → <ConversationSheet id> (navegación suave desde /inbox)
-  [id]/page.tsx           → carga directa / refresco: lista + Sheet abierto
 ```
 
 - La URL sigue siendo `/inbox/<id>`: enlazable, recargable, con historial
   (Atrás cierra el Sheet).
 - Carga directa de `/inbox/<id>`: se pinta la lista con el Sheet ya
-  abierto (misma experiencia), no una página distinta.
+  abierto (misma experiencia), no una página distinta. La intercepción no
+  aplica a la carga directa, así que `[id]/page.tsx` (el slot `children`)
+  compone la lista y `<ConversationSheet>` él mismo — no hay otro slot que
+  aporte la lista en ese caso.
 - Cerrar = `router.back()` si se llegó por navegación suave; si no,
-  `router.push('/inbox' + filtros actuales)`.
+  `router.push('/inbox' + filtros actuales)`. Esto se resuelve por
+  **construcción**, no en tiempo de ejecución: `@sheet/(.)[id]/page.tsx`
+  solo se renderiza nunca por navegación suave (una carga directa nunca
+  pasa por una ruta interceptada), así que siempre pasa `closeMode="back"`;
+  `[id]/page.tsx` (slot `children`, carga directa) siempre pasa
+  `closeMode="push"` con el href construido a partir de los filtros
+  actuales (`buildHref`).
+- **Corrección de implementación**: `@sheet/default.tsx` **no basta** para
+  cerrar el panel al navegar a `/inbox` con un `<Link>` normal (p. ej. desde
+  el nav global). `default.tsx` solo es el *fallback* de una carga directa;
+  en una navegación suave a una URL sin ruta real para ese slot, Next.js
+  **deja el slot mostrando lo último que tenía** (documentado en la propia
+  guía de Next, sección "Modals": *"client-side navigations to a route that
+  no longer matches the slot will remain visible"*). Hace falta un
+  `@sheet/page.tsx` real (no interceptado) que devuelva `null`, igual que
+  su ejemplo `@auth/page.tsx`. Sin este archivo, cerrar por cualquier vía
+  que no sea `router.back()` deja el panel fantasma abierto.
 - Documentación de referencia: `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/{parallel-routes,intercepting-routes}.md` (sección "Modals").
 
 ## 2. Anatomía
@@ -51,11 +71,13 @@ src/app/(app)/inbox/
 ```
 
 - **Header**: avatar + canal, nombre (enlace al contacto), badges, línea
-  secundaria (canal, teléfono, delegado para ADMIN). Acciones: anterior /
-  siguiente conversación de la lista actual (`Alt+↑/↓`), menú `⋯` (Ver
-  contacto, Vincular a caso — cuando exista en UI, Marcar como no leída —
-  cuando exista en dominio), cerrar (`✕`, `aria-label="Cerrar
-  conversación"`).
+  secundaria (canal, delegado para ADMIN — sin teléfono: `ConversationDetails`
+  no lo trae hoy, añadirlo no era necesario para esta fase). Acciones:
+  anterior / siguiente conversación de la lista actual (`Alt+↑/↓`), menú
+  `⋯` (solo "Ver contacto" — "Vincular a caso" y "Marcar como no leída"
+  siguen sin existir en UI/dominio, tal como ya preveía este documento),
+  cerrar (`✕` en anclado/modal, `←` "Volver a la bandeja" en pantalla
+  completa).
 - **Avisos contextuales** (`Alert`) entre header y mensajes: contacto no
   identificado (acciones existentes: marcar identificado, reasignar);
   canal con error/desconectado.
@@ -88,6 +110,21 @@ src/app/(app)/inbox/
 | Ventana cerrada | `Alert` en lugar del compositor |
 | Borrador sin enviar al cerrar | Se conserva por conversación (`sessionStorage`, clave por id) — no pide confirmación: cerrar no pierde nada |
 
+**Diferido en esta fase** (no implementado, no confundir con "hecho"):
+
+- *Cargando la conversación*: no hay un `loading.tsx` propio del slot
+  `@sheet` — la navegación simplemente espera a que el servidor responda
+  antes de mostrar el panel (el mismo comportamiento por defecto que UI-4
+  aceptó para el resto de páginas sin una carga lo bastante lenta como para
+  justificarlo). Se añade si algún canal real resulta notablemente lento.
+- *Error al cargar*: sin un `error.tsx` propio de `@sheet`; un fallo aquí
+  sube al `error.tsx` de `inbox/` (cubre toda la ruta, no solo el panel).
+- *No encontrada / sin permiso*: sigue usando `notFound()` de Next (el
+  404 genérico), como ya hacía la página que este componente reemplaza —
+  no el `EmptyState` a medida "Esta conversación no existe..." que este
+  documento proponía. Correcto (nunca expone una Conversation de otra
+  Organization), solo no es la presentación más amable posible todavía.
+
 ## 4. Comportamiento
 
 Dos modos según el ancho (decidido por el usuario el 2026-09-26: anclado
@@ -107,9 +144,15 @@ Común a los tres:
   entre conversaciones **no** anima (solo cambia el contenido).
 - Al cerrar, el foco vuelve a la fila de la lista que lo abrió.
 - Anchura: `--sheet-w-md` (560 px) por defecto, `--sheet-w-lg` en `2xl`.
-  En anclado, la lista ocupa el resto con un mínimo de `--inbox-list-w`;
-  si no cabe (sidebar expandida en 1280 px), la sidebar se contrae
-  automáticamente mientras el panel está abierto.
+  En anclado, la lista ocupa el resto; si no cabe (sidebar expandida en
+  1280 px), la sidebar se contrae automáticamente mientras el panel está
+  abierto — implementado con un evento de `window`
+  (`src/components/shell/sidebar-auto-collapse.ts`), no con Contexto de
+  React: el sidebar vive en `AppShell`, por encima del árbol de rutas, y el
+  panel varios segmentos por debajo, sin ningún Server Component en medio
+  por el que enhebrar un Provider. Es un override **temporal** — nunca
+  toca la cookie que guarda la preferencia manual del usuario, y se
+  revierte solo al cerrar el panel.
 - `< md`: compositor pegado abajo respetando el teclado virtual (`100dvh`,
   `env(safe-area-inset-bottom)`).
 - La lista del Inbox **sigue sondeando**; el hilo sondea cada 3 s
@@ -127,6 +170,25 @@ momento quién más espera. El precio es renunciar al focus trap en ese
 modo; se compensa con región etiquetada, foco inicial explícito, `F6` para
 saltar entre regiones y `Esc` para cerrar. Por debajo de 1280 px no caben
 lista y conversación legibles a la vez, así que se mantiene el Sheet modal.
+
+**Bug real encontrado al verificar visualmente a 1280 px** (el mínimo del
+propio umbral, y el viewport por defecto de Playwright): incluso con la
+sidebar ya contraída automáticamente, el nombre del Contact en la fila de
+`InboxRow` podía colapsar a **0 px de ancho** y desaparecer del todo — la
+señal más importante de la fila (INBOX.md: "en menos de 3 segundos... quién
+necesita atención"), invisible. Causa: el nombre no tenía `flex-1`, así que
+en flexbox su tamaño mínimo automático es `0` (por llevar `truncate`, que
+fija `overflow: hidden`); el resto de la fila (badge, delegado, hora) usa
+`shrink-0`, así que absorbía todo el ancho antes de dejarle nada al
+nombre. Y el nombre del delegado se ocultaba solo por `sm:` (breakpoint de
+**viewport**, 640 px) — irrelevante aquí, porque lo que se estrecha es la
+*columna* de la lista al abrir el panel, no la ventana del navegador.
+Corregido en `src/app/(app)/inbox/inbox-row.tsx`: `min-w-0 flex-1` en el
+nombre (reclama espacio primero) y el delegado pasa a un breakpoint de
+**contenedor** de Tailwind v4 (`@container` en el envoltorio de la lista,
+`@sm:inline` en vez de `sm:inline`), además de un `max-w-24` para que un
+nombre de delegado largo no pueda por sí solo desplazar al nombre del
+Contact otra vez.
 
 ## 6. Reutilización
 

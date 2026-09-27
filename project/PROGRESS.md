@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-27 (cierre de UI-5, Inbox).
+Última actualización: 2026-09-27 (cierre de UI-6, conversación en Sheet).
 
 ## Resumen en una línea
 
@@ -39,11 +39,13 @@ DiscardChangesDialog, Sheet completo, Tabs, Popover, Toast, Table,
 DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime), `UI-4`
 (todas las páginas de `(app)` y las cuatro de auth migradas al sistema;
 Contactos/Casos/Tareas traducidas; altas a Sheet/Dialog; confirmaciones a
-`ConfirmDialog`) y `UI-5` (Inbox: vistas con contadores, búsqueda y
+`ConfirmDialog`), `UI-5` (Inbox: vistas con contadores, búsqueda y
 filtros por URL, fila densa, teclado; servidor reescrito con
 `LEFT JOIN LATERAL` para el último mensaje por conversación en vez de
-cargar todos los mensajes) completos; siguiente: `UI-6`, conversación en
-Sheet.
+cargar todos los mensajes) y `UI-6` (conversación en `ConversationSheet`:
+rutas paralelas/interceptadas, tres modos responsive — anclado sin velo,
+modal, pantalla completa —, historial con separadores por día y borrador
+persistente, anterior/siguiente) completos; siguiente: `UI-7`, Organización.
 
 ## Estado por fase / paquete
 
@@ -68,7 +70,8 @@ Sheet.
 | **UI-3** | **Componentes avanzados (Dialog, ConfirmDialog, Table, DataList…)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
 | **UI-4** | **Arquitectura de páginas (todas las páginas de `(app)` y auth)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
-| UI-6 … UI-9 | Conversación en Sheet, organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
+| UI-7 … UI-9 | Organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
