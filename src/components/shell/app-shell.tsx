@@ -33,10 +33,11 @@ export async function AppShell({
         <AppHeader member={member} unreadCount={unreadCount} />
         <div className="grid grid-cols-[auto_1fr] overflow-hidden">
           <AppSidebar initialCollapsed={collapsed} unreadCount={unreadCount} />
+          {/* Width, gutter and vertical rhythm are each page's own
+              `PageContainer` (docs/ui/LAYOUT_NAVIGATION.md §5) — this is
+              purely the scroll container. */}
           <main id="main" tabIndex={-1} className="overflow-y-auto outline-hidden">
-            {/* Temporary default width (UI-2); PageContainer replaces this
-                per-page sizing in UI-4 (docs/ui/LAYOUT_NAVIGATION.md §5). */}
-            <div className="mx-auto w-full max-w-page-md px-gutter py-6">{children}</div>
+            {children}
           </main>
         </div>
       </div>

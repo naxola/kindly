@@ -11,14 +11,17 @@ export interface NavItem {
  *
  * Flat for now: grouping Canales/Miembros under an "Organización" entry
  * waits for UI-7, when `/organization` exists to route to (UI-2 note in
- * docs/ui/ROADMAP.md). Labels and hrefs are exactly the top nav this
- * replaces — no page URL or E2E link name changes, only the frame.
+ * docs/ui/ROADMAP.md). Hrefs are exactly the top nav this replaces — no
+ * page URL changes, only the frame. Labels are Spanish (UI-4: Contacts →
+ * Contactos, Cases → Casos, Tasks → Tareas, alongside the pages
+ * themselves) except "Inbox", kept as the product's own name for the
+ * module (docs/ui/PRINCIPLES.md §5).
  */
 export const NAV_ITEMS: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/contacts", label: "Contacts", icon: Contact },
-  { href: "/cases", label: "Cases", icon: Briefcase },
-  { href: "/tasks", label: "Tasks", icon: ListChecks },
+  { href: "/contacts", label: "Contactos", icon: Contact },
+  { href: "/cases", label: "Casos", icon: Briefcase },
+  { href: "/tasks", label: "Tareas", icon: ListChecks },
   { href: "/channels", label: "Canales", icon: Plug },
   { href: "/members", label: "Miembros", icon: Users },
 ];

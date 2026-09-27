@@ -1,8 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listCases } from "@/modules/cases/service";
 import { listContacts } from "@/modules/contacts/service";
-import { createCaseAction } from "@/modules/cases/actions";
+import { NewCaseSheet } from "@/app/(app)/cases/new-case-sheet";
+import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { pageTitle } from "@/lib/page-title";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const member = await requireCurrentOrganizationMember();
+  return { title: pageTitle("Casos", member.organizationName) };
+}
 
 export default async function CasesPage() {
   const member = await requireCurrentOrganizationMember();
@@ -15,111 +27,49 @@ export default async function CasesPage() {
   const contactNameById = new Map(contacts.map((contact) => [contact.id, contact.name]));
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold">Cases</h1>
-        <p className="text-sm text-zinc-500">
-          Un asunto que necesita gestión — distinto de una conversación.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Casos"
+        description="Un asunto que necesita gestión, distinto de una conversación"
+        aside={
+          <NewCaseSheet
+            contacts={contacts}
+            members={members.map((m) => ({ id: m.userId, name: m.name }))}
+          />
+        }
+      />
 
-      <form action={createCaseAction} className="flex flex-col gap-2 rounded border border-zinc-200 p-4">
-        <h2 className="text-sm font-medium">Nuevo case</h2>
-        {contacts.length === 0 ? (
-          <p className="text-sm text-zinc-400">
-            Crea primero un Contact para poder abrir un Case.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <select
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              name="contactId"
-              aria-label="Contact"
-              required
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Contact
-              </option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name}
-                </option>
-              ))}
-            </select>
-            <input
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              type="text"
-              name="title"
-              placeholder="Título"
-              required
-            />
-            <input
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              type="text"
-              name="priority"
-              placeholder="Prioridad (texto libre, opcional)"
-            />
-            <select
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              name="assignedTo"
-              aria-label="Asignar a"
-              defaultValue=""
-            >
-              <option value="">Sin asignar</option>
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-            <textarea
-              className="rounded border border-zinc-300 px-3 py-2 text-sm sm:col-span-2"
-              name="description"
-              placeholder="Descripción"
-              rows={2}
-            />
-          </div>
-        )}
-        {contacts.length > 0 && (
-          <button
-            type="submit"
-            className="mt-1 w-fit rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-          >
-            Crear
-          </button>
-        )}
-      </form>
-
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-zinc-200 text-zinc-500">
-            <th className="py-2 font-medium">Título</th>
-            <th className="py-2 font-medium">Contact</th>
-            <th className="py-2 font-medium">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Título</TableHead>
+            <TableHead>Contacto</TableHead>
+            <TableHead>Estado</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {cases.map((c) => (
-            <tr key={c.id} className="border-b border-zinc-100">
-              <td className="py-2">
-                <Link href={`/cases/${c.id}`} className="underline">
+            <TableRow key={c.id}>
+              <TableCell className="font-medium text-foreground">
+                <Link href={`/cases/${c.id}`} className="focus-ring rounded-sm">
                   {c.title}
                 </Link>
-              </td>
-              <td className="py-2 text-zinc-500">{contactNameById.get(c.contactId) ?? "—"}</td>
-              <td className="py-2 text-zinc-500">{c.status}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-foreground-lighter">{contactNameById.get(c.contactId) ?? "—"}</TableCell>
+              <TableCell>
+                <Badge tone={CASE_STATUS_TONES[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
+              </TableCell>
+            </TableRow>
           ))}
           {cases.length === 0 && (
-            <tr>
-              <td colSpan={3} className="py-4 text-center text-zinc-400">
-                Todavía no hay cases.
-              </td>
-            </tr>
+            <TableEmpty
+              colSpan={3}
+              title="Todavía no hay casos"
+              description="Crea el primero a partir de un contacto."
+            />
           )}
-        </tbody>
-      </table>
-    </div>
+        </TableBody>
+      </Table>
+    </PageContainer>
   );
 }

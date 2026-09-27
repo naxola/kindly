@@ -34,9 +34,9 @@ test("the active nav item is marked current and survives navigating between modu
   const inboxLink = page.getByRole("link", { name: "Inbox", exact: true });
   await expect(inboxLink).toHaveAttribute("aria-current", "page");
 
-  await page.getByRole("link", { name: "Contacts" }).click();
+  await page.getByRole("link", { name: "Contactos" }).click();
   await expect(page).toHaveURL(/\/contacts$/);
-  await expect(page.getByRole("link", { name: "Contacts", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Contactos", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(inboxLink).not.toHaveAttribute("aria-current", "page");
 });
 
@@ -74,7 +74,7 @@ test("below md, the sidebar is a Sheet opened from the header and closes itself 
   const mobileNav = page.getByRole("navigation", { name: "Principal" });
   await expect(mobileNav).toBeVisible();
 
-  await mobileNav.getByRole("link", { name: "Contacts" }).click();
+  await mobileNav.getByRole("link", { name: "Contactos" }).click();
   await expect(page).toHaveURL(/\/contacts$/);
   await expect(mobileNav).toBeHidden();
 });

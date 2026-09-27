@@ -1,4 +1,7 @@
 import type { ActivityType } from "@/modules/audit/service";
+import { PageSection } from "@/components/patterns/page-section";
+import { EmptyState } from "@/components/ui/empty-state";
+import { RelativeTime } from "@/components/ui/relative-time";
 
 interface ActivityRow {
   id: string;
@@ -34,22 +37,22 @@ function labelFor(type: string): string {
 /** Read-only activity history embedded in Contact/Case detail pages. */
 export function ActivityFeed({ activities }: { activities: ActivityRow[] }) {
   return (
-    <div>
-      <h2 className="text-sm font-medium text-zinc-700">Historial</h2>
+    <PageSection title="Historial">
       {activities.length === 0 ? (
-        <p className="mt-2 text-sm text-zinc-400">Sin actividad todavía.</p>
+        <EmptyState variant="inline" title="Sin actividad todavía" />
       ) : (
-        <ul className="mt-2 flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col">
           {activities.map((activity) => (
-            <li key={activity.id} className="flex justify-between border-b border-zinc-100 py-1.5">
-              <span>{labelFor(activity.type)}</span>
-              <span className="text-zinc-400">
-                {activity.createdAt.toLocaleString("es-ES")}
-              </span>
+            <li
+              key={activity.id}
+              className="flex items-center justify-between gap-2 border-b border-border py-2 type-body last:border-0"
+            >
+              <span className="text-foreground">{labelFor(activity.type)}</span>
+              <RelativeTime date={activity.createdAt} className="shrink-0 type-caption text-foreground-lighter" />
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </PageSection>
   );
 }

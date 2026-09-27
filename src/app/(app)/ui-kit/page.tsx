@@ -10,6 +10,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar, Kbd, Separator, Skeleton } from "@/components/ui/primitives";
 import { Section } from "@/app/(app)/ui-kit/section";
 import { Phase3Interactive } from "@/app/(app)/ui-kit/phase3-interactive";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
 
 export const metadata: Metadata = { title: "UI kit · Kindly" };
 
@@ -85,13 +87,8 @@ function Swatch({ name, className }: { name: string; className: string }) {
 
 export default function UiKitPage() {
   return (
-    <div className="flex flex-col gap-10 pb-16">
-      <div>
-        <h1 className="type-page-title">UI kit</h1>
-        <p className="type-body text-foreground-lighter">
-          Tokens y componentes base del sistema de diseño. Fuente de verdad: docs/ui/.
-        </p>
-      </div>
+    <PageContainer size="lg">
+      <PageHeader title="UI kit" description="Tokens y componentes base del sistema de diseño. Fuente de verdad: docs/ui/" />
 
       <Section title="Superficies" description="De la página hacia arriba; las superficies altas se separan con borde y sombra.">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -308,6 +305,6 @@ export default function UiKitPage() {
           server's render, and RelativeTime would render two different
           labels — a hydration mismatch. */}
       <Phase3Interactive now={now} />
-    </div>
+    </PageContainer>
   );
 }
