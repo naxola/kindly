@@ -1,6 +1,19 @@
+import type { Metadata } from "next";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listInvitations } from "@/modules/organizations/invitations";
-import { inviteMemberAction, revokeInvitationAction } from "@/modules/organizations/actions";
+import { NewMemberDialog } from "@/app/(app)/members/new-member-dialog";
+import { RevokeInvitationButton } from "@/app/(app)/members/revoke-invitation-button";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
+import { PageSection } from "@/components/patterns/page-section";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { pageTitle } from "@/lib/page-title";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const member = await requireCurrentOrganizationMember();
+  return { title: pageTitle("Miembros", member.organizationName) };
+}
 
 /**
  * Organization members and pending invitations (PKG-006).
@@ -23,116 +36,77 @@ export default async function MembersPage() {
   const baseUrl = process.env.BETTER_AUTH_URL ?? "";
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold">Miembros</h1>
-        <p className="text-sm text-zinc-500">
-          Un ADMIN gestiona la organización; un DELEGATE atiende sus propias conversaciones. Cada persona pertenece
-          a una sola organización.
-        </p>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Miembros"
+        description="Un ADMIN gestiona la organización; un DELEGATE atiende sus propias conversaciones. Cada persona pertenece a una sola organización"
+        aside={isAdmin && <NewMemberDialog />}
+      />
 
-      {isAdmin && (
-        <div className="flex flex-col gap-2 rounded border border-zinc-200 p-4">
-          <h2 className="text-sm font-medium">Invitar a alguien</h2>
-          <form action={inviteMemberAction} className="flex flex-wrap items-end gap-2">
-            <input
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              type="email"
-              name="email"
-              placeholder="email@ejemplo.com"
-              aria-label="Email"
-              required
-            />
-            <select
-              className="rounded border border-zinc-300 px-3 py-2 text-sm"
-              name="role"
-              aria-label="Rol"
-              defaultValue="DELEGATE"
-            >
-              <option value="DELEGATE">DELEGATE</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-            <button type="submit" className="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white">
-              Invitar
-            </button>
-          </form>
-          <p className="text-xs text-zinc-500">
-            Kindly todavía no envía emails: al invitar se genera un enlace que tienes que hacer llegar tú a esa
-            persona. La invitación caduca a los 7 días.
-          </p>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">En la organización</h2>
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-zinc-500">
-              <th className="py-2 font-medium">Nombre</th>
-              <th className="py-2 font-medium">Email</th>
-              <th className="py-2 font-medium">Rol</th>
-            </tr>
-          </thead>
-          <tbody>
+      <PageSection title="En la organización">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Rol</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {members.map((row) => (
-              <tr key={row.userId} className="border-b border-zinc-100">
-                <td className="py-2">
+              <TableRow key={row.userId}>
+                <TableCell className="font-medium text-foreground">
                   {row.name}
-                  {row.userId === member.userId && <span className="text-zinc-400"> (tú)</span>}
-                </td>
-                <td className="py-2 text-zinc-500">{row.email}</td>
-                <td className="py-2 text-zinc-500">{row.role}</td>
-              </tr>
+                  {row.userId === member.userId && <span className="font-normal text-foreground-lighter"> (tú)</span>}
+                </TableCell>
+                <TableCell className="text-foreground-lighter">{row.email}</TableCell>
+                <TableCell className="text-foreground-lighter">{row.role}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </PageSection>
 
       {isAdmin && (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium">Invitaciones pendientes</h2>
+        <PageSection title="Invitaciones pendientes">
           {pending.length === 0 ? (
-            <p className="text-sm text-zinc-400">No hay invitaciones pendientes.</p>
+            <EmptyState variant="inline" title="No hay invitaciones pendientes." />
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-zinc-500">
-                  <th className="py-2 font-medium">Email</th>
-                  <th className="py-2 font-medium">Rol</th>
-                  <th className="py-2 font-medium">Enlace</th>
-                  <th className="py-2 font-medium">Caduca</th>
-                  <th className="py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((invitation) => {
-                  const revokeThisInvitation = revokeInvitationAction.bind(null, invitation.id);
-                  return (
-                    <tr key={invitation.id} className="border-b border-zinc-100">
-                      <td className="py-2">{invitation.email}</td>
-                      <td className="py-2 text-zinc-500">{invitation.role}</td>
-                      <td className="py-2">
-                        <code className="break-all text-xs text-zinc-500">
-                          {baseUrl}/invite/{invitation.token}
-                        </code>
-                      </td>
-                      <td className="py-2 text-zinc-500">{invitation.expiresAt.toLocaleDateString("es-ES")}</td>
-                      <td className="py-2 text-right">
-                        <form action={revokeThisInvitation}>
-                          <button type="submit" className="text-xs underline">
-                            Revocar
-                          </button>
-                        </form>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead>Enlace</TableHead>
+                  <TableHead>Caduca</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Acciones</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pending.map((invitation) => (
+                  <TableRow key={invitation.id}>
+                    <TableCell className="text-foreground">{invitation.email}</TableCell>
+                    <TableCell className="text-foreground-lighter">{invitation.role}</TableCell>
+                    <TableCell>
+                      <code className="break-all font-mono type-caption text-foreground-lighter">
+                        {baseUrl}/invite/{invitation.token}
+                      </code>
+                    </TableCell>
+                    <TableCell className="text-foreground-lighter">
+                      {invitation.expiresAt.toLocaleDateString("es-ES")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-        </div>
+        </PageSection>
       )}
-    </div>
+    </PageContainer>
   );
 }

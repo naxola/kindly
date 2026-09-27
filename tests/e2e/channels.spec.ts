@@ -35,9 +35,11 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
   // Invite a delegate and let them in.
   const inviteeEmail = `${randomUUID()}@example.com`;
   await adminPage.getByRole("link", { name: "Miembros" }).click();
-  await adminPage.getByLabel("Email").fill(inviteeEmail);
-  await adminPage.getByLabel("Rol").selectOption("DELEGATE");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
+  const inviteDialog = adminPage.getByRole("dialog");
+  await inviteDialog.getByLabel("Email").fill(inviteeEmail);
+  await inviteDialog.getByLabel("Rol").selectOption("DELEGATE");
+  await inviteDialog.getByRole("button", { name: "Invitar" }).click();
   await expect(adminPage.getByText(inviteeEmail)).toBeVisible();
 
   const [invitation] = await sql`
