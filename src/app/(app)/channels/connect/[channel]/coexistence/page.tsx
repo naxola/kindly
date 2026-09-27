@@ -7,6 +7,9 @@ import {
   getUnsupportedCountryCodes,
 } from "@/modules/messaging/whatsapp-onboarding";
 import { CoexistencePreflightForm } from "@/app/(app)/channels/connect/[channel]/coexistence/preflight-form";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Alert } from "@/components/ui/alert";
 
 /**
  * Step 2 (PKG-008): everything the delegate has to know *before* the
@@ -36,23 +39,24 @@ export default async function CoexistencePreflightPage({
   const unsupportedCountryCodes = getUnsupportedCountryCodes();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <Link href={`/channels/connect/${channel}`} className="text-sm text-zinc-500 underline">
+    <PageContainer size="sm">
+      <div className="flex flex-col gap-2">
+        <Link
+          href={`/channels/connect/${channel}`}
+          className="w-fit type-body text-foreground-lighter underline focus-ring rounded-sm"
+        >
           ← Elegir otra vía
         </Link>
-        <h1 className="text-xl font-semibold">Antes de conectar tu número</h1>
-        <p className="text-sm text-zinc-500">
-          Esto no son condiciones de Kindly: cada punto es un requisito de Meta o una consecuencia real para el
-          móvil que llevas encima. Confírmalos todos para continuar.
-        </p>
+        <PageHeader
+          title="Antes de conectar tu número"
+          description="Esto no son condiciones de Kindly: cada punto es un requisito de Meta o una consecuencia real para el móvil que llevas encima. Confírmalos todos para continuar"
+        />
       </div>
 
       {error && (
-        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          <p className="font-medium">No se pudo conectar el canal</p>
-          <p>{error}</p>
-        </div>
+        <Alert tone="destructive" live title="No se pudo conectar el canal">
+          {error}
+        </Alert>
       )}
 
       <CoexistencePreflightForm
@@ -60,6 +64,6 @@ export default async function CoexistencePreflightPage({
         checks={PREFLIGHT_CHECKS}
         countryCheckAvailable={unsupportedCountryCodes.length > 0}
       />
-    </div>
+    </PageContainer>
   );
 }
