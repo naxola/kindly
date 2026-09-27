@@ -6,7 +6,7 @@
 
 ## Paquete activo: rediseño UI/UX — UI-0…UI-6 cerrados el 2026-09-27; siguiente UI-7
 
-Último commit: `PENDIENTE_DE_COMMIT` (ver el commit de cierre de esta sesión; se actualiza este hash tras crearlo).
+Último commit: `b9039e4`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
