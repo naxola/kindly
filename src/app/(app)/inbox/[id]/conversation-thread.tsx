@@ -257,7 +257,13 @@ export function ConversationThread({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative min-h-0 flex-1">
+      {/* `flex flex-col`: without a flex parent, `flex-1` on SheetBody below
+          does nothing (flex properties only apply to flex *items*), so it
+          sized itself to its content instead of the space actually
+          available — the history then visually overflowed past this
+          wrapper's box straight onto the footer below it (real bug, found
+          verifying a closed service window with several messages). */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <SheetBody ref={scrollRef} onScroll={handleScroll} className="flex flex-col gap-1">
           <ul role="log" aria-live={isLive ? "polite" : "off"} aria-label="Mensajes" className="flex flex-col gap-1">
             {itemCount === 0 && (

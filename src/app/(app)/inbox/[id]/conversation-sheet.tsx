@@ -262,7 +262,10 @@ export function ConversationSheet(props: ConversationSheetProps) {
       <aside
         ref={panelRef}
         aria-labelledby={titleId}
-        className="flex h-full w-sheet-md shrink-0 flex-col border-l border-border bg-surface-200"
+        // No Radix here to gate this on `data-state=open` (there is no
+        // modal), so it just plays once on mount — matches the modal
+        // Sheet's own entrance, which the user expects even anchored.
+        className="flex h-full w-sheet-md shrink-0 flex-col border-l border-border bg-surface-200 animate-slide-in-right"
       >
         {content}
       </aside>

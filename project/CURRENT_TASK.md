@@ -157,12 +157,46 @@ transitorio "Invalid interception route: .../(.)(.)(.)…" que se resuelve
 con un reinicio limpio (`rm -rf .next` + reiniciar el dev server). Nunca
 se reprodujo contra `next build && next start` (lo que usa la suite E2E).
 
+**Hecho en esta sesión (2026-09-28 — fix post-cierre de UI-6, reportado por
+el usuario probando staging):** el historial de mensajes se solapaba con
+el footer/compositor (a veces ocultándolo del todo) en conversaciones con
+varios mensajes — causa raíz y modo anclado sin animación de entrada,
+detalle completo en `docs/DECISIONS.md` (entrada 2026-09-28) y
+`docs/ui/CHAT.md` §5. **Pendiente sin reproducir**: un panel duplicado al
+cambiar de vista con una conversación abierta — probado con varios
+patrones de clic sin éxito, ver el mismo apartado de `CHAT.md`.
+
+**Pendiente de esta misma conversación, pedido explícitamente por el
+usuario, sin empezar todavía — no confundir con UI-7:**
+
+1. **Imágenes entrantes**: hoy el adapter de WhatsApp descarta el
+   contenido multimedia (`whatsapp-test-adapter.ts` lo convierte en un
+   texto de relleno `[Mensaje de tipo "image"...]`, sin guardar el
+   `media_id` ni descargar nada). Implementar requiere: descargar el medio
+   vía la Graph API de Meta (el webhook solo trae un `media_id`, hace
+   falta una llamada autenticada aparte para obtener la URL temporal),
+   guardarlo en storage S3-compatible (ya en el stack, `docs/ARCHITECTURE.md`),
+   un concepto nuevo en el dominio (adjunto del `Message`: tipo, mime,
+   referencia de storage), y en UI: miniatura en la burbuja + diálogo a
+   pantalla completa para verla ampliada. Alcance no trivial — no
+   empezado.
+2. **Rediseño de página con submenú al estilo Supabase** (settings/
+   organización): el usuario compartió capturas de referencia de Supabase
+   Studio y pidió replicar esa división con líneas + secciones, y
+   descargar la tipografía real del repositorio de Supabase. Esto se
+   solapa con `docs/ui/ORGANIZATION.md`/Fase 7 pero es un cambio de
+   sistema de diseño (tipografía) más amplio que una sola página — no
+   empezado, pendiente de decidir alcance con el usuario antes de tocar
+   `TOKENS.md`.
+
 **Próximo paso concreto (UI-7, Organización):** ver `docs/ui/ROADMAP.md`
 Fase 7 y `docs/ui/ORGANIZATION.md`. `/organization` (General, Miembros,
 Canales) con redirecciones y diálogos; acción de dominio "cambiar rol" con
 reglas en servidor y tests (aprobada 2026-09-26, ver
 `docs/DECISIONS.md`). La sidebar y las migas de organización siguen
-**planas** a propósito desde UI-2 hasta que esta ruta exista.
+**planas** a propósito desde UI-2 hasta que esta ruta exista. Considerar
+si el rediseño de página con submenú (punto 2 arriba) se resuelve *dentro*
+de esta fase, ya que Organización es exactamente ese tipo de página.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

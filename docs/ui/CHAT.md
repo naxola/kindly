@@ -190,6 +190,41 @@ nombre (reclama espacio primero) y el delegado pasa a un breakpoint de
 nombre de delegado largo no pueda por sí solo desplazar al nombre del
 Contact otra vez.
 
+**Bug real encontrado en producción (staging) tras el despliegue de UI-6**:
+el historial de mensajes se solapaba visualmente con el footer/compositor
+en cuanto la conversación tenía suficientes mensajes — en concreto, con la
+ventana de servicio cerrada, el último mensaje aparecía flotando encima del
+`Alert` de "No puedes responder en texto libre ahora mismo", y en algunos
+anchos el compositor no llegaba a verse. Causa: el `<div className="relative
+min-h-0 flex-1">` que envuelve `SheetBody` en `conversation-thread.tsx` no
+era un contenedor flex (`display: flex` ausente) — sin esto, la clase
+`flex-1` de `SheetBody` no hace nada (las propiedades flex solo aplican a
+*items* flex, no a hijos de un `div` normal), así que `SheetBody` crecía a
+la altura de su contenido en vez de recortarse al espacio realmente
+disponible, y ese contenido desbordado se solapaba visualmente con el
+`SheetFooter` de después (dos hermanos en flujo normal, ninguno con
+`position` no-estático — el desbordamiento de uno pisaba al otro sin que
+ningún `overflow: hidden` lo evitara). Corregido añadiendo `flex flex-col`
+al envoltorio, para que `SheetBody` reciba de verdad el alto que le
+corresponde y su `overflow-y-auto` actúe.
+
+Aprovechando la misma verificación: el modo anclado nunca reproducía la
+animación de entrada (`animate-slide-in-right`) al abrir una conversación
+por primera vez — a diferencia del modal, no hay ningún `Dialog` de Radix
+que la dispare vía `data-[state=open]`. Se añadió la clase directamente al
+`<aside>`; al no depender de ningún atributo, solo se reproduce en el
+montaje (abrir por primera vez), tal como se pretendía.
+
+**Pendiente de reproducir**: un informe de un panel duplicado/lado a lado
+al cambiar de vista (p. ej. "Pendientes" → "Sin identificar") con una
+conversación abierta. No se ha conseguido reproducir tras probar cambio de
+vista simple, clics rápidos por varias vistas, doble/triple clic sobre la
+misma vista, y carga directa seguida de cambio de vista — todas en verde
+tanto en desarrollo como contra `next build && next start`. Si vuelve a
+aparecer, anotar aquí los pasos exactos (¿doble navegador/pestaña?,
+¿conexión lenta?, ¿justo tras un despliegue en frío?) para poder
+reproducirlo de forma fiable.
+
 ## 6. Reutilización
 
 `ConversationSheet` es un componente único: lo usan el Inbox y, en el

@@ -1845,6 +1845,45 @@ viewport por defecto de Playwright).
 
 ---
 
+## 2026-09-28 — Fix post-cierre de UI-6: solapamiento del historial sobre el footer
+
+**Contexto:** el usuario reportó, probando UI-6 ya desplegado en staging
+(con conversaciones reales, más mensajes que en la verificación de cierre
+de fase), que el historial se solapaba con el footer/compositor y que en
+algunos anchos el compositor no se veía en absoluto.
+
+**Decisión:** el envoltorio de `SheetBody` en
+`src/app/(app)/inbox/[id]/conversation-thread.tsx`
+(`<div className="relative min-h-0 flex-1">`) no era un contenedor flex.
+Sin `display: flex` en el padre, la clase `flex-1` de `SheetBody` no tiene
+ningún efecto (las propiedades flex solo aplican a elementos que son
+*items* de un contenedor flex), así que `SheetBody` crecía a la altura de
+su propio contenido en vez de recibir el espacio que realmente le
+correspondía, y ese desbordamiento se solapaba visualmente con el
+`SheetFooter` de al lado. Corregido añadiendo `flex flex-col` al
+envoltorio. De paso, se añadió `animate-slide-in-right` al `<aside>` del
+modo anclado (no tenía ninguna animación de entrada, al no pasar por
+ningún `Dialog` de Radix que la dispare).
+
+**Alternativas consideradas:** ninguna — es la causa raíz real, verificada
+inspeccionando los `getBoundingClientRect()` del árbol antes/después del
+cambio (el alto de `SheetBody` pasó de no coincidir con su contenedor a
+coincidir exactamente).
+
+**Por qué:** un bug de layout que solo se manifestaba con conversaciones
+con bastantes mensajes — la verificación de cierre de fase usó solo 2-3
+mensajes por conversación, insuficientes para que el contenido superase el
+alto disponible y expusiera el problema. **Lección para futuras
+verificaciones de UI-6 o similares**: probar con historiales largos
+(15-20+ mensajes) y con la ventana de servicio cerrada, no solo con el
+camino feliz corto.
+
+**Pendiente:** un informe de un panel duplicado al cambiar de vista con
+una conversación abierta, no reproducido tras varios intentos (detalle en
+`docs/ui/CHAT.md` §5) — a la espera de pasos de reproducción más precisos.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
