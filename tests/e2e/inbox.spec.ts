@@ -300,3 +300,64 @@ test("a second organization sees none of the first organization's inbox", async 
   await expect(pageB.getByText("Todavía no hay conversaciones.")).toBeVisible();
   await contextB.close();
 });
+
+/**
+ * Real bug, found live in staging, not by any existing test: re-clicking a
+ * conversation row that is already open navigates to the exact URL the
+ * browser is already at. Next's router does not treat that as the no-op a
+ * same-page link click normally is — for this route (intercepted/parallel:
+ * `@sheet/(.)[id]` next to `inbox/page.tsx`) it resolved the slots
+ * differently the second time and dropped the list entirely, leaving only
+ * the panel pinned to the left edge with no list beside it. Fixed in
+ * `DataList` by never starting a navigation from a click on the
+ * already-selected row.
+ */
+test("re-clicking the already-open conversation keeps the list next to the panel", async ({ page, request }) => {
+  const delegateName = `Reclick Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachInbox(page, delegateName);
+
+  await page.goto("/organization/channels");
+  await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
+  await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
+
+  const [account] = await sql`
+    select id from messaging_accounts
+    where channel = 'fake' and delegate_id = (select id from users where name = ${delegateName})
+    order by created_at desc limit 1
+  `;
+  const contactName = `Reclick Contact ${randomUUID().slice(0, 8)}`;
+  const webhookResponse = await request.post(`/api/webhooks/fake/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify({
+      externalConversationId: `chat-${randomUUID()}`,
+      externalMessageId: `msg-${randomUUID()}`,
+      externalContactId: `provider-${randomUUID()}`,
+      contactDisplayName: contactName,
+      text: "Hola",
+    }),
+  });
+  expect(webhookResponse.status()).toBe(200);
+
+  await expect(async () => {
+    await page.goto("/inbox");
+    await expect(page.getByText(contactName)).toBeVisible();
+  }).toPass({ timeout: 15_000 });
+
+  const conversationList = page.getByRole("list", { name: "Conversaciones" });
+  const row = conversationList.getByText(contactName);
+  const thread = page.getByRole("log", { name: "Mensajes" });
+
+  await row.click();
+  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(thread.getByText("Hola")).toBeVisible();
+
+  // Click the same row again, twice — the list must stay put next to the
+  // panel both times, not disappear.
+  await row.click();
+  await expect(conversationList).toBeVisible();
+  await expect(thread.getByText("Hola")).toBeVisible();
+
+  await row.click();
+  await expect(conversationList).toBeVisible();
+  await expect(thread.getByText("Hola")).toBeVisible();
+});

@@ -4,9 +4,51 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: PKG-014 — Asignación de afiliados a delegados — CERRADO 2026-09-28; siguiente UI-8 o UI-10
+## Paquete activo: PKG-014 cerrado; fix post-cierre de un bug real en staging — siguiente UI-8 o UI-10
 
-Último commit: `cc8eeac`.
+Último commit: sin commits todavía de este fix (ver "Estado" al final de este archivo tras el commit de cierre).
+
+### Fix post-cierre (2026-09-28, reportado por el usuario probando staging)
+
+El usuario desplegó PKG-014 a staging (`git push`) y probó `/inbox` ahí
+mismo. Dos problemas reales, detalle completo en `docs/DECISIONS.md`
+(entrada "Fix: migración pendiente en staging + panel roto..."):
+
+1. **`relation "contact_assignments" does not exist` en staging** — la
+   migración `0007_magical_owl.sql` solo se había aplicado contra la base
+   de datos local del agente, nunca contra la de staging (el proyecto no
+   migra automáticamente en el build). Aplicada a mano contra Neon con la
+   cadena de conexión real de staging, verificada con un conteo de filas
+   antes/después para confirmar que era la base correcta (dos intentos
+   previos del usuario, con sintaxis de bash incompatible con su shell
+   `fish`, no habían llegado a aplicarla — ver el hallazgo en
+   `docs/DECISIONS.md`).
+2. **El panel se rompía al volver a hacer clic en la conversación ya
+   abierta** (bug real, no relacionado con la migración): la lista
+   desaparecía y el panel quedaba solo, pegado al borde izquierdo.
+   Reproducido en local, causa identificada (una fila ya seleccionada
+   segunda navegando a su propia URL, que el router de Next no trata como
+   no-op para esta ruta interceptada/paralela) y corregido en `DataList`
+   (`src/components/ui/data-list.tsx`) — no en Inbox específicamente, así
+   que cubre cualquier lista futura con el mismo patrón. Es, casi
+   seguro, el mismo bug que `docs/ui/CHAT.md` §1 dejó anotado como "panel
+   duplicado, sin reproducir" desde el cierre de UI-6: mismo síntoma raíz,
+   patrón de clic distinto al que se probó entonces.
+
+**Verificado con lint+typecheck+295/295 unit-integration+32/32 E2E**
+(reconstruido desde cero) — nuevo test `tests/e2e/inbox.spec.ts::"re-
+clicking the already-open conversation keeps the list next to the
+panel"`.
+
+**Hallazgo de proceso, dos veces en esta misma sesión**: varios procesos
+`next dev`/`next-server` de intentos de depuración anteriores quedaron
+vivos en paralelo (puertos 3000/3001/3002) interfiriendo entre sí — ver
+memoria guardada sobre verificar siempre con `ps aux | grep next` antes
+de fiarse de un resultado que no cuadra, y sobre que este proyecto no
+migra en el deploy (ambas en
+`~/.claude/projects/-home-nacho-Documentos-kindally/memory/`).
+
+---
 
 ### PKG-014 (encargo del 2026-09-28, tras cerrar UI-7)
 

@@ -214,15 +214,26 @@ que la dispare vía `data-[state=open]`. Se añadió la clase directamente al
 `<aside>`; al no depender de ningún atributo, solo se reproduce en el
 montaje (abrir por primera vez), tal como se pretendía.
 
-**Pendiente de reproducir**: un informe de un panel duplicado/lado a lado
-al cambiar de vista (p. ej. "Pendientes" → "Sin identificar") con una
-conversación abierta. No se ha conseguido reproducir tras probar cambio de
-vista simple, clics rápidos por varias vistas, doble/triple clic sobre la
-misma vista, y carga directa seguida de cambio de vista — todas en verde
-tanto en desarrollo como contra `next build && next start`. Si vuelve a
-aparecer, anotar aquí los pasos exactos (¿doble navegador/pestaña?,
-¿conexión lenta?, ¿justo tras un despliegue en frío?) para poder
-reproducirlo de forma fiable.
+**Reproducido y corregido (2026-09-28, PKG-014)**: no era cambiar de
+*vista*, era volver a hacer clic en la **misma fila** de una conversación
+ya abierta — un patrón distinto al probado aquí originalmente. La fila es
+un `<Link href="/inbox/<id>">` sin más; al hacer clic estando ya en esa
+URL, el router de Next no lo trata como el no-op que sería un enlace
+normal a la página actual — para esta ruta interceptada/paralela resolvía
+los *slots* de forma distinta la segunda vez, dejando caer la lista
+entera (no duplicando el panel, como decía el informe original — el
+síntoma real era el panel solo, pegado al borde izquierdo, sin lista al
+lado). Corregido en `DataList`
+(`src/components/ui/data-list.tsx`), no en Inbox: una fila ya seleccionada
+bloquea la navegación en su propio `onClick`
+(`event.preventDefault()` cuando `selected` es `true`), así que el clic
+nunca llega a iniciar esa navegación redundante — arregla la clase
+entera de fallo sin necesitar entender el porqué exacto de cómo Next
+resuelve los *slots* la segunda vez. Test de regresión:
+`tests/e2e/inbox.spec.ts::"re-clicking the already-open conversation
+keeps the list next to the panel"`. Detalle completo en
+`docs/DECISIONS.md` (entrada del 2026-09-28, "Fix: migración pendiente en
+staging + panel roto...").
 
 ## 6. Reutilización
 

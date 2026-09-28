@@ -2353,6 +2353,64 @@ reverificado tras el hallazgo del punto 4**, verificación visual real
 
 ---
 
+## 2026-09-28 — Fix: migración pendiente en staging + panel roto al re-hacer clic en la conversación abierta
+
+**Contexto:** el usuario probó PKG-014 en staging (desplegado tras hacer
+`git push` de esta sesión) y encontró dos problemas reales, ninguno
+cubierto por la suite hasta ahora porque ambos son específicos de un
+entorno desplegado o de un patrón de clic que ningún test ejercitaba.
+
+**Problema 1 — `relation "contact_assignments" does not exist` en
+staging.** La migración `0007_magical_owl.sql` (PKG-014) solo se había
+aplicado contra la base de datos local del agente
+(`npm run db:migrate`, que lee `DATABASE_URL_UNPOOLED`/`DATABASE_URL` del
+`.env` local) — nunca contra la base de datos real que usa el despliegue
+de staging en Vercel. El proyecto no ejecuta migraciones en el build
+(`"build": "next build"`, sin paso de migración), así que aplicarlas en
+cada entorno sigue siendo manual. Se aplicó a mano contra la base de
+datos de staging (Neon) con la cadena de conexión real de ese entorno.
+**Nada que corregir en el código** — es un recordatorio de proceso: toda
+sesión que añada una migración de esquema debe señalarlo explícitamente
+como pendiente de aplicar en cada entorno desplegado, no solo en local.
+
+**Problema 2 — el panel se rompía al volver a hacer clic en la
+conversación ya abierta** (real, encontrado en staging, reproducido
+después en local): la fila era un `<Link href="/inbox/<id>">` sin más;
+al hacer clic estando ya en esa URL, el router de Next no lo trata como
+el no-op que sería un enlace normal a la página actual — para esta ruta
+(interceptada/paralela: `@sheet/(.)[id]` junto a `inbox/page.tsx`)
+resolvió los *slots* de forma distinta la segunda vez, dejando caer la
+lista entera y pinchando el panel solo, pegado al borde izquierdo. Ya
+había un aviso sin reproducir en `docs/ui/CHAT.md` §1 sobre "panel
+duplicado al cambiar de vista con una conversación abierta" — probable-
+mente la misma clase de fallo, con un patrón de clic distinto.
+**Corregido en `DataList`** (`src/components/ui/data-list.tsx`), no en
+Inbox específicamente — cualquier fila ya seleccionada ahora bloquea la
+navegación en su propio `onClick` (`event.preventDefault()` cuando
+`selected` es `true`), así que el clic nunca llega a iniciar esa
+navegación redundante. Arregla la clase entera de fallo sin necesidad de
+entender el porqué exacto de cómo Next resuelve los *slots* la segunda
+vez.
+
+**Hallazgo de proceso, no de producto, durante la investigación**: varios
+procesos `next dev`/`next-server` de sesiones de depuración anteriores
+habían quedado vivos en paralelo (puertos 3000/3001/3002), interfiriendo
+entre sí y con el *hot reload* — un `console.log` de depuración tardó dos
+intentos en aparecer en los logs del navegador porque el servidor que
+respondía no era el que acababa de recompilar. Mismo tipo de causa raíz
+que el hallazgo de servidor obsoleto de la parte 2 de PKG-014: verificar
+siempre con `ps aux | grep next` antes de fiarse de un resultado que no
+cuadra.
+
+**Verificación:** nuevo test E2E
+`tests/e2e/inbox.spec.ts::"re-clicking the already-open conversation
+keeps the list next to the panel"` — abre una conversación y hace clic
+en la misma fila dos veces más, comprobando que la lista y el hilo
+siguen visibles después de cada uno. 295/295 unit+integration, 32/32
+E2E (reconstruido desde cero).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

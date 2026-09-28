@@ -82,6 +82,23 @@ export function DataList<T extends DataListItem>({
               aria-current={selected ? "true" : undefined}
               onFocus={() => setActiveIndex(index)}
               onKeyDown={(event) => handleKeyDown(event, index)}
+              onClick={(event) => {
+                // Re-clicking the already-open row would navigate to the
+                // exact URL the browser is already at. Next's router does
+                // not treat that as a no-op the way a plain same-page link
+                // click would — for a target using intercepted/parallel
+                // routes (Inbox's conversation panel) it can resolve the
+                // slots differently the second time, dropping the list
+                // entirely instead of re-showing it next to the panel
+                // (found live, not in any test — docs/ui/CHAT.md §1 already
+                // flagged a related, previously unreproduced click-pattern
+                // bug in the same area). Never letting the click start a
+                // navigation to where we already are avoids the whole class
+                // of bug outright.
+                if (selected) {
+                  event.preventDefault();
+                }
+              }}
               // `group`: lets `renderItem`'s content use `group-hover:`/
               // `group-focus:` (e.g. a hover background on the whole row).
               className={cn(
