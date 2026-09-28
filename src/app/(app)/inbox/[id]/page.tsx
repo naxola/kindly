@@ -11,8 +11,6 @@ import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbo
 import { buildHref } from "@/app/(app)/inbox/inbox-href";
 import { InboxList } from "@/app/(app)/inbox/inbox-list";
 import { ConversationSheet } from "@/app/(app)/inbox/[id]/conversation-sheet";
-import { PageContainer } from "@/components/patterns/page-container";
-import { PageHeader } from "@/components/patterns/page-header";
 
 /**
  * A direct load of `/inbox/<id>` (URL typed in, bookmarked, or a refresh):
@@ -52,22 +50,16 @@ export default async function ConversationDetailPage({
 
   return (
     <>
-      <div className="h-full min-w-0 flex-1 overflow-y-auto">
-        <PageContainer size="full">
-          <PageHeader
-            title="Inbox"
-            description="Conversaciones de todos los canales conectados. El sistema decide el canal al responder"
-          />
-          <InboxList
-            key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
-            filters={filters}
-            initialConversations={conversations}
-            initialCounts={counts}
-            members={members.map((m) => ({ userId: m.userId, name: m.name }))}
-            isAdmin={member.role === "ADMIN"}
-            availableChannels={availableChannels}
-          />
-        </PageContainer>
+      <div className="flex h-full min-w-0 flex-1">
+        <InboxList
+          key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
+          filters={filters}
+          initialConversations={conversations}
+          initialCounts={counts}
+          members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+          isAdmin={member.role === "ADMIN"}
+          availableChannels={availableChannels}
+        />
       </div>
       <ConversationSheet
         conversationId={id}

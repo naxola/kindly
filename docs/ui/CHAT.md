@@ -143,16 +143,14 @@ Común a los tres:
 - Apertura `slide-in-right` (`--duration-slow`); en anclado, el cambio
   entre conversaciones **no** anima (solo cambia el contenido).
 - Al cerrar, el foco vuelve a la fila de la lista que lo abrió.
-- Anchura: `--sheet-w-md` (560 px) por defecto, `--sheet-w-lg` en `2xl`.
-  En anclado, la lista ocupa el resto; si no cabe (sidebar expandida en
-  1280 px), la sidebar se contrae automáticamente mientras el panel está
-  abierto — implementado con un evento de `window`
-  (`src/components/shell/sidebar-auto-collapse.ts`), no con Contexto de
-  React: el sidebar vive en `AppShell`, por encima del árbol de rutas, y el
-  panel varios segmentos por debajo, sin ningún Server Component en medio
-  por el que enhebrar un Provider. Es un override **temporal** — nunca
-  toca la cookie que guarda la preferencia manual del usuario, y se
-  revierte solo al cerrar el panel.
+- Anchura en anclado: `--sheet-w-sm` (384 px) en `xl`, `--sheet-w-md`
+  (560 px) en `2xl+`; el modal usa `--sheet-w-md`. La lista ocupa el
+  resto. **Abrir el panel nunca toca la sidebar global** (decisión del
+  2026-09-28, ver `docs/DECISIONS.md`): igual que el asistente de
+  Supabase Studio — un panel hermano del contenido que solo estrecha lo
+  que tiene al lado —, el ancho se gana con un panel más estrecho en
+  `xl`, no contrayendo la navegación. Supersede la contracción automática
+  de UI-6 (`sidebar-auto-collapse.ts`, eliminado).
 - `< md`: compositor pegado abajo respetando el teclado virtual (`100dvh`,
   `env(safe-area-inset-bottom)`).
 - La lista del Inbox **sigue sondeando**; el hilo sondea cada 3 s
@@ -186,7 +184,7 @@ nombre. Y el nombre del delegado se ocultaba solo por `sm:` (breakpoint de
 Corregido en `src/app/(app)/inbox/inbox-row.tsx`: `min-w-0 flex-1` en el
 nombre (reclama espacio primero) y el delegado pasa a un breakpoint de
 **contenedor** de Tailwind v4 (`@container` en el envoltorio de la lista,
-`@sm:inline` en vez de `sm:inline`), además de un `max-w-24` para que un
+`@sm:inline` en vez de `sm:inline` — subido a `@lg:inline` el 2026-09-28, cuando la columna del menú de producto estrechó la lista a ~400 px en 1280), además de un `max-w-24` para que un
 nombre de delegado largo no pueda por sí solo desplazar al nombre del
 Contact otra vez.
 

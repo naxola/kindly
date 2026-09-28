@@ -1882,6 +1882,46 @@ camino feliz corto.
 una conversación abierta, no reproducido tras varios intentos (detalle en
 `docs/ui/CHAT.md` §5) — a la espera de pasos de reproducción más precisos.
 
+## 2026-09-28 — Inbox: la conversación anclada no contrae la sidebar; menú de producto estilo Supabase
+
+**Contexto:** el usuario reportó que abrir una conversación contraía la
+sidebar global, y pidió copiar el comportamiento del asistente de IA de
+Supabase Studio (que no contrae ningún menú) y su menú de segundo nivel
+con líneas de separación. Revisado en el repositorio oficial
+(`apps/studio/components/layouts/DefaultLayout.tsx`,
+`ProjectLayout/index.tsx`, `ProjectLayout/LayoutSidebar/index.tsx`,
+`Navigation/ProductMenuBar.tsx`, `components/ui/ProductMenu/index.tsx`):
+el asistente es un `ResizablePanel` hermano de `<main>` — relativo en
+`xl+` (estrecha el contenido), superpuesto por debajo — y la sidebar
+global nunca reacciona a él; el menú de producto es una columna de 256 px
+con cabecera de la altura del header (`border-b`), grupos con título
+monoespaciado en mayúsculas separados por reglas, y `border-r` frente al
+contenido.
+
+**Decisión:** se elimina la contracción automática
+(`src/components/shell/sidebar-auto-collapse.ts` y su escucha en
+`AppSidebar`). El panel anclado mide `--sheet-w-sm` (384 px) en `xl` y
+`--sheet-w-md` (560 px) en `2xl+`, de modo que sidebar expandida + menú +
+lista (~400 px) + panel caben en 1280 px. Nuevo `ProductMenu`
+(`src/components/shell/product-menu.tsx`) para las vistas de Inbox en
+`lg+`; el `PageHeader` muestra la vista activa. En la fila, el nombre del
+delegado pasa de `@sm:inline` a `@lg:inline` para no truncar el nombre del
+Contact con la lista más estrecha.
+
+**Alternativas consideradas:** anclar solo desde `2xl` (1536 px) y usar el
+Sheet modal por debajo — descartada: en 1280 px la lista dejaría de ser
+interactiva con la conversación abierta, justo lo que el modo anclado
+existe para evitar (y el Sheet modal ocultaría la lista al árbol de
+accesibilidad, algo que el E2E de recarga con el panel abierto comprueba).
+Panel redimensionable como el de Supabase — aplazado: añade una
+dependencia (`react-resizable-panels`) sin necesidad concreta todavía.
+
+**Por qué:** la navegación global no debe cambiar por una acción local de
+una página; el usuario lo pidió explícitamente con Supabase de referencia.
+
+**Supersede a:** la parte de "la sidebar se contrae mientras el panel está
+anclado" de la entrada de UI-6 (2026-09-27).
+
 ---
 
 <!--

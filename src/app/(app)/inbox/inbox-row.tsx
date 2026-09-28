@@ -49,7 +49,7 @@ export function InboxRow({
             </Badge>
           )}
           {showDelegate && delegateName && (
-            <span className="hidden max-w-24 shrink-0 truncate type-caption text-foreground-lighter @sm:inline">
+            <span className="hidden max-w-24 shrink-0 truncate type-caption text-foreground-lighter @lg:inline">
               · {delegateName}
             </span>
           )}

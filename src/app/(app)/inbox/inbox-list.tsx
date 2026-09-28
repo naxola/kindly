@@ -6,6 +6,9 @@ import type { ConversationPreview, InboxView, InboxViewCounts } from "@/modules/
 import type { InboxFilters } from "@/app/(app)/inbox/inbox-data";
 import { buildHref } from "@/app/(app)/inbox/inbox-href";
 import { ContextNav, type ContextNavItem } from "@/components/shell/context-nav";
+import { ProductMenu } from "@/components/shell/product-menu";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
 import { DataList } from "@/components/ui/data-list";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { SearchInput } from "@/components/ui/search-input";
@@ -20,6 +23,8 @@ import { useInboxOrderPublisher } from "@/app/(app)/inbox/inbox-order-context";
 const POLL_INTERVAL_MS = 5_000;
 const SEARCH_DEBOUNCE_MS = 300;
 
+const INBOX_DESCRIPTION = "Conversaciones de todos los canales conectados. El sistema decide el canal al responder";
+
 const VIEWS: InboxView[] = ["pending", "unread", "unassigned", "all"];
 const VIEW_LABELS: Record<InboxView, string> = {
   pending: "Pendientes",
@@ -33,6 +38,11 @@ const VIEW_LABELS: Record<InboxView, string> = {
  * the URL) + a dense, keyboard-navigable list that polls for updates
  * without reordering under the reader (§6 — a banner offers the update
  * instead of applying it under the cursor).
+ *
+ * Renders two flex siblings — the full-height `ProductMenu` with the views
+ * (`lg+`) and the scrolling list column — so the caller only provides a
+ * `flex h-full` row. The menu lives here rather than in the route layout
+ * because its counts are this component's polled state.
  */
 export function InboxList({
   filters,
@@ -158,128 +168,135 @@ export function InboxList({
   }));
 
   return (
-    <div className="flex flex-1 flex-col gap-4 lg:flex-row lg:gap-6">
-      <ContextNav label="Bandeja" items={contextItems} />
+    <>
+      <ProductMenu title="Inbox" label="Bandeja" groups={[{ title: "Vistas", items: contextItems }]} />
 
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <FilterBar
-          search={
-            <SearchInput
-              aria-label="Buscar"
-              placeholder="Buscar nombre, teléfono o mensaje"
-              value={searchValue}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              onClear={() => {
-                setSearchValue("");
-                navigate({ search: "" });
-              }}
-            />
-          }
-          filters={
-            <>
-              <NativeSelect
-                aria-label="Canal"
-                value={filters.channel}
-                onChange={(event) => navigate({ channel: event.target.value })}
-                className="w-auto"
-              >
-                <option value="">Todos los canales</option>
-                {availableChannels.map((channel) => (
-                  <option key={channel} value={channel}>
-                    {channel}
-                  </option>
-                ))}
-              </NativeSelect>
-              {isAdmin && (
-                <NativeSelect
-                  aria-label="Delegado"
-                  value={filters.delegateId}
-                  onChange={(event) => navigate({ delegateId: event.target.value })}
-                  className="w-auto"
-                >
-                  <option value="">Todos los delegados</option>
-                  {members.map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-              )}
-            </>
-          }
-          actions={
-            hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchValue("");
-                  navigate({ search: "", channel: "", delegateId: "" });
-                }}
-              >
-                Quitar filtros
-              </Button>
-            )
-          }
-        />
+      <div className="h-full min-w-0 flex-1 overflow-y-auto">
+        <PageContainer size="full">
+          <PageHeader title={VIEW_LABELS[filters.view]} description={INBOX_DESCRIPTION} />
+          <ContextNav label="Bandeja" items={contextItems} className="lg:hidden" />
 
-        {pendingUpdate && (
-          <Alert
-            tone="info"
-            actions={
-              <Button size="sm" variant="primary" onClick={applyPendingUpdate}>
-                Ver
-              </Button>
-            }
-          >
-            {pendingUpdate.newCount > 0
-              ? `${pendingUpdate.newCount} conversación${pendingUpdate.newCount === 1 ? "" : "es"} nueva${pendingUpdate.newCount === 1 ? "" : "s"}`
-              : "Hay actualizaciones en la lista"}
-          </Alert>
-        )}
-
-        <div aria-live="polite" className="sr-only">
-          {pendingUpdate ? `${pendingUpdate.newCount} conversaciones nuevas` : ""}
-        </div>
-
-        {conversations.length === 0 ? (
-          hasActiveFilters ? (
-            <EmptyState
-              variant="inline"
-              title={`Ninguna conversación coincide con «${filters.search}»`}
-              description="Prueba con otro nombre o quita los filtros."
-              action={
-                <Button size="sm" onClick={() => navigate({ search: "", channel: "", delegateId: "" })}>
-                  Quitar filtros
-                </Button>
+          <div className="flex min-w-0 flex-col gap-3">
+            <FilterBar
+              search={
+                <SearchInput
+                  aria-label="Buscar"
+                  placeholder="Buscar nombre, teléfono o mensaje"
+                  value={searchValue}
+                  onChange={(event) => handleSearchChange(event.target.value)}
+                  onClear={() => {
+                    setSearchValue("");
+                    navigate({ search: "" });
+                  }}
+                />
+              }
+              filters={
+                <>
+                  <NativeSelect
+                    aria-label="Canal"
+                    value={filters.channel}
+                    onChange={(event) => navigate({ channel: event.target.value })}
+                    className="w-auto"
+                  >
+                    <option value="">Todos los canales</option>
+                    {availableChannels.map((channel) => (
+                      <option key={channel} value={channel}>
+                        {channel}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  {isAdmin && (
+                    <NativeSelect
+                      aria-label="Delegado"
+                      value={filters.delegateId}
+                      onChange={(event) => navigate({ delegateId: event.target.value })}
+                      className="w-auto"
+                    >
+                      <option value="">Todos los delegados</option>
+                      {members.map((m) => (
+                        <option key={m.userId} value={m.userId}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  )}
+                </>
+              }
+              actions={
+                hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSearchValue("");
+                      navigate({ search: "", channel: "", delegateId: "" });
+                    }}
+                  >
+                    Quitar filtros
+                  </Button>
+                )
               }
             />
-          ) : (
-            <EmptyState variant="inline" title="Todavía no hay conversaciones." />
-          )
-        ) : (
-          <div ref={listContainerRef} className="@container">
-            {/* `@container`: the row's secondary bits (delegate name) hide
-                by the *list column's* own width, not the viewport — the
-                anchored conversation panel (docs/ui/CHAT.md §4) can make
-                this column much narrower than the browser window, which a
-                `sm:` viewport breakpoint would never notice. */}
-            <DataList
-              aria-label="Conversaciones"
-              items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
-              isSelected={(item) => item.conversation.id === openConversationId}
-              renderItem={(item) => (
-                <InboxRow
-                  conversation={item.conversation}
-                  delegateName={delegateNameById.get(item.conversation.delegateId)}
-                  showDelegate={isAdmin}
+
+            {pendingUpdate && (
+              <Alert
+                tone="info"
+                actions={
+                  <Button size="sm" variant="primary" onClick={applyPendingUpdate}>
+                    Ver
+                  </Button>
+                }
+              >
+                {pendingUpdate.newCount > 0
+                  ? `${pendingUpdate.newCount} conversación${pendingUpdate.newCount === 1 ? "" : "es"} nueva${pendingUpdate.newCount === 1 ? "" : "s"}`
+                  : "Hay actualizaciones en la lista"}
+              </Alert>
+            )}
+
+            <div aria-live="polite" className="sr-only">
+              {pendingUpdate ? `${pendingUpdate.newCount} conversaciones nuevas` : ""}
+            </div>
+
+            {conversations.length === 0 ? (
+              hasActiveFilters ? (
+                <EmptyState
+                  variant="inline"
+                  title={`Ninguna conversación coincide con «${filters.search}»`}
+                  description="Prueba con otro nombre o quita los filtros."
+                  action={
+                    <Button size="sm" onClick={() => navigate({ search: "", channel: "", delegateId: "" })}>
+                      Quitar filtros
+                    </Button>
+                  }
                 />
-              )}
-            />
+              ) : (
+                <EmptyState variant="inline" title="Todavía no hay conversaciones." />
+              )
+            ) : (
+              <div ref={listContainerRef} className="@container">
+                {/* `@container`: the row's secondary bits (delegate name) hide
+                    by the *list column's* own width, not the viewport — the
+                    anchored conversation panel (docs/ui/CHAT.md §4) can make
+                    this column much narrower than the browser window, which a
+                    `sm:` viewport breakpoint would never notice. */}
+                <DataList
+                  aria-label="Conversaciones"
+                  items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
+                  isSelected={(item) => item.conversation.id === openConversationId}
+                  renderItem={(item) => (
+                    <InboxRow
+                      conversation={item.conversation}
+                      delegateName={delegateNameById.get(item.conversation.delegateId)}
+                      showDelegate={isAdmin}
+                    />
+                  )}
+                />
+              </div>
+            )}
           </div>
-        )}
+        </PageContainer>
       </div>
-    </div>
+    </>
   );
 }
 

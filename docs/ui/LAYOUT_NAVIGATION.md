@@ -82,8 +82,13 @@ Cada módulo con más de una vista o subsección tiene su menú contextual:
 | Tareas | Pendientes, Completadas, Asignadas a mí |
 | Organización | General, Miembros, Canales, (futuro: Roles y permisos, Actividad) |
 
-- `lg+`: columna vertical `w-context-nav` a la izquierda del contenido,
-  `nav aria-label="<Módulo>"`, con título de sección (`type-overline`).
+- `lg+`: `ProductMenu` (`src/components/shell/product-menu.tsx`, patrón
+  `ProductMenuBar` de Supabase Studio): columna `w-context-nav` a toda la
+  altura del área de contenido, con `border-r` que la separa de la página;
+  cabecera de altura `h-header` con el nombre del módulo y `border-b`;
+  grupos con título `type-overline` monoespaciado y una regla horizontal
+  entre grupos. `nav aria-label="<Módulo>"`. Primer consumidor: Inbox
+  (2026-09-28); Organización (UI-7) debería usar el mismo.
 - `< lg`: fila horizontal con scroll bajo el `PageHeader`.
 - Cada ítem es un **enlace** (cambia la URL o los `searchParams`), con
   `aria-current="page"`. Nunca estado local: la vista se comparte por URL.

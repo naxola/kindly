@@ -47,8 +47,10 @@ este documento define dónde van (§4).
 ## 2. Layout
 
 ```text
-┌ ContextNav (lg+) ┬ Lista (w-inbox-list … flex-1) ─────────────────────────┐
-│ BANDEJA          │ [🔍 Buscar nombre, teléfono o mensaje   /] [Canal ▾]   │
+┌ ProductMenu (lg+)┬ Lista (w-inbox-list … flex-1) ─────────────────────────┐
+│ Inbox            │ Pendientes (PageHeader con la vista activa)            │
+│──────────────────│                                                        │
+│ VISTAS           │ [🔍 Buscar nombre, teléfono o mensaje   /] [Canal ▾]   │
 │ ● Pendientes  4  │ [Delegado ▾ (ADMIN)]                  Ordenar: Reciente│
 │   No leídas   3  │ ───────────────────────────────────────────────────── │
 │   Sin identif. 1 │ (AL)ᵂ Ada Lovelace  [Sin identificar]        10:42  ● │
@@ -59,6 +61,12 @@ este documento define dónde van (§4).
                                           Sheet de conversación → CHAT.md
 ```
 
+- `ProductMenu` (2026-09-28, estilo Supabase Studio): columna a toda
+  altura con cabecera "Inbox" alineada con el header de la app, grupo
+  "VISTAS" y línea vertical que la separa del contenido; lo renderiza
+  `InboxList` (sus contadores son estado sondeado de ese componente). Por
+  debajo de `lg` las mismas vistas son un `ContextNav` horizontal. El
+  título del `PageHeader` es la vista activa.
 - `PageContainer size="full"`; la lista ocupa el ancho disponible, con
   un ancho máximo de lectura; la conversación se abre en `Sheet` a la
   derecha (`CHAT.md`), la lista sigue ahí debajo.
@@ -136,9 +144,9 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
 
 ## 7. Responsive
 
-- `xl+`: ContextNav vertical + lista; conversación **anclada sin velo** a
+- `xl+`: ProductMenu + lista; conversación **anclada sin velo** a
   la derecha, la lista sigue interactiva (`CHAT.md` §4).
-- `lg`: ContextNav vertical estrecho; Sheet ocupa más.
+- `lg`: ProductMenu + lista; conversación en Sheet modal.
 - `md`: vistas como `SegmentedControl` horizontal sobre la lista.
 - `< md`: lista a ancho completo; filtros tras un botón "Filtros" (Sheet
   inferior); la conversación a pantalla completa (`CHAT.md`).

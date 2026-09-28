@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronUp, MessageCircle, MoreHorizontal, X } from "lucide-react";
 import type { ConversationThreadState } from "@/modules/conversations/service";
 import { useInboxFocusList, useInboxOrderList } from "@/app/(app)/inbox/inbox-order-context";
-import { setChatAnchored } from "@/components/shell/sidebar-auto-collapse";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { ConversationThread } from "@/app/(app)/inbox/[id]/conversation-thread";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -76,17 +75,6 @@ export function ConversationSheet(props: ConversationSheetProps) {
   const order = useInboxOrderList();
   const focusListRef = useInboxFocusList();
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // Anchored (docs/ui/CHAT.md §4): sidebar + ContextNav + list + a 560px
-  // panel rarely fit together at once, so the sidebar collapses for as
-  // long as this is open — reverted on close/unmount, never persisted.
-  useEffect(() => {
-    if (!isAnchored) {
-      return;
-    }
-    setChatAnchored(true);
-    return () => setChatAnchored(false);
-  }, [isAnchored]);
 
   const { previousId, nextId } = useMemo(() => {
     const index = order.indexOf(conversationId);
@@ -265,7 +253,11 @@ export function ConversationSheet(props: ConversationSheetProps) {
         // No Radix here to gate this on `data-state=open` (there is no
         // modal), so it just plays once on mount — matches the modal
         // Sheet's own entrance, which the user expects even anchored.
-        className="flex h-full w-sheet-md shrink-0 flex-col border-l border-border bg-surface-200 animate-slide-in-right"
+        // Narrower on `xl` so sidebar + product menu + list + panel fit
+        // side by side without collapsing the sidebar (docs/ui/CHAT.md §4,
+        // same as Supabase Studio's assistant panel: it only ever shrinks
+        // the content next to it, never the navigation).
+        className="flex h-full w-sheet-sm shrink-0 flex-col border-l border-border bg-surface-200 animate-slide-in-right 2xl:w-sheet-md"
       >
         {content}
       </aside>

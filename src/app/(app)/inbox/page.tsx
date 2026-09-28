@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
 import { InboxList } from "@/app/(app)/inbox/inbox-list";
-import { PageContainer } from "@/components/patterns/page-container";
-import { PageHeader } from "@/components/patterns/page-header";
 import { pageTitle } from "@/lib/page-title";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -21,27 +19,21 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     // even when there is no conversation open yet to sit beside it — this
     // markup never re-renders once a conversation opens via soft
     // navigation (the `@sheet` slot changes on its own), so it has to be
-    // flex-ready from the start.
-    <div className="h-full min-w-0 flex-1 overflow-y-auto">
-      <PageContainer size="full">
-        <PageHeader
-          title="Inbox"
-          description="Conversaciones de todos los canales conectados. El sistema decide el canal al responder"
-        />
-
-        {/* Remounts on every filter change (the key), so the poll/banner
-            state below never carries over from a different view/search —
-            docs/ui/INBOX.md §6. */}
-        <InboxList
-          key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
-          filters={filters}
-          initialConversations={conversations}
-          initialCounts={counts}
-          members={members.map((m) => ({ userId: m.userId, name: m.name }))}
-          isAdmin={member.role === "ADMIN"}
-          availableChannels={availableChannels}
-        />
-      </PageContainer>
+    // flex-ready from the start. `InboxList` fills it with the product
+    // menu and the scrolling list column.
+    <div className="flex h-full min-w-0 flex-1">
+      {/* Remounts on every filter change (the key), so the poll/banner
+          state below never carries over from a different view/search —
+          docs/ui/INBOX.md §6. */}
+      <InboxList
+        key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
+        filters={filters}
+        initialConversations={conversations}
+        initialCounts={counts}
+        members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+        isAdmin={member.role === "ADMIN"}
+        availableChannels={availableChannels}
+      />
     </div>
   );
 }

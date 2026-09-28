@@ -166,6 +166,18 @@ detalle completo en `docs/DECISIONS.md` (entrada 2026-09-28) y
 cambiar de vista con una conversación abierta — probado con varios
 patrones de clic sin éxito, ver el mismo apartado de `CHAT.md`.
 
+**Hecho en esta sesión (2026-09-28 — Inbox al estilo Supabase, pedido por
+el usuario):** abrir una conversación ya **no contrae la sidebar** global
+(eliminado `shell/sidebar-auto-collapse.ts`; el panel anclado mide 384 px
+en `xl` y 560 px en `2xl+`), y las vistas de Inbox pasan a un
+`ProductMenu` nuevo (`src/components/shell/product-menu.tsx`) — columna a
+toda altura con cabecera "Inbox", grupo "VISTAS" y línea vertical frente
+al contenido, copiado del `ProductMenuBar` de Supabase Studio tras leer su
+repositorio. Detalle y alternativas en `docs/DECISIONS.md` (entrada
+2026-09-28). Verificado con lint+typecheck+tests+E2E y captura real a 900,
+1280 y 1920 px. El `ProductMenu` es el candidato natural para
+Organización (UI-7).
+
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**
 
