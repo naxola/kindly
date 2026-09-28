@@ -202,7 +202,13 @@ cuota pendiente / baja), trámites en el knowledge base, **Kindly no guarda
 archivos de afiliados** (descarga por proxy sin almacenar + aviso al
 afiliado), ficha visible solo para delegado y ADMIN. Quedan 2 preguntas
 abiertas en `CONVERSATION_WORKSPACE.md` §7 (cómo se entrega el aviso;
-visibilidad frente a que hoy todos ven todo el Inbox).
+visibilidad frente a que hoy todos ven todo el Inbox). **Tercera ronda,
+también incorporada:** aviso = el delegado lo inserta y envía (+
+privacidad); **un afiliado tiene un solo delegado a la vez, con
+histórico; DELEGATE ve los suyos, ADMIN ve todos y reasigna** → nuevo
+paquete **PKG-014** en `project/TASKS.md`, previo a UI-10. Pendiente una
+decisión del usuario: qué pasa con las conversaciones al reasignar (choca
+con el principio de identidad; propuesta en `docs/DECISIONS.md`).
 
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**

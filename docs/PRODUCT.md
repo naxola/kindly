@@ -61,7 +61,11 @@ relación. **No es un usuario de Kindly** (no tiene login).
 - Un `Contact` puede tener varias `Conversation`, en distintos canales
   (WhatsApp, Telegram, y en el futuro email, SMS).
 - Un `Contact` puede tener múltiples `Case`.
-- Un `Contact` puede ser atendido por distintos `DELEGATE`.
+- Un `Contact` tiene **un único `DELEGATE` asignado a la vez**, con
+  histórico de los delegados que lo han atendido antes. Un `DELEGATE` ve
+  sus Contacts; un `ADMIN` ve todos y puede reasignarlos (decisión del
+  usuario, 2026-09-28, `docs/DECISIONS.md` — sustituye a "puede ser
+  atendido por distintos `DELEGATE`"; se implementa en PKG-014).
 - Los teléfonos se almacenan en formato E.164 (`+34600111222`), pero **el
   teléfono nunca es el identificador técnico de la integración** — eso lo dan
   los identificadores externos de cada proveedor (ver `docs/DATABASE.md` y

@@ -603,6 +603,16 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 
 - [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
 
+### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol (planificado 2026-09-28)
+
+Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del afiliado").
+
+- [ ] Tabla `contact_assignments` (`organization_id`, `contact_id`, `delegate_id`, `started_at`, `ended_at`, `assigned_by`), con índice único parcial para una sola asignación activa por Contact; migración que asigna cada Contact existente al delegado de su conversación más reciente.
+- [ ] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió.
+- [ ] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados, ficha, descargas); ADMIN → todo. Tests de permisos + E2E con dos delegados.
+- [ ] Reasignar (solo ADMIN) con registro en actividad; histórico visible en la ficha.
+- [ ] **Decisión pendiente antes de construir:** qué pasa con las conversaciones al reasignar (choque con el principio de identidad, `docs/DECISIONS.md`).
+
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
 
 - [ ] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (se puede empezar ya).

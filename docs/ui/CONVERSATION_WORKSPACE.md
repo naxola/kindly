@@ -45,6 +45,13 @@ Conversación + ficha del afiliado + copiloto, en un único panel. Fase
      un aviso de que la información enviada no se conserva en la
      plataforma (§5.2).
    - **Quién ve la documentación y la ficha**: el delegado y los ADMIN.
+   - **(Tercera ronda, 2026-09-28)** Aviso al afiliado: opción (a) + (c)
+     de §7 — texto que el delegado inserta con un clic y envía él, más la
+     política de privacidad. **Asignación**: un afiliado tiene **un solo
+     delegado a la vez** (con histórico de delegados anteriores); un
+     DELEGATE ve **sus** afiliados; un ADMIN ve todos y puede
+     **reasignarlos**. Es un cambio de dominio y de permisos previo a
+     esta fase: paquete **PKG-014** (`project/TASKS.md`).
 5. **Copiloto dinámico** dentro de la conversación: ayuda que se actualiza
    según fluye la conversación. No tiene por qué copiar la tarjeta del
    sitio público (`src/app/(public)/page.tsx`); el mockup propone una
@@ -219,8 +226,9 @@ pero **sin citar** — y con `EvidenceLevel` acorde.
 
 | Paquete | Alcance | Depende de |
 |---|---|---|
+| **PKG-014** (previo) | Un delegado actual por afiliado + histórico; visibilidad por rol en Inbox, Contactos, ficha y descargas; reasignación por ADMIN | Decisión pendiente sobre las conversaciones al reasignar |
 | **UI-10a** | Panel de dos columnas + ficha de solo lectura con los datos que ya existen (contacto, identificación movida del `Alert`, notas, casos, tareas, otras conversaciones); plegar ficha con preferencia recordada; pestañas por debajo de `xl`; tokens nuevos; E2E camino feliz | Nada — se puede empezar ya |
-| **UI-10b** | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | Nada (preguntas resueltas) |
+| **UI-10b** | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | PKG-014 (quién puede editar = delegado asignado + ADMIN) |
 | **UI-10c** | Metadatos de adjunto en `Message` + descarga por proxy en streaming sin almacenar + aviso al afiliado + sección "Trámite y documentación" | Trámites (`Procedure`, Fase 7) para la lista de requeridos; confirmar plazos de medios de Meta; texto del aviso revisado |
 | **UI-10d** | Resumen de situación | Fase 8 (`LLMProvider`) |
 | **UI-10e** | Copiloto dinámico en la conversación | Fases 7 y 8 |
@@ -231,23 +239,13 @@ Cada paquete cumple la Definition of Done de `CLAUDE.md` §6.
 ## 7. Preguntas abiertas
 
 Resueltas el 2026-09-28: origen de la afiliación (alta manual), lista de
-documentos (trámites en el knowledge base), visibilidad (delegado y
-ADMIN). Quedan:
+documentos (trámites en el knowledge base), visibilidad (delegado
+asignado y ADMIN, ver PKG-014), entrega del aviso (el delegado lo inserta
+y envía; además, política de privacidad).
 
-1. **Cómo recibe el afiliado el aviso de "no guardamos tus documentos"**.
-   Opciones: (a) texto predefinido que el delegado inserta en el
-   compositor con un clic y envía él (coherente con que nada salga sin un
-   humano, `CLAUDE.md` §2); (b) respuesta automática fija la primera vez
-   que el afiliado manda un archivo — sale desde el número del delegado
-   sin que él la escriba, y solo dentro de la ventana de 24 h; (c) solo en
-   la política de privacidad y en el mensaje de bienvenida. Recomendación:
-   (a) + (c).
-2. **Visibilidad frente a lo que hay hoy**: ahora mismo cualquier miembro
-   de la Organization ve todas las conversaciones del Inbox, y un Contact
-   puede ser atendido por varios delegados (`docs/PRODUCT.md`). "El
-   delegado" = ¿los delegados con alguna conversación con ese Contact? ¿Y
-   se restringe también la lista de conversaciones, o solo la ficha y las
-   descargas?
+Queda una, de PKG-014 y no de esta fase: **qué pasa con las
+conversaciones al reasignar un afiliado** (ver `docs/DECISIONS.md`,
+entrada "Asignación de afiliados", y `project/TASKS.md` PKG-014).
 
 ## 8. Criterios de aceptación de la fase
 

@@ -2013,6 +2013,42 @@ datos de salud, art. 9 RGPD) y es decisión explícita del usuario. Nota: el
 indexación con citas (RAG), no como entrenamiento, coherente con
 `CLAUDE.md` §2.3 y §5.
 
+## 2026-09-28 — Asignación de afiliados: un delegado a la vez, visibilidad por rol
+
+**Contexto:** al definir quién ve la ficha del afiliado (UI-10) se vio que
+el modelo actual no tenía "delegado del afiliado": hoy todos los miembros
+ven todo el Inbox y `docs/PRODUCT.md` decía que un Contact puede ser
+atendido por varios delegados.
+
+**Decisión del usuario:** un afiliado tiene **un solo delegado a la vez**
+y puede haber tenido varios en el pasado (histórico); un DELEGATE ve sus
+afiliados; un ADMIN ve todos y puede reasignarlos. Se implementa como
+paquete propio, **PKG-014**, antes de UI-10. Sustituye a la frase de
+`docs/PRODUCT.md` §4 (actualizada).
+
+**Choque con el principio de identidad (`CLAUDE.md` §2.1), sin resolver
+todavía:** una conversación de WhatsApp vive en el número del delegado
+que la recibió. Si el ADMIN reasigna a Marta de Ana a Luis, Luis **no
+puede responder desde el número de Ana** sin romper el principio (y
+sería suplantar a Ana ante Marta). Además, con coexistence, los mensajes
+que Marta siga enviando al número de Ana llegan al móvil de Ana igualmente,
+los muestre Kindly o no. Propuesta (a confirmar por el usuario):
+
+- El historial de conversaciones pasa a ser visible para Luis en **solo
+  lectura**, con la ficha completa.
+- Luis contacta a Marta **desde su propio número**. Si han pasado más de
+  24 h desde el último mensaje de Marta, WhatsApp solo permite una
+  plantilla aprobada (`docs/INTEGRATIONS.md` §2.4), que hoy no existe en
+  Kindly.
+- Ana deja de ver la ficha de Marta, pero **sigue viendo las
+  conversaciones de su propio número** (están en su móvil de todas formas).
+  Si Marta le vuelve a escribir, la conversación muestra "Ahora la atiende
+  Luis" para que Ana la redirija, y se avisa a Luis y al ADMIN.
+
+**Alternativas:** que Luis responda desde el número de Ana (descartada:
+rompe el principio 1); ocultarle a Ana todo lo de Marta (no evita que lo
+vea en su móvil y deja mensajes sin atender).
+
 ---
 
 <!--
