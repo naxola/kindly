@@ -181,6 +181,42 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       expect(unreadOnly).toHaveLength(1);
     });
 
+    it("orders by the latest message in either direction, message-less conversations last", async () => {
+      const { user, org } = await createTestUserAndOrg("Ordering Org");
+      const account = await connectFakeAccount(org.id, user.id);
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Sin mensajes" });
+      const [empty] = await db
+        .insert(conversationsTable)
+        .values({
+          organizationId: org.id,
+          messagingAccountId: account.id,
+          contactId: contact.id,
+          channel: "fake",
+          externalConversationId: `chat-${randomUUID()}`,
+        })
+        .returning();
+
+      await receiveInboundMessage(account.id, { text: "Antiguo" });
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await receiveInboundMessage(account.id, { externalConversationId: `chat-${randomUUID()}`, text: "Nuevo" });
+      const [newest, older] = await listConversationsWithPreview(org.id, {});
+      expect(newest.lastMessage?.body).toBe("Nuevo");
+
+      // Replying to the older conversation makes it the most recent one.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      await db.insert(messagesTable).values({
+        organizationId: org.id,
+        conversationId: older.id,
+        messagingAccountId: account.id,
+        externalMessageId: `msg-${randomUUID()}`,
+        direction: "OUTBOUND",
+        body: "Respuesta",
+      });
+
+      const ordered = await listConversationsWithPreview(org.id, {});
+      expect(ordered.map((c) => c.id)).toEqual([older.id, newest.id, empty.id]);
+    });
+
     it("the pending view is the last message being INBOUND, independent of read state", async () => {
       const { user, org } = await createTestUserAndOrg("Pending View Org");
       const account = await connectFakeAccount(org.id, user.id);

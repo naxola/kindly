@@ -47,37 +47,43 @@ este documento define dónde van (§4).
 ## 2. Layout
 
 ```text
-┌ ProductMenu (lg+)┬ Lista (w-inbox-list … flex-1) ─────────────────────────┐
-│ Inbox            │ Pendientes (PageHeader con la vista activa)            │
-│──────────────────│                                                        │
-│ VISTAS           │ [🔍 Buscar nombre, teléfono o mensaje   /] [Canal ▾]   │
-│ ● Pendientes  4  │ [Delegado ▾ (ADMIN)]                  Ordenar: Reciente│
-│   No leídas   3  │ ───────────────────────────────────────────────────── │
-│   Sin identif. 1 │ (AL)ᵂ Ada Lovelace  [Sin identificar]        10:42  ● │
-│   Todas          │      Necesito ayuda con mi caso…                    2  │
-│                  │ (GH)ᵀ Grace Hopper                           ayer     │
-│                  │      Tú: Te envío el borrador mañana         ✓✓       │
-└──────────────────┴────────────────────────────────────────────────────────┘
+┌ Conversaciones ───────────────────────────────────────────────────────────┐
+│ Todas las conversaciones de tus canales conectados, la más reciente primero│
+│ [🔍 Buscar nombre, teléfono o mensaje] [Todas (12) ▾] [Canal ▾] [Delegado ▾]│
+│ ─────────────────────────────────────────────────────────────────────────  │
+│ (AL)ᵂ ● Ada Lovelace  [Sin identificar]                            10:42    │
+│       Necesito ayuda con mi caso…                                           │
+│ (GH)ᵀ   Grace Hopper                                               ayer     │
+│       Tú: Te envío el borrador mañana                          ✓✓           │
+└─────────────────────────────────────────────────────────────────────────────┘
                                           Sheet de conversación → CHAT.md
 ```
 
-- `ProductMenu` (2026-09-28, estilo Supabase Studio): columna a toda
-  altura con cabecera "Inbox" alineada con el header de la app, grupo
-  "VISTAS" y línea vertical que la separa del contenido; lo renderiza
-  `InboxList` (sus contadores son estado sondeado de ese componente). Por
-  debajo de `lg` las mismas vistas son un `ContextNav` horizontal. El
-  título del `PageHeader` es la vista activa.
-- `PageContainer size="full"`; la lista ocupa el ancho disponible, con
-  un ancho máximo de lectura; la conversación se abre en `Sheet` a la
-  derecha (`CHAT.md`), la lista sigue ahí debajo.
-- **Vistas** (ContextNav, por `searchParams` `?view=`): **Pendientes**
-  (por defecto: último mensaje entrante), No leídas, Sin identificar,
-  Todas. Cada una con contador. Es el orden de "quién necesita atención".
+- **Una sola lista, como WhatsApp** (decisión del usuario, 2026-09-28): la
+  página se llama **"Conversaciones"** (antes "Inbox"; la URL sigue siendo
+  `/inbox`) y muestra todas las conversaciones en un listado; al hacer
+  clic se abre la conversación en el panel. No hay menú lateral de
+  vistas — el `ProductMenu` que tuvo durante unas horas queda para
+  páginas con subsecciones reales (Organización, UI-7).
+- `PageContainer size="full"`; la lista ocupa el ancho disponible; la
+  conversación se abre en `Sheet` a la derecha (`CHAT.md`), la lista
+  sigue ahí debajo.
+- **Vistas como filtro** ("Mostrar", desplegable en el `FilterBar`, por
+  `searchParams` `?view=`): **Todas** (por defecto), No leídas,
+  Pendientes de respuesta (último mensaje entrante), Sin identificar —
+  cada opción con su contador.
+- **No leídas**: punto verde (`bg-primary`) y nombre en negrita. Se
+  apaga en cuanto se abre la conversación, sin esperar al siguiente
+  sondeo de la lista (`InboxList`, estado `readUpTo`).
+- **Orden**: último mensaje, entrante o saliente — responder sube la
+  conversación arriba. Las conversaciones sin mensajes van al final
+  (`coalesce` con la fecha de creación: en PostgreSQL un `DESC` a secas
+  pone los `NULL` primero).
 - **Filtros** (FilterBar): búsqueda (nombre, teléfono, texto del último
   mensaje), canal, delegado (solo ADMIN). Todo en la URL: compartible y
   sobrevive al refresco. "Quitar filtros" cuando hay alguno.
-- **Orden**: por actividad reciente (defecto); en Pendientes, opción "Más
-  antiguas primero" (quien lleva más tiempo esperando).
+- (Aplazado) En "Pendientes de respuesta", opción "Más antiguas primero"
+  (quien lleva más tiempo esperando).
 
 ## 3. Fila de conversación (densidad)
 
@@ -132,7 +138,7 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
   recibidos contra el actual: mismo orden → aplica en el sitio (previews,
   no leída); orden distinto → lo retiene y muestra un aviso
   "N conversaciones nuevas · Ver" en vez de mover filas bajo el cursor. Los
-  contadores del ContextNav sí se actualizan siempre, aunque el aviso siga
+  contadores del filtro "Mostrar" sí se actualizan siempre, aunque el aviso siga
   pendiente de aceptar.
 - Cargando: skeleton de 8 filas con la forma real. Vacío inicial:
   `EmptyState` "Todavía no hay conversaciones" + "Conectar canal" (si no
@@ -144,9 +150,9 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
 
 ## 7. Responsive
 
-- `xl+`: ProductMenu + lista; conversación **anclada sin velo** a
+- `xl+`: lista; conversación **anclada sin velo** a
   la derecha, la lista sigue interactiva (`CHAT.md` §4).
-- `lg`: ProductMenu + lista; conversación en Sheet modal.
+- `lg`: lista; conversación en Sheet modal.
 - `md`: vistas como `SegmentedControl` horizontal sobre la lista.
 - `< md`: lista a ancho completo; filtros tras un botón "Filtros" (Sheet
   inferior); la conversación a pantalla completa (`CHAT.md`).

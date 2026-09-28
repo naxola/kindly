@@ -6,7 +6,7 @@ import { pageTitle } from "@/lib/page-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   const member = await requireCurrentOrganizationMember();
-  return { title: pageTitle("Inbox", member.organizationName) };
+  return { title: pageTitle("Conversaciones", member.organizationName) };
 }
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<InboxSearchParams> }) {
@@ -19,8 +19,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
     // even when there is no conversation open yet to sit beside it — this
     // markup never re-renders once a conversation opens via soft
     // navigation (the `@sheet` slot changes on its own), so it has to be
-    // flex-ready from the start. `InboxList` fills it with the product
-    // menu and the scrolling list column.
+    // flex-ready from the start. `InboxList` is the scrolling list
+    // column inside it.
     <div className="flex h-full min-w-0 flex-1">
       {/* Remounts on every filter change (the key), so the poll/banner
           state below never carries over from a different view/search —

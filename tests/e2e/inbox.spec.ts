@@ -95,8 +95,8 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
-  // "Sin identificar" also names a ContextNav view — scope to the list so
-  // the badge is unambiguous.
+  // "Sin identificar" also names an option of the "Mostrar" filter — scope
+  // to the list so the badge is unambiguous.
   const conversationList = page.getByRole("list", { name: "Conversaciones" });
   await expect(conversationList.getByText("Sin identificar", { exact: true })).toBeVisible();
 
@@ -108,6 +108,9 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   const thread = page.getByRole("log", { name: "Mensajes" });
   await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
   await expect(page.getByText("Contacto no identificado")).toBeVisible();
+  // Opening it clears its unread state in the list at once, not only on the
+  // list's next 5 s poll (the short timeout is what tells the two apart).
+  await expect(conversationList.getByText(contactName)).not.toHaveClass(/font-semibold/, { timeout: 1_000 });
 
   // A direct load of the same URL (docs/ui/CHAT.md §1: interception only
   // applies to the soft navigation that just opened it) must render the
@@ -120,7 +123,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await expect(page.getByText("Contacto no identificado")).toHaveCount(0);
 
   // Back in the list, the unread dot and the badge are both gone.
-  await page.getByRole("link", { name: "Inbox", exact: true }).click();
+  await page.getByRole("link", { name: "Conversaciones", exact: true }).click();
   await expect(page).toHaveURL(/\/inbox$/);
   await expect(page.getByRole("list", { name: "Conversaciones" }).getByText("Sin identificar", { exact: true })).toHaveCount(0);
   await expect(page.getByText(contactName)).not.toHaveClass(/font-semibold/);
@@ -202,10 +205,10 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   expect(echoResponse.status()).toBe(200);
 
   // The last message is OUTBOUND (echoed from the phone), so there is
-  // nothing "pending" from the Contact — the default view hides it
-  // (docs/ui/INBOX.md §2); it still shows up under "Todas".
+  // nothing "pending" from the Contact — but the default view is "Todas"
+  // (docs/ui/INBOX.md §2), every conversation, like a WhatsApp chat list.
   await expect(async () => {
-    await page.goto("/inbox?view=all");
+    await page.goto("/inbox");
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
@@ -294,7 +297,7 @@ test("a second organization sees none of the first organization's inbox", async 
   await expect(pageB.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await expect(pageB.getByText(delegateName)).toHaveCount(0);
 
-  await pageB.getByRole("link", { name: "Inbox" }).click();
+  await pageB.getByRole("link", { name: "Conversaciones", exact: true }).click();
   await expect(pageB.getByText("Todavía no hay conversaciones.")).toBeVisible();
   await contextB.close();
 });

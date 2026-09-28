@@ -616,7 +616,12 @@ export async function listConversationsWithPreview(
         inboxViewCondition(filters.view ?? "all", lastMessage),
       ),
     )
-    .orderBy(desc(lastMessage.createdAt));
+    // Newest activity first, inbound or outbound — a reply moves its
+    // conversation to the top, same as a WhatsApp chat list. `coalesce`
+    // with the conversation's own creation time: a bare `DESC` sorts NULLs
+    // first in PostgreSQL, which would pin every message-less conversation
+    // above all real activity.
+    .orderBy(desc(sql`coalesce(${lastMessage.createdAt}, ${conversations.createdAt})`));
 
   return rows.map((row): ConversationPreview => ({
     id: row.conversation.id,

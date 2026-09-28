@@ -178,6 +178,16 @@ repositorio. Detalle y alternativas en `docs/DECISIONS.md` (entrada
 1280 y 1920 px. El `ProductMenu` es el candidato natural para
 Organización (UI-7).
 
+**Después, en la misma sesión (feedback del usuario):** vistas del
+`ProductMenu` → desplegable "Mostrar" en el `FilterBar` (por defecto
+**Todas**, como una lista de chats de WhatsApp); el módulo pasa a llamarse
+**"Conversaciones"** (URL `/inbox` sin cambios); conversaciones sin
+mensajes al final del orden (antes salían primero por `NULL` en `DESC`,
+test de integración nuevo); el punto verde de no leída se apaga al abrir
+la conversación sin esperar al sondeo (aserción E2E nueva).
+`ProductMenu` queda sin consumidor, reservado para UI-7. Detalle en
+`docs/DECISIONS.md` (segunda entrada del 2026-09-28).
+
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**
 

@@ -14,7 +14,7 @@ export default function InboxError({ error, reset }: { error: Error & { digest?:
 
   return (
     <PageContainer size="full">
-      <PageHeader title="Inbox" />
+      <PageHeader title="Conversaciones" />
       <Alert tone="destructive" live title="No se pudo cargar la bandeja" actions={<Button onClick={reset}>Reintentar</Button>}>
         Vuelve a intentarlo en un momento. Si el problema sigue, avisa al equipo técnico.
       </Alert>

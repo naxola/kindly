@@ -11,7 +11,7 @@ import type { InboxFilters } from "@/app/(app)/inbox/inbox-data";
  */
 export function buildHref(pathname: string, filters: InboxFilters): string {
   const params = new URLSearchParams();
-  if (filters.view !== "pending") params.set("view", filters.view);
+  if (filters.view !== "all") params.set("view", filters.view);
   if (filters.search) params.set("search", filters.search);
   if (filters.channel) params.set("channel", filters.channel);
   if (filters.delegateId) params.set("delegateId", filters.delegateId);

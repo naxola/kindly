@@ -76,7 +76,7 @@ Cada módulo con más de una vista o subsección tiene su menú contextual:
 
 | Módulo | ContextNav |
 |---|---|
-| Inbox | Vistas: Pendientes, No leídas, Sin identificar, Todas (con contadores) — ver `INBOX.md` |
+| Conversaciones (`/inbox`) | Ninguno: las vistas son un filtro desplegable "Mostrar" en el `FilterBar` (2026-09-28) — ver `INBOX.md` |
 | Contactos | (ninguno hasta que haya segmentos) |
 | Casos | Por estado (Abiertos, En curso, Cerrados) cuando el lifecycle lo justifique (Fase 6 del producto) |
 | Tareas | Pendientes, Completadas, Asignadas a mí |
@@ -87,8 +87,9 @@ Cada módulo con más de una vista o subsección tiene su menú contextual:
   altura del área de contenido, con `border-r` que la separa de la página;
   cabecera de altura `h-header` con el nombre del módulo y `border-b`;
   grupos con título `type-overline` monoespaciado y una regla horizontal
-  entre grupos. `nav aria-label="<Módulo>"`. Primer consumidor: Inbox
-  (2026-09-28); Organización (UI-7) debería usar el mismo.
+  entre grupos. `nav aria-label="<Módulo>"`. Sin consumidor ahora mismo
+  (Inbox lo usó unas horas el 2026-09-28 y volvió a una sola lista);
+  reservado para Organización (UI-7).
 - `< lg`: fila horizontal con scroll bajo el `PageHeader`.
 - Cada ítem es un **enlace** (cambia la URL o los `searchParams`), con
   `aria-current="page"`. Nunca estado local: la vista se comparte por URL.

@@ -18,7 +18,7 @@ export interface NavItem {
  * module (docs/ui/PRINCIPLES.md §5).
  */
 export const NAV_ITEMS: NavItem[] = [
-  { href: "/inbox", label: "Inbox", icon: Inbox },
+  { href: "/inbox", label: "Conversaciones", icon: Inbox },
   { href: "/contacts", label: "Contactos", icon: Contact },
   { href: "/cases", label: "Casos", icon: Briefcase },
   { href: "/tasks", label: "Tareas", icon: ListChecks },

@@ -19,7 +19,7 @@ el móvil es consulta rápida y respuesta puntual. Nada puede romperse a
 | Dialog | Casi pantalla completa (margen 16 px), acciones apiladas | Centrado | Centrado |
 | Sheet (general) | `w-full` | `max-w-sheet-md` | `max-w-sheet-md/lg` |
 | Conversación | Pantalla completa, "← Volver", compositor fijo abajo con `safe-area` | Sheet `w-full` hasta `md`, luego `sheet-md` | Sheet `md` (`lg` en `2xl`) |
-| Inbox | Lista a ancho completo, filtros tras botón "Filtros" | Vistas en `SegmentedControl` | ContextNav de vistas + lista |
+| Conversaciones (`/inbox`) | Lista a ancho completo, filtros (incl. "Mostrar") en el `FilterBar` | Igual | Lista; conversación anclada en `xl+` |
 
 ## Reglas
 

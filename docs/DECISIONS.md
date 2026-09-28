@@ -1922,6 +1922,34 @@ una página; el usuario lo pidió explícitamente con Supabase de referencia.
 **Supersede a:** la parte de "la sidebar se contrae mientras el panel está
 anclado" de la entrada de UI-6 (2026-09-27).
 
+## 2026-09-28 — Inbox pasa a "Conversaciones": una sola lista, vistas como filtro
+
+**Contexto:** tras ver el `ProductMenu` en Inbox, el usuario señaló que
+vistas como "Pendientes" o "Sin identificar" no existen en WhatsApp: la
+página debe ser, como en WhatsApp, un listado de todas las conversaciones
+por fecha, con las no leídas marcadas con un punto verde, y al hacer clic
+se abre el chat. El menú lateral se guarda para otras páginas.
+
+**Decisión:** las vistas pasan a un desplegable "Mostrar" en el
+`FilterBar`, con **Todas** por defecto (antes Pendientes); "Pendientes"
+se renombra "Pendientes de respuesta". El módulo se llama
+**"Conversaciones"** en la navegación, el título y el `<title>`; la URL
+`/inbox` y los nombres en código no cambian (evita tocar rutas, E2E y
+enlaces sin ganancia visible). El orden (último mensaje, en cualquier
+dirección) ya era el pedido; se corrige que las conversaciones sin
+mensajes salían **primeras** (`DESC` con `NULL` en PostgreSQL) con un
+`coalesce` a la fecha de creación. El punto de no leída se apaga al abrir
+la conversación, sin esperar al sondeo de 5 s. `ProductMenu`/`ContextNav`
+se conservan sin consumidor, para Organización (UI-7).
+
+**Alternativas consideradas:** nombre "Chats" (más cercano a WhatsApp,
+pero anglicismo; el resto de módulos usa español) — el usuario puede
+pedir otro, es un cambio de una línea. Renombrar también la URL a
+`/conversations` — aplazado, no aporta nada visible.
+
+**Supersede a:** la parte de "vistas en `ProductMenu`" de la entrada
+anterior del mismo día, y la excepción "Inbox" de `docs/ui/PRINCIPLES.md` §5.
+
 ---
 
 <!--

@@ -10,7 +10,7 @@ import {
 const VALID_VIEWS: InboxView[] = ["pending", "unread", "unassigned", "all"];
 
 function parseView(value: string | undefined): InboxView {
-  return VALID_VIEWS.includes(value as InboxView) ? (value as InboxView) : "pending";
+  return VALID_VIEWS.includes(value as InboxView) ? (value as InboxView) : "all";
 }
 
 export interface InboxSearchParams {

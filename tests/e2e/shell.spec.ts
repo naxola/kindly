@@ -31,7 +31,7 @@ test("skip link jumps past the shell straight to the content", async ({ page }) 
 test("the active nav item is marked current and survives navigating between modules", async ({ page }) => {
   await register(page, `Nav ${randomUUID().slice(0, 8)}`);
 
-  const inboxLink = page.getByRole("link", { name: "Inbox", exact: true });
+  const inboxLink = page.getByRole("link", { name: "Conversaciones", exact: true });
   await expect(inboxLink).toHaveAttribute("aria-current", "page");
 
   await page.getByRole("link", { name: "Contactos" }).click();
@@ -44,21 +44,21 @@ test("collapsing the sidebar is remembered across a reload", async ({ page }) =>
   await register(page, `Collapse ${randomUUID().slice(0, 8)}`);
 
   const expandedNav = page.getByRole("navigation", { name: "Principal" });
-  await expect(expandedNav.getByText("Inbox", { exact: true })).toBeVisible();
+  await expect(expandedNav.getByText("Conversaciones", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Contraer menú" }).click();
   // The label switches to "Expandir menú" and item labels hide (icon-only,
   // with the name only in the accessible tree via aria-label).
   const collapseToggle = page.getByRole("button", { name: "Expandir menú" });
   await expect(collapseToggle).toBeVisible();
-  await expect(expandedNav.getByText("Inbox", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Inbox", exact: true })).toBeVisible();
+  await expect(expandedNav.getByText("Conversaciones", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Conversaciones", exact: true })).toBeVisible();
 
   // Persisted server-side (cookie), not just client state: a hard reload
   // must render collapsed from the very first paint, no flash.
   await page.reload();
   await expect(page.getByRole("button", { name: "Expandir menú" })).toBeVisible();
-  await expect(expandedNav.getByText("Inbox", { exact: true })).toHaveCount(0);
+  await expect(expandedNav.getByText("Conversaciones", { exact: true })).toHaveCount(0);
 
   await collapseToggle.click();
   await expect(page.getByRole("button", { name: "Contraer menú" })).toBeVisible();

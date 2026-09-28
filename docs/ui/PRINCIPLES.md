@@ -101,8 +101,9 @@ Adaptado de la guía de copywriting de Supabase a español y a nuestro usuario
 - **Sin marketing dentro de la app** ("fácilmente", "potente").
 - **Terminología de dominio consistente**: en la UI se usa el término
   español (Contactos, Casos, Tareas, Miembros, Organización, Canales); los
-  nombres del modelo (`Contact`, `Case`) quedan en código. **Excepción:
-  "Inbox"** se mantiene como nombre propio del módulo, porque es como lo
-  llama el propio usuario. La migración de los textos que hoy están en
+  nombres del modelo (`Contact`, `Case`) quedan en código. El módulo
+  que se llamó "Inbox" pasó a **"Conversaciones"** el 2026-09-28, a
+  petición del usuario (la URL `/inbox` y los nombres en código se
+  mantienen). La migración de los textos que hoy están en
   inglés ("Contacts", "Cases", "Tasks") se hace en la Fase 4 **junto con
   sus E2E**.
