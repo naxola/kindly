@@ -6,7 +6,7 @@
 
 ## Paquete activo: PKG-014 cerrado; fix post-cierre de un bug real en staging — siguiente UI-8 o UI-10
 
-Último commit: sin commits todavía de este fix (ver "Estado" al final de este archivo tras el commit de cierre).
+Último commit: `f8e0dd9`.
 
 ### Fix post-cierre (2026-09-28, reportado por el usuario probando staging)
 
