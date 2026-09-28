@@ -6,7 +6,7 @@
 
 ## Paquete activo: rediseño UI/UX — UI-0…UI-6 cerrados el 2026-09-27; siguiente UI-7
 
-Último commit: `cd5df77`.
+Último commit: `98d41b9`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -514,7 +514,7 @@ triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
-Último commit: `cd5df77`.
+Último commit: `98d41b9`.
 
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra
