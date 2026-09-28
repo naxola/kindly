@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-27 (cierre de UI-6, conversación en Sheet).
+Última actualización: 2026-09-28 (Inbox → Conversaciones; fase UI-10 planificada).
 
 ## Resumen en una línea
 
@@ -72,6 +72,7 @@ persistente, anterior/siguiente) completos; siguiente: `UI-7`, Organización.
 | **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | UI-7 … UI-9 | Organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| UI-10 | Espacio de respuesta: conversación + ficha del afiliado + copiloto | Código (agente) | ⚪ Planificada (2026-09-28) — `docs/ui/CONVERSATION_WORKSPACE.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

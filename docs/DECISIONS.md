@@ -1950,6 +1950,33 @@ pedir otro, es un cambio de una línea. Renombrar también la URL a
 **Supersede a:** la parte de "vistas en `ProductMenu`" de la entrada
 anterior del mismo día, y la excepción "Inbox" de `docs/ui/PRINCIPLES.md` §5.
 
+## 2026-09-28 — Espacio de respuesta: un panel con chat + ficha del afiliado; copiloto sobre el compositor
+
+**Contexto:** el usuario quiere que, al abrir una conversación, el
+delegado vea a la vez la información relevante del afiliado (afiliación
+activa y desde cuándo, número, documentación aportada, resumen de la
+situación) y un copiloto que ayude según avanza la conversación. Preguntó
+si la ficha y el chat debían abrirse a la vez.
+
+**Decisión (aceptada por el usuario):** un **único panel** que se desliza
+desde la derecha con dos columnas (chat + ficha), no dos paneles
+independientes; se abre con un clic en la fila entera; la ficha es de
+**solo lectura** en la primera versión. El copiloto va entre el historial
+y el compositor (donde se escribe), no en la ficha; "Usar como borrador"
+solo rellena el compositor. Se planifica como fase UI-10 (paquetes
+UI-10a…f) en `docs/ui/CONVERSATION_WORKSPACE.md`, sin código todavía;
+mockup estático con datos ficticios en `docs/ui/mockups/`.
+
+**Alternativas consideradas:** dos paneles que se abren por separado
+(doble animación, dos cierres, estados huérfanos como una ficha sin chat);
+abrir la ficha con clic solo en el texto del último mensaje (no
+descubrible, y la fila es un único enlace por accesibilidad); copiloto en
+la columna de la ficha (lejos de donde se escribe la respuesta).
+
+**Por qué:** contestar necesita ver chat y contexto a la vez; un panel
+único mantiene un solo modelo de apertura/cierre/foco, ya resuelto en
+UI-6.
+
 ---
 
 <!--

@@ -39,6 +39,7 @@ resto de paquetes.
 | [`ORGANIZATION.md`](ORGANIZATION.md) | La organización como eje de navegación: miembros, roles, ajustes |
 | [`INBOX.md`](INBOX.md) | Diseño operativo de la bandeja |
 | [`CHAT.md`](CHAT.md) | Conversación (WhatsApp/Telegram) en Sheet lateral |
+| [`CONVERSATION_WORKSPACE.md`](CONVERSATION_WORKSPACE.md) | Fase UI-10 (planificada): panel chat + ficha del afiliado + copiloto; mockup en `mockups/` |
 | [`ACCESSIBILITY.md`](ACCESSIBILITY.md) | Requisitos de accesibilidad por componente y por página |
 | [`RESPONSIVE.md`](RESPONSIVE.md) | Breakpoints y estrategia por superficie |
 | [`ROADMAP.md`](ROADMAP.md) | Fases 0–9 con objetivo, alcance, criterios y estado |

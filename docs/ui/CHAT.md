@@ -92,7 +92,8 @@ src/app/(app)/inbox/
   con `Send`; indicación de ventana de servicio. Ventana cerrada → el
   compositor se sustituye por el `Alert` warning actual (texto de
   PKG-013/PKG-005, no se suaviza).
-- **Futuro copiloto** (Fase 8 del producto): panel colapsable entre
+- **Futuro copiloto** (Fase 8 del producto; diseño detallado y ficha del
+  afiliado al lado en `CONVERSATION_WORKSPACE.md`, fase UI-10): panel colapsable entre
   historial y compositor con el borrador en `font-document`, fuentes,
   vigencia y `EvidenceLevel`; "Usar borrador" solo **rellena** el
   compositor. Nunca un botón que envíe la sugerencia (`CLAUDE.md` §2).

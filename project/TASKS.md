@@ -603,6 +603,15 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 
 - [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
 
+### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
+
+- [ ] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (se puede empezar ya).
+- [ ] UI-10b — `Membership` (afiliación: número, estado, desde/hasta) + sección en la ficha. Bloqueado por: origen de los datos (pregunta abierta §7.1).
+- [ ] UI-10c — Adjuntos de WhatsApp (`MessageAttachment`, storage R2, visor) + sección Documentación. Absorbe "imágenes entrantes".
+- [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
+- [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
+- [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
+
 ## Fase 6 — Cases
 
 - [ ] Ciclo de vida completo de `Case` (transiciones de estado).

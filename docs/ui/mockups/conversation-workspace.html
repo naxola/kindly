@@ -1,0 +1,437 @@
+<title>Espacio de respuesta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Literata:opsz,wght@7..72,400;7..72,500&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /* Mockup estático de UI-10 (docs/ui/CONVERSATION_WORKSPACE.md). Valores
+     copiados de src/styles/tokens.css (tema claro, el único que existe hoy).
+     Todos los datos son ficticios. */
+  :root {
+    color-scheme: light;
+    --background: #ffffff;
+    --background-muted: #f5f7f9;
+    --surface-300: #eef1f5;
+    --state-hover: #eef1f5;
+    --state-selected: #e6eaf0;
+    --foreground: #101c33;
+    --foreground-light: #46556f;
+    --foreground-lighter: #5b6880;
+    --foreground-muted: #9aa5b8;
+    --border: #dde3ea;
+    --border-strong: #c5cdd9;
+    --border-control: #6f7c94;
+    --primary: #15654a;
+    --primary-hover: #0f5540;
+    --primary-soft: #eef6f2;
+    --primary-soft-foreground: #0f5540;
+    --primary-border: #c2ddcf;
+    --ring: #1f7a5a;
+    --warning-soft: #fcf6e6;
+    --warning-soft-foreground: #6f4f0f;
+    --warning-border: #ecd7a3;
+    --info-soft: #eff4fb;
+    --info-soft-foreground: #244786;
+    --info-border: #bcd0ec;
+    --destructive-soft: #fdf1f0;
+    --destructive-soft-foreground: #8c2f2f;
+    --destructive-border: #f0c3bf;
+    --evidence-partial: #8a6314;
+    --alert: #8c2f2f;
+    --bubble-inbound: #eef1f5;
+    --bubble-outbound: #eef6f2;
+    --bubble-outbound-border: #c2ddcf;
+    --read-receipt: #2f5aa8;
+    --shadow-md: 0 1px 2px rgb(16 28 51 / 0.05), 0 8px 24px -12px rgb(16 28 51 / 0.18);
+    --radius-control: 6px;
+    --radius-card: 10px;
+    --radius-bubble: 12px;
+    --font-sans: "Inter", system-ui, sans-serif;
+    --font-document: "Literata", Georgia, serif;
+    --font-mono: "Geist Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background-muted);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.43;
+    padding-inline: 16px;
+    padding-block: 24px 48px;
+  }
+  button { font: inherit; color: inherit; }
+  button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  .intro { max-width: 72ch; margin: 0 auto 20px; display: flex; flex-direction: column; gap: 8px; }
+  .intro h1 { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.012em; text-wrap: balance; }
+  .intro p { margin: 0; color: var(--foreground-light); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .chip {
+    border: 1px solid var(--border-strong); background: var(--background); border-radius: 999px;
+    padding: 4px 12px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--foreground-light);
+  }
+  .chip[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary-border); color: var(--primary-soft-foreground); }
+
+  /* The "screen": a real 1440px desktop frame, scrollable on its own on
+     narrower viewports so the page body never scrolls sideways. */
+  .viewport { overflow-x: auto; max-width: 1480px; margin: 0 auto; border-radius: var(--radius-card); box-shadow: var(--shadow-md); }
+  .screen {
+    width: 1440px; height: 940px; background: var(--background); display: grid;
+    grid-template-rows: 48px 1fr; border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden;
+  }
+  .app-header { display: flex; align-items: center; gap: 10px; padding: 0 20px; border-bottom: 1px solid var(--border); }
+  .app-header strong { font-size: 15px; }
+  .app-header .crumb { color: var(--foreground-lighter); font-size: 12px; }
+  .app-header .me { margin-left: auto; display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 13px; }
+  .body { display: grid; grid-template-columns: 224px 296px 1fr; min-height: 0; }
+  .body.ficha-closed .panel { grid-template-columns: 1fr 0; }
+
+  .sidebar { background: var(--background-muted); border-right: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .nav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-control); color: var(--foreground-light); font-size: 13px; font-weight: 500; position: relative; }
+  .nav.active { background: var(--state-selected); color: var(--foreground); }
+  .nav.active::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 2px; border-radius: 2px; background: var(--primary); }
+  .nav .count { margin-left: auto; background: var(--primary); color: #fff; border-radius: 999px; font-size: 11px; min-width: 20px; text-align: center; padding: 0 6px; }
+  .ico { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+  .list-head { padding: 20px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .list-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.012em; }
+  .fake-input { height: 34px; border: 1px solid var(--border-control); border-radius: var(--radius-control); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--foreground-lighter); font-size: 13px; }
+  .fake-row { display: flex; gap: 8px; }
+  .fake-row .fake-input { flex: 1; justify-content: space-between; color: var(--foreground); }
+  .rows { overflow: auto; }
+  .row { display: flex; gap: 10px; padding: 10px 16px; border-left: 2px solid transparent; }
+  .row.selected { background: var(--state-selected); border-left-color: var(--primary); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-300); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--foreground-light); flex: none; }
+  .row-main { min-width: 0; flex: 1; }
+  .row-top { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); flex: none; }
+  .name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+  .unread .name { font-weight: 600; }
+  .time { font-size: 12px; color: var(--foreground-lighter); flex: none; }
+  .unread .time { color: var(--primary); font-weight: 600; }
+  .preview { font-size: 12px; color: var(--foreground-lighter); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* The one panel, two columns (decision 2026-09-28). */
+  .panel { display: grid; grid-template-columns: 1fr 340px; min-height: 0; transition: grid-template-columns 200ms ease; animation: slide-in 280ms cubic-bezier(.2,.8,.2,1); }
+  @keyframes slide-in { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .panel { animation: none; transition: none; } }
+
+  .chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--background); }
+  .panel-head { height: 64px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+  .panel-head .who { min-width: 0; }
+  .panel-head .who b { display: block; font-size: 15px; }
+  .panel-head .who span { font-size: 13px; color: var(--foreground-lighter); }
+  .head-actions { margin-left: auto; display: flex; gap: 2px; }
+  .icon-btn { width: 28px; height: 28px; border: 0; background: none; border-radius: var(--radius-control); display: grid; place-items: center; color: var(--foreground-light); cursor: pointer; }
+  .icon-btn:hover { background: var(--state-hover); }
+  .icon-btn[aria-pressed="true"] { background: var(--state-selected); color: var(--foreground); }
+
+  .thread { flex: 1; overflow: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .day { text-align: center; font-size: 12px; color: var(--foreground-lighter); margin: 6px 0; }
+  .bubble { max-width: 70%; padding: 8px 12px; border-radius: var(--radius-bubble); font-size: 14px; }
+  .bubble small { display: block; text-align: right; font-size: 11px; color: var(--foreground-lighter); margin-top: 2px; }
+  .in { background: var(--bubble-inbound); align-self: flex-start; }
+  .out { background: var(--bubble-outbound); border: 1px solid var(--bubble-outbound-border); align-self: flex-end; }
+  .ticks { color: var(--read-receipt); }
+  .attachment { display: flex; align-items: center; gap: 10px; background: var(--background); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 4px; font-size: 13px; }
+  .attachment .thumb { width: 36px; height: 44px; border-radius: 4px; background: repeating-linear-gradient(0deg, var(--surface-300) 0 4px, var(--background) 4px 7px); border: 1px solid var(--border); flex: none; }
+
+  /* Copilot: between history and composer (docs/ui/CHAT.md §2). */
+  .copilot { margin: 0 20px 12px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--background); box-shadow: var(--shadow-md); flex: none; }
+  .copilot-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .copilot-head b { font-size: 13px; font-weight: 600; }
+  .live { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--foreground-lighter); display: inline-flex; align-items: center; gap: 6px; }
+  .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ring); }
+  .evidence { white-space: nowrap; flex: none; margin-left: auto; font-size: 12px; font-weight: 500; color: var(--warning-soft-foreground); background: var(--warning-soft); border: 1px solid var(--warning-border); border-radius: 999px; padding: 1px 10px; }
+  .copilot-body { max-height: 236px; overflow: auto; padding: 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+  .copilot-body .full { grid-column: 1 / -1; }
+  .label { font-size: 12px; color: var(--foreground-lighter); margin-bottom: 3px; }
+  .draft { font-family: var(--font-document); font-size: 15px; line-height: 1.55; background: var(--background-muted); border-radius: 8px; padding: 10px 12px; }
+  .source { font-family: var(--font-document); font-size: 14px; border-left: 2px solid var(--primary); padding-left: 8px; margin-top: 4px; }
+  .source span { font-family: var(--font-sans); font-size: 12px; color: var(--foreground-lighter); margin-left: 6px; }
+  .warn { color: var(--alert); font-size: 13px; }
+  .missing { font-size: 13px; color: var(--foreground-light); }
+  .copilot-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .copilot-foot .note { margin-left: auto; font-size: 12px; color: var(--foreground-lighter); }
+  .btn { white-space: nowrap; flex: none; height: 28px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--background); font-size: 13px; font-weight: 500; cursor: pointer; }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn.primary:hover { background: var(--primary-hover); }
+  .copilot.collapsed .copilot-body, .copilot.collapsed .copilot-foot { display: none; }
+  .copilot.collapsed .copilot-head { border-bottom: 0; }
+
+  .composer { flex: none; border-top: 1px solid var(--border); padding: 12px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .composer textarea { width: 100%; min-height: 40px; resize: none; border: 1px solid var(--border-control); border-radius: var(--radius-control); padding: 9px 11px; font: inherit; color: var(--foreground); }
+  .composer textarea.filled { min-height: 96px; font-family: var(--font-document); font-size: 15px; }
+  .composer .bar { display: flex; align-items: center; font-size: 12px; color: var(--foreground-lighter); }
+  .composer .bar .btn { margin-left: auto; }
+
+  /* Ficha: read-only in the first version. */
+  .ficha { border-left: 1px solid var(--border); background: var(--background-muted); overflow: auto; min-width: 0; }
+  .ficha-head { height: 64px; display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--border); background: var(--background); position: sticky; top: 0; z-index: 1; }
+  .ficha-head b { font-size: 13px; }
+  .ficha-head .ro { margin-left: auto; font-size: 12px; color: var(--foreground-lighter); }
+  .sect { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .overline { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--foreground-lighter); display: flex; justify-content: space-between; }
+  .overline a { font-family: var(--font-sans); text-transform: none; letter-spacing: 0; color: var(--primary); text-decoration: none; font-size: 12px; }
+  .membership { border-radius: 8px; padding: 10px 12px; border: 1px solid var(--primary-border); background: var(--primary-soft); display: flex; flex-direction: column; gap: 2px; }
+  .membership .status { font-weight: 600; color: var(--primary-soft-foreground); display: flex; align-items: center; gap: 6px; }
+  .membership .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .membership .meta { font-size: 12px; color: var(--foreground-light); font-variant-numeric: tabular-nums; }
+  .membership.inactive { border-color: var(--warning-border); background: var(--warning-soft); }
+  .membership.inactive .status { color: var(--warning-soft-foreground); }
+  .opportunity { font-size: 12px; color: var(--warning-soft-foreground); margin-top: 4px; }
+  dl { margin: 0; display: grid; grid-template-columns: 96px 1fr; gap: 6px 10px; font-size: 13px; }
+  dt { color: var(--foreground-lighter); }
+  dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .summary { font-size: 13px; line-height: 1.5; color: var(--foreground); }
+  .summary-meta { font-size: 12px; color: var(--foreground-lighter); }
+  .ai-tag { font-size: 11px; font-weight: 500; color: var(--info-soft-foreground); background: var(--info-soft); border: 1px solid var(--info-border); border-radius: 999px; padding: 0 8px; }
+  .items { display: flex; flex-direction: column; gap: 6px; }
+  .item { display: flex; align-items: center; gap: 10px; background: var(--background); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .item .grow { min-width: 0; flex: 1; }
+  .item .grow b { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .grow span { font-size: 12px; color: var(--foreground-lighter); }
+  .pill { font-size: 11px; font-weight: 500; border-radius: 999px; padding: 1px 8px; border: 1px solid var(--border); color: var(--foreground-light); white-space: nowrap; }
+  .pill.ok { color: var(--primary-soft-foreground); background: var(--primary-soft); border-color: var(--primary-border); }
+  .pill.pending { color: var(--warning-soft-foreground); background: var(--warning-soft); border-color: var(--warning-border); }
+  .channel { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--surface-300); color: var(--foreground-light); flex: none; }
+
+  .legend { max-width: 1480px; margin: 20px auto 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .legend div { background: var(--background); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 12px 14px; }
+  .legend b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .legend p { margin: 0; font-size: 13px; color: var(--foreground-light); }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-case" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-task" viewBox="0 0 24 24"><path d="m4 7 2 2 4-4M4 17l2 2 4-4M14 6h7M14 12h7M14 18h7"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4"/></symbol>
+  <symbol id="i-team" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 7M18 13.5a6 6 0 0 1 4 6.5"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+</svg>
+
+<header class="intro">
+  <h1>Espacio de respuesta: conversación, ficha del afiliado y copiloto</h1>
+  <p>Mockup estático de la fase UI-10 con <strong>datos ficticios</strong>. Al hacer clic en una conversación se abre un único panel desde la derecha con dos columnas: el chat (con el copiloto encima del compositor) y la ficha del afiliado, de solo lectura en esta primera versión.</p>
+  <div class="controls" role="group" aria-label="Variantes del mockup">
+    <button class="chip" id="toggle-membership" aria-pressed="false">Ver con afiliación inactiva</button>
+    <button class="chip" id="toggle-ficha" aria-pressed="false">Plegar la ficha</button>
+    <button class="chip" id="toggle-copilot" aria-pressed="false">Plegar el copiloto</button>
+  </div>
+</header>
+
+<div class="viewport">
+  <div class="screen">
+    <div class="app-header">
+      <strong>Kindly</strong><span class="crumb">/ Sección sindical Hospital Norte · DELEGATE</span>
+      <span class="me"><span class="avatar" style="width:24px;height:24px">AG</span>Ana García</span>
+    </div>
+    <div class="body" id="body">
+      <nav class="sidebar" aria-label="Principal">
+        <span class="nav active"><svg class="ico"><use href="#i-chat"/></svg>Conversaciones<span class="count">3</span></span>
+        <span class="nav"><svg class="ico"><use href="#i-user"/></svg>Contactos</span>
+        <span class="nav"><svg class="ico"><use href="#i-case"/></svg>Casos</span>
+        <span class="nav"><svg class="ico"><use href="#i-task"/></svg>Tareas</span>
+        <span class="nav"><svg class="ico"><use href="#i-plug"/></svg>Canales</span>
+        <span class="nav"><svg class="ico"><use href="#i-team"/></svg>Miembros</span>
+      </nav>
+
+      <section class="list" aria-label="Lista de conversaciones">
+        <div class="list-head">
+          <h2>Conversaciones</h2>
+          <div class="fake-input"><svg class="ico"><use href="#i-search"/></svg>Buscar nombre, teléfono o mensaje</div>
+          <div class="fake-row"><div class="fake-input">Todas (24) <svg class="ico"><use href="#i-down"/></svg></div><div class="fake-input">Canal <svg class="ico"><use href="#i-down"/></svg></div></div>
+        </div>
+        <div class="rows">
+          <div class="row selected unread"><span class="avatar">MR</span><div class="row-main"><div class="row-top"><span class="name">Marta Ruiz</span><span class="time">10:42</span></div><div class="preview">Te mando también el DNI por si hace falta</div></div></div>
+          <div class="row unread"><span class="avatar">JL</span><div class="row-main"><div class="row-top"><span class="dot"></span><span class="name">Javier López</span><span class="time">10:15</span></div><div class="preview">¿Cuándo es la próxima asamblea?</div></div></div>
+          <div class="row unread"><span class="avatar">SP</span><div class="row-main"><div class="row-top"><span class="dot"></span><span class="name">Sonia Pérez</span><span class="time">09:58</span></div><div class="preview">Me han cambiado el turno sin avisar</div></div></div>
+          <div class="row"><span class="avatar">RM</span><div class="row-main"><div class="row-top"><span class="name">Raúl Martín</span><span class="time">ayer</span></div><div class="preview">Tú: Perfecto, lo miramos el lunes</div></div></div>
+          <div class="row"><span class="avatar">LG</span><div class="row-main"><div class="row-top"><span class="name">Laura Gómez</span><span class="time">ayer</span></div><div class="preview">Gracias por todo 🙏</div></div></div>
+          <div class="row"><span class="avatar">PD</span><div class="row-main"><div class="row-top"><span class="name">Pedro Díaz</span><span class="time">lun</span></div><div class="preview">Tú: Te envío el modelo de reclamación</div></div></div>
+        </div>
+      </section>
+
+      <div class="panel" id="panel">
+        <section class="chat" aria-label="Conversación con Marta Ruiz">
+          <div class="panel-head">
+            <span class="avatar">MR</span>
+            <div class="who"><b>Marta Ruiz</b><span>WhatsApp · Delegada: Ana García</span></div>
+            <div class="head-actions">
+              <button class="icon-btn" aria-label="Conversación anterior"><svg class="ico"><use href="#i-up"/></svg></button>
+              <button class="icon-btn" aria-label="Conversación siguiente"><svg class="ico"><use href="#i-down"/></svg></button>
+              <button class="icon-btn" id="ficha-btn" aria-label="Mostrar u ocultar la ficha" aria-pressed="true"><svg class="ico"><use href="#i-panel"/></svg></button>
+              <button class="icon-btn" aria-label="Cerrar conversación"><svg class="ico"><use href="#i-x"/></svg></button>
+            </div>
+          </div>
+
+          <div class="thread" role="log" aria-label="Mensajes">
+            <div class="day">Hoy</div>
+            <div class="bubble in">Hola Ana, esta mañana el médico me ha dado la baja. ¿Qué tengo que hacer con el hospital?<small>10:31</small></div>
+            <div class="bubble out">Hola Marta, lo vemos. ¿Es por enfermedad común o por algo del trabajo?<small>10:33 <span class="ticks">✓✓</span></small></div>
+            <div class="bubble in">Enfermedad común. Tengo el parte en papel.<small>10:38</small></div>
+            <div class="bubble in"><div class="attachment"><span class="thumb"></span><div><b style="font-weight:500">DNI_Marta_Ruiz.jpg</b><br><span style="font-size:12px;color:var(--foreground-lighter)">Imagen · 1,2 MB</span></div></div>Te mando también el DNI por si hace falta<small>10:42</small></div>
+          </div>
+
+          <aside class="copilot" id="copilot" aria-label="Sugerencia del copiloto">
+            <div class="copilot-head">
+              <b>Copiloto</b><span class="live">Actualizado · 10:42</span>
+              <span class="evidence">Evidencia parcial</span>
+              <button class="icon-btn" id="copilot-btn" aria-label="Plegar el copiloto" aria-expanded="true"><svg class="ico"><use href="#i-down"/></svg></button>
+            </div>
+            <div class="copilot-body">
+              <div class="full"><div class="label">Qué ha detectado</div>Baja por incapacidad temporal (enfermedad común). Ya tenemos el DNI; falta el parte de baja médico.</div>
+              <div class="full"><div class="label">Respuesta propuesta</div><div class="draft" id="draft">Gracias, Marta. Con el DNI ya estamos. Hazle una foto al parte de baja y mándanosla por aquí: lo presentamos nosotros en personal y te confirmamos cuando esté registrado.</div></div>
+              <div><div class="label">En qué se apoya</div>
+                <div class="source">RD 625/2014, art. 2<span>Vigente desde 01/09/2014</span></div>
+                <div class="source">Protocolo interno de bajas<span>v3 · 12/02/2026</span></div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div><div class="label">Aviso</div><div class="warn">No confirmes plazos de pago: dependen del convenio aplicable.</div></div>
+                <div><div class="label">Falta por saber</div><div class="missing">Qué convenio le aplica.</div></div>
+              </div>
+            </div>
+            <div class="copilot-foot">
+              <button class="btn primary" id="use-draft">Usar como borrador</button>
+              <button class="btn" id="discard">Descartar</button>
+              <span class="note">Nada se envía sin que lo revises tú</span>
+            </div>
+          </aside>
+
+          <div class="composer">
+            <label for="composer" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Respuesta</label>
+            <textarea id="composer" placeholder="Escribe una respuesta..."></textarea>
+            <div class="bar">Intro para enviar · Mayús+Intro salto de línea<button class="btn">Enviar</button></div>
+          </div>
+        </section>
+
+        <aside class="ficha" id="ficha" aria-label="Ficha del afiliado">
+          <div class="ficha-head"><b>Ficha del afiliado</b><span class="ro">Solo lectura</span></div>
+
+          <div class="sect">
+            <div class="overline">Afiliación</div>
+            <div class="membership" id="membership">
+              <span class="status" id="m-status">Afiliada · activa</span>
+              <span class="meta" id="m-meta">Nº 48213 · desde el 14/03/2021 (5 años)</span>
+              <span class="opportunity" id="m-opportunity" hidden>Buen momento para proponerle volver a afiliarse: está usando el servicio.</span>
+            </div>
+          </div>
+
+          <div class="sect">
+            <div class="overline">Contacto</div>
+            <dl>
+              <dt>Teléfono</dt><dd>+34 612 345 678</dd>
+              <dt>Email</dt><dd>marta.ruiz@example.com</dd>
+              <dt>Canal</dt><dd>WhatsApp</dd>
+              <dt>Delegada</dt><dd>Ana García</dd>
+              <dt>Notas</dt><dd>Enfermera, turno de noche en Urgencias. Prefiere WhatsApp.</dd>
+            </dl>
+          </div>
+
+          <div class="sect">
+            <div class="overline"><span>Situación <span class="ai-tag">IA</span></span></div>
+            <p class="summary" style="margin:0">Consultó en septiembre por una nómina con el plus de nocturnidad mal calculado; se reclamó y está <b>pendiente de respuesta</b> de personal. Hoy comunica una baja por enfermedad común: ha enviado el DNI y falta el parte.</p>
+            <span class="summary-meta">Resumen de 3 conversaciones (21 mensajes) · generado hoy 10:42 · <a href="#" style="color:var(--primary)">ver en qué mensajes se basa</a></span>
+          </div>
+
+          <div class="sect">
+            <div class="overline">Documentación aportada <a href="#">Ver todo (4)</a></div>
+            <div class="items">
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-chat"/></svg></span><div class="grow"><b>DNI_Marta_Ruiz.jpg</b><span>Recibido por WhatsApp · hoy 10:42</span></div><span class="pill ok">Recibido</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-mail"/></svg></span><div class="grow"><b>Nomina_agosto_2026.pdf</b><span>Recibido por email · 03/09</span></div><span class="pill ok">Recibido</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-mail"/></svg></span><div class="grow"><b>Reclamacion_nocturnidad.pdf</b><span>Enviado por ti por email · 05/09</span></div><span class="pill">Enviado</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-file"/></svg></span><div class="grow"><b>Parte de baja</b><span>Pedido hoy, aún no recibido</span></div><span class="pill pending">Falta</span></div>
+            </div>
+          </div>
+
+          <div class="sect">
+            <div class="overline">Casos abiertos <a href="#">Ver casos</a></div>
+            <div class="items">
+              <div class="item"><div class="grow"><b>Reclamación plus de nocturnidad</b><span>Abierto el 05/09 · Ana García</span></div><span class="pill pending">En curso</span></div>
+            </div>
+          </div>
+
+          <div class="sect">
+            <div class="overline">Tareas pendientes</div>
+            <div class="items">
+              <div class="item"><div class="grow"><b>Llamar a personal por la reclamación</b><span>Vence el 30/09</span></div></div>
+            </div>
+          </div>
+
+          <div class="sect">
+            <div class="overline">Otras conversaciones</div>
+            <div class="items">
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-mail"/></svg></span><div class="grow"><b>Consulta nómina de agosto</b><span>Email · 03/09 – 05/09 · 9 mensajes</span></div></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="legend" aria-label="Notas del mockup">
+  <div><b>Un panel, dos columnas</b><p>Se abre de una vez desde la derecha: un solo cierre y una sola tecla Esc. La lista sigue visible para saltar de afiliado. El botón con el icono de panel pliega la ficha y se recuerda la preferencia.</p></div>
+  <div><b>Copiloto dinámico</b><p>Se recalcula con cada mensaje entrante. «Usar como borrador» solo rellena el compositor; nunca hay un botón que envíe la sugerencia.</p></div>
+  <div><b>Afiliación</b><p>Estado, número y antigüedad. Si no está activa, la ficha lo marca en ámbar y propone reafiliarse; es una regla fija, no una sugerencia de la IA.</p></div>
+  <div><b>Documentación y resumen</b><p>Los documentos que llegan por WhatsApp o email, y los que se envían, con su canal y fecha. El resumen va marcado como IA, con fecha y enlace a los mensajes en los que se basa.</p></div>
+</section>
+
+<script>
+  (function () {
+    const body = document.getElementById("body");
+    const fichaChip = document.getElementById("toggle-ficha");
+    const fichaBtn = document.getElementById("ficha-btn");
+    function setFicha(open) {
+      body.classList.toggle("ficha-closed", !open);
+      fichaBtn.setAttribute("aria-pressed", String(open));
+      fichaChip.setAttribute("aria-pressed", String(!open));
+      document.getElementById("ficha").hidden = !open;
+    }
+    fichaChip.addEventListener("click", () => setFicha(body.classList.contains("ficha-closed")));
+    fichaBtn.addEventListener("click", () => setFicha(body.classList.contains("ficha-closed")));
+
+    const copilot = document.getElementById("copilot");
+    const copilotChip = document.getElementById("toggle-copilot");
+    const copilotBtn = document.getElementById("copilot-btn");
+    function setCopilot(open) {
+      copilot.classList.toggle("collapsed", !open);
+      copilotBtn.setAttribute("aria-expanded", String(open));
+      copilotBtn.setAttribute("aria-label", open ? "Plegar el copiloto" : "Desplegar el copiloto");
+      copilotChip.setAttribute("aria-pressed", String(!open));
+    }
+    copilotChip.addEventListener("click", () => setCopilot(copilot.classList.contains("collapsed")));
+    copilotBtn.addEventListener("click", () => setCopilot(copilot.classList.contains("collapsed")));
+
+    const composer = document.getElementById("composer");
+    document.getElementById("use-draft").addEventListener("click", () => {
+      composer.value = document.getElementById("draft").textContent.trim();
+      composer.classList.add("filled");
+      composer.focus();
+      setCopilot(false);
+    });
+    document.getElementById("discard").addEventListener("click", () => setCopilot(false));
+
+    const mChip = document.getElementById("toggle-membership");
+    mChip.addEventListener("click", () => {
+      const inactive = mChip.getAttribute("aria-pressed") !== "true";
+      mChip.setAttribute("aria-pressed", String(inactive));
+      document.getElementById("membership").classList.toggle("inactive", inactive);
+      document.getElementById("m-status").textContent = inactive ? "No afiliada · baja" : "Afiliada · activa";
+      document.getElementById("m-meta").textContent = inactive
+        ? "Nº 48213 · afiliada del 14/03/2021 al 30/06/2025"
+        : "Nº 48213 · desde el 14/03/2021 (5 años)";
+      document.getElementById("m-opportunity").hidden = !inactive;
+    });
+  })();
+</script>

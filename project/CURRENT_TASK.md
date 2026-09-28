@@ -188,10 +188,20 @@ la conversación sin esperar al sondeo (aserción E2E nueva).
 `ProductMenu` queda sin consumidor, reservado para UI-7. Detalle en
 `docs/DECISIONS.md` (segunda entrada del 2026-09-28).
 
+**Planificado en esta sesión (2026-09-28), sin código:** fase **UI-10 —
+Espacio de respuesta** (chat + ficha del afiliado + copiloto dinámico),
+con decisiones del usuario, dominio nuevo necesario, paquetes UI-10a…f,
+dependencias y preguntas abiertas en `docs/ui/CONVERSATION_WORKSPACE.md`.
+Mockup estático con datos ficticios en
+`docs/ui/mockups/conversation-workspace.html` (publicado también como
+artifact privado del usuario, enlace en ese documento). El usuario quiere
+**ver primero el aspecto** antes de programar; UI-10a es lo único que se
+puede empezar sin dominio nuevo.
+
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**
 
-1. **Imágenes entrantes**: hoy el adapter de WhatsApp descarta el
+1. **Imágenes entrantes** (absorbido por el paquete UI-10c): hoy el adapter de WhatsApp descarta el
    contenido multimedia (`whatsapp-test-adapter.ts` lo convierte en un
    texto de relleno `[Mensaje de tipo "image"...]`, sin guardar el
    `media_id` ni descargar nada). Implementar requiere: descargar el medio

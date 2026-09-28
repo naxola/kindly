@@ -387,3 +387,17 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   `COMPONENTS.md`.
 - **Criterios de aceptación**: el test de tokens cubre toda la app
   autenticada; ningún componente duplicado.
+
+## Fase 10 — Espacio de respuesta (conversación + ficha + copiloto) · ⚪ Planificada (2026-09-28)
+
+- **Objetivo**: que el delegado conteste con todo el contexto del afiliado
+  a la vista, sin salir de la conversación. Fuente de verdad:
+  `CONVERSATION_WORKSPACE.md`; mockup en `mockups/conversation-workspace.html`.
+- **Alcance**: un único panel de dos columnas (chat + ficha del afiliado,
+  de solo lectura al principio); afiliación (activa/no, número, desde
+  cuándo); documentación aportada por WhatsApp/email; resumen de situación
+  por IA; copiloto dinámico entre historial y compositor. Paquetes
+  UI-10a…UI-10f con sus dependencias (§6 de ese documento): solo UI-10a se
+  puede empezar sin dominio nuevo; UI-10d/e dependen de las Fases 7 y 8
+  del producto.
+- **Criterios de aceptación**: `CONVERSATION_WORKSPACE.md` §8.
