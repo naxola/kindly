@@ -103,6 +103,12 @@
   .rows { overflow: auto; }
   .row { display: flex; gap: 10px; padding: 10px 16px; border-left: 2px solid transparent; }
   .row.selected { background: var(--state-selected); border-left-color: var(--primary); }
+  .row.foreign { background: var(--info-soft); border-left-color: var(--info-border); }
+  .ref { font-size: 11px; font-weight: 500; color: var(--info-soft-foreground); background: var(--background); border: 1px solid var(--info-border); border-radius: 999px; padding: 0 7px; flex: none; }
+  .notice { margin: 0 0 4px; align-self: stretch; background: var(--info-soft); border: 1px solid var(--info-border); color: var(--info-soft-foreground); border-radius: 8px; padding: 8px 12px; font-size: 13px; }
+  .segment { align-self: stretch; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--foreground-lighter); margin: 6px 0; }
+  .segment::before, .segment::after { content: ""; flex: 1; border-top: 1px dashed var(--border-strong); }
+  .readonly { opacity: 0.72; }
   .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-300); display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--foreground-light); flex: none; }
   .row-main { min-width: 0; flex: 1; }
   .row-top { display: flex; align-items: center; gap: 6px; }
@@ -227,6 +233,7 @@
     <button class="chip" id="toggle-membership" aria-pressed="false">Afiliación: activa y al corriente</button>
     <button class="chip" id="toggle-ficha" aria-pressed="false">Plegar la ficha</button>
     <button class="chip" id="toggle-copilot" aria-pressed="false">Plegar el copiloto</button>
+    <button class="chip" id="toggle-foreign" aria-pressed="false">Ver como delegada que no es su referencia</button>
   </div>
 </header>
 
@@ -255,7 +262,7 @@
         <div class="rows">
           <div class="row selected unread"><span class="avatar">MR</span><div class="row-main"><div class="row-top"><span class="name">Marta Ruiz</span><span class="time">10:42</span></div><div class="preview">Te mando también el DNI por si hace falta</div></div></div>
           <div class="row unread"><span class="avatar">JL</span><div class="row-main"><div class="row-top"><span class="dot"></span><span class="name">Javier López</span><span class="time">10:15</span></div><div class="preview">¿Cuándo es la próxima asamblea?</div></div></div>
-          <div class="row unread"><span class="avatar">SP</span><div class="row-main"><div class="row-top"><span class="dot"></span><span class="name">Sonia Pérez</span><span class="time">09:58</span></div><div class="preview">Me han cambiado el turno sin avisar</div></div></div>
+          <div class="row unread foreign" title="No eres su delegada de referencia"><span class="avatar">SP</span><div class="row-main"><div class="row-top"><span class="dot"></span><span class="name">Sonia Pérez</span><span class="ref">Ref.: Luis</span><span class="time">09:58</span></div><div class="preview">Me han cambiado el turno sin avisar</div></div></div>
           <div class="row"><span class="avatar">RM</span><div class="row-main"><div class="row-top"><span class="name">Raúl Martín</span><span class="time">ayer</span></div><div class="preview">Tú: Perfecto, lo miramos el lunes</div></div></div>
           <div class="row"><span class="avatar">LG</span><div class="row-main"><div class="row-top"><span class="name">Laura Gómez</span><span class="time">ayer</span></div><div class="preview">Gracias por todo 🙏</div></div></div>
           <div class="row"><span class="avatar">PD</span><div class="row-main"><div class="row-top"><span class="name">Pedro Díaz</span><span class="time">lun</span></div><div class="preview">Tú: Te envío el modelo de reclamación</div></div></div>
@@ -276,6 +283,11 @@
           </div>
 
           <div class="thread" role="log" aria-label="Mensajes">
+            <div class="notice" id="foreign-notice" hidden>Su delegado de referencia es <b>Luis Martín</b>. Puedes contestarle desde tu número; redirígele los mensajes a Luis.</div>
+            <div class="segment" id="foreign-segment" hidden>Conversación con Luis Martín · WhatsApp · solo lectura</div>
+            <div class="bubble in readonly" id="foreign-1" hidden>Luis, ¿me confirmas lo de la nómina de agosto?<small>03/09 · 18:02</small></div>
+            <div class="bubble out readonly" id="foreign-2" hidden>Sí, Marta, ya está presentada la reclamación.<small>Luis · 05/09 · 09:10 <span class="ticks">✓✓</span></small></div>
+            <div class="segment" id="own-segment" hidden>Conversación contigo · WhatsApp</div>
             <div class="day">Hoy</div>
             <div class="bubble in">Hola Ana, esta mañana el médico me ha dado la baja. ¿Qué tengo que hacer con el hospital?<small>10:31</small></div>
             <div class="bubble out">Hola Marta, lo vemos. ¿Es por enfermedad común o por algo del trabajo?<small>10:33 <span class="ticks">✓✓</span></small></div>
@@ -387,6 +399,7 @@
   <div><b>Copiloto dinámico</b><p>Se recalcula con cada mensaje entrante. «Usar como borrador» solo rellena el compositor; nunca hay un botón que envíe la sugerencia.</p></div>
   <div><b>Afiliación</b><p>Alta manual. Tres estados: activa y al corriente, activa con la cuota del mes pendiente, o baja. Los avisos en ámbar son reglas fijas, no sugerencias de la IA. Pedir una factura de la cuota es un trámite más.</p></div>
   <div><b>Trámites, sin archivos</b><p>La ficha muestra los documentos que pide el trámite (del knowledge base) y si ya llegaron. Los archivos se descargan desde Meta al equipo del delegado sin guardarse en Kindly; «Insertar aviso de documentos» pone el aviso en el compositor para que el delegado lo envíe.</p></div>
+  <div><b>Delegado de referencia</b><p>Cada afiliado tiene uno. Si escribe a otra delegada, a ella le aparece en azul con «Ref.: Luis», ve todo el historial (lo de Luis en solo lectura) y puede contestar desde su número; deja de verlo en cuanto el afiliado vuelve a escribir a Luis.</p></div>
   <div><b>Resumen de situación</b><p>Marcado como IA, con fecha y enlace a los mensajes en los que se basa.</p></div>
 </section>
 
@@ -452,6 +465,17 @@
       composer.value = "Un apunte: Kindly no guarda los documentos que nos envías. Los descargo para tramitarlos y no quedan almacenados en la plataforma.";
       composer.classList.add("filled");
       composer.focus();
+    });
+    const fChip = document.getElementById("toggle-foreign");
+    fChip.addEventListener("click", () => {
+      const on = fChip.getAttribute("aria-pressed") !== "true";
+      fChip.setAttribute("aria-pressed", String(on));
+      ["foreign-notice", "foreign-segment", "foreign-1", "foreign-2", "own-segment"].forEach((id) => { document.getElementById(id).hidden = !on; });
+      document.querySelector(".row.selected").classList.toggle("foreign", on);
+      const ref = document.querySelector(".row.selected .row-top");
+      if (on && !ref.querySelector(".ref")) ref.insertBefore(Object.assign(document.createElement("span"), { className: "ref", textContent: "Ref.: Luis" }), ref.querySelector(".time"));
+      if (!on) ref.querySelector(".ref")?.remove();
+      document.querySelector(".panel-head .who span").textContent = on ? "WhatsApp · Referencia: Luis Martín" : "WhatsApp · Delegada: Ana García";
     });
   })();
 </script>

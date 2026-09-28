@@ -206,9 +206,11 @@ visibilidad frente a que hoy todos ven todo el Inbox). **Tercera ronda,
 también incorporada:** aviso = el delegado lo inserta y envía (+
 privacidad); **un afiliado tiene un solo delegado a la vez, con
 histórico; DELEGATE ve los suyos, ADMIN ve todos y reasigna** → nuevo
-paquete **PKG-014** en `project/TASKS.md`, previo a UI-10. Pendiente una
-decisión del usuario: qué pasa con las conversaciones al reasignar (choca
-con el principio de identidad; propuesta en `docs/DECISIONS.md`).
+paquete **PKG-014** en `project/TASKS.md`, previo a UI-10. Cuarta ronda:
+resuelto qué pasa al reasignar y cuando el afiliado escribe a un delegado
+que no es su referencia (acceso temporal resaltado en azul, derivado de los
+mensajes) — reglas completas en `project/TASKS.md` PKG-014. **PKG-014 queda
+listo para empezar**; es el siguiente paso lógico antes de UI-10.
 
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**

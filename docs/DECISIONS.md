@@ -2049,6 +2049,48 @@ los muestre Kindly o no. Propuesta (a confirmar por el usuario):
 rompe el principio 1); ocultarle a Ana todo lo de Marta (no evita que lo
 vea en su móvil y deja mensajes sin atender).
 
+## 2026-09-28 — Delegado de referencia y acceso temporal de otros delegados
+
+**Contexto:** resuelve la pregunta abierta de la entrada anterior ("qué
+pasa con las conversaciones al reasignar").
+
+**Decisión del usuario:** se acepta la propuesta (historial en solo
+lectura para el nuevo delegado, que contacta desde su propio número;
+aviso de redirección) y se precisa:
+
+1. Un afiliado tiene **un único delegado de referencia**, con histórico
+ de los anteriores; el ADMIN lo reasigna. Un afiliado puede escribir
+ por WhatsApp a **uno o varios** delegados.
+2. El delegado de referencia ve al afiliado siempre, con **todo el
+ historial con cualquier delegado** (lo de otros delegados, en solo
+ lectura: solo se responde desde el número propio).
+3. Si el afiliado escribe a un delegado que **no es su referencia**
+ (Ana), Ana lo ve en su lista **resaltado en azul** ("Su delegado de
+ referencia es Luis — redirígele los mensajes"), ve todo el historial
+ con cualquier delegado y **puede contestar** desde Kindly o desde su
+ móvil (siempre desde su propio número; le indica al afiliado que le
+ contesta Ana).
+4. En cuanto el afiliado escribe a su delegado de referencia (Luis), Ana
+ **deja de verlo** en su lista automáticamente; Luis ve también los
+ mensajes que el afiliado cruzó con Ana.
+5. El ADMIN ve todo.
+
+**Cómo se respeta el principio de identidad:** nadie responde nunca desde
+el número de otro delegado; ver el historial de otro delegado es lectura.
+El acceso temporal de Ana **se deriva** de los mensajes (último entrante a
+Ana más reciente que el último entrante a Luis), sin estado adicional que
+pueda desincronizarse.
+
+**Por definir al construir (propuesta por defecto):** si el afiliado no
+vuelve a escribir a Luis, Ana lo sigue viendo indefinidamente (resaltado);
+que el ADMIN pueda cortar ese acceso a mano. Si es Luis quien escribe
+primero al afiliado, el acceso de Ana **no** termina (la regla del usuario
+habla de que el afiliado escriba a Luis).
+
+**Supersede a:** la propuesta de la entrada "Asignación de afiliados" del
+mismo día (que decía que Ana seguía viendo sus conversaciones pero no la
+ficha).
+
 ---
 
 <!--

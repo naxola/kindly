@@ -611,7 +611,25 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 - [ ] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió.
 - [ ] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados, ficha, descargas); ADMIN → todo. Tests de permisos + E2E con dos delegados.
 - [ ] Reasignar (solo ADMIN) con registro en actividad; histórico visible en la ficha.
-- [ ] **Decisión pendiente antes de construir:** qué pasa con las conversaciones al reasignar (choque con el principio de identidad, `docs/DECISIONS.md`).
+- [ ] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal"):
+  1. Un afiliado tiene **un único delegado de referencia**, con histórico
+     de los anteriores; el ADMIN lo reasigna. Un afiliado puede escribir
+     por WhatsApp a **uno o varios** delegados.
+  2. El delegado de referencia ve al afiliado siempre, con **todo el
+     historial con cualquier delegado** (lo de otros delegados, en solo
+     lectura: solo se responde desde el número propio).
+  3. Si el afiliado escribe a un delegado que **no es su referencia**
+     (Ana), Ana lo ve en su lista **resaltado en azul** ("Su delegado de
+     referencia es Luis — redirígele los mensajes"), ve todo el historial
+     con cualquier delegado y **puede contestar** desde Kindly o desde su
+     móvil (siempre desde su propio número; le indica al afiliado que le
+     contesta Ana).
+  4. En cuanto el afiliado escribe a su delegado de referencia (Luis), Ana
+     **deja de verlo** en su lista automáticamente; Luis ve también los
+     mensajes que el afiliado cruzó con Ana.
+  5. El ADMIN ve todo.
+- [ ] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último entrante a las cuentas del delegado de referencia.
+- [ ] UI: fila azul (`info-soft`) + etiqueta "Ref.: <delegado>" en la lista; aviso en la conversación; historial de otros delegados en solo lectura con su nombre en cada tramo.
 
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
 

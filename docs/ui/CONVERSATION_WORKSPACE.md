@@ -243,9 +243,16 @@ documentos (trámites en el knowledge base), visibilidad (delegado
 asignado y ADMIN, ver PKG-014), entrega del aviso (el delegado lo inserta
 y envía; además, política de privacidad).
 
-Queda una, de PKG-014 y no de esta fase: **qué pasa con las
-conversaciones al reasignar un afiliado** (ver `docs/DECISIONS.md`,
-entrada "Asignación de afiliados", y `project/TASKS.md` PKG-014).
+También resuelta (PKG-014): qué pasa con las conversaciones al reasignar
+y cuando el afiliado escribe a un delegado que no es su referencia —
+reglas en `project/TASKS.md` PKG-014 y `docs/DECISIONS.md` ("Delegado de
+referencia y acceso temporal"). En esta fase afecta a la UI así:
+
+- Fila de la lista **resaltada en azul** (`info-soft`) con "Ref.: <delegado>".
+- En la conversación, aviso `info`: "Su delegado de referencia es Luis.
+  Redirígele los mensajes." La ficha se muestra completa.
+- El historial de otros delegados aparece en el mismo hilo en solo
+  lectura, con separador "Conversación con Luis · WhatsApp" por tramo.
 
 ## 8. Criterios de aceptación de la fase
 
