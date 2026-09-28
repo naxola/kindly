@@ -24,13 +24,17 @@ export type ActivityEntityType =
  * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
  * activities whose entity is the Organization itself.
  * UI-7 adds MEMBER_ROLE_CHANGED (changing a member's role, ORGANIZATION.md
- * §4) and ORGANIZATION_RENAMED (editing the organization's name).
+ * §4) and ORGANIZATION_RENAMED (editing the organization's name). PKG-014
+ * adds CONTACT_DELEGATE_ASSIGNED (a Contact's reference delegate changes,
+ * `contacts/assignments.ts`) — distinct from CONVERSATION_REASSIGNED
+ * (PKG-004), which moves a Conversation to a different Contact.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
   | "CONTACT_CREATED"
   | "CONTACT_UPDATED"
   | "CONTACT_IDENTIFIED"
+  | "CONTACT_DELEGATE_ASSIGNED"
   | "CASE_CREATED"
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"

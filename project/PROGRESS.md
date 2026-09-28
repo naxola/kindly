@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-28 (UI-7, Organización, cerrada).
+Última actualización: 2026-09-28 (PKG-014, dominio y visibilidad, cerrado; UI pendiente).
 
 ## Resumen en una línea
 
@@ -50,8 +50,14 @@ General/Miembros/Canales con `ProductMenu`/`ContextNav`, `members/` y
 `channels/` movidos ahí con redirecciones desde las rutas antiguas, sidebar
 con un único ítem "Organización", miga del header con menú real, y la
 acción de dominio "cambiar rol" con su guardarraíl de "nunca sin ADMIN")
-completos; siguiente: `UI-8`, accesibilidad y responsive (o `PKG-014`,
-previo a `UI-10`, si se retoma antes ese frente).
+completos. **`PKG-014`** (2026-09-28, dominio cerrado): tabla
+`contact_assignments` (log de asignaciones, migración con *backfill*),
+un único predicado SQL de visibilidad reutilizado en Inbox/Contactos/
+Casos/Tareas (`contacts/visibility.ts`), y el guardarraíl de identidad
+que faltaba en `sendOutboundMessage` (ya no se puede responder por el
+número de otro delegado). Falta su UI (resaltado azul, aviso de
+redirección, reasignar, histórico) — siguiente paso de esta misma sesión;
+después, `UI-8` (accesibilidad y responsive) o seguir hacia `UI-10`.
 
 ## Estado por fase / paquete
 
@@ -79,7 +85,8 @@ previo a `UI-10`, si se retoma antes ese frente).
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | UI-8 … UI-9 | A11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
-| UI-10 | Espacio de respuesta: conversación + ficha del afiliado + copiloto | Código (agente) | ⚪ Planificada (2026-09-28) — `docs/ui/CONVERSATION_WORKSPACE.md` |
+| **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟡 Dominio y visibilidad en servidor completos (2026-09-28); falta la UI (resaltado, aviso, reasignar, histórico) |
+| UI-10 | Espacio de respuesta: conversación + ficha del afiliado + copiloto | Código (agente) | ⚪ Planificada (2026-09-28) — `docs/ui/CONVERSATION_WORKSPACE.md`, bloqueada por la UI de PKG-014 |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

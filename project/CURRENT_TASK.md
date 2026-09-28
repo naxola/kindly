@@ -4,9 +4,102 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0…UI-7 cerrados el 2026-09-28; siguiente UI-8 o PKG-014
+## Paquete activo: PKG-014 — Asignación de afiliados a delegados (dominio cerrado 2026-09-28; falta la UI)
 
-Último commit: `af7cedd`.
+Último commit: sin commits todavía de este paquete (ver "Estado" al final de este archivo tras el commit de cierre).
+
+### PKG-014 (encargo del 2026-09-28, tras cerrar UI-7)
+
+El usuario pidió continuar con `PKG-014` en vez de `UI-8`. Reglas completas
+en `docs/DECISIONS.md` (entradas "Asignación de afiliados" y "Delegado de
+referencia y acceso temporal", ambas del 2026-09-28) y el desglose en
+`project/TASKS.md`.
+
+**Hecho en esta sesión — dominio y visibilidad en servidor, verificado con
+lint+typecheck+294/294 unit-integration+30/30 E2E:**
+
+1. **`contact_assignments`** (`src/modules/contacts/schema.ts`): log de
+   asignaciones (nunca se actualiza en su sitio — reasignar cierra la fila
+   activa e inserta una nueva), índice único parcial `WHERE ended_at IS
+   NULL`. Migración `drizzle/migrations/0007_magical_owl.sql` — primera
+   migración de este repositorio con *backfill* de datos, no solo esquema
+   (asigna cada Contact existente al delegado de su conversación más
+   reciente).
+2. **`src/modules/contacts/assignments.ts`**: `getActiveAssignment`,
+   `listAssignmentHistory`, `assignContactToDelegate` (ADMIN vía la
+   acción que la envuelva — el propio servicio no comprueba rol, cierra
+   la fila activa + inserta la nueva en una transacción, no-op si ya está
+   asignado a ese delegado, `CONTACT_DELEGATE_ASSIGNED` en Activity). La
+   asignación *inicial* de un Contact no vive aquí — corre dentro de la
+   misma transacción que lo crea, en `contacts/service.ts::createContact`
+   (asignado a quien lo crea) y `conversations/service.ts::
+   findOrCreateConversation` (asignado al delegado dueño de la cuenta que
+   recibió el mensaje) — nunca hay un instante sin asignación.
+3. **`src/modules/contacts/visibility.ts::contactVisibilityCondition`**:
+   un único predicado SQL, autocontenido y reutilizable con cualquier
+   columna `contact_id` (no asume que el llamador ya tiene `contacts`
+   unido). `undefined` para ADMIN; para DELEGATE, referencia activa **o**
+   "acceso temporal" (último mensaje entrante hacia él más reciente que
+   el último mensaje, cualquier dirección, entre el Contact y su
+   delegado de referencia). Verificado con el escenario completo
+   Marta/Ana/Luis de `docs/DECISIONS.md` en
+   `tests/integration/contact-assignments.test.ts` (12 tests nuevos).
+4. **Cableado**: cada módulo gana una variante `...ForMember` junto a la
+   que ya tenía (patrón de `listMessagingAccountsForMember`, PKG-007) —
+   `listContactsForMember`/`getContactForMember`
+   (`contacts/service.ts`), `listCasesForMember`/`getCaseForMember`
+   (`cases/service.ts`), `listTasksForMember`/`getTaskForMember`
+   (`tasks/service.ts`, una Task sin `contactId` es visible para todos),
+   y en `conversations/service.ts`: `listConversationsWithPreview`,
+   `countConversationsByView`, `countUnreadConversations`,
+   `getConversationWithDetails`, `getConversationThreadState` ganan un
+   parámetro `member`. Todas las páginas/rutas que ya llamaban a estas
+   funciones (`/inbox` + `/api/inbox` + `/api/conversations/[id]/thread`,
+   `/contacts`, `/cases`, `/tasks` y sus detalles, los selectores de
+   Contact/Case de los formularios de alta) actualizadas para pasar
+   `member` y usar la variante visible.
+5. **Hallazgo real, no anticipado — hueco de identidad**:
+   `sendOutboundMessage` no comprobaba que quien enviaba fuera el
+   delegado dueño de la cuenta de esa Conversation; con el Inbox
+   compartido de PKG-004 cualquier miembro podía responder por el número
+   de otro delegado. Ahora rechaza el envío si
+   `account.delegateId !== actorUserId`, para cualquier rol (tampoco un
+   ADMIN). La UI para ocultar/deshabilitar el compositor en ese caso
+   queda pendiente (ver abajo).
+6. `tests/integration/inbox.test.ts`/`messaging.test.ts` actualizados a
+   las firmas nuevas; un test cuya premisa PKG-014 volvía falsa ("el
+   Inbox es compartido, no por delegado") se sustituyó por dos que
+   cubren ADMIN (sigue viendo todo) y DELEGATE (ve solo lo suyo) por
+   separado.
+
+**Pendiente de esta misma sesión, sin empezar todavía (checklist completo
+en `project/TASKS.md`, PKG-014):**
+
+1. **UI de "Reasignar" (solo ADMIN)**: el dominio ya existe
+   (`assignContactToDelegate`), falta el control (probablemente en
+   `/contacts/[id]`, que ya existe) y su Server Action.
+2. **Fila azul + etiqueta "Ref.: <delegado>"** en la lista de Inbox para
+   una Conversation con acceso temporal (no eres el delegado de
+   referencia).
+3. **Aviso en la conversación** explicando el acceso temporal y quién es
+   el delegado de referencia.
+4. **Historial de otros delegados en solo lectura**, con su nombre en
+   cada tramo — hoy el hilo no distingue de qué Conversation (y por tanto
+   de qué delegado) viene cada mensaje cuando se combinan varias.
+5. **Compositor oculto/deshabilitado** cuando el visor no es el delegado
+   dueño de la cuenta (consecuencia directa del punto 5 de dominio
+   arriba — hoy el guardarraíl de servidor existe pero la UI no lo
+   refleja, así que un intento de enviar fallaría con un error genérico
+   en vez de no ofrecer la acción).
+6. **E2E con dos delegados** contra la UI real (hoy solo hay cobertura de
+   integración a nivel de servicio para el escenario multi-delegado).
+7. **Histórico visible en la ficha** — depende de UI-10 (la ficha del
+   afiliado no existe todavía); anotado aquí para no perderlo, no
+   bloquea el resto.
+
+---
+
+## Registro: rediseño UI/UX — UI-0…UI-7 (cerrado 2026-09-28)
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 

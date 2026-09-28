@@ -486,7 +486,7 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
       expect(outbound.sentFromDevice).toBe(true);
 
       // 180 days of imported threads must not land as a wall of unread.
-      const preview = (await listConversationsWithPreview(org.id)).find((p) => p.id === conversation.id)!;
+      const preview = (await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const })).find((p) => p.id === conversation.id)!;
       expect(preview.unread).toBe(false);
 
       // And no Activity per imported message.
@@ -560,7 +560,7 @@ describe("PKG-003 Messaging core (integration, real PostgreSQL)", () => {
       const conversation = (await listConversations(org.id)).find(
         (c) => c.externalConversationId === externalConversationId,
       )!;
-      const preview = (await listConversationsWithPreview(org.id)).find((p) => p.id === conversation.id)!;
+      const preview = (await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const })).find((p) => p.id === conversation.id)!;
       expect(preview.unread).toBe(true);
     });
   });
@@ -964,19 +964,22 @@ describe("PKG-013 live conversation (integration)", () => {
     await applyDeliveryUpdate(account.id, sent.externalMessageId, "READ");
     await applyDeliveryUpdate(account.id, sent.externalMessageId, "DELIVERED");
 
-    const thread = await getConversationThreadState(org.id, conversation.id);
+    const thread = await getConversationThreadState(org.id, { userId: user.id, role: "ADMIN" }, conversation.id);
     expect(thread?.messages.find((m) => m.id === sent.id)?.deliveryStatus).toBe("READ");
   });
 
   it("returns the thread for the member's organization only, and marks it read", async () => {
-    const { org, conversation } = await conversationWithInbound("Thread Org");
-    const thread = await getConversationThreadState(org.id, conversation.id);
+    const { user, org, conversation } = await conversationWithInbound("Thread Org");
+    const admin = { userId: user.id, role: "ADMIN" as const };
+    const thread = await getConversationThreadState(org.id, admin, conversation.id);
     expect(thread?.messages.map((m) => m.body)).toEqual(["inbound 0", "inbound 1"]);
     expect(thread?.serviceWindow.status).toBe("NOT_APPLICABLE");
     expect((await getConversation(org.id, conversation.id))?.lastReadAt).not.toBeNull();
 
     const other = await createTestUserAndOrg("Thread Intruder");
-    expect(await getConversationThreadState(other.org.id, conversation.id)).toBeNull();
+    expect(
+      await getConversationThreadState(other.org.id, { userId: other.user.id, role: "ADMIN" }, conversation.id),
+    ).toBeNull();
   });
 
   it("anchors 'typing…' to the Contact's latest inbound message", async () => {

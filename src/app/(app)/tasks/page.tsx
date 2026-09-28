@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { listTasks } from "@/modules/tasks/service";
-import { listContacts } from "@/modules/contacts/service";
-import { listCases } from "@/modules/cases/service";
+import { listTasksForMember } from "@/modules/tasks/service";
+import { listContactsForMember } from "@/modules/contacts/service";
+import { listCasesForMember } from "@/modules/cases/service";
 import { toggleTaskCompletedAction } from "@/modules/tasks/actions";
 import { NewTaskSheet } from "@/app/(app)/tasks/new-task-sheet";
 import { PageContainer } from "@/components/patterns/page-container";
@@ -20,9 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function TasksPage() {
   const member = await requireCurrentOrganizationMember();
   const [tasks, contacts, cases, members] = await Promise.all([
-    listTasks(member.organizationId),
-    listContacts(member.organizationId),
-    listCases(member.organizationId),
+    listTasksForMember(member.organizationId, member),
+    listContactsForMember(member.organizationId, member),
+    listCasesForMember(member.organizationId, member),
     listOrganizationMembers(member.organizationId),
   ]);
 

@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return new Response(null, { status: 401 });
   }
   const { id } = await params;
-  const state = await getConversationThreadState(member.organizationId, id);
+  const state = await getConversationThreadState(member.organizationId, member, id);
   if (!state) {
     return new Response(null, { status: 404 });
   }

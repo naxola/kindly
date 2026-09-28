@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { getCase } from "@/modules/cases/service";
+import { getCaseForMember } from "@/modules/cases/service";
 import { caseStatus } from "@/modules/cases/schema";
 import { getContact } from "@/modules/contacts/service";
 import { updateCaseAction } from "@/modules/cases/actions";
@@ -19,7 +19,7 @@ import { pageTitle } from "@/lib/page-title";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const caseRecord = await getCase(member.organizationId, id);
+  const caseRecord = await getCaseForMember(member.organizationId, member, id);
   return { title: pageTitle(caseRecord?.title, "Casos", member.organizationName) };
 }
 
@@ -30,7 +30,7 @@ export default async function CaseDetailPage({
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const caseRecord = await getCase(member.organizationId, id);
+  const caseRecord = await getCaseForMember(member.organizationId, member, id);
 
   if (!caseRecord) {
     notFound();

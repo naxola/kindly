@@ -5,7 +5,7 @@ import {
   getConversationThreadState,
   getConversationWithDetails,
 } from "@/modules/conversations/service";
-import { listContacts } from "@/modules/contacts/service";
+import { listContactsForMember } from "@/modules/contacts/service";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
 import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
 import { buildHref } from "@/app/(app)/inbox/inbox-href";
@@ -29,15 +29,15 @@ export default async function ConversationDetailPage({
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const details = await getConversationWithDetails(member.organizationId, id);
+  const details = await getConversationWithDetails(member.organizationId, member, id);
   if (!details) {
     notFound();
   }
 
   const [threadState, listData, contacts] = await Promise.all([
-    getConversationThreadState(member.organizationId, id),
+    getConversationThreadState(member.organizationId, member, id),
     getInboxListData(member, await searchParams),
-    listContacts(member.organizationId),
+    listContactsForMember(member.organizationId, member),
   ]);
   if (!threadState) {
     notFound();

@@ -1,7 +1,8 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { contacts } from "@/modules/contacts/schema";
+import { contactAssignments, contacts } from "@/modules/contacts/schema";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { recordActivity } from "@/modules/audit/service";
 
 /**
@@ -29,6 +30,40 @@ export async function getContact(organizationId: string, contactId: string) {
   return contact ?? null;
 }
 
+/**
+ * Visibility-scoped variants (PKG-014) — what a viewer is actually shown:
+ * `/contacts`, its detail page, and every "pick a contact" dropdown
+ * (Cases/Tasks) go through these, never the plain `listContacts`/
+ * `getContact` above. Those two stay as they are for internal FK-integrity
+ * checks (e.g. `createCase` validating a `contactId` belongs to the
+ * organization) — a check that a row exists in this organization is not
+ * the same question as whether the current viewer gets to see it, and
+ * conflating them would make those internal checks depend on who happens
+ * to be calling instead of on data integrity alone.
+ */
+export async function listContactsForMember(organizationId: string, member: VisibilityMember) {
+  return db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.organizationId, organizationId), contactVisibilityCondition(organizationId, member, contacts.id)))
+    .orderBy(desc(contacts.createdAt));
+}
+
+export async function getContactForMember(organizationId: string, member: VisibilityMember, contactId: string) {
+  const [contact] = await db
+    .select()
+    .from(contacts)
+    .where(
+      and(
+        eq(contacts.organizationId, organizationId),
+        eq(contacts.id, contactId),
+        contactVisibilityCondition(organizationId, member, contacts.id),
+      ),
+    )
+    .limit(1);
+  return contact ?? null;
+}
+
 export interface CreateContactInput {
   organizationId: string;
   actorUserId: string;
@@ -38,17 +73,32 @@ export interface CreateContactInput {
   notes?: string | null;
 }
 
+/**
+ * A manually-created Contact is assigned to its creator as the initial
+ * reference delegate (PKG-014) — there is no delegate picker in this form
+ * (`docs/DECISIONS.md`: kept out on purpose, to avoid a required field that
+ * only matters to an ADMIN reassigning immediately afterward, which the
+ * "Reasignar" action on the Contact already covers). An inbound message
+ * instead assigns the `MessagingAccount`'s own delegate — see
+ * `findOrCreateConversation` in `conversations/service.ts`.
+ */
 export async function createContact(input: CreateContactInput) {
-  const [contact] = await db
-    .insert(contacts)
-    .values({
-      organizationId: input.organizationId,
-      name: input.name,
-      phoneE164: input.phoneE164 || null,
-      email: input.email || null,
-      notes: input.notes || null,
-    })
-    .returning();
+  const contact = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(contacts)
+      .values({
+        organizationId: input.organizationId,
+        name: input.name,
+        phoneE164: input.phoneE164 || null,
+        email: input.email || null,
+        notes: input.notes || null,
+      })
+      .returning();
+    await tx
+      .insert(contactAssignments)
+      .values({ organizationId: input.organizationId, contactId: inserted.id, delegateId: input.actorUserId });
+    return inserted;
+  });
 
   await recordActivity({
     organizationId: input.organizationId,

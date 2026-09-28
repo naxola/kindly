@@ -29,8 +29,8 @@ export async function GET(request: Request) {
   };
 
   const [conversations, counts] = await Promise.all([
-    listConversationsWithPreview(member.organizationId, filters),
-    countConversationsByView(member.organizationId, { channel: filters.channel, delegateId: filters.delegateId }),
+    listConversationsWithPreview(member.organizationId, member, filters),
+    countConversationsByView(member.organizationId, member, { channel: filters.channel, delegateId: filters.delegateId }),
   ]);
 
   return Response.json({ conversations, counts }, { headers: { "Cache-Control": "no-store" } });

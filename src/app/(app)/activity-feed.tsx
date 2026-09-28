@@ -14,6 +14,7 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   CONTACT_CREATED: "Contact creado",
   CONTACT_UPDATED: "Contact editado",
   CONTACT_IDENTIFIED: "Contact identificado",
+  CONTACT_DELEGATE_ASSIGNED: "Delegado de referencia cambiado",
   CASE_CREATED: "Case creado",
   CASE_ASSIGNED: "Case asignado",
   CASE_STATUS_CHANGED: "Estado del case cambiado",

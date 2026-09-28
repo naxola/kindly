@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
-import { listContacts } from "@/modules/contacts/service";
+import { listContactsForMember } from "@/modules/contacts/service";
 import { NewContactSheet } from "@/app/(app)/contacts/new-contact-sheet";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ContactsPage() {
   const member = await requireCurrentOrganizationMember();
-  const contacts = await listContacts(member.organizationId);
+  const contacts = await listContactsForMember(member.organizationId, member);
 
   return (
     <PageContainer>

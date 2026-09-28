@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { cases, caseStatus } from "@/modules/cases/schema";
 import { getContact } from "@/modules/contacts/service";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { isOrganizationMember } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
 
@@ -19,6 +20,36 @@ export async function getCase(organizationId: string, caseId: string) {
     .select()
     .from(cases)
     .where(and(eq(cases.organizationId, organizationId), eq(cases.id, caseId)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Visibility-scoped variants (PKG-014) — a Case is always for exactly one
+ * Contact (`contactId` is `NOT NULL`), so it is visible exactly when that
+ * Contact is (`contacts/visibility.ts`). `listCases`/`getCase` above stay
+ * unscoped for internal FK-integrity checks (e.g. `createTask` validating a
+ * `caseId` belongs to the organization).
+ */
+export async function listCasesForMember(organizationId: string, member: VisibilityMember) {
+  return db
+    .select()
+    .from(cases)
+    .where(and(eq(cases.organizationId, organizationId), contactVisibilityCondition(organizationId, member, cases.contactId)))
+    .orderBy(desc(cases.createdAt));
+}
+
+export async function getCaseForMember(organizationId: string, member: VisibilityMember, caseId: string) {
+  const [row] = await db
+    .select()
+    .from(cases)
+    .where(
+      and(
+        eq(cases.organizationId, organizationId),
+        eq(cases.id, caseId),
+        contactVisibilityCondition(organizationId, member, cases.contactId),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }

@@ -620,15 +620,15 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 
 - [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
 
-### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol (planificado 2026-09-28)
+### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol (planificado 2026-09-28; dominio cerrado 2026-09-28)
 
 Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del afiliado").
 
-- [ ] Tabla `contact_assignments` (`organization_id`, `contact_id`, `delegate_id`, `started_at`, `ended_at`, `assigned_by`), con índice único parcial para una sola asignación activa por Contact; migración que asigna cada Contact existente al delegado de su conversación más reciente.
-- [ ] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió.
-- [ ] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados, ficha, descargas); ADMIN → todo. Tests de permisos + E2E con dos delegados.
-- [ ] Reasignar (solo ADMIN) con registro en actividad; histórico visible en la ficha.
-- [ ] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal"):
+- [x] Tabla `contact_assignments` (`organization_id`, `contact_id`, `delegate_id`, `started_at`, `ended_at`, `assigned_by`), con índice único parcial para una sola asignación activa por Contact; migración (`0007_magical_owl.sql`) que asigna cada Contact existente al delegado de su conversación más reciente.
+- [x] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió (`findOrCreateConversation`); Contact creado a mano → asignado a quien lo crea (`createContact`).
+- [x] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados); ADMIN → todo. `contacts/visibility.ts::contactVisibilityCondition`, reutilizado en cada módulo vía una variante `...ForMember`. Tests de permisos (`tests/integration/contact-assignments.test.ts`, incluido el escenario completo Marta/Ana/Luis). **Ficha y descargas quedan pendientes** — no existen hasta UI-10. **E2E con dos delegados en la UI real, pendiente** (checkpoint de UI de esta misma sesión).
+- [ ] Reasignar (solo ADMIN) con registro en actividad — dominio listo (`assignContactToDelegate`, `CONTACT_DELEGATE_ASSIGNED`), falta control en la UI. Histórico visible en la ficha — pendiente de UI-10 (la ficha no existe).
+- [ ] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal") — **la parte de dominio (2/4/5, quién ve qué, y que solo se responde desde el número propio) ya está cerrada arriba; falta la parte de UI (resaltado azul, aviso de redirección, atribución de autor en el historial de otro delegado)**:
   1. Un afiliado tiene **un único delegado de referencia**, con histórico
      de los anteriores; el ADMIN lo reasigna. Un afiliado puede escribir
      por WhatsApp a **uno o varios** delegados.

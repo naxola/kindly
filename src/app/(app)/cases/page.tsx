@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { listCases } from "@/modules/cases/service";
-import { listContacts } from "@/modules/contacts/service";
+import { listCasesForMember } from "@/modules/cases/service";
+import { listContactsForMember } from "@/modules/contacts/service";
 import { NewCaseSheet } from "@/app/(app)/cases/new-case-sheet";
 import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
 import { PageContainer } from "@/components/patterns/page-container";
@@ -19,8 +19,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CasesPage() {
   const member = await requireCurrentOrganizationMember();
   const [cases, contacts, members] = await Promise.all([
-    listCases(member.organizationId),
-    listContacts(member.organizationId),
+    listCasesForMember(member.organizationId, member),
+    listContactsForMember(member.organizationId, member),
     listOrganizationMembers(member.organizationId),
   ]);
 

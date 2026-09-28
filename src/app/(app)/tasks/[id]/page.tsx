@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { getTask } from "@/modules/tasks/service";
-import { listContacts } from "@/modules/contacts/service";
-import { listCases } from "@/modules/cases/service";
+import { getTaskForMember } from "@/modules/tasks/service";
+import { listContactsForMember } from "@/modules/contacts/service";
+import { listCasesForMember } from "@/modules/cases/service";
 import { updateTaskAction } from "@/modules/tasks/actions";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -20,7 +20,7 @@ function toDateInputValue(date: Date | null): string {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const task = await getTask(member.organizationId, id);
+  const task = await getTaskForMember(member.organizationId, member, id);
   return { title: pageTitle(task?.title, "Tareas", member.organizationName) };
 }
 
@@ -31,15 +31,15 @@ export default async function TaskDetailPage({
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const task = await getTask(member.organizationId, id);
+  const task = await getTaskForMember(member.organizationId, member, id);
 
   if (!task) {
     notFound();
   }
 
   const [contacts, cases, members] = await Promise.all([
-    listContacts(member.organizationId),
-    listCases(member.organizationId),
+    listContactsForMember(member.organizationId, member),
+    listCasesForMember(member.organizationId, member),
     listOrganizationMembers(member.organizationId),
   ]);
 

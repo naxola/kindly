@@ -43,13 +43,13 @@ export async function getInboxListData(member: CurrentOrganizationMember, params
   };
 
   const [conversations, counts, members, availableChannels] = await Promise.all([
-    listConversationsWithPreview(member.organizationId, {
+    listConversationsWithPreview(member.organizationId, member, {
       view: filters.view,
       search: filters.search || undefined,
       channel: filters.channel || undefined,
       delegateId: filters.delegateId || undefined,
     }),
-    countConversationsByView(member.organizationId, {
+    countConversationsByView(member.organizationId, member, {
       channel: filters.channel || undefined,
       delegateId: filters.delegateId || undefined,
     }),

@@ -5,7 +5,7 @@ import {
   getConversationThreadState,
   getConversationWithDetails,
 } from "@/modules/conversations/service";
-import { listContacts } from "@/modules/contacts/service";
+import { listContactsForMember } from "@/modules/contacts/service";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
 import { ConversationSheet } from "@/app/(app)/inbox/[id]/conversation-sheet";
 
@@ -19,15 +19,15 @@ import { ConversationSheet } from "@/app/(app)/inbox/[id]/conversation-sheet";
 export default async function InterceptedConversationSheetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const details = await getConversationWithDetails(member.organizationId, id);
+  const details = await getConversationWithDetails(member.organizationId, member, id);
   if (!details) {
     notFound();
   }
 
   const [threadState, members, contacts] = await Promise.all([
-    getConversationThreadState(member.organizationId, id),
+    getConversationThreadState(member.organizationId, member, id),
     listOrganizationMembers(member.organizationId),
-    listContacts(member.organizationId),
+    listContactsForMember(member.organizationId, member),
   ]);
   if (!threadState) {
     notFound();

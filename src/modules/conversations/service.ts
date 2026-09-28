@@ -9,7 +9,8 @@ import {
   shouldApplyDeliveryStatus,
   type ServiceWindowState,
 } from "@/modules/conversations/domain";
-import { contacts } from "@/modules/contacts/schema";
+import { contactAssignments, contacts } from "@/modules/contacts/schema";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getCase } from "@/modules/cases/service";
 import { getMessagingAccount } from "@/modules/messaging/service";
@@ -39,20 +40,21 @@ export async function listConversationChannels(organizationId: string): Promise<
 
 /**
  * Unread count for the sidebar badge (UI-2, docs/ui/LAYOUT_NAVIGATION.md
- * §3). Organization-wide, same visibility as `listConversationsWithPreview`
- * — the Inbox is shared by the whole organization, not per delegate
- * (`docs/DECISIONS.md`, PKG-004; only Channels are per-delegate). Counts
- * conversations rather than messages, and does the "unread" check in SQL
- * with the same rule as `isConversationUnread` instead of loading every
- * message, since this runs on every authenticated page render.
+ * §3). Through PKG-004 this was organization-wide, matching a shared Inbox;
+ * PKG-014 gives a DELEGATE their own restricted Inbox, so this now takes
+ * the same `member` scoping (an ADMIN still sees everyone's, unchanged).
+ * Counts conversations rather than messages, and does the "unread" check
+ * in SQL with the same rule as `isConversationUnread` instead of loading
+ * every message, since this runs on every authenticated page render.
  */
-export async function countUnreadConversations(organizationId: string): Promise<number> {
+export async function countUnreadConversations(organizationId: string, member: VisibilityMember): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(conversations)
     .where(
       and(
         eq(conversations.organizationId, organizationId),
+        contactVisibilityCondition(organizationId, member, conversations.contactId),
         exists(
           db
             .select({ one: messages.id })
@@ -156,6 +158,18 @@ export async function findOrCreateConversation(
           externalConversationId,
         })
         .returning();
+
+      // PKG-014: a Contact created from an inbound message starts out
+      // assigned to whichever delegate's account received it — the person
+      // who is, right now, the only one who has ever heard from them.
+      // `assignedBy: null`, same reasoning as MESSAGE_RECEIVED's
+      // `actorUserId`: no human made this call.
+      await tx.insert(contactAssignments).values({
+        organizationId,
+        contactId: insertedContact.id,
+        delegateId: account.delegateId,
+        assignedBy: null,
+      });
 
       return insertedConversation;
     });
@@ -413,6 +427,18 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
     throw new Error("MessagingAccount not found in this organization.");
   }
 
+  // PKG-014: a reply always goes out through the Conversation's own
+  // MessagingAccount, i.e. through whichever delegate's WhatsApp/Telegram
+  // it is connected to — never a shared org identity. Before this, nothing
+  // stopped a different member from opening that account's Conversation
+  // and sending as if they were its delegate. "Ana ve el historial de
+  // Luis en solo lectura; si contesta, es siempre desde su propio número"
+  // (docs/DECISIONS.md) only holds if this is enforced here, not just left
+  // to the UI hiding the composer.
+  if (account.delegateId !== input.actorUserId) {
+    throw new Error("Solo el delegado dueño de este canal puede responder desde Kindly.");
+  }
+
   const adapter = getMessagingAdapter(conversation.channel);
   if (!adapter) {
     throw new Error(`No MessagingAdapter registered for channel "${conversation.channel}".`);
@@ -559,11 +585,17 @@ function inboxViewCondition(view: InboxView, lastMessage: ReturnType<typeof last
 
 function inboxFilterConditions(
   organizationId: string,
+  member: VisibilityMember,
   filters: Pick<ListConversationsFilters, "channel" | "delegateId" | "search">,
   lastMessage: ReturnType<typeof lastMessageLateralQuery>,
 ) {
   return and(
     eq(conversations.organizationId, organizationId),
+    // PKG-014: a DELEGATE only sees a Conversation whose Contact they are
+    // the reference delegate for, or currently have "acceso temporal" to —
+    // an ADMIN gets `undefined` (no filter), same as everywhere else this
+    // condition is used.
+    contactVisibilityCondition(organizationId, member, conversations.contactId),
     filters.channel ? eq(conversations.channel, filters.channel) : undefined,
     filters.delegateId ? eq(messagingAccounts.delegateId, filters.delegateId) : undefined,
     filters.search
@@ -587,6 +619,7 @@ function inboxFilterConditions(
  */
 export async function listConversationsWithPreview(
   organizationId: string,
+  member: VisibilityMember,
   filters: ListConversationsFilters = {},
 ): Promise<ConversationPreview[]> {
   const lastMessage = lastMessageLateralQuery();
@@ -612,7 +645,7 @@ export async function listConversationsWithPreview(
     .leftJoinLateral(lastMessage, sql`true`)
     .where(
       and(
-        inboxFilterConditions(organizationId, filters, lastMessage),
+        inboxFilterConditions(organizationId, member, filters, lastMessage),
         inboxViewCondition(filters.view ?? "all", lastMessage),
       ),
     )
@@ -654,6 +687,7 @@ export type InboxViewCounts = Record<InboxView, number>;
  */
 export async function countConversationsByView(
   organizationId: string,
+  member: VisibilityMember,
   filters: Pick<ListConversationsFilters, "channel" | "delegateId"> = {},
 ): Promise<InboxViewCounts> {
   const views: InboxView[] = ["pending", "unread", "unassigned", "all"];
@@ -666,7 +700,7 @@ export async function countConversationsByView(
         .innerJoin(contacts, eq(contacts.id, conversations.contactId))
         .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
         .leftJoinLateral(lastMessage, sql`true`)
-        .where(and(inboxFilterConditions(organizationId, filters, lastMessage), inboxViewCondition(view, lastMessage)));
+        .where(and(inboxFilterConditions(organizationId, member, filters, lastMessage), inboxViewCondition(view, lastMessage)));
       return [view, row?.value ?? 0] as const;
     }),
   );
@@ -679,9 +713,16 @@ export interface ConversationDetails {
   delegateId: string;
 }
 
-/** Conversation detail view (PKG-004): the Conversation plus its Contact and owning delegate, scoped to `organizationId`. */
+/**
+ * Conversation detail view (PKG-004): the Conversation plus its Contact and
+ * owning delegate, scoped to `organizationId` and, since PKG-014, to
+ * `member`'s visibility — a DELEGATE gets `null` (same as "not found") for
+ * a Conversation they are not the reference delegate for and have no
+ * temporary access to, which `/inbox/[id]` already turns into `notFound()`.
+ */
 export async function getConversationWithDetails(
   organizationId: string,
+  member: VisibilityMember,
   conversationId: string,
 ): Promise<ConversationDetails | null> {
   const [row] = await db
@@ -693,7 +734,13 @@ export async function getConversationWithDetails(
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
-    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .where(
+      and(
+        eq(conversations.organizationId, organizationId),
+        eq(conversations.id, conversationId),
+        contactVisibilityCondition(organizationId, member, conversations.contactId),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }
@@ -793,15 +840,22 @@ export interface ConversationThreadState {
  * window is open — for the first render and for the screen's polling
  * (PKG-013). Having it open is what "read" means (PKG-004), so every poll
  * that sees new inbound messages keeps the conversation read.
+ *
+ * Visibility-checked (PKG-014), not just organization-scoped: this backs
+ * the poll endpoint the open conversation screen hits every few seconds
+ * independently of the page load that first checked access, so it has to
+ * re-check on every call rather than trust that a visible page got here.
  */
 export async function getConversationThreadState(
   organizationId: string,
+  member: VisibilityMember,
   conversationId: string,
 ): Promise<ConversationThreadState | null> {
-  const conversation = await getConversation(organizationId, conversationId);
-  if (!conversation) {
+  const details = await getConversationWithDetails(organizationId, member, conversationId);
+  if (!details) {
     return null;
   }
+  const conversation = details.conversation;
   await markConversationRead(organizationId, conversationId);
   const [rows, serviceWindow] = await Promise.all([
     listMessages(organizationId, conversationId),

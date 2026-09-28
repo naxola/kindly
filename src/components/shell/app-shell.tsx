@@ -23,7 +23,7 @@ export async function AppShell({
 }) {
   const [collapsed, unreadCount] = await Promise.all([
     getSidebarCollapsed(),
-    countUnreadConversations(member.organizationId),
+    countUnreadConversations(member.organizationId, member),
   ]);
 
   return (

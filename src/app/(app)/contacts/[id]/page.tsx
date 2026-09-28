@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
-import { getContact } from "@/modules/contacts/service";
+import { getContactForMember } from "@/modules/contacts/service";
 import { updateContactAction } from "@/modules/contacts/actions";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { ActivityFeed } from "@/app/(app)/activity-feed";
@@ -16,7 +16,7 @@ import { pageTitle } from "@/lib/page-title";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const contact = await getContact(member.organizationId, id);
+  const contact = await getContactForMember(member.organizationId, member, id);
   return { title: pageTitle(contact?.name, "Contactos", member.organizationName) };
 }
 
@@ -27,7 +27,7 @@ export default async function ContactDetailPage({
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const contact = await getContact(member.organizationId, id);
+  const contact = await getContactForMember(member.organizationId, member, id);
 
   if (!contact) {
     notFound();

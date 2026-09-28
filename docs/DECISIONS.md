@@ -2186,6 +2186,110 @@ a las URLs nuevas). Verificación visual real a 900/1280/1920 px.
 
 ---
 
+## 2026-09-28 — PKG-014: asignación de afiliados, dominio y visibilidad (parte 1)
+
+**Contexto:** implementar las reglas ya decididas en las dos entradas
+anteriores ("Asignación de afiliados", "Delegado de referencia y acceso
+temporal"). Esta entrada cubre la primera parte de la sesión: esquema,
+servicio de asignación, la regla de visibilidad en SQL, y su cableado en
+Inbox/Contactos/Casos/Tareas. La UI (fila azul, aviso, reasignar,
+histórico) queda para una segunda parte de la misma sesión.
+
+**Decisión:**
+
+1. **`contact_assignments` es un log, no una columna.** Una fila por
+   asignación, nunca se actualiza en su sitio: reasignar cierra la fila
+   activa (`ended_at = now()`) e inserta una nueva. Un índice único
+   parcial (`WHERE ended_at IS NULL`) garantiza una sola fila activa por
+   Contact incluso bajo condiciones de carrera — mismo patrón que
+   `organization_invitations_pending_unique` (PKG-006). Migración
+   `0007_magical_owl.sql`: además de crear la tabla, hace *backfill* de
+   cada Contact existente con Conversation al delegado de la más
+   reciente — el primer caso en este repositorio de una migración que
+   escribe datos, no solo esquema.
+2. **La asignación inicial no genera Activity propia.** Tanto la creación
+   manual (`createContact`, asignada a quien la crea) como la automática
+   por mensaje entrante (`findOrCreateConversation`, asignada al delegado
+   dueño de la cuenta que lo recibió) insertan su fila de
+   `contact_assignments` **dentro de la misma transacción** que crea el
+   Contact — nunca hay un instante en que un Contact exista sin
+   asignación — pero sin `recordActivity`: `CONTACT_CREATED` ya cubre "este
+   Contact nació"; solo una reasignación explícita posterior
+   (`assignContactToDelegate`, `CONTACT_DELEGATE_ASSIGNED`) es un evento
+   que vale la pena en el feed.
+3. **El formulario de alta manual de Contact no tiene selector de
+   delegado.** Se asigna a quien lo crea (ADMIN o DELEGATE por igual).
+   Añadir un campo obligatorio solo relevante cuando un ADMIN da de alta
+   en nombre de otra persona habría complicado el formulario para el caso
+   común; la acción "Reasignar" ya cubre la corrección inmediata.
+   **Propuesta por defecto, no confirmada explícitamente por el
+   usuario** — igual que otros puntos ya marcados así en las entradas
+   anteriores.
+4. **La visibilidad es un único predicado SQL reutilizado en todas
+   partes** (`contacts/visibility.ts::contactVisibilityCondition`), no una
+   consulta separada por módulo. Autocontenido (su propio
+   `exists (select ... from contacts c ...)` con alias local `c`) en vez
+   de asumir que quien lo llama ya tiene `contacts` en el `FROM`/`JOIN` —
+   así sirve igual para `contacts` directamente, o para `cases`/`tasks`/
+   `conversations` pasando su columna `contact_id` respectiva. `undefined`
+   para un ADMIN (sin filtro, mismo convenio que el resto del código con
+   `and(...)`). Para un DELEGATE: referencia activa, **o** "acceso
+   temporal" — el último mensaje entrante del Contact hacia él es más
+   reciente que el último mensaje (cualquier dirección) entre el Contact y
+   su delegado de referencia — calculado con SQL de tres valores
+   (`NULL > x` es `NULL`/falso), sin necesitar comprobar explícitamente
+   "nunca escribió" como caso aparte. Un Contact sin ningún delegado de
+   referencia (solo alcanzable para uno de antes de esta migración sin
+   Conversation) cae a "quien lo escribió por última vez puede verlo" vía
+   `coalesce(..., '-infinity')`.
+5. **Cada módulo gana una variante `...ForMember` junto a la que ya
+   tenía**, nunca sustituyéndola: `listContacts`/`getContact`,
+   `listCases`/`getCase`, `listTasks`/`getTask` siguen sin filtrar,
+   reservadas para comprobaciones internas de integridad (¿este id
+   pertenece a esta organización?) que no deben depender de quién
+   pregunta. Mismo patrón que `listMessagingAccountsForMember` (PKG-007)
+   junto a `listMessagingAccounts`. Una `Task` sin `contactId` (tarea
+   general) es visible para todos — solo se filtra cuando tiene uno.
+6. **Cerrado un hueco real de identidad, no solo de visibilidad**:
+   `sendOutboundMessage` no comprobaba que quien pulsaba "Enviar" fuera el
+   delegado dueño de la cuenta de esa Conversation — con el Inbox
+   compartido de PKG-004, cualquier miembro podía responder a través del
+   número de otro delegado. La regla 3 de "Delegado de referencia..."
+   ("Ana... puede contestar... siempre desde su propio número") solo se
+   cumple si esto se aplica en el dominio, no solo ocultando el
+   compositor en la UI — así que `sendOutboundMessage` ahora rechaza el
+   envío si `account.delegateId !== actorUserId`, para cualquier rol
+   (tampoco un ADMIN puede enviar por el número de un delegado). La UI
+   para ocultar/deshabilitar el compositor en ese caso queda para la
+   segunda parte.
+7. **Aceptado sin cubrir en esta parte** (bajo riesgo, anotado para no
+   perderlo): el indicador de "escribiendo…" (`signalTyping`) no
+   comprueba dueño de cuenta — es una señal efímera, no dice nada
+   persistente en nombre de otro delegado; `reassignConversationContact`
+   (mover una Conversation a otro Contact) no revalida visibilidad más
+   allá del aislamiento por organización — solo alcanzable hoy vía la UI
+   del Inbox, que ya filtra qué Conversations se ofrecen; el filtro de
+   canal de Inbox (`listConversationChannels`) sigue sin acotar por
+   delegado, igual que ya era independiente de vista/búsqueda por diseño
+   (`docs/ui/INBOX.md` §2) — un DELEGATE puede ver una opción de canal que
+   no le devuelva resultados, imperfección de UX, no de seguridad.
+
+**Verificación:** `tests/integration/contact-assignments.test.ts` nuevo —
+asignación inicial (manual y por mensaje), reasignación (historial,
+no-op al reasignar al mismo, rechazo fuera de organización), el escenario
+completo Marta/Ana/Luis (acceso temporal que aparece y desaparece según
+quién escribió a quién y cuándo, incluida la corrección "si Luis escribe a
+Marta, Ana también deja de verla"), Casos/Tareas heredando la visibilidad
+de su Contact, aislamiento multi-tenant. `tests/integration/inbox.test.ts`
+y `messaging.test.ts` actualizados a las firmas nuevas, con dos tests
+nuevos que sustituyen a uno cuya premisa PKG-014 volvía falsa ("el Inbox es
+compartido, no por delegado" ya no es cierto para un DELEGATE). 294/294
+unit+integration, 30/30 E2E (sin cambios de comportamiento visible para
+las suites existentes: todas registran un único ADMIN que actúa sobre sus
+propios datos, donde el nuevo filtro de visibilidad no cambia nada).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

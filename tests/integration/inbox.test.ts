@@ -163,20 +163,20 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       const secondConversationId = `chat-${randomUUID()}`;
       await receiveInboundMessage(account.id, { externalConversationId: secondConversationId, text: "Segundo, más reciente" });
 
-      const all = await listConversationsWithPreview(org.id, {});
+      const all = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, {});
       expect(all).toHaveLength(2);
       expect(all[0].lastMessage?.body).toBe("Segundo, más reciente");
       expect(all.every((c) => c.unread)).toBe(true);
 
-      const filteredByChannel = await listConversationsWithPreview(org.id, { channel: "fake" });
+      const filteredByChannel = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { channel: "fake" });
       expect(filteredByChannel).toHaveLength(2);
-      const filteredByOtherChannel = await listConversationsWithPreview(org.id, { channel: "other" });
+      const filteredByOtherChannel = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { channel: "other" });
       expect(filteredByOtherChannel).toHaveLength(0);
 
       const conversationToMarkRead = all.find((c) => c.lastMessage?.body === "Primero")!;
       await markConversationRead(org.id, conversationToMarkRead.id);
 
-      const unreadOnly = await listConversationsWithPreview(org.id, { view: "unread" });
+      const unreadOnly = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { view: "unread" });
       expect(unreadOnly.map((c) => c.id)).not.toContain(conversationToMarkRead.id);
       expect(unreadOnly).toHaveLength(1);
     });
@@ -199,7 +199,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       await receiveInboundMessage(account.id, { text: "Antiguo" });
       await new Promise((resolve) => setTimeout(resolve, 5));
       await receiveInboundMessage(account.id, { externalConversationId: `chat-${randomUUID()}`, text: "Nuevo" });
-      const [newest, older] = await listConversationsWithPreview(org.id, {});
+      const [newest, older] = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, {});
       expect(newest.lastMessage?.body).toBe("Nuevo");
 
       // Replying to the older conversation makes it the most recent one.
@@ -213,7 +213,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
         body: "Respuesta",
       });
 
-      const ordered = await listConversationsWithPreview(org.id, {});
+      const ordered = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, {});
       expect(ordered.map((c) => c.id)).toEqual([older.id, newest.id, empty.id]);
     });
 
@@ -243,7 +243,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
         await markConversationRead(org.id, conversation.id);
       }
 
-      const pending = await listConversationsWithPreview(org.id, { view: "pending" });
+      const pending = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { view: "pending" });
       expect(pending).toHaveLength(1);
       expect(pending[0].lastMessage?.body).toBe("¿Hay novedades?");
       expect(pending.every((c) => !c.unread)).toBe(true);
@@ -255,7 +255,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       await receiveInboundMessage(account.id, { contactDisplayName: "Someone New" });
       await createContact({ organizationId: org.id, actorUserId: user.id, name: "Known Contact" });
 
-      const unassigned = await listConversationsWithPreview(org.id, { view: "unassigned" });
+      const unassigned = await listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { view: "unassigned" });
       expect(unassigned).toHaveLength(1);
       expect(unassigned[0].contactIsUnassigned).toBe(true);
     });
@@ -298,10 +298,10 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
         body: "Hola de nuevo",
       });
 
-      await expect(listConversationsWithPreview(org.id, { search: "lovelace" })).resolves.toHaveLength(1);
-      await expect(listConversationsWithPreview(org.id, { search: "empadronamiento" })).resolves.toHaveLength(1);
-      await expect(listConversationsWithPreview(org.id, { search: "600111222" })).resolves.toHaveLength(1);
-      await expect(listConversationsWithPreview(org.id, { search: "no-existe" })).resolves.toHaveLength(0);
+      await expect(listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { search: "lovelace" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { search: "empadronamiento" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { search: "600111222" })).resolves.toHaveLength(1);
+      await expect(listConversationsWithPreview(org.id, { userId: user.id, role: "ADMIN" as const }, { search: "no-existe" })).resolves.toHaveLength(0);
     });
   });
 
@@ -317,21 +317,26 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       });
       await markConversationRead(org.id, (await listConversations(org.id))[0].id);
 
-      const counts = await countConversationsByView(org.id);
+      const counts = await countConversationsByView(org.id, { userId: user.id, role: "ADMIN" as const });
       expect(counts).toEqual({ pending: 2, unread: 1, unassigned: 2, all: 2 });
 
-      const byChannel = await countConversationsByView(org.id, { channel: "other" });
+      const byChannel = await countConversationsByView(org.id, { userId: user.id, role: "ADMIN" as const }, { channel: "other" });
       expect(byChannel).toEqual({ pending: 0, unread: 0, unassigned: 0, all: 0 });
     });
 
     it("is scoped to the organization", async () => {
-      const { org: orgA } = await createTestUserAndOrg("Counts Isolation A");
+      const { user: userA, org: orgA } = await createTestUserAndOrg("Counts Isolation A");
       const { user: userB, org: orgB } = await createTestUserAndOrg("Counts Isolation B");
       const accountB = await connectFakeAccount(orgB.id, userB.id);
       await receiveInboundMessage(accountB.id);
 
-      expect(await countConversationsByView(orgA.id)).toEqual({ pending: 0, unread: 0, unassigned: 0, all: 0 });
-      expect((await countConversationsByView(orgB.id)).all).toBe(1);
+      expect(await countConversationsByView(orgA.id, { userId: userA.id, role: "ADMIN" })).toEqual({
+        pending: 0,
+        unread: 0,
+        unassigned: 0,
+        all: 0,
+      });
+      expect((await countConversationsByView(orgB.id, { userId: userB.id, role: "ADMIN" })).all).toBe(1);
     });
   });
 
@@ -346,14 +351,14 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       await receiveInboundMessage(account.id, { externalConversationId: conversationId, text: "Dos" });
       await receiveInboundMessage(account.id, { text: "Otra conversación" });
 
-      expect(await countUnreadConversations(org.id)).toBe(2);
+      expect(await countUnreadConversations(org.id, { userId: user.id, role: "ADMIN" })).toBe(2);
 
       const [firstConversation] = await listConversations(org.id);
       await markConversationRead(org.id, firstConversation.id);
-      expect(await countUnreadConversations(org.id)).toBe(1);
+      expect(await countUnreadConversations(org.id, { userId: user.id, role: "ADMIN" })).toBe(1);
     });
 
-    it("is organization-wide, not per delegate (Inbox is shared, unlike Channels)", async () => {
+    it("an ADMIN's count is organization-wide, covering every delegate's channel (PKG-014: only Channels are per-delegate)", async () => {
       const { user: admin, org } = await createTestUserAndOrg("Shared Inbox Org");
       const otherDelegate = await db
         .insert(users)
@@ -367,13 +372,32 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
 
       // The count seen by the ADMIN (who did not connect this account)
       // includes conversations on every delegate's channel.
-      expect(await countUnreadConversations(org.id)).toBe(1);
-      void admin;
+      expect(await countUnreadConversations(org.id, { userId: admin.id, role: "ADMIN" })).toBe(1);
+    });
+
+    it("a DELEGATE's count is scoped to what they can see (PKG-014)", async () => {
+      const { org } = await createTestUserAndOrg("Scoped Unread Org");
+      const [reference, other] = await db
+        .insert(users)
+        .values([
+          { id: randomUUID(), name: "Reference Delegate", email: `${randomUUID()}@example.com` },
+          { id: randomUUID(), name: "Other Delegate", email: `${randomUUID()}@example.com` },
+        ])
+        .returning();
+      await db.insert(organizationMembers).values([
+        { organizationId: org.id, userId: reference.id, role: "DELEGATE" },
+        { organizationId: org.id, userId: other.id, role: "DELEGATE" },
+      ]);
+      const account = await connectFakeAccount(org.id, reference.id);
+      await receiveInboundMessage(account.id);
+
+      expect(await countUnreadConversations(org.id, { userId: reference.id, role: "DELEGATE" })).toBe(1);
+      expect(await countUnreadConversations(org.id, { userId: other.id, role: "DELEGATE" })).toBe(0);
     });
 
     it("returns 0 for an organization with no conversations", async () => {
-      const { org } = await createTestUserAndOrg("Empty Unread Org");
-      expect(await countUnreadConversations(org.id)).toBe(0);
+      const { user, org } = await createTestUserAndOrg("Empty Unread Org");
+      expect(await countUnreadConversations(org.id, { userId: user.id, role: "ADMIN" })).toBe(0);
     });
   });
 
@@ -386,9 +410,10 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       await receiveInboundMessage(accountA.id);
       const [conversationA] = await listConversations(orgA.id);
 
-      expect(await listConversationsWithPreview(orgB.id, {})).toHaveLength(0);
-      expect(await countUnreadConversations(orgB.id)).toBe(0);
-      expect(await getConversationWithDetails(orgB.id, conversationA.id)).toBeNull();
+      const adminB = { userId: userB.id, role: "ADMIN" as const };
+      expect(await listConversationsWithPreview(orgB.id, adminB, {})).toHaveLength(0);
+      expect(await countUnreadConversations(orgB.id, adminB)).toBe(0);
+      expect(await getConversationWithDetails(orgB.id, adminB, conversationA.id)).toBeNull();
       expect(await getConversation(orgB.id, conversationA.id)).toBeNull();
 
       // markConversationRead silently no-ops outside the organization (same
@@ -396,7 +421,7 @@ describe("PKG-004 Unified Inbox (integration, real PostgreSQL)", () => {
       // service in this codebase) — verified by confirming org A's own
       // unread state is untouched.
       await markConversationRead(orgB.id, conversationA.id);
-      const stillUnread = await listConversationsWithPreview(orgA.id, {});
+      const stillUnread = await listConversationsWithPreview(orgA.id, { userId: userA.id, role: "ADMIN" }, {});
       expect(stillUnread[0].unread).toBe(true);
 
       const otherOrgContact = await createContact({ organizationId: orgB.id, actorUserId: userB.id, name: "Org B Contact" });
