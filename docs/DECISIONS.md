@@ -1977,6 +1977,42 @@ la columna de la ficha (lejos de donde se escribe la respuesta).
 único mantiene un solo modelo de apertura/cierre/foco, ya resuelto en
 UI-6.
 
+## 2026-09-28 — Kindly no almacena archivos de afiliados; trámites en el knowledge base; afiliación manual
+
+**Contexto:** al planificar la ficha del afiliado (UI-10), el usuario fijó
+que la plataforma **no guarda PDFs ni ningún archivo de los afiliados**,
+solo trámites; que los datos de afiliación se dan de alta a mano por ahora
+(con el caso "activa pero con la cuota actual sin pagar", y peticiones de
+facturas de cuota); que el knowledge base incluye **trámites** con sus
+documentos requeridos; y que la ficha y la documentación solo las ven el
+delegado y los ADMIN.
+
+**Decisión:** (1) los adjuntos que llegan por WhatsApp se guardan solo
+como **metadatos** del `Message`; el contenido se descarga bajo demanda
+por un proxy en streaming hacia la Graph API, sin escribirse en disco,
+storage, logs ni caché. Se descarta `MessageAttachment` con storage R2
+(que se había planteado horas antes en `CONVERSATION_WORKSPACE.md`). (2) La
+sección "Documentación" de la ficha pasa a "Trámite y documentación":
+lista de requisitos del trámite (`Procedure`, Fase 7) con estado
+recibido/falta. (3) `Membership` con alta manual y `fee_paid_until`; "cuota
+pendiente" se deriva. Las facturas de cuota no las genera ni guarda Kindly:
+son un trámite. (4) Al afiliado se le avisa con un texto **veraz**: Kindly
+no guarda el archivo, pero no puede prometer que se borre del WhatsApp del
+delegado (coexistence) ni de Meta.
+
+**Pendiente de confirmar antes de construir:** plazo de descarga y
+retención de medios en la documentación actual de Meta (`CLAUDE.md` §3);
+cómo se entrega el aviso (propuesta: texto que el delegado inserta y
+envía, más la política de privacidad); cómo encaja "solo el delegado y los
+ADMIN" con que hoy todos los miembros ven todo el Inbox y con que un
+Contact puede tener varios delegados (`CONVERSATION_WORKSPACE.md` §7).
+
+**Por qué:** minimiza el riesgo sobre datos sensibles (partes de baja =
+datos de salud, art. 9 RGPD) y es decisión explícita del usuario. Nota: el
+"entrenar un modelo con webs y PDFs" del encargo se implementa como
+indexación con citas (RAG), no como entrenamiento, coherente con
+`CLAUDE.md` §2.3 y §5.
+
 ---
 
 <!--

@@ -196,12 +196,20 @@ Mockup estático con datos ficticios en
 `docs/ui/mockups/conversation-workspace.html` (publicado también como
 artifact privado del usuario, enlace en ese documento). El usuario quiere
 **ver primero el aspecto** antes de programar; UI-10a es lo único que se
-puede empezar sin dominio nuevo.
+puede empezar sin dominio nuevo. **Segunda ronda de respuestas del
+usuario, ya incorporadas:** afiliación con alta manual (activa al día /
+cuota pendiente / baja), trámites en el knowledge base, **Kindly no guarda
+archivos de afiliados** (descarga por proxy sin almacenar + aviso al
+afiliado), ficha visible solo para delegado y ADMIN. Quedan 2 preguntas
+abiertas en `CONVERSATION_WORKSPACE.md` §7 (cómo se entrega el aviso;
+visibilidad frente a que hoy todos ven todo el Inbox).
 
 **Pendiente de esta misma conversación, pedido explícitamente por el
 usuario, sin empezar todavía — no confundir con UI-7:**
 
-1. **Imágenes entrantes** (absorbido por el paquete UI-10c): hoy el adapter de WhatsApp descarta el
+1. **Imágenes entrantes** (absorbido por UI-10c y **redefinido el
+   2026-09-28: sin almacenar el archivo**, lo de storage de abajo queda
+   obsoleto): hoy el adapter de WhatsApp descarta el
    contenido multimedia (`whatsapp-test-adapter.ts` lo convierte en un
    texto de relleno `[Mensaje de tipo "image"...]`, sin guardar el
    `media_id` ni descargar nada). Implementar requiere: descargar el medio

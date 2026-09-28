@@ -97,7 +97,7 @@
   .list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
   .list-head { padding: 20px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
   .list-head h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.012em; }
-  .fake-input { height: 34px; border: 1px solid var(--border-control); border-radius: var(--radius-control); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--foreground-lighter); font-size: 13px; }
+  .fake-input { white-space: nowrap; overflow: hidden; height: 34px; border: 1px solid var(--border-control); border-radius: var(--radius-control); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--foreground-lighter); font-size: 13px; }
   .fake-row { display: flex; gap: 8px; }
   .fake-row .fake-input { flex: 1; justify-content: space-between; color: var(--foreground); }
   .rows { overflow: auto; }
@@ -222,9 +222,9 @@
 
 <header class="intro">
   <h1>Espacio de respuesta: conversación, ficha del afiliado y copiloto</h1>
-  <p>Mockup estático de la fase UI-10 con <strong>datos ficticios</strong>. Al hacer clic en una conversación se abre un único panel desde la derecha con dos columnas: el chat (con el copiloto encima del compositor) y la ficha del afiliado, de solo lectura en esta primera versión.</p>
+  <p>Mockup estático de la fase UI-10 con <strong>datos ficticios</strong>. Kindly no guarda archivos de afiliados: la documentación es la lista de requisitos del trámite, marcada como recibida o pendiente. Al hacer clic en una conversación se abre un único panel desde la derecha con dos columnas: el chat (con el copiloto encima del compositor) y la ficha del afiliado, de solo lectura en esta primera versión.</p>
   <div class="controls" role="group" aria-label="Variantes del mockup">
-    <button class="chip" id="toggle-membership" aria-pressed="false">Ver con afiliación inactiva</button>
+    <button class="chip" id="toggle-membership" aria-pressed="false">Afiliación: activa y al corriente</button>
     <button class="chip" id="toggle-ficha" aria-pressed="false">Plegar la ficha</button>
     <button class="chip" id="toggle-copilot" aria-pressed="false">Plegar el copiloto</button>
   </div>
@@ -280,7 +280,7 @@
             <div class="bubble in">Hola Ana, esta mañana el médico me ha dado la baja. ¿Qué tengo que hacer con el hospital?<small>10:31</small></div>
             <div class="bubble out">Hola Marta, lo vemos. ¿Es por enfermedad común o por algo del trabajo?<small>10:33 <span class="ticks">✓✓</span></small></div>
             <div class="bubble in">Enfermedad común. Tengo el parte en papel.<small>10:38</small></div>
-            <div class="bubble in"><div class="attachment"><span class="thumb"></span><div><b style="font-weight:500">DNI_Marta_Ruiz.jpg</b><br><span style="font-size:12px;color:var(--foreground-lighter)">Imagen · 1,2 MB</span></div></div>Te mando también el DNI por si hace falta<small>10:42</small></div>
+            <div class="bubble in"><div class="attachment"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-file"/></svg></span><div style="min-width:0;flex:1"><b style="font-weight:500">DNI_Marta_Ruiz.jpg</b><br><span style="font-size:12px;color:var(--foreground-lighter)">Imagen · 1,2 MB · no se guarda en Kindly</span></div><button class="btn">Descargar</button></div>Te mando también el DNI por si hace falta<small>10:42</small></div>
           </div>
 
           <aside class="copilot" id="copilot" aria-label="Sugerencia del copiloto">
@@ -311,7 +311,7 @@
           <div class="composer">
             <label for="composer" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Respuesta</label>
             <textarea id="composer" placeholder="Escribe una respuesta..."></textarea>
-            <div class="bar">Intro para enviar · Mayús+Intro salto de línea<button class="btn">Enviar</button></div>
+            <div class="bar"><button class="btn" id="notice" style="margin-left:0">Insertar aviso de documentos</button><span style="margin-left:10px">Intro para enviar</span><button class="btn">Enviar</button></div>
           </div>
         </section>
 
@@ -323,7 +323,8 @@
             <div class="membership" id="membership">
               <span class="status" id="m-status">Afiliada · activa</span>
               <span class="meta" id="m-meta">Nº 48213 · desde el 14/03/2021 (5 años)</span>
-              <span class="opportunity" id="m-opportunity" hidden>Buen momento para proponerle volver a afiliarse: está usando el servicio.</span>
+              <span class="meta" id="m-fee">Cuota pagada hasta septiembre 2026</span>
+              <span class="opportunity" id="m-opportunity" hidden></span>
             </div>
           </div>
 
@@ -345,13 +346,14 @@
           </div>
 
           <div class="sect">
-            <div class="overline">Documentación aportada <a href="#">Ver todo (4)</a></div>
+            <div class="overline">Trámite en curso <a href="#">Ver trámite</a></div>
+            <div class="item" style="background:none;border:0;padding:0"><div class="grow"><b>Baja por incapacidad temporal</b><span>Trámite del knowledge base · v2 · 1 de 3 documentos</span></div></div>
             <div class="items">
-              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-chat"/></svg></span><div class="grow"><b>DNI_Marta_Ruiz.jpg</b><span>Recibido por WhatsApp · hoy 10:42</span></div><span class="pill ok">Recibido</span></div>
-              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-mail"/></svg></span><div class="grow"><b>Nomina_agosto_2026.pdf</b><span>Recibido por email · 03/09</span></div><span class="pill ok">Recibido</span></div>
-              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-mail"/></svg></span><div class="grow"><b>Reclamacion_nocturnidad.pdf</b><span>Enviado por ti por email · 05/09</span></div><span class="pill">Enviado</span></div>
-              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-file"/></svg></span><div class="grow"><b>Parte de baja</b><span>Pedido hoy, aún no recibido</span></div><span class="pill pending">Falta</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-chat"/></svg></span><div class="grow"><b>DNI</b><span>Recibido por WhatsApp · hoy 10:42 · no guardado</span></div><span class="pill ok">Recibido</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-file"/></svg></span><div class="grow"><b>Parte de baja médico</b><span>Pedido hoy</span></div><span class="pill pending">Falta</span></div>
+              <div class="item"><span class="channel"><svg class="ico" style="width:13px;height:13px"><use href="#i-file"/></svg></span><div class="grow"><b>Última nómina</b><span>Para calcular el complemento</span></div><span class="pill pending">Falta</span></div>
             </div>
+            <span class="summary-meta">Kindly no guarda los archivos: el delegado los descarga para tramitarlos y solo queda registrado que se recibieron.</span>
           </div>
 
           <div class="sect">
@@ -383,8 +385,9 @@
 <section class="legend" aria-label="Notas del mockup">
   <div><b>Un panel, dos columnas</b><p>Se abre de una vez desde la derecha: un solo cierre y una sola tecla Esc. La lista sigue visible para saltar de afiliado. El botón con el icono de panel pliega la ficha y se recuerda la preferencia.</p></div>
   <div><b>Copiloto dinámico</b><p>Se recalcula con cada mensaje entrante. «Usar como borrador» solo rellena el compositor; nunca hay un botón que envíe la sugerencia.</p></div>
-  <div><b>Afiliación</b><p>Estado, número y antigüedad. Si no está activa, la ficha lo marca en ámbar y propone reafiliarse; es una regla fija, no una sugerencia de la IA.</p></div>
-  <div><b>Documentación y resumen</b><p>Los documentos que llegan por WhatsApp o email, y los que se envían, con su canal y fecha. El resumen va marcado como IA, con fecha y enlace a los mensajes en los que se basa.</p></div>
+  <div><b>Afiliación</b><p>Alta manual. Tres estados: activa y al corriente, activa con la cuota del mes pendiente, o baja. Los avisos en ámbar son reglas fijas, no sugerencias de la IA. Pedir una factura de la cuota es un trámite más.</p></div>
+  <div><b>Trámites, sin archivos</b><p>La ficha muestra los documentos que pide el trámite (del knowledge base) y si ya llegaron. Los archivos se descargan desde Meta al equipo del delegado sin guardarse en Kindly; «Insertar aviso de documentos» pone el aviso en el compositor para que el delegado lo envíe.</p></div>
+  <div><b>Resumen de situación</b><p>Marcado como IA, con fecha y enlace a los mensajes en los que se basa.</p></div>
 </section>
 
 <script>
@@ -422,16 +425,33 @@
     });
     document.getElementById("discard").addEventListener("click", () => setCopilot(false));
 
+    const states = [
+      { chip: "Afiliación: activa y al corriente", status: "Afiliada · activa", meta: "Nº 48213 · desde el 14/03/2021 (5 años)", fee: "Cuota pagada hasta septiembre 2026", warn: "" },
+      { chip: "Afiliación: cuota pendiente", status: "Afiliada · cuota pendiente", meta: "Nº 48213 · desde el 14/03/2021 (5 años)", fee: "Cuota pagada hasta agosto 2026", warn: "La cuota de septiembre está pendiente de pago." },
+      { chip: "Afiliación: baja", status: "No afiliada · baja", meta: "Nº 48213 · afiliada del 14/03/2021 al 30/06/2025", fee: "", warn: "Buen momento para proponerle volver a afiliarse: está usando el servicio." },
+    ];
+    let current = 0;
     const mChip = document.getElementById("toggle-membership");
     mChip.addEventListener("click", () => {
-      const inactive = mChip.getAttribute("aria-pressed") !== "true";
-      mChip.setAttribute("aria-pressed", String(inactive));
-      document.getElementById("membership").classList.toggle("inactive", inactive);
-      document.getElementById("m-status").textContent = inactive ? "No afiliada · baja" : "Afiliada · activa";
-      document.getElementById("m-meta").textContent = inactive
-        ? "Nº 48213 · afiliada del 14/03/2021 al 30/06/2025"
-        : "Nº 48213 · desde el 14/03/2021 (5 años)";
-      document.getElementById("m-opportunity").hidden = !inactive;
+      current = (current + 1) % states.length;
+      const st = states[current];
+      mChip.textContent = st.chip;
+      mChip.setAttribute("aria-pressed", String(current !== 0));
+      document.getElementById("membership").classList.toggle("inactive", current !== 0);
+      document.getElementById("m-status").textContent = st.status;
+      document.getElementById("m-meta").textContent = st.meta;
+      const fee = document.getElementById("m-fee");
+      fee.textContent = st.fee;
+      fee.hidden = !st.fee;
+      const opp = document.getElementById("m-opportunity");
+      opp.textContent = st.warn;
+      opp.hidden = !st.warn;
+    });
+
+    document.getElementById("notice").addEventListener("click", () => {
+      composer.value = "Un apunte: Kindly no guarda los documentos que nos envías. Los descargo para tramitarlos y no quedan almacenados en la plataforma.";
+      composer.classList.add("filled");
+      composer.focus();
     });
   })();
 </script>

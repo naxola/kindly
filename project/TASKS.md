@@ -606,8 +606,8 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
 
 - [ ] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (se puede empezar ya).
-- [ ] UI-10b — `Membership` (afiliación: número, estado, desde/hasta) + sección en la ficha. Bloqueado por: origen de los datos (pregunta abierta §7.1).
-- [ ] UI-10c — Adjuntos de WhatsApp (`MessageAttachment`, storage R2, visor) + sección Documentación. Absorbe "imágenes entrantes".
+- [ ] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente.
+- [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
 - [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
 - [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
@@ -622,6 +622,8 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 ## Fase 7 — Knowledge
 
 - [ ] `Document`, `DocumentVersion` con campos de vigencia/jurisdicción.
+- [ ] **Trámites** (`Procedure`, por Organization, versionados): pasos y documentos requeridos; vinculables a Caso/conversación (pedido 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md` §5.2).
+- [ ] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo.
 - [ ] Separación estricta GLOBAL vs. ORGANIZATION knowledge.
 - [ ] `KnowledgeChunk` con jerarquía (Chapter/Section/Article/Paragraph).
 - [ ] Pipeline de embeddings (worker, `EmbeddingProvider`).
