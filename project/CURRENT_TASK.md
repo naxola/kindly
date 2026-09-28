@@ -6,7 +6,7 @@
 
 ## Paquete activo: PKG-014 — Asignación de afiliados a delegados — CERRADO 2026-09-28; siguiente UI-8 o UI-10
 
-Último commit: sin commits todavía de este checkpoint (ver "Estado" al final de este archivo tras el commit de cierre).
+Último commit: `cc8eeac`.
 
 ### PKG-014 (encargo del 2026-09-28, tras cerrar UI-7)
 
