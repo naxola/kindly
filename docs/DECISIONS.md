@@ -2290,6 +2290,69 @@ propios datos, donde el nuevo filtro de visibilidad no cambia nada).
 
 ---
 
+## 2026-09-28 — PKG-014, parte 2: UI de acceso temporal, reasignar y solo lectura
+
+**Contexto:** cierra el paquete con la parte de interfaz que la parte 1
+dejó pendiente — resaltado, aviso, reasignar y solo lectura entre
+delegados.
+
+**Decisión:**
+
+1. **Un Contact con más de un delegado escribiéndole se ve como varias
+   filas del Inbox, una por Conversation, no como un hilo fusionado.**
+   `docs/PRODUCT.md`/`TASKS.md` piden "ver todo el historial con
+   cualquier delegado"; la forma más simple de dar eso con el modelo
+   actual (una Conversation = un `MessagingAccount` = un delegado) es
+   dejar que la visibilidad por Contact (ya resuelta en la parte 1) haga
+   que ambas Conversations aparezcan, en vez de escribir un mecanismo
+   nuevo para fusionar mensajes de varias Conversations en un solo hilo
+   con atribución de autor por mensaje. Un hilo de verdad fusionado se
+   deja para UI-10 (`CONVERSATION_WORKSPACE.md`), donde ya hace falta
+   diseñar la ficha del afiliado de todas formas — construirlo aquí
+   habría sido diseñar dos veces la misma pieza.
+2. **`ConversationPreview`/`ConversationDetails` ganan
+   `referenceDelegateId`** (un `LEFT JOIN` a `contact_assignments` sobre
+   `ended_at IS NULL`, seguro como join 1:1 gracias al índice único
+   parcial) — la UI decide el resaltado comparando ese id con el
+   visor, no repitiendo la lógica de "acceso temporal" en el cliente:
+   si el visor no es el id, la fila/conversación se marca, sea por ser
+   temporal o simplemente por no ser su propio canal.
+3. **Cerrado el hueco de identidad de la parte 1 en la UI**:
+   `ConversationThread` oculta el compositor entero (no solo lo
+   deshabilita) cuando `canReply` es falso — calculado comparando el
+   delegado dueño de la propia `MessagingAccount` de la Conversation con
+   el visor, independiente de si es o no el delegado de referencia. Un
+   `Alert` "Solo lectura" explica por qué, con el nombre del dueño real.
+4. **Hallazgo real, esta vez de proceso, no de producto**: un proceso
+   `next-server` que sobrevivió a una comprobación visual manual anterior
+   (`lsof -ti:3000 | xargs kill` no verificado con un `ps`/`lsof` de
+   seguimiento) quedó escuchando en el puerto 3000. `playwright.config.ts`
+   tiene `reuseExistingServer: !process.env.CI`, así que cada
+   `npm run test:e2e` posterior — incluida la verificación "30/30" de la
+   parte 1 de este mismo paquete — reutilizó ese proceso en vez de
+   reconstruir, sin dar ningún error: los specs existentes, ajenos al
+   código nuevo, seguían pasando igual contra el build viejo. Se detectó
+   solo porque una aserción nueva (que solo podía cumplirse con el código
+   de la parte 1) falló mientras la misma lógica, probada de forma
+   aislada con un test de integración directo contra la misma base de
+   datos, era correcta — lo que apuntaba al *servidor bajo prueba*, no al
+   código. Confirmado con `ps aux | grep next-server`. Solución: matar el
+   proceso, `rm -rf .next`, reconstruir y repetir toda la suite E2E desde
+   cero. Anotado en memoria para no repetirlo.
+
+**Verificación:** `tests/e2e/contact-assignments.spec.ts` nuevo, con dos
+delegados reales y una organización — Marta escribe primero a Luis
+(referencia), luego a Ana (llamada directa a SQL para adjuntar la segunda
+Conversation, ya que el pipeline de webhooks nunca fusiona un Contact
+existente): la fila de Ana sale resaltada con "Ref.: Luis", su propia
+Conversation con Marta admite responder, la de Luis (abierta por Ana) es
+"Solo lectura"; el ADMIN reasigna desde `/contacts/[id]` y el resaltado se
+mueve. 295/295 unit+integration, **31/31 E2E — reconstruido desde cero y
+reverificado tras el hallazgo del punto 4**, verificación visual real
+(highlight, aviso, solo lectura, control de reasignar).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

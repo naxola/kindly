@@ -76,10 +76,16 @@ export function ConversationThread({
   conversationId,
   initialState,
   supportsTyping,
+  canReply,
+  ownerName,
 }: {
   conversationId: string;
   initialState: ConversationThreadState;
   supportsTyping: boolean;
+  /** Whether the viewer owns this Conversation's MessagingAccount (PKG-014) — false hides the composer entirely. */
+  canReply: boolean;
+  /** The delegate whose number this Conversation actually is, shown when `canReply` is false. */
+  ownerName: string;
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>(initialState.messages);
   const [serviceWindow, setServiceWindow] = useState(initialState.serviceWindow);
@@ -324,7 +330,12 @@ export function ConversationThread({
       </div>
 
       <SheetFooter className="flex-col items-stretch">
-        {serviceWindow.status === "CLOSED" ? (
+        {!canReply ? (
+          <Alert tone="neutral" title="Solo lectura">
+            Esta conversación es del número de {ownerName}. Para responder, hazlo desde la conversación de este
+            contacto en tu propio número.
+          </Alert>
+        ) : serviceWindow.status === "CLOSED" ? (
           <Alert tone="warning" title="No puedes responder en texto libre ahora mismo">
             <p>
               El proveedor solo permite respuestas libres durante un tiempo limitado desde el último mensaje del

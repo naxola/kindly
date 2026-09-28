@@ -48,6 +48,10 @@ export interface ConversationSheetProps {
   contact: { id: string; name: string; isUnassigned: boolean };
   channel: string;
   delegateName: string;
+  /** Whether the viewer owns this Conversation's own MessagingAccount — only they can send through it (PKG-014). */
+  canReply: boolean;
+  /** Set only when the Contact's reference delegate is someone other than the viewer (PKG-014, "acceso temporal"). */
+  referenceDelegateName?: string;
   otherContacts: { id: string; name: string }[];
   threadState: ConversationThreadState;
   supportsTyping: boolean;
@@ -67,8 +71,19 @@ export interface ConversationSheetProps {
  * than a CSS breakpoint.
  */
 export function ConversationSheet(props: ConversationSheetProps) {
-  const { conversationId, contact, channel, delegateName, otherContacts, threadState, supportsTyping, closeMode, closeHref } =
-    props;
+  const {
+    conversationId,
+    contact,
+    channel,
+    delegateName,
+    canReply,
+    referenceDelegateName,
+    otherContacts,
+    threadState,
+    supportsTyping,
+    closeMode,
+    closeHref,
+  } = props;
   const router = useRouter();
   const isAnchored = useMediaQuery(ANCHORED_QUERY);
   const isModalOrWider = useMediaQuery(MODAL_QUERY);
@@ -237,11 +252,32 @@ export function ConversationSheet(props: ConversationSheetProps) {
     </div>
   );
 
+  // PKG-014 ("Delegado de referencia y acceso temporal", docs/DECISIONS.md):
+  // shown whenever the Contact's reference delegate is someone other than
+  // the viewer — including on the viewer's *own* Conversation with them,
+  // which is exactly the scenario the rule describes ("Ana ve a Marta
+  // resaltada... su delegado de referencia es Luis").
+  const referenceAlert = referenceDelegateName && (
+    <div className="px-4 pt-3">
+      <Alert tone="info" title={`Su delegado de referencia es ${referenceDelegateName}`}>
+        Redirígele los mensajes cuando puedas. Si contestas, {contact.name} sabrá que le escribes tú, no{" "}
+        {referenceDelegateName}.
+      </Alert>
+    </div>
+  );
+
   const content = (
     <>
       {header}
+      {referenceAlert}
       {contextualAlert}
-      <ConversationThread conversationId={conversationId} initialState={threadState} supportsTyping={supportsTyping} />
+      <ConversationThread
+        conversationId={conversationId}
+        initialState={threadState}
+        supportsTyping={supportsTyping}
+        canReply={canReply}
+        ownerName={delegateName}
+      />
     </>
   );
 

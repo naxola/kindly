@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: PKG-014 — Asignación de afiliados a delegados (dominio cerrado 2026-09-28; falta la UI)
+## Paquete activo: PKG-014 — Asignación de afiliados a delegados — CERRADO 2026-09-28; siguiente UI-8 o UI-10
 
-Último commit: `9b77ec3`.
+Último commit: sin commits todavía de este checkpoint (ver "Estado" al final de este archivo tras el commit de cierre).
 
 ### PKG-014 (encargo del 2026-09-28, tras cerrar UI-7)
 
@@ -72,30 +72,70 @@ lint+typecheck+294/294 unit-integration+30/30 E2E:**
    cubren ADMIN (sigue viendo todo) y DELEGATE (ve solo lo suyo) por
    separado.
 
-**Pendiente de esta misma sesión, sin empezar todavía (checklist completo
-en `project/TASKS.md`, PKG-014):**
+**Hecho en la misma sesión — UI, verificado con lint+typecheck+295/295
+unit-integration+31/31 E2E (reconstruido desde cero, ver hallazgo de
+proceso más abajo) + captura visual real:**
 
-1. **UI de "Reasignar" (solo ADMIN)**: el dominio ya existe
-   (`assignContactToDelegate`), falta el control (probablemente en
-   `/contacts/[id]`, que ya existe) y su Server Action.
-2. **Fila azul + etiqueta "Ref.: <delegado>"** en la lista de Inbox para
-   una Conversation con acceso temporal (no eres el delegado de
-   referencia).
-3. **Aviso en la conversación** explicando el acceso temporal y quién es
-   el delegado de referencia.
-4. **Historial de otros delegados en solo lectura**, con su nombre en
-   cada tramo — hoy el hilo no distingue de qué Conversation (y por tanto
-   de qué delegado) viene cada mensaje cuando se combinan varias.
-5. **Compositor oculto/deshabilitado** cuando el visor no es el delegado
-   dueño de la cuenta (consecuencia directa del punto 5 de dominio
-   arriba — hoy el guardarraíl de servidor existe pero la UI no lo
-   refleja, así que un intento de enviar fallaría con un error genérico
-   en vez de no ofrecer la acción).
-6. **E2E con dos delegados** contra la UI real (hoy solo hay cobertura de
-   integración a nivel de servicio para el escenario multi-delegado).
-7. **Histórico visible en la ficha** — depende de UI-10 (la ficha del
-   afiliado no existe todavía); anotado aquí para no perderlo, no
-   bloquea el resto.
+1. **`ConversationPreview`/`ConversationDetails` ganan `referenceDelegateId`**
+   (`conversations/service.ts`): un `LEFT JOIN` a `contact_assignments`
+   sobre `ended_at IS NULL`, seguro como join 1:1 por el índice único
+   parcial. La UI decide el resaltado comparando ese id con el visor, sin
+   repetir la lógica de "acceso temporal" en el cliente.
+2. **Fila azul (`bg-info-soft`) + "Ref.: <delegado>"** en `InboxRow`,
+   calculado en `InboxList` a partir de `referenceDelegateId`; también
+   muestra el nombre del delegado dueño del canal (`showDelegate`) cuando
+   la fila no es el propio canal del visor, no solo para un ADMIN como
+   antes.
+3. **Aviso en la conversación** (`ConversationSheet`): `Alert` "Su
+   delegado de referencia es X — redirígele los mensajes" cuando el
+   Contact tiene referencia y no es el visor, en cualquier Conversation
+   suya (incluida la propia — es justo el escenario que describe la
+   regla).
+4. **Compositor oculto en modo solo lectura** (`ConversationThread`, prop
+   `canReply`): calculado comparando el delegado dueño de la propia
+   `MessagingAccount` de la Conversation con el visor — independiente de
+   si es o no el delegado de referencia. Cierra en la UI el guardarraíl
+   de servidor que ya existía en `sendOutboundMessage` desde la parte de
+   dominio.
+5. **"Reasignar" (ADMIN)**: `assignContactToDelegateAction`
+   (`contacts/actions.ts`, devuelve `{ error }` en vez de lanzar, mismo
+   motivo que `changeMemberRoleAction` en UI-7) + `ReassignDelegateControl`
+   (`NativeSelect` + `ConfirmDialog`, mismo patrón que `ChangeRoleControl`)
+   en una sección nueva "Delegado de referencia" de `/contacts/[id]`, con
+   histórico simple debajo.
+6. **Decisión de alcance**: un Contact con varios delegados escribiéndole
+   se ve como varias filas del Inbox (una por Conversation), no como un
+   hilo fusionado con atribución de autor por mensaje — la visibilidad
+   por Contact ya resuelta en la parte de dominio hace que ambas
+   aparezcan; un hilo de verdad fusionado queda para UI-10, donde ya hay
+   que diseñar la ficha de todas formas. Detalle en `docs/DECISIONS.md`.
+7. `tests/e2e/contact-assignments.spec.ts` nuevo: dos delegados reales,
+   Marta escribe primero a Luis (referencia) y luego a Ana (SQL directo
+   para la segunda Conversation, igual que el test de integración) — fila
+   de Ana resaltada, su propia Conversation admite responder, la de Luis
+   es solo lectura, el ADMIN reasigna y el resaltado se mueve.
+8. **Hallazgo real, de proceso**: un `next-server` de una comprobación
+   visual anterior sobrevivió a un `lsof -ti:3000 | xargs kill` no
+   verificado, y `reuseExistingServer: !process.env.CI` de
+   `playwright.config.ts` hizo que **todas** las ejecuciones de
+   `npm run test:e2e` de esta sesión desde entonces (incluida la
+   verificación "30/30" de la parte de dominio) reutilizaran ese proceso
+   viejo en silencio, sin reconstruir — los specs existentes seguían
+   pasando igual contra el build antiguo, dando una falsa sensación de
+   verificación. Detectado solo porque una aserción nueva (que solo podía
+   cumplirse con código de esta sesión) fallaba pese a que la misma
+   lógica, probada de forma aislada, era correcta. Solución: matar el
+   proceso, `rm -rf .next`, reconstruir y repetir toda la suite E2E desde
+   cero — la reconstrucción SÍ pasó 31/31. Detalle y memoria del hallazgo
+   en `docs/DECISIONS.md`.
+
+**Pendiente, fuera de alcance de este paquete a propósito (no bloquea
+nada, anotado para no perderlo):**
+
+- **Historial verdaderamente fusionado con atribución de autor por
+  mensaje** entre las Conversations de varios delegados con el mismo
+  Contact — depende de UI-10 (la ficha del afiliado no existe todavía).
+  Ver punto 6 de arriba.
 
 ---
 

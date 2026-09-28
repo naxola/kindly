@@ -620,21 +620,28 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 
 - [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
 
-### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol (planificado 2026-09-28; dominio cerrado 2026-09-28)
+### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol — CERRADO 2026-09-28
 
 Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del afiliado").
 
 - [x] Tabla `contact_assignments` (`organization_id`, `contact_id`, `delegate_id`, `started_at`, `ended_at`, `assigned_by`), con índice único parcial para una sola asignación activa por Contact; migración (`0007_magical_owl.sql`) que asigna cada Contact existente al delegado de su conversación más reciente.
 - [x] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió (`findOrCreateConversation`); Contact creado a mano → asignado a quien lo crea (`createContact`).
-- [x] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados); ADMIN → todo. `contacts/visibility.ts::contactVisibilityCondition`, reutilizado en cada módulo vía una variante `...ForMember`. Tests de permisos (`tests/integration/contact-assignments.test.ts`, incluido el escenario completo Marta/Ana/Luis). **Ficha y descargas quedan pendientes** — no existen hasta UI-10. **E2E con dos delegados en la UI real, pendiente** (checkpoint de UI de esta misma sesión).
-- [ ] Reasignar (solo ADMIN) con registro en actividad — dominio listo (`assignContactToDelegate`, `CONTACT_DELEGATE_ASSIGNED`), falta control en la UI. Histórico visible en la ficha — pendiente de UI-10 (la ficha no existe).
-- [ ] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal") — **la parte de dominio (2/4/5, quién ve qué, y que solo se responde desde el número propio) ya está cerrada arriba; falta la parte de UI (resaltado azul, aviso de redirección, atribución de autor en el historial de otro delegado)**:
+- [x] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados); ADMIN → todo. `contacts/visibility.ts::contactVisibilityCondition`, reutilizado en cada módulo vía una variante `...ForMember`. Tests de permisos (`tests/integration/contact-assignments.test.ts`, incluido el escenario completo Marta/Ana/Luis) + E2E con dos delegados en la UI real (`tests/e2e/contact-assignments.spec.ts`). **Ficha y descargas quedan pendientes** — no existen hasta UI-10.
+- [x] Reasignar (solo ADMIN) con registro en actividad: `assignContactToDelegateAction` + `ReassignDelegateControl` en `/contacts/[id]`. Histórico visible ahí mismo (lista simple; el diseño completo de "ficha" llega con UI-10).
+- [x] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal") — dominio y UI cerrados:
   1. Un afiliado tiene **un único delegado de referencia**, con histórico
      de los anteriores; el ADMIN lo reasigna. Un afiliado puede escribir
      por WhatsApp a **uno o varios** delegados.
   2. El delegado de referencia ve al afiliado siempre, con **todo el
      historial con cualquier delegado** (lo de otros delegados, en solo
-     lectura: solo se responde desde el número propio).
+     lectura: solo se responde desde el número propio). **Cómo se
+     construyó**: cada Conversation con ese Contact aparece como su propia
+     fila del Inbox (una por delegado que le ha escrito) en vez de
+     fusionarse en un único hilo — la de otro delegado se abre en modo
+     "Solo lectura" (compositor oculto, `sendOutboundMessage` lo rechaza
+     también en el servidor). Un hilo verdaderamente fusionado con
+     atribución de autor por mensaje queda para UI-10, donde encaja mejor
+     junto a la ficha completa — ver `docs/DECISIONS.md`.
   3. Si el afiliado escribe a un delegado que **no es su referencia**
      (Ana), Ana lo ve en su lista **resaltado en azul** ("Su delegado de
      referencia es Luis — redirígele los mensajes"), ve todo el historial
@@ -647,8 +654,8 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
      lista automáticamente; Luis ve también los
      mensajes que el afiliado cruzó con Ana.
   5. El ADMIN ve todo.
-- [ ] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último mensaje **en cualquier dirección** (entrante, saliente o eco desde el móvil) en las conversaciones del delegado de referencia con ese afiliado.
-- [ ] UI: fila azul (`info-soft`) + etiqueta "Ref.: <delegado>" en la lista; aviso en la conversación; historial de otros delegados en solo lectura con su nombre en cada tramo.
+- [x] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último mensaje **en cualquier dirección** (entrante, saliente o eco desde el móvil) en las conversaciones del delegado de referencia con ese afiliado.
+- [x] UI: fila azul (`info-soft`) + etiqueta "Ref.: <delegado>" en la lista (`InboxRow`); aviso en la conversación (`ConversationSheet`); conversación de otro delegado en solo lectura con su nombre (`ConversationThread`). La "atribución de autor en cada tramo de un historial fusionado" específicamente queda para UI-10 (ver punto 2 arriba).
 
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
 

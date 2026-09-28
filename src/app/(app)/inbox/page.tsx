@@ -31,6 +31,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
         initialConversations={conversations}
         initialCounts={counts}
         members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+        viewerId={member.userId}
         isAdmin={member.role === "ADMIN"}
         availableChannels={availableChannels}
       />

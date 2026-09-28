@@ -47,6 +47,14 @@ export default async function ConversationDetailPage({
   const delegateName = members.find((m) => m.userId === details.delegateId)?.name ?? "—";
   const otherContacts = contacts.filter((c) => c.id !== details.contact.id).map((c) => ({ id: c.id, name: c.name }));
   const closeHref = buildHref("/inbox", filters);
+  // PKG-014: this Conversation's own account may not belong to the viewer
+  // (they can still see it as the Contact's reference delegate, or via
+  // "acceso temporal") — replying is only ever through your own number.
+  const canReply = details.delegateId === member.userId;
+  const referenceDelegateName =
+    details.referenceDelegateId && details.referenceDelegateId !== member.userId
+      ? (members.find((m) => m.userId === details.referenceDelegateId)?.name ?? "—")
+      : undefined;
 
   return (
     <>
@@ -57,6 +65,7 @@ export default async function ConversationDetailPage({
           initialConversations={conversations}
           initialCounts={counts}
           members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+          viewerId={member.userId}
           isAdmin={member.role === "ADMIN"}
           availableChannels={availableChannels}
         />
@@ -66,6 +75,8 @@ export default async function ConversationDetailPage({
         contact={{ id: details.contact.id, name: details.contact.name, isUnassigned: details.contact.isUnassigned }}
         channel={details.conversation.channel}
         delegateName={delegateName}
+        canReply={canReply}
+        referenceDelegateName={referenceDelegateName}
         otherContacts={otherContacts}
         threadState={threadState}
         supportsTyping={channelSupportsTypingIndicator(details.conversation.channel)}

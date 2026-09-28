@@ -36,6 +36,11 @@ export default async function InterceptedConversationSheetPage({ params }: { par
   const delegateName = members.find((m) => m.userId === details.delegateId)?.name ?? "—";
   const otherContacts = contacts.filter((c) => c.id !== details.contact.id).map((c) => ({ id: c.id, name: c.name }));
   const markContactIdentified = markContactIdentifiedAction.bind(null, details.contact.id, id);
+  const canReply = details.delegateId === member.userId;
+  const referenceDelegateName =
+    details.referenceDelegateId && details.referenceDelegateId !== member.userId
+      ? (members.find((m) => m.userId === details.referenceDelegateId)?.name ?? "—")
+      : undefined;
 
   return (
     <ConversationSheet
@@ -43,6 +48,8 @@ export default async function InterceptedConversationSheetPage({ params }: { par
       contact={{ id: details.contact.id, name: details.contact.name, isUnassigned: details.contact.isUnassigned }}
       channel={details.conversation.channel}
       delegateName={delegateName}
+      canReply={canReply}
+      referenceDelegateName={referenceDelegateName}
       otherContacts={otherContacts}
       threadState={threadState}
       supportsTyping={channelSupportsTypingIndicator(details.conversation.channel)}

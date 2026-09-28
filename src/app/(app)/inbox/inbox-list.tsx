@@ -48,6 +48,7 @@ export function InboxList({
   initialConversations,
   initialCounts,
   members,
+  viewerId,
   isAdmin,
   availableChannels,
 }: {
@@ -55,6 +56,7 @@ export function InboxList({
   initialConversations: ConversationPreview[];
   initialCounts: InboxViewCounts;
   members: { userId: string; name: string }[];
+  viewerId: string;
   isAdmin: boolean;
   availableChannels: string[];
 }) {
@@ -314,13 +316,32 @@ export function InboxList({
                 aria-label="Conversaciones"
                 items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
                 isSelected={(item) => item.conversation.id === openConversationId}
-                renderItem={(item) => (
-                  <InboxRow
-                    conversation={{ ...item.conversation, unread: isUnread(item.conversation) }}
-                    delegateName={delegateNameById.get(item.conversation.delegateId)}
-                    showDelegate={isAdmin}
-                  />
-                )}
+                renderItem={(item) => {
+                  const conversation = item.conversation;
+                  // PKG-014: a DELEGATE can now see a Conversation that
+                  // is not their own account (the reference delegate
+                  // reading a colleague's thread with the same afiliado,
+                  // or "acceso temporal" to a colleague's afiliado who
+                  // just wrote to them) — the delegate name matters
+                  // whenever the row isn't the viewer's own channel, not
+                  // only for an ADMIN browsing everyone's.
+                  const isOwnChannel = conversation.delegateId === viewerId;
+                  const isTemporaryAccess =
+                    !isAdmin && conversation.referenceDelegateId !== null && conversation.referenceDelegateId !== viewerId;
+                  return (
+                    <InboxRow
+                      conversation={{ ...conversation, unread: isUnread(conversation) }}
+                      delegateName={delegateNameById.get(conversation.delegateId)}
+                      showDelegate={isAdmin || !isOwnChannel}
+                      isTemporaryAccess={isTemporaryAccess}
+                      referenceDelegateName={
+                        isTemporaryAccess && conversation.referenceDelegateId
+                          ? delegateNameById.get(conversation.referenceDelegateId)
+                          : undefined
+                      }
+                    />
+                  );
+                }}
               />
             </div>
           )}

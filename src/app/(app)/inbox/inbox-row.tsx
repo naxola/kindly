@@ -16,16 +16,32 @@ export function InboxRow({
   conversation,
   delegateName,
   showDelegate,
+  isTemporaryAccess = false,
+  referenceDelegateName,
 }: {
   conversation: ConversationPreview;
   delegateName: string | undefined;
   showDelegate: boolean;
+  /**
+   * PKG-014 — "acceso temporal": this afiliado's reference delegate is
+   * someone else, and the viewer can see this row only because the
+   * afiliado just wrote to them (`docs/DECISIONS.md`, "Delegado de
+   * referencia y acceso temporal"). Highlighted so it reads as a
+   * borrowed conversation, not a regular one of the viewer's own.
+   */
+  isTemporaryAccess?: boolean;
+  referenceDelegateName?: string;
 }) {
   const { unread, lastMessage } = conversation;
   const isOutbound = lastMessage?.direction === "OUTBOUND";
 
   return (
-    <div className="flex items-center gap-3 border-b border-border px-3 py-2.5 group-hover:bg-state-hover last:border-0">
+    <div
+      className={cn(
+        "flex items-center gap-3 border-b border-border px-3 py-2.5 group-hover:bg-state-hover last:border-0",
+        isTemporaryAccess && "bg-info-soft",
+      )}
+    >
       <Avatar name={conversation.contactName} badge={<MessageCircle aria-label={conversation.channel} className="size-2.5" />} />
 
       <div className="min-w-0 flex-1">
@@ -47,6 +63,11 @@ export function InboxRow({
             <Badge tone="warning" className="shrink-0">
               Sin identificar
             </Badge>
+          )}
+          {isTemporaryAccess && referenceDelegateName && (
+            <span className="hidden shrink-0 type-caption text-info-soft-foreground @sm:inline">
+              Ref.: {referenceDelegateName}
+            </span>
           )}
           {showDelegate && delegateName && (
             <span className="hidden max-w-24 shrink-0 truncate type-caption text-foreground-lighter @lg:inline">

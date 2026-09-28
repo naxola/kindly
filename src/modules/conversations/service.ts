@@ -512,6 +512,15 @@ export interface ConversationPreview {
   contactIsUnassigned: boolean;
   channel: string;
   delegateId: string;
+  /**
+   * The Contact's *current* reference delegate (PKG-014) — not necessarily
+   * this Conversation's own `delegateId`: a Contact with more than one
+   * delegate writing to them has one Conversation per delegate, and every
+   * one of them carries the same `referenceDelegateId`. `null` only for a
+   * pre-PKG-014 Contact that was never assigned (no Conversation at
+   * migration time) and still has none.
+   */
+  referenceDelegateId: string | null;
   lastMessage: {
     body: string;
     direction: "INBOUND" | "OUTBOUND";
@@ -629,6 +638,12 @@ export async function listConversationsWithPreview(
       contactName: contacts.name,
       contactIsUnassigned: contacts.isUnassigned,
       delegateId: messagingAccounts.delegateId,
+      // The active assignment row, if any — `LEFT JOIN`, not inner: a
+      // pre-PKG-014 Contact that was never assigned has none, and this must
+      // not drop its Conversation from the list. Safe as a plain one-to-one
+      // join (not a LATERAL) because the partial unique index guarantees at
+      // most one row per Contact with `ended_at IS NULL`.
+      referenceDelegateId: contactAssignments.delegateId,
       // Individual columns, not the whole `lastMessage` subquery as one
       // field: Drizzle only allows embedding a joined subquery as-is when
       // it selects exactly one column (its "scalar subquery" shape).
@@ -642,6 +657,7 @@ export async function listConversationsWithPreview(
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .leftJoin(contactAssignments, and(eq(contactAssignments.contactId, contacts.id), isNull(contactAssignments.endedAt)))
     .leftJoinLateral(lastMessage, sql`true`)
     .where(
       and(
@@ -663,6 +679,7 @@ export async function listConversationsWithPreview(
     contactIsUnassigned: row.contactIsUnassigned,
     channel: row.conversation.channel,
     delegateId: row.delegateId,
+    referenceDelegateId: row.referenceDelegateId,
     lastMessage: row.lastMessageId
       ? {
           body: row.lastMessageBody!,
@@ -711,6 +728,8 @@ export interface ConversationDetails {
   conversation: typeof conversations.$inferSelect;
   contact: typeof contacts.$inferSelect;
   delegateId: string;
+  /** The Contact's current reference delegate (PKG-014) — see `ConversationPreview.referenceDelegateId`. */
+  referenceDelegateId: string | null;
 }
 
 /**
@@ -730,10 +749,12 @@ export async function getConversationWithDetails(
       conversation: conversations,
       contact: contacts,
       delegateId: messagingAccounts.delegateId,
+      referenceDelegateId: contactAssignments.delegateId,
     })
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .leftJoin(contactAssignments, and(eq(contactAssignments.contactId, contacts.id), isNull(contactAssignments.endedAt)))
     .where(
       and(
         eq(conversations.organizationId, organizationId),
