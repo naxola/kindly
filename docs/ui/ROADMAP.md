@@ -353,16 +353,60 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   (anclado a 1280 px y 1440 px, modal a 900 px, pantalla completa a 390 px)
   más borrador persistente entre cierre/reapertura.
 
-## Fase 7 — Organización · ⚪
+## Fase 7 — Organización · 🟢 Completa (2026-09-28)
 
 - **Objetivo**: `ORGANIZATION.md` completo.
 - **Alcance**: `/organization` (General), `/organization/members`,
-  `/organization/channels` (+ `connect/…`), redirecciones desde `/members`
-  y `/channels`, invitar en Dialog con "Copiar enlace", revocar/desconectar
-  con ConfirmDialog. **Cambiar rol** (aprobado 2026-09-26): acción de
-  dominio nueva con sus reglas y tests (`ORGANIZATION.md` §4).
-- **Criterios de aceptación**: E2E de miembros, canales y onboarding
-  actualizados; permisos por rol visibles y explicados.
+  `/organization/channels` (+ `connect/…`), redirecciones desde `/members`,
+  `/channels` y `/channels/connect/…`, invitar en Dialog con "Copiar
+  enlace", revocar/desconectar con ConfirmDialog. **Cambiar rol** (aprobado
+  2026-09-26): acción de dominio nueva con sus reglas y tests
+  (`ORGANIZATION.md` §4).
+- **Rutas**: `members/` y `channels/` (incluido `channels/connect/[channel]/
+  {,coexistence}`) movidos bajo `organization/`, mismos componentes,
+  imports actualizados. Las rutas antiguas quedan como páginas de una sola
+  línea (`redirect(...)`), preservando el `?error=` de la coexistencia.
+  `organization/layout.tsx` monta el `ProductMenu` (`lg+`); cada página
+  añade `OrganizationContextNav` (`<lg`, mismos ítems desde
+  `shell/organization-nav.ts`) justo bajo su `PageHeader`.
+- **Sidebar y header**: `NAV_ITEMS` pierde Canales/Miembros; nuevo
+  `ORGANIZATION_NAV_ITEM` ("Organización", separador antes) en
+  `AppSidebar`/`MobileNav`. La miga de organización del header
+  (`AppHeader`/`OrgMenu`, texto plano desde UI-2) pasa a ser el menú
+  desplegable que `LAYOUT_NAVIGATION.md` §2 siempre pidió — ya tiene dónde
+  llevar. `UserMenu` recupera el atajo "Mis canales" (retirado en UI-2 por
+  redundante con el ítem de sidebar que UI-7 elimina).
+- **Cambiar rol** (`organizations/service.ts::changeMemberRole`): dentro de
+  una transacción que bloquea (`for("update")`) todas las filas ADMIN de la
+  organización antes de contarlas — sin eso, dos degradaciones
+  concurrentes de dos ADMIN distintos podrían leer "quedan 2" cada una y
+  dejar la organización sin ninguno, misma clase de carrera que
+  `bootstrapOrganizationForUser`. `ChangeRoleControl` (`NativeSelect` +
+  `ConfirmDialog`, tal y como pedía `ORGANIZATION.md` §4) muestra el rol
+  objetivo mientras se confirma y revierte al cancelar.
+- **Hallazgo real de esta fase — Server Actions y mensajes de error en
+  producción**: un error lanzado dentro de una Server Action se redacta a
+  un mensaje genérico (React error #441, sin el texto real) en
+  `next build && next start` — solo llega el `digest` al cliente, nunca
+  `error.message`. Encontrado por el E2E del guardarraíl "al menos un
+  ADMIN" (esperaba ver el texto dentro del `ConfirmDialog` y encontró el
+  placeholder de React). Coincide con la guía oficial de Next
+  ("Handling expected errors": modelar como valor de retorno, no
+  `throw`/`catch`). `changeMemberRoleAction` ya no lanza: devuelve
+  `{ error }`, y `ChangeRoleControl` relanza ese mensaje **en el
+  cliente** (nunca cruza el límite del servidor, así que no se redacta)
+  para que el contrato de `ConfirmDialog` ("puede lanzar; su mensaje se
+  muestra") se siga cumpliendo. `renameOrganizationAction` no se tocó
+  (validación ya cubierta por `required` en el campo; sin E2E que lo
+  ejercite, ver `docs/DECISIONS.md`).
+- **Criterios de aceptación**: ✅ E2E de miembros, canales y onboarding
+  actualizados; ✅ `tests/e2e/organization.spec.ts` nuevo (rename ADMIN,
+  cambiar rol ADMIN→DELEGATE→ADMIN, guardarraíl del último ADMIN, un
+  DELEGATE ve el rol como texto); ✅ integración para
+  `changeMemberRole`/`renameOrganization` (`tests/integration/
+  organizations.test.ts`); ✅ 281/281 unit+integration, 30/30 E2E; ✅
+  verificación visual real a 900/1280/1920 px (sidebar, `ProductMenu`,
+  `ContextNav` móvil, menú de organización del header).
 
 ## Fase 8 — Accesibilidad y responsive · ⚪
 

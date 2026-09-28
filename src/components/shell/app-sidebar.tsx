@@ -4,9 +4,10 @@ import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { NAV_ITEMS, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
+import { NAV_ITEMS, ORGANIZATION_NAV_ITEM, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
 import { setSidebarCollapsed } from "@/components/shell/sidebar-actions";
 import { CountBadge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/primitives";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/cn";
 
@@ -44,6 +45,12 @@ export function AppSidebar({ initialCollapsed, unreadCount }: { initialCollapsed
             count={item.href === "/inbox" ? unreadCount : undefined}
           />
         ))}
+        <Separator className="my-2" />
+        <SidebarLink
+          item={ORGANIZATION_NAV_ITEM}
+          active={isNavItemActive(pathname, ORGANIZATION_NAV_ITEM.href)}
+          collapsed={collapsed}
+        />
       </nav>
       <div className="border-t border-border p-2">
         <button

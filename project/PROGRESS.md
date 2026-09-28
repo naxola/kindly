@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-28 (Inbox → Conversaciones; fase UI-10 planificada).
+Última actualización: 2026-09-28 (UI-7, Organización, cerrada).
 
 ## Resumen en una línea
 
@@ -42,10 +42,16 @@ Contactos/Casos/Tareas traducidas; altas a Sheet/Dialog; confirmaciones a
 `ConfirmDialog`), `UI-5` (Inbox: vistas con contadores, búsqueda y
 filtros por URL, fila densa, teclado; servidor reescrito con
 `LEFT JOIN LATERAL` para el último mensaje por conversación en vez de
-cargar todos los mensajes) y `UI-6` (conversación en `ConversationSheet`:
+cargar todos los mensajes), `UI-6` (conversación en `ConversationSheet`:
 rutas paralelas/interceptadas, tres modos responsive — anclado sin velo,
 modal, pantalla completa —, historial con separadores por día y borrador
-persistente, anterior/siguiente) completos; siguiente: `UI-7`, Organización.
+persistente, anterior/siguiente) y `UI-7` (Organización: `/organization`
+General/Miembros/Canales con `ProductMenu`/`ContextNav`, `members/` y
+`channels/` movidos ahí con redirecciones desde las rutas antiguas, sidebar
+con un único ítem "Organización", miga del header con menú real, y la
+acción de dominio "cambiar rol" con su guardarraíl de "nunca sin ADMIN")
+completos; siguiente: `UI-8`, accesibilidad y responsive (o `PKG-014`,
+previo a `UI-10`, si se retoma antes ese frente).
 
 ## Estado por fase / paquete
 
@@ -71,7 +77,8 @@ persistente, anterior/siguiente) completos; siguiente: `UI-7`, Organización.
 | **UI-4** | **Arquitectura de páginas (todas las páginas de `(app)` y auth)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
-| UI-7 … UI-9 | Organización, a11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
+| UI-8 … UI-9 | A11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | UI-10 | Espacio de respuesta: conversación + ficha del afiliado + copiloto | Código (agente) | ⚪ Planificada (2026-09-28) — `docs/ui/CONVERSATION_WORKSPACE.md` |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |

@@ -35,11 +35,11 @@ export async function connectMessagingAccountAction(formData: FormData) {
     // said. Uncaught, this became Next's bare "This page couldn't load"
     // with the reason only in the server log (found on staging with the
     // PKG-011 adapter, 2026-09-25). `redirect` must stay outside `try`.
-    redirect(`/channels?error=${encodeURIComponent(describeConnectionError(error).slice(0, 300))}`);
+    redirect(`/organization/channels?error=${encodeURIComponent(describeConnectionError(error).slice(0, 300))}`);
   }
 
-  revalidatePath("/channels");
-  redirect("/channels");
+  revalidatePath("/organization/channels");
+  redirect("/organization/channels");
 }
 
 export async function disconnectMessagingAccountAction(accountId: string) {
@@ -48,7 +48,7 @@ export async function disconnectMessagingAccountAction(accountId: string) {
     { organizationId: member.organizationId, userId: member.userId, role: member.role },
     accountId,
   );
-  revalidatePath("/channels");
+  revalidatePath("/organization/channels");
 }
 
 /**
@@ -67,7 +67,7 @@ export async function startCoexistenceConnectionAction(channel: string, formData
   const missing = PREFLIGHT_CHECKS.filter((check) => !acknowledged.has(check.id));
   if (missing.length > 0) {
     redirect(
-      `/channels/connect/${channel}/coexistence?error=${encodeURIComponent(
+      `/organization/channels/connect/${channel}/coexistence?error=${encodeURIComponent(
         "Faltan puntos por confirmar antes de conectar.",
       )}`,
     );
@@ -79,7 +79,7 @@ export async function startCoexistenceConnectionAction(channel: string, formData
     const support = checkCountrySupport(countryCode, unsupportedCodes);
     if (support === "UNSUPPORTED") {
       redirect(
-        `/channels/connect/${channel}/coexistence?error=${encodeURIComponent(
+        `/organization/channels/connect/${channel}/coexistence?error=${encodeURIComponent(
           "Coexistence no está disponible para números de ese país. Tendrías que usar un número de otra región.",
         )}`,
       );
@@ -99,11 +99,11 @@ export async function startCoexistenceConnectionAction(channel: string, formData
     // at this point the delegate has already done work on their phone and
     // deserves to know which part of it was rejected.
     const message = error instanceof Error ? error.message : "Error desconocido al conectar.";
-    redirect(`/channels/connect/${channel}/coexistence?error=${encodeURIComponent(message)}`);
+    redirect(`/organization/channels/connect/${channel}/coexistence?error=${encodeURIComponent(message)}`);
   }
 
-  revalidatePath("/channels");
-  redirect("/channels");
+  revalidatePath("/organization/channels");
+  redirect("/organization/channels");
 }
 
 /**

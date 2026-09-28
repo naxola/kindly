@@ -151,3 +151,65 @@ export async function isOrganizationMember(organizationId: string, userId: strin
     .limit(1);
   return Boolean(row);
 }
+
+/** General page (UI-7): name and creation date, alongside the caller's own role/membership count. */
+export async function getOrganization(organizationId: string) {
+  const [row] = await db.select().from(organizations).where(eq(organizations.id, organizationId)).limit(1);
+  return row ?? null;
+}
+
+export async function renameOrganization(organizationId: string, name: string): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error("El nombre de la organización no puede estar vacío.");
+  }
+  await db.update(organizations).set({ name: trimmed, updatedAt: new Date() }).where(eq(organizations.id, organizationId));
+}
+
+/**
+ * Changes a member's role (UI-7, `docs/ui/ORGANIZATION.md` §4 — approved by
+ * the user 2026-09-26). The caller's own ADMIN-ness is checked by
+ * `requireOrganizationAdmin` before this runs; what this function guards is
+ * the organization itself never ending up with zero ADMINs, including the
+ * case of an ADMIN demoting themselves as the last one.
+ *
+ * The whole thing runs inside a transaction that locks every ADMIN row of
+ * the organization with `for("update")` before counting them: without that
+ * lock, two concurrent requests demoting two different ADMINs could each
+ * read "2 ADMINs left" and both proceed, leaving none — the same race class
+ * as `bootstrapOrganizationForUser`.
+ */
+export async function changeMemberRole(
+  organizationId: string,
+  targetUserId: string,
+  newRole: OrganizationRole,
+): Promise<{ userId: string; role: OrganizationRole }> {
+  return db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({ role: organizationMembers.role })
+      .from(organizationMembers)
+      .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, targetUserId)))
+      .limit(1);
+    if (!target) {
+      throw new Error("Esa persona no pertenece a esta organización.");
+    }
+
+    if (target.role === "ADMIN" && newRole === "DELEGATE") {
+      const admins = await tx
+        .select({ userId: organizationMembers.userId })
+        .from(organizationMembers)
+        .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.role, "ADMIN")))
+        .for("update");
+      if (admins.length <= 1) {
+        throw new Error("La organización debe tener al menos un ADMIN.");
+      }
+    }
+
+    const [updated] = await tx
+      .update(organizationMembers)
+      .set({ role: newRole, updatedAt: new Date() })
+      .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, targetUserId)))
+      .returning({ userId: organizationMembers.userId, role: organizationMembers.role });
+    return updated;
+  });
+}

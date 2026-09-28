@@ -2096,6 +2096,96 @@ ficha).
 
 ---
 
+## 2026-09-28 — Rediseño UI/UX, UI-7: Organización
+
+**Contexto:** construir `/organization` según `docs/ui/ORGANIZATION.md` —
+General/Miembros/Canales bajo un único módulo, moviendo `/members` y
+`/channels` (con su flujo de conexión) bajo `/organization/*`, más la
+acción "cambiar rol" aprobada el 2026-09-26.
+
+**Decisión:**
+
+1. **Rutas movidas, no reescritas.** `members/` y `channels/` (incluido
+   `channels/connect/[channel]/{,coexistence}`) pasan a
+   `organization/members/` y `organization/channels/…` con `git mv` —
+   mismos componentes, solo imports/`href` internos actualizados. Las
+   rutas antiguas quedan como páginas de una línea con `redirect(...)`
+   (`organization/channels/connect/.../coexistence` conserva el
+   `?error=` al redirigir, para no perder el mensaje de un enlace
+   antiguo a mitad del onboarding).
+2. **Sidebar: un único ítem "Organización".** `NAV_ITEMS` pierde
+   `Canales`/`Miembros`; `ORGANIZATION_NAV_ITEM` (icono `Building2`) se
+   renderiza aparte, tras un separador, en `AppSidebar` y `MobileNav` —
+   exactamente como preveía `LAYOUT_NAVIGATION.md` §3 desde la Fase 2,
+   aplazado hasta que la ruta existiera.
+3. **La miga de organización del header pasa a ser un menú de verdad**
+   (`OrgMenu`, `DropdownMenu` con "Ajustes de la organización"/"Miembros"/
+   "Canales") — la UI-2 la dejó como texto plano explícitamente porque
+   `/organization` no existía; ya existe. `UserMenu` recupera el atajo
+   "Mis canales" que UI-2 había retirado por redundante con el ítem de
+   sidebar que esta fase elimina.
+4. **`ProductMenu` (reservado desde UI-5) tiene por fin un consumidor**:
+   `organization/layout.tsx` lo monta (`lg+`) con los tres ítems de
+   `shell/organization-nav.ts`; cada página repite los mismos ítems como
+   `ContextNav` horizontal (`<lg`) justo bajo su `PageHeader`, porque el
+   layout no tiene cabecera propia bajo la que colocarlo una sola vez.
+5. **Cambiar rol** (`organizations/service.ts::changeMemberRole`):
+   transacción que bloquea (`for("update")`) todas las filas `ADMIN` de
+   la organización antes de contarlas, no solo la fila del objetivo —
+   sin eso, dos degradaciones concurrentes de dos ADMIN distintos podrían
+   leer "quedan 2" cada una y dejar la organización sin ninguno, misma
+   clase de carrera que `bootstrapOrganizationForUser` (2026-09-18).
+   `ChangeRoleControl` es un `NativeSelect` en la fila (como pedía
+   `ORGANIZATION.md` §4) que muestra el rol objetivo mientras se confirma
+   y revierte al cancelar — solo hay dos roles, así que "cambiar" es
+   siempre elegir el otro.
+6. **Hallazgo real — los `throw` de una Server Action se redactan en
+   producción.** El E2E del guardarraíl "la organización debe tener al
+   menos un ADMIN" esperaba ver ese texto dentro del `ConfirmDialog` y en
+   su lugar encontró el placeholder de React ("Minified React error
+   #441"): contra `next build && next start` (lo que corre toda la
+   suite E2E), un error lanzado dentro de una Server Action **no lleva
+   su `message` al cliente**, solo un `digest` — la app real jamás vería
+   el motivo de un rechazo así, solo un error genérico. Confirmado contra
+   la guía oficial de Next para esta versión
+   (`node_modules/next/dist/docs/.../10-error-handling.md`, "Handling
+   expected errors": modelar como valor de retorno, no `throw`/`catch`).
+   `changeMemberRoleAction` ya no lanza: devuelve `{ error }`, y
+   `ChangeRoleControl` es quien relanza ese mensaje, pero **en el
+   cliente** — ese `throw` nunca cruza el límite del servidor, así que no
+   se redacta, y el contrato ya documentado de `ConfirmDialog` ("puede
+   lanzar; su mensaje se muestra") se sigue cumpliendo sin tocarlo.
+   `renameOrganizationAction` se dejó igual (sigue lanzando): su único
+   caso de error es un nombre en blanco, ya bloqueado en el cliente por
+   `required`, y ningún E2E lo ejercita — el mismo problema existe ahí en
+   teoría (mostraría el error genérico de Next en vez de nada, sin
+   `error.tsx` en `(app)`, como casi todas las rutas fuera de Inbox), pero
+   corregirlo exigía introducir `useActionState` en un formulario que hoy
+   usa el patrón `<form action={...}>` + `SubmitButton` de todo el resto
+   de la app — cambio de patrón más amplio que esta fase, anotado para
+   cuando alguna ruta lo necesite de verdad.
+
+**Por qué:** cada punto sigue el mismo criterio que las fases anteriores
+(`docs/ui/PRINCIPLES.md` §3): construir la pieza que el propio diseño de
+`docs/ui/` ya preveía, en el momento en que deja de ser "un menú a ninguna
+parte". El punto 6 es la excepción — no estaba planeado, lo encontró el
+E2E nuevo, y se corrigió porque el mismo patrón (`ConfirmDialog` + una
+Server Action que lanza) ya se usaba en dos sitios más (`revoke-invitation-
+button.tsx`, `disconnect-channel-button.tsx`) que hasta ahora nunca habían
+sido ejercitados con un error real en un build de producción.
+
+**Verificación:** `tests/e2e/organization.spec.ts` nuevo (rename por
+ADMIN + menú del header, cambiar rol ADMIN→DELEGATE→ADMIN y que un
+DELEGATE ve el rol como texto plano, el guardarraíl del último ADMIN con
+mensaje visible y reversión al cancelar); `tests/integration/
+organizations.test.ts` ampliado (`changeMemberRole`/`renameOrganization`,
+incluida la concurrencia del guardarraíl vía el bloqueo de fila). 281/281
+unit+integration, 30/30 E2E (`members.spec.ts`/`channels.spec.ts`/
+`whatsapp-onboarding.spec.ts`/`inbox.spec.ts`/`auth.spec.ts` actualizados
+a las URLs nuevas). Verificación visual real a 900/1280/1920 px.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

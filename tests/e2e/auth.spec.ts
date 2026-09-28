@@ -12,6 +12,11 @@ import { randomUUID } from "node:crypto";
  * user menu, which is where account info lives now (docs/ui/LAYOUT_NAVIGATION.md
  * §2), and signing out is a "Cerrar sesión" item there rather than a
  * standalone button.
+ *
+ * UI-7 added an organization breadcrumb button next to it in the header,
+ * named after the org — whose default name ("<user name>'s organization",
+ * bootstrap.ts) contains the user's own name as a substring, so the
+ * `UserMenu` trigger needs `exact: true` to stay unambiguous.
  */
 test("register, reach the protected app, and sign out", async ({ page }) => {
   const email = `${randomUUID()}@example.com`;
@@ -27,7 +32,7 @@ test("register, reach the protected app, and sign out", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/inbox$/);
 
-  await page.getByRole("button", { name: "Playwright User" }).click();
+  await page.getByRole("button", { name: "Playwright User", exact: true }).click();
   await expect(page.getByText(email)).toBeVisible();
   await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
   await expect(page).toHaveURL(/\/login$/);

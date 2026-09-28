@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { OrgMenu } from "@/components/shell/org-menu";
 import { UserMenu } from "@/components/shell/user-menu";
 import type { CurrentOrganizationMember } from "@/modules/organizations/service";
 
 /**
- * Top bar (docs/ui/LAYOUT_NAVIGATION.md §2). The organization name is plain
- * text, not yet the dropdown the design calls for: that opens onto
- * `/organization`, which does not exist until UI-7. Making it interactive
- * earlier would be a menu that leads nowhere.
+ * Top bar (docs/ui/LAYOUT_NAVIGATION.md §2). The organization breadcrumb is
+ * a real menu since UI-7: `/organization` exists now, so it has somewhere
+ * to lead. (Through UI-6 this was plain text — that route did not exist.)
  */
 export function AppHeader({ member, unreadCount }: { member: CurrentOrganizationMember; unreadCount: number }) {
   return (
@@ -20,9 +20,7 @@ export function AppHeader({ member, unreadCount }: { member: CurrentOrganization
         <span aria-hidden className="hidden text-border-strong sm:inline">
           /
         </span>
-        <span className="hidden truncate type-caption text-foreground-lighter sm:inline">
-          {member.organizationName} · {member.role}
-        </span>
+        <OrgMenu organizationName={member.organizationName} />
       </div>
       <UserMenu name={member.userName} email={member.userEmail} role={member.role} />
     </header>

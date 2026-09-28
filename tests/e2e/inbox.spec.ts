@@ -5,7 +5,7 @@ import postgres from "postgres";
 
 /**
  * PKG-004 happy path (project/CURRENT_TASK.md): connect the fake channel
- * from /channels (only reachable because playwright.config.ts starts the
+ * from /organization/channels (only reachable because playwright.config.ts starts the
  * server with `E2E_FAKE_MESSAGING_CHANNEL=true`, see src/instrumentation.ts)
  * → simulate a real inbound webhook → see it in /inbox with the "Sin
  * identificar" badge and unread → open it → mark it identified → reply →
@@ -26,8 +26,8 @@ test.afterAll(async () => {
 });
 
 /**
- * Walks the coexistence onboarding (PKG-008) from /channels to a connected
- * account: choose the coexistence path, acknowledge every preflight check,
+ * Walks the coexistence onboarding (PKG-008) from /organization/channels to
+ * a connected account: choose the coexistence path, acknowledge every preflight check,
  * and submit.
  */
 async function connectCoexistenceChannel(page: import("@playwright/test").Page) {
@@ -41,7 +41,7 @@ async function connectCoexistenceChannel(page: import("@playwright/test").Page) 
     await checks.nth(index).check();
   }
   await page.getByRole("button", { name: "Continuar con Facebook" }).click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await expect(page).toHaveURL(/\/organization\/channels$/);
 }
 
 async function registerAndReachInbox(page: import("@playwright/test").Page, name: string) {
@@ -61,8 +61,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await registerAndReachInbox(page, delegateName);
 
   // Connect the fake channel to this newly registered delegate.
-  await page.getByRole("link", { name: "Canales", exact: true }).click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await page.goto("/organization/channels");
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
@@ -177,7 +176,7 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   const delegateName = `Echo Delegate ${randomUUID().slice(0, 8)}`;
   await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales", exact: true }).click();
+  await page.goto("/organization/channels");
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
@@ -232,7 +231,7 @@ test("a conversation outside the provider window explains itself instead of offe
   const delegateName = `Window Delegate ${randomUUID().slice(0, 8)}`;
   await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales", exact: true }).click();
+  await page.goto("/organization/channels");
   // fake-coex declares the WhatsApp coexistence onboarding, so connecting
   // it means walking the flow rather than pressing one button (PKG-008).
   await connectCoexistenceChannel(page);
@@ -284,7 +283,7 @@ test("a second organization sees none of the first organization's inbox", async 
   const delegateName = `Isolated Delegate ${randomUUID().slice(0, 8)}`;
   await registerAndReachInbox(pageA, delegateName);
 
-  await pageA.getByRole("link", { name: "Canales", exact: true }).click();
+  await pageA.goto("/organization/channels");
   await pageA.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(pageA.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
   await contextA.close();
@@ -293,7 +292,7 @@ test("a second organization sees none of the first organization's inbox", async 
   const pageB = await contextB.newPage();
   await registerAndReachInbox(pageB, "Org B User");
 
-  await pageB.getByRole("link", { name: "Canales", exact: true }).click();
+  await pageB.goto("/organization/channels");
   await expect(pageB.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await expect(pageB.getByText(delegateName)).toHaveCount(0);
 

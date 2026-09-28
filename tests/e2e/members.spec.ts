@@ -17,6 +17,10 @@ import postgres from "postgres";
  * the confirming button inside the dialog share a substring ("Invitar",
  * "Revocar"), so the in-dialog click is scoped to `getByRole("dialog")`
  * to stay unambiguous.
+ *
+ * UI-7: the sidebar's "Miembros" item moved under a single "Organización"
+ * item, so reaching `/organization/members` for test setup goes straight
+ * there instead of clicking through a link that no longer exists.
  */
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
@@ -42,8 +46,7 @@ test("an ADMIN invites a DELEGATE, who accepts and joins the same organization",
   await register(adminPage, adminName, `${randomUUID()}@example.com`);
 
   const inviteeEmail = `${randomUUID()}@example.com`;
-  await adminPage.getByRole("link", { name: "Miembros" }).click();
-  await expect(adminPage).toHaveURL(/\/members$/);
+  await adminPage.goto("/organization/members");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
   const inviteDialog = adminPage.getByRole("dialog");
   await inviteDialog.getByLabel("Email").fill(inviteeEmail);
@@ -70,7 +73,7 @@ test("an ADMIN invites a DELEGATE, who accepts and joins the same organization",
   // They are inside the ADMIN's organization, seeing the ADMIN as a peer.
   // Scoped to the members table: the org is named after the ADMIN, so their
   // name also appears in the layout header.
-  await inviteePage.getByRole("link", { name: "Miembros" }).click();
+  await inviteePage.goto("/organization/members");
   const membersTable = inviteePage.getByRole("table");
   await expect(membersTable.getByText(adminName)).toBeVisible();
   await expect(membersTable.getByText(inviteeName)).toBeVisible();
@@ -92,7 +95,7 @@ test("a revoked invitation explains itself instead of registering anyone", async
   await register(adminPage, `Admin ${randomUUID().slice(0, 8)}`, `${randomUUID()}@example.com`);
 
   const inviteeEmail = `${randomUUID()}@example.com`;
-  await adminPage.getByRole("link", { name: "Miembros" }).click();
+  await adminPage.goto("/organization/members");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
   const inviteDialog = adminPage.getByRole("dialog");
   await inviteDialog.getByLabel("Email").fill(inviteeEmail);

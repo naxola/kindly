@@ -17,8 +17,7 @@ async function registerAndReachChannels(page: import("@playwright/test").Page) {
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
   await expect(page).toHaveURL(/\/inbox$/);
-  await page.getByRole("link", { name: "Canales", exact: true }).click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await page.goto("/organization/channels");
 }
 
 test("the two undecided paths are shown as unavailable, with a reason", async ({ page }) => {
@@ -60,7 +59,7 @@ test("the connection cannot start until every consequence is acknowledged", asyn
   await expect(submit).toBeEnabled();
 
   await submit.click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await expect(page).toHaveURL(/\/organization\/channels$/);
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 });
 

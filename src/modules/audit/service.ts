@@ -23,6 +23,8 @@ export type ActivityEntityType =
  * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
  * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
  * activities whose entity is the Organization itself.
+ * UI-7 adds MEMBER_ROLE_CHANGED (changing a member's role, ORGANIZATION.md
+ * §4) and ORGANIZATION_RENAMED (editing the organization's name).
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -42,7 +44,9 @@ export type ActivityType =
   | "CHANNEL_DISCONNECTED"
   | "MEMBER_INVITED"
   | "MEMBER_JOINED"
-  | "INVITATION_REVOKED";
+  | "INVITATION_REVOKED"
+  | "MEMBER_ROLE_CHANGED"
+  | "ORGANIZATION_RENAMED";
 
 interface RecordActivityInput {
   organizationId: string;

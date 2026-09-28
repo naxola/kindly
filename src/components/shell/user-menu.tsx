@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Plug } from "lucide-react";
 import { authClient } from "@/modules/auth/auth-client";
 import { Avatar } from "@/components/ui/primitives";
 import {
@@ -14,8 +15,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 /**
- * Header's account menu (docs/ui/LAYOUT_NAVIGATION.md §2): who you are and
- * signing out. Replaces the old standalone "Cerrar sesión" button.
+ * Header's account menu (docs/ui/LAYOUT_NAVIGATION.md §2): who you are,
+ * "Mis canales" (a shortcut to `/organization/channels` now that Canales is
+ * no longer its own sidebar item — UI-2 had dropped this as redundant with
+ * that item, which UI-7 removed), and signing out.
  */
 export function UserMenu({ name, email, role }: { name: string; email: string; role: string }) {
   const router = useRouter();
@@ -43,6 +46,13 @@ export function UserMenu({ name, email, role }: { name: string; email: string; r
           <span className="type-caption text-foreground-lighter">{email}</span>
           <span className="type-caption text-foreground-lighter">{role}</span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/organization/channels">
+            <Plug aria-hidden />
+            Mis canales
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem tone="destructive" onSelect={() => void signOut()}>
           <LogOut aria-hidden />

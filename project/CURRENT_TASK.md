@@ -4,9 +4,9 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: rediseño UI/UX — UI-0…UI-6 cerrados el 2026-09-27; siguiente UI-7
+## Paquete activo: rediseño UI/UX — UI-0…UI-7 cerrados el 2026-09-28; siguiente UI-8 o PKG-014
 
-Último commit: `a2d77c9`.
+Último commit: sin commits todavía de esta sesión (ver "Estado" al final de este archivo tras el commit de cierre).
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
@@ -237,14 +237,70 @@ usuario, sin empezar todavía — no confundir con UI-7:**
    empezado, pendiente de decidir alcance con el usuario antes de tocar
    `TOKENS.md`.
 
-**Próximo paso concreto (UI-7, Organización):** ver `docs/ui/ROADMAP.md`
-Fase 7 y `docs/ui/ORGANIZATION.md`. `/organization` (General, Miembros,
-Canales) con redirecciones y diálogos; acción de dominio "cambiar rol" con
-reglas en servidor y tests (aprobada 2026-09-26, ver
-`docs/DECISIONS.md`). La sidebar y las migas de organización siguen
-**planas** a propósito desde UI-2 hasta que esta ruta exista. Considerar
-si el rediseño de página con submenú (punto 2 arriba) se resuelve *dentro*
-de esta fase, ya que Organización es exactamente ese tipo de página.
+**Hecho en sesión nueva (2026-09-28 — UI-7, Organización), un solo commit de
+cierre con lint+typecheck+unit/integration+E2E+captura visual real a
+900/1280/1920 px:**
+
+1. **Rutas movidas con `git mv`**, no reescritas: `members/` →
+   `organization/members/`, `channels/` (+ `connect/[channel]/{,coexistence}`)
+   → `organization/channels/…`. Mismos componentes; solo imports/`href`
+   internos actualizados (incluidos los `redirect`/`revalidatePath` de
+   `messaging/actions.ts` y `organizations/actions.ts`). Las cuatro rutas
+   antiguas (`/members`, `/channels`, `/channels/connect/[channel]`,
+   `.../coexistence`) quedan como páginas de una línea con
+   `redirect(...)` — la de coexistencia conserva el `?error=`.
+2. **`/organization` (General) nueva**: nombre editable (ADMIN,
+   `renameOrganizationAction`), fecha de creación, tu rol, y un resumen
+   con enlaces (miembros, canales conectados/con incidencias,
+   invitaciones pendientes) que reutiliza la visibilidad ya existente de
+   cada módulo (`listMessagingAccountsForMember` sigue dando solo lo
+   propio a un DELEGATE).
+3. **`ProductMenu`** (reservado sin consumidor desde UI-5) monta por fin
+   en `organization/layout.tsx` (`lg+`); cada una de las tres páginas
+   añade `OrganizationContextNav` (`<lg`, mismos ítems de
+   `shell/organization-nav.ts`) bajo su propio `PageHeader`.
+4. **Sidebar con un único ítem "Organización"** (`ORGANIZATION_NAV_ITEM`,
+   separador antes, en `AppSidebar` y `MobileNav`) sustituyendo a
+   `Canales`/`Miembros`; **miga del header con menú real** (`OrgMenu`,
+   `DropdownMenu`) en vez del texto plano que UI-2 dejó a propósito sin
+   destino. `UserMenu` recupera "Mis canales" (retirado en UI-2 por
+   redundante con el ítem de sidebar que esta fase quita).
+5. **Cambiar rol** (aprobada 2026-09-26): `changeMemberRole`
+   (`organizations/service.ts`) bloquea (`for("update")`) todas las filas
+   ADMIN de la organización antes de contarlas, no solo la del objetivo —
+   nunca deja la organización sin ninguno, ni degradándose el último a sí
+   mismo. `ChangeRoleControl` (`NativeSelect` en la fila + `ConfirmDialog`,
+   tal como pedía `ORGANIZATION.md` §4).
+6. **Hallazgo real, no anticipado**: un `throw` dentro de una Server
+   Action se redacta a un mensaje genérico en `next build && next start`
+   (solo llega el `digest`, nunca `error.message`) — lo encontró el E2E
+   del guardarraíl del último ADMIN. `changeMemberRoleAction` devuelve
+   `{ error }` en vez de lanzar; `ChangeRoleControl` relanza ese mensaje
+   **en el cliente** (nunca cruza el servidor, no se redacta) para que
+   `ConfirmDialog` lo siga mostrando. Detalle completo, y por qué
+   `renameOrganizationAction` se dejó tal cual, en `docs/DECISIONS.md`
+   (entrada UI-7).
+7. `tests/e2e/organization.spec.ts` nuevo (rename + menú del header;
+   cambiar rol ADMIN↔DELEGATE y que un DELEGATE ve el rol como texto;
+   guardarraíl del último ADMIN con mensaje visible y reversión al
+   cancelar); `members.spec.ts`/`channels.spec.ts`/
+   `whatsapp-onboarding.spec.ts`/`inbox.spec.ts`/`auth.spec.ts`
+   actualizados a las URLs nuevas (`auth.spec.ts` necesitó `exact: true`:
+   el nombre accesible del nuevo botón de organización contiene el del
+   usuario como subcadena, `"<nombre>'s organization"`).
+   `tests/integration/organizations.test.ts` ampliado. **281/281
+   unit+integration, 30/30 E2E.**
+8. `tests/unit/ui-tokens.test.ts`: `TOKENISED_DIRECTORIES` cambia
+   `"src/app/(app)/channels"` + `"src/app/(app)/members"` por
+   `"src/app/(app)/organization"` (cubre General/Miembros/Canales de una).
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive —
+`docs/ui/ROADMAP.md` Fase 8, tema oscuro incluido, aprobado 2026-09-26) es
+el siguiente en el orden del roadmap. Alternativa igual de válida:
+`PKG-014` (asignación de afiliados a delegados, listo para empezar desde
+la sesión del 2026-09-28, paso lógico previo a `UI-10`) — ver más abajo,
+sección "Pendiente de esta misma conversación". Ninguno de los dos
+depende del otro; cuál se retoma primero es elección del usuario.
 
 ## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
 

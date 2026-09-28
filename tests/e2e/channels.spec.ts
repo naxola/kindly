@@ -34,7 +34,7 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
 
   // Invite a delegate and let them in.
   const inviteeEmail = `${randomUUID()}@example.com`;
-  await adminPage.getByRole("link", { name: "Miembros" }).click();
+  await adminPage.goto("/organization/members");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
   const inviteDialog = adminPage.getByRole("dialog");
   await inviteDialog.getByLabel("Email").fill(inviteeEmail);
@@ -56,7 +56,7 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
   await expect(delegatePage).toHaveURL(/\/inbox$/);
 
   // The delegate connects their own channel.
-  await delegatePage.getByRole("link", { name: "Canales", exact: true }).click();
+  await delegatePage.goto("/organization/channels");
   await expect(delegatePage.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await delegatePage.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(delegatePage.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
@@ -68,7 +68,7 @@ test("a DELEGATE sees only their own channel, the ADMIN sees the whole organizat
   await expect(delegatePage.getByRole("list", { name: "Canales conectados a tu nombre" })).toBeVisible();
 
   // The ADMIN connects their own too, and sees both.
-  await adminPage.getByRole("link", { name: "Canales", exact: true }).click();
+  await adminPage.goto("/organization/channels");
   await adminPage.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(adminPage.getByText("Los mensajes se sincronizan con normalidad.").first()).toBeVisible();
   const othersList = adminPage.getByRole("list", { name: "Canales del resto de la organización" });

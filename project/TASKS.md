@@ -589,10 +589,27 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [x] `tests/e2e/inbox.spec.ts` con un test de carga directa (`page.reload()`
       sobre una conversación abierta); 27/27 E2E, 268/268 unit+integration.
 
-### UI-7 — Organización
+### UI-7 — Organización — CERRADO 2026-09-28
 
-- [ ] `/organization` (General, Miembros, Canales) con redirecciones y diálogos.
-- [ ] Acción de dominio "cambiar rol" con reglas en servidor y tests (aprobada 2026-09-26).
+- [x] `/organization` (General, Miembros, Canales) con redirecciones y diálogos.
+      `members/`/`channels/` movidos bajo `organization/`; rutas antiguas
+      quedan como `redirect(...)`. `ProductMenu` (`lg+`) + `ContextNav`
+      (`<lg`) para las tres subpáginas; sidebar con un único ítem
+      "Organización"; miga del header con menú de verdad (`OrgMenu`).
+- [x] Acción de dominio "cambiar rol" con reglas en servidor y tests
+      (aprobada 2026-09-26): `changeMemberRole` bloquea las filas ADMIN de
+      la organización antes de contarlas (nunca deja la organización sin
+      ninguno); `ChangeRoleControl` (`NativeSelect` + `ConfirmDialog`).
+- [x] Hallazgo real: los `throw` de una Server Action se redactan en
+      producción (`next build && next start`) — `changeMemberRoleAction`
+      pasa a devolver `{ error }` en vez de lanzar; el cliente relanza
+      localmente para que `ConfirmDialog` siga mostrando el mensaje.
+      Detalle en `docs/DECISIONS.md` (entrada UI-7).
+- [x] `tests/e2e/organization.spec.ts` nuevo; `members.spec.ts`/
+      `channels.spec.ts`/`whatsapp-onboarding.spec.ts`/`inbox.spec.ts`/
+      `auth.spec.ts` actualizados a las URLs nuevas. 281/281
+      unit+integration, 30/30 E2E. Verificación visual real a
+      900/1280/1920 px.
 
 ### UI-8 — Accesibilidad y responsive
 
