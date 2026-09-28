@@ -2070,22 +2070,25 @@ aviso de redirección) y se precisa:
  con cualquier delegado y **puede contestar** desde Kindly o desde su
  móvil (siempre desde su propio número; le indica al afiliado que le
  contesta Ana).
-4. En cuanto el afiliado escribe a su delegado de referencia (Luis), Ana
- **deja de verlo** en su lista automáticamente; Luis ve también los
+4. En cuanto hay un mensaje entre el afiliado y su delegado de referencia
+ **en cualquier dirección** (Marta escribe a Luis, o Luis escribe a
+ Marta, desde Kindly o desde su móvil), Ana **deja de verlo** en su
+ lista automáticamente; Luis ve también los
  mensajes que el afiliado cruzó con Ana.
 5. El ADMIN ve todo.
 
 **Cómo se respeta el principio de identidad:** nadie responde nunca desde
 el número de otro delegado; ver el historial de otro delegado es lectura.
 El acceso temporal de Ana **se deriva** de los mensajes (último entrante a
-Ana más reciente que el último entrante a Luis), sin estado adicional que
-pueda desincronizarse.
+Ana más reciente que el último mensaje, en cualquier dirección, entre Marta
+y Luis), sin estado adicional que pueda desincronizarse.
 
 **Por definir al construir (propuesta por defecto):** si el afiliado no
 vuelve a escribir a Luis, Ana lo sigue viendo indefinidamente (resaltado);
-que el ADMIN pueda cortar ese acceso a mano. Si es Luis quien escribe
-primero al afiliado, el acceso de Ana **no** termina (la regla del usuario
-habla de que el afiliado escriba a Luis).
+que el ADMIN pueda cortar ese acceso a mano. ~~Si es Luis quien escribe
+primero al afiliado, el acceso de Ana no termina.~~ **Corregido por el
+usuario el mismo día:** si Luis escribe a Marta, Ana también deja de verla
+(regla 4 ya actualizada).
 
 **Supersede a:** la propuesta de la entrada "Asignación de afiliados" del
 mismo día (que decía que Ana seguía viendo sus conversaciones pero no la

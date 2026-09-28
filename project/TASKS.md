@@ -624,11 +624,13 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
      con cualquier delegado y **puede contestar** desde Kindly o desde su
      móvil (siempre desde su propio número; le indica al afiliado que le
      contesta Ana).
-  4. En cuanto el afiliado escribe a su delegado de referencia (Luis), Ana
-     **deja de verlo** en su lista automáticamente; Luis ve también los
+  4. En cuanto hay un mensaje entre el afiliado y su delegado de referencia
+     **en cualquier dirección** (Marta escribe a Luis, o Luis escribe a
+     Marta, desde Kindly o desde su móvil), Ana **deja de verlo** en su
+     lista automáticamente; Luis ve también los
      mensajes que el afiliado cruzó con Ana.
   5. El ADMIN ve todo.
-- [ ] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último entrante a las cuentas del delegado de referencia.
+- [ ] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último mensaje **en cualquier dirección** (entrante, saliente o eco desde el móvil) en las conversaciones del delegado de referencia con ese afiliado.
 - [ ] UI: fila azul (`info-soft`) + etiqueta "Ref.: <delegado>" en la lista; aviso en la conversación; historial de otros delegados en solo lectura con su nombre en cada tramo.
 
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)

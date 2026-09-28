@@ -67,8 +67,9 @@ relación. **No es un usuario de Kindly** (no tiene login).
   usuario, 2026-09-28, `docs/DECISIONS.md` — sustituye a "puede ser
   atendido por distintos `DELEGATE`"; se implementa en PKG-014). El
   afiliado puede escribir a varios delegados; el que no es su referencia
-  lo ve temporalmente, marcado para redirigirlo, hasta que el afiliado
-  vuelve a escribir a su delegado de referencia (reglas completas en
+  lo ve temporalmente, marcado para redirigirlo, hasta que hay un
+  mensaje en cualquier dirección entre el afiliado y su delegado de
+  referencia (reglas completas en
   `project/TASKS.md` PKG-014).
 - Los teléfonos se almacenan en formato E.164 (`+34600111222`), pero **el
   teléfono nunca es el identificador técnico de la integración** — eso lo dan
