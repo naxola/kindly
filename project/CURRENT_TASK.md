@@ -6,7 +6,7 @@
 
 ## Paquete activo: rediseño UI/UX — UI-0…UI-7 cerrados el 2026-09-28; siguiente UI-8 o PKG-014
 
-Último commit: sin commits todavía de esta sesión (ver "Estado" al final de este archivo tras el commit de cierre).
+Último commit: `af7cedd`.
 
 ### Rediseño UI/UX (encargo del 2026-09-26)
 
