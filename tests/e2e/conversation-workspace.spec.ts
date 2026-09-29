@@ -92,10 +92,17 @@ function recordRouteRequests(page: import("@playwright/test").Page): string[] {
   return routeRequests;
 }
 
+interface WidthSample {
+  panel: number;
+  list: number;
+  panelScrollLeft: number;
+  pageScrollX: number;
+}
+
 /** Starts recording, every animation frame, the panel's and the list's rendered widths. */
 async function startSamplingWidths(page: import("@playwright/test").Page) {
   await page.evaluate(() => {
-    const probe = window as unknown as { __samples: { panel: number; list: number }[]; __sampling: boolean };
+    const probe = window as unknown as { __samples: WidthSample[]; __sampling: boolean };
     probe.__samples = [];
     probe.__sampling = true;
     function sample() {
@@ -105,6 +112,8 @@ async function startSamplingWidths(page: import("@playwright/test").Page) {
         probe.__samples.push({
           panel: Math.round(panel.getBoundingClientRect().width),
           list: Math.round(list.getBoundingClientRect().width),
+          panelScrollLeft: panel.scrollLeft,
+          pageScrollX: window.scrollX,
         });
       }
       if (probe.__sampling) requestAnimationFrame(sample);
@@ -115,7 +124,7 @@ async function startSamplingWidths(page: import("@playwright/test").Page) {
 
 async function stopSamplingWidths(page: import("@playwright/test").Page) {
   return page.evaluate(() => {
-    const probe = window as unknown as { __samples: { panel: number; list: number }[]; __sampling: boolean };
+    const probe = window as unknown as { __samples: WidthSample[]; __sampling: boolean };
     probe.__sampling = false;
     return probe.__samples;
   });
@@ -200,6 +209,22 @@ test("anchored: opening and closing are one smooth width transition each way, wi
   // two that happen to overlap.
   const totals = samples.map((s) => s.panel + s.list);
   expect(Math.max(...totals) - Math.min(...totals)).toBeLessThanOrEqual(2);
+  // Nothing ever scrolls sideways — not the panel (it used to be left
+  // offset after opening: left border gone, ficha peeking at the right),
+  // not the page (a one-frame jolt that read as a reload).
+  expect(samples.every((s) => s.panelScrollLeft === 0 && s.pageScrollX === 0)).toBe(true);
+
+  // Same with the ficha folded: the panel ends at chat width, not offset.
+  await page.getByRole("list", { name: "Conversaciones" }).getByText(contactName).click();
+  await page.getByRole("button", { name: "Plegar ficha del afiliado" }).click();
+  await page.getByRole("button", { name: "Cerrar conversación" }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await page.waitForTimeout(500);
+  await startSamplingWidths(page);
+  await page.getByRole("list", { name: "Conversaciones" }).getByText(contactName).click();
+  await page.waitForTimeout(500);
+  const folded = await stopSamplingWidths(page);
+  expect(folded.every((s) => s.panelScrollLeft === 0 && s.pageScrollX === 0)).toBe(true);
 });
 
 test("opening, closing and the back button never reload the page or the list from the server", async ({

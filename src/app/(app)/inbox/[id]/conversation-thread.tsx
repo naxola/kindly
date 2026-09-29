@@ -98,7 +98,6 @@ export function ConversationThread({
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const lastTypingSentAt = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLLIElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasReadDraftRef = useRef(false);
   const draftKey = `inbox:draft:${conversationId}`;
@@ -150,8 +149,13 @@ export function ConversationThread({
     return el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
   }, []);
 
+  // Scrolls only the history's own container — never `scrollIntoView`,
+  // which also scrolls every scrollable ancestor to reveal the element:
+  // mid-way through the panel's opening transition that shifted the panel
+  // (and for a frame the whole page) sideways, leaving it misaligned.
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    bottomRef.current?.scrollIntoView({ block: "end", behavior });
+    const el = scrollRef.current;
+    el?.scrollTo({ top: el.scrollHeight, behavior });
     setHasNewMessages(false);
   }, []);
 
@@ -323,7 +327,6 @@ export function ConversationThread({
                 />
               </li>
             ))}
-            <li ref={bottomRef} aria-hidden />
           </ul>
         </SheetBody>
         {hasNewMessages && (

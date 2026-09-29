@@ -376,10 +376,13 @@ export function ConversationPanel(props: ConversationPanelProps) {
       // ficha): every change between them — opening, closing, folding the
       // ficha — is the same two-way `width` transition, and the list next
       // to it (`flex-1`) follows it frame by frame with no code of its own.
-      // `overflow-hidden` + fixed-width columns inside: the columns never
-      // squeeze, they slide in and out past the panel's edge.
+      // `overflow-clip` (not `-hidden`) + fixed-width columns inside: the
+      // columns never squeeze, they slide in and out past the panel's edge,
+      // and nothing can scroll the panel sideways — a `hidden` box is still
+      // a scroll container (`scrollIntoView`, focus), which once left it
+      // offset after opening: left border gone, ficha peeking at the right.
       className={cn(
-        "h-full shrink-0 overflow-hidden transition-[width] duration-(--duration-slow) ease-emphasized motion-reduce:transition-none",
+        "h-full shrink-0 overflow-clip transition-[width] duration-(--duration-slow) ease-emphasized motion-reduce:transition-none",
         mode === "ssr" && "hidden xl:block",
         !open
           ? "w-0"

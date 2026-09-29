@@ -4,9 +4,17 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fix post-cierre, 4ª ronda) — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fixes post-cierre, 4ª-5ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: `dcfbf76`.
+Último commit: sin commits (pendiente de commitear esta sesión).
+
+### Fix post-cierre, 5ª ronda (2026-09-29): panel corrido de lado al abrirse
+
+"Tirón" al abrir y panel terminado sin borde izquierdo con la ficha
+asomando: `scrollIntoView` del hilo desplazaba el `<aside>` (y un
+fotograma la página) durante la apertura. Arreglado (`scrollTo` sobre el
+propio contenedor del hilo + `overflow-clip` en el panel) con test de
+regresión por fotograma. Detalle en `docs/DECISIONS.md`.
 
 ### Fix post-cierre, 4ª ronda (2026-09-29): estado en la URL + TanStack Query
 

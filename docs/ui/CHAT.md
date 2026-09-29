@@ -277,6 +277,13 @@ de la lista (el buscador conserva el foco), y "Reintentar" tras un fallo
 de red. Detalle en
 `docs/DECISIONS.md`.
 
+**Reportado por el usuario (2026-09-29), quinta ronda**: al abrir, un
+"tirón" y el panel terminaba corrido de lado (sin borde izquierdo, ficha
+asomando). Era `scrollIntoView` en el hilo desplazando el `<aside>` (y un
+fotograma la página) mientras se abría; ahora el hilo solo desplaza su
+propio contenedor y el panel es `overflow-clip`. Detalle en
+`docs/DECISIONS.md`.
+
 ## 6. Reutilización
 
 `ConversationPanel` (antes `ConversationSheet`) es un componente único: lo usan el Inbox y, en el

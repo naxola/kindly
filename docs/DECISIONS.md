@@ -2776,6 +2776,39 @@ navegación" (misma fecha).
 
 ---
 
+## 2026-09-29 — Fix: el panel quedaba desplazado de lado al abrirse (`scrollIntoView`)
+
+**Reportado por el usuario:** al abrir una conversación desde `/inbox`,
+"algo extraño, como un re-render o un reload" justo al desplegarse el
+panel; y al terminar, sin la línea vertical izquierda del panel y con unos
+píxeles de la ficha asomando a la derecha — corregido solo al plegar y
+desplegar la ficha.
+
+**Diagnóstico** (muestreo por fotograma en Playwright): no había ni
+re-render de la lista (mismo nodo) ni peticiones al servidor. En el
+fotograma del clic, `scrollLeft` del `<aside>` saltaba a 17 px y la
+**ventana entera** se desplazaba 1 px en horizontal durante un fotograma
+(el "tirón"). Causa: al montarse, el hilo llevaba al último mensaje con
+`scrollIntoView`, que desplaza **todos** los ancestros con overflow para
+mostrar el elemento — incluido el `<aside>` (`overflow-hidden` sigue
+siendo un contenedor desplazable) cuando aún medía 0 de ancho. Si el
+panel no llegaba a ancho suficiente para "absorber" ese desplazamiento
+(ficha plegada, o según el momento), se quedaba corrido: borde izquierdo
+fuera, ficha asomando. Cambiar el ancho (plegar/desplegar) lo reajustaba.
+
+**Decisión:** el hilo desplaza solo su propio contenedor
+(`scrollTo` sobre el `SheetBody`), nunca `scrollIntoView`; y el panel usa
+`overflow-clip`, que no es contenedor de desplazamiento y no puede
+correrse por programa (defensa por si otro componente vuelve a hacerlo).
+
+**Verificación:** el test de transición de
+`tests/e2e/conversation-workspace.spec.ts` comprueba ahora, en cada
+fotograma y con la ficha visible y plegada, que ni el panel ni la página
+se desplazan de lado; confirmado con `git stash` que falla sin el arreglo.
+299/299 unit+integration, 38/38 E2E.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 
