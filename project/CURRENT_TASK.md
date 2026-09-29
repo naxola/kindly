@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10b cerrado — siguiente UI-8, UI-10c (bloqueado por Fase 7) o cualquier otro pendiente
 
-Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+Último commit: `4a437e3`.
 
 ### UI-10b — `Membership`: alta/edición/baja manual (2026-09-29)
 
