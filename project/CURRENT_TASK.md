@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-8 (tema oscuro) cerrado — siguiente: resto de UI-8 (axe-core + auditoría manual) o cualquier otro pendiente
 
-Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+Último commit: `8af3bd9`.
 
 ### UI-8, primer tramo — tema oscuro (2026-09-29)
 
