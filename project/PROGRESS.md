@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (Inbox con estado en la URL y caché cliente TanStack Query: abrir, cerrar y filtrar sin volver al servidor).
+Última actualización: 2026-09-29 (UI-10b: `Membership` con alta/edición/baja manual en `/contacts/[id]`).
 
 ## Resumen en una línea
 
@@ -66,7 +66,19 @@ abiertos, tareas pendientes, otras conversaciones), plegable con preferencia
 recordada en `xl`, como pestañas "Chat"/"Ficha" por debajo de ese ancho.
 Sin dominio nuevo: tres consultas `...ForContact` añadidas a
 `cases`/`tasks`/`conversations` reutilizando `contactVisibilityCondition`.
-Siguiente paso lógico de esta fase: `UI-10b` (afiliación/`Membership`).
+**`UI-10b`** (2026-09-29, cerrado): entidad `Membership` (un período de
+afiliación por fila, histórico si hay baja y vuelta, índice único parcial
+sobre `ended_at is null`), alta/edición/baja manual en `/contacts/[id]`
+(quién puede editar = mismo criterio de visibilidad que la ficha,
+`getContactForMember`), y sección "Afiliación" de solo lectura en la
+ficha del panel con los dos avisos ámbar (cuota pendiente, buen momento
+para proponer la afiliación) como reglas fijas, nunca inferencia de la
+IA. Bug real encontrado y corregido antes de cerrar: un alta y una
+"vuelta a afiliarse" el mismo día generan dos filas con el mismo
+`started_at` (el formulario solo pide fecha, no hora) — `ORDER BY
+started_at DESC` sin desempate podía devolver la fila cerrada; corregido
+ordenando primero por fila abierta. Siguiente paso lógico de esta fase:
+`UI-10c` (adjuntos sin almacenar + trámites), bloqueado por Fase 7.
 
 ## Estado por fase / paquete
 
@@ -96,7 +108,8 @@ Siguiente paso lógico de esta fase: `UI-10b` (afiliación/`Membership`).
 | UI-8 … UI-9 | A11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |
-| UI-10b…f | Afiliación, trámites, resumen IA, copiloto, ficha editable | Código (agente) | ⚪ No iniciadas — `docs/ui/CONVERSATION_WORKSPACE.md` §6 |
+| **UI-10b** | **`Membership`: alta/edición/baja manual en `/contacts/[id]` + sección en la ficha** | Código (agente) | 🟢 **Completo** (2026-09-29) |
+| UI-10c…f | Trámites, resumen IA, copiloto, ficha editable | Código (agente) | ⚪ No iniciadas — `docs/ui/CONVERSATION_WORKSPACE.md` §6 |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

@@ -4,9 +4,11 @@ import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/mod
 import { getContactForMember } from "@/modules/contacts/service";
 import { getActiveAssignment, listAssignmentHistory } from "@/modules/contacts/assignments";
 import { updateContactAction } from "@/modules/contacts/actions";
+import { getCurrentMembership } from "@/modules/memberships/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { ActivityFeed } from "@/app/(app)/activity-feed";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
+import { MembershipSection } from "@/app/(app)/contacts/membership-section";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,11 +38,12 @@ export default async function ContactDetailPage({
   }
 
   const isAdmin = member.role === "ADMIN";
-  const [activities, activeAssignment, history, members] = await Promise.all([
+  const [activities, activeAssignment, history, members, membership] = await Promise.all([
     listActivitiesForEntity(member.organizationId, "contact", contact.id),
     getActiveAssignment(member.organizationId, contact.id),
     listAssignmentHistory(member.organizationId, contact.id),
     listOrganizationMembers(member.organizationId),
+    getCurrentMembership(member.organizationId, contact.id),
   ]);
   const updateThisContact = updateContactAction.bind(null, contact.id);
   const nameById = new Map(members.map((m) => [m.userId, m.name]));
@@ -93,6 +96,17 @@ export default async function ContactDetailPage({
             history={history.map(withName)}
             delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
           />
+        </CardContent>
+      </Card>
+
+      {/* UI-10b: afiliación (`docs/ui/CONVERSATION_WORKSPACE.md` §5.1). Alta
+          manual, no dominio de facturación — ver docs/DECISIONS.md. */}
+      <Card className="max-w-page-sm">
+        <CardHeader>
+          <CardTitle>Afiliación</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MembershipSection contactId={contact.id} membership={membership} />
         </CardContent>
       </Card>
 

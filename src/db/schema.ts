@@ -8,6 +8,7 @@
 export * from "@/modules/auth/schema";
 export * from "@/modules/organizations/schema";
 export * from "@/modules/contacts/schema";
+export * from "@/modules/memberships/schema";
 export * from "@/modules/cases/schema";
 export * from "@/modules/messaging/schema";
 export * from "@/modules/conversations/schema";

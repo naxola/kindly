@@ -28,6 +28,10 @@ export type ActivityEntityType =
  * adds CONTACT_DELEGATE_ASSIGNED (a Contact's reference delegate changes,
  * `contacts/assignments.ts`) — distinct from CONVERSATION_REASSIGNED
  * (PKG-004), which moves a Conversation to a different Contact.
+ * UI-10b adds MEMBERSHIP_CREATED/MEMBERSHIP_UPDATED/MEMBERSHIP_ENDED
+ * (`memberships/service.ts`) — entity `contact`, like
+ * CONTACT_DELEGATE_ASSIGNED, since a Membership has no page of its own and
+ * shows up in the Contact's activity feed.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -35,6 +39,9 @@ export type ActivityType =
   | "CONTACT_UPDATED"
   | "CONTACT_IDENTIFIED"
   | "CONTACT_DELEGATE_ASSIGNED"
+  | "MEMBERSHIP_CREATED"
+  | "MEMBERSHIP_UPDATED"
+  | "MEMBERSHIP_ENDED"
   | "CASE_CREATED"
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"

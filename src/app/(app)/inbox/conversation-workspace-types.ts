@@ -31,6 +31,7 @@ export interface ConversationWorkspaceData {
     activeAssignment: WorkspaceAssignment | null;
     assignmentHistory: WorkspaceAssignment[];
     delegates: { userId: string; name: string }[];
+    membership: WorkspaceMembership | null;
     cases: { id: string; title: string; status: CaseStatus }[];
     /** Pending only, soonest due first (no due date last). */
     pendingTasks: { id: string; title: string; dueDate: string | null }[];
@@ -44,4 +45,14 @@ export interface WorkspaceAssignment {
   delegateName: string;
   startedAt: string;
   endedAt: string | null;
+}
+
+/** UI-10b — read-only in the ficha (`docs/ui/CONVERSATION_WORKSPACE.md` §5.1); edited only from `/contacts/[id]`. */
+export interface WorkspaceMembership {
+  status: "ACTIVE" | "INACTIVE";
+  memberNumber: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  /** ISO date (first of month), or `null` if never recorded. */
+  feePaidUntil: string | null;
 }

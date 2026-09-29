@@ -4,7 +4,71 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fixes post-cierre, 4ª-5ª ronda) — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10b cerrado — siguiente UI-8, UI-10c (bloqueado por Fase 7) o cualquier otro pendiente
+
+Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+
+### UI-10b — `Membership`: alta/edición/baja manual (2026-09-29)
+
+El usuario pidió continuar con `UI-10b` tras cerrar `UI-10a`. Detalle
+completo de las decisiones (diseño de la tabla, quién puede editar, y un
+bug real encontrado y corregido) en `docs/DECISIONS.md` (entrada
+"2026-09-29 — UI-10b: `Membership`, alta/edición/baja manual") y
+`docs/ui/CONVERSATION_WORKSPACE.md` (nota al inicio del documento y §3).
+
+**Hecho, verificado con lint+typecheck+319/319 unit-integration+39/39
+E2E+build limpio:**
+
+1. **`memberships`** (`src/modules/memberships/schema.ts`, migración
+   `drizzle/migrations/0008_membership.sql`, **aplicada ya contra la base
+   de datos local** — sigue pendiente contra staging/producción, ver
+   memoria "no auto-migración en el deploy"): una fila por período de
+   afiliación, mismo patrón que `contact_assignments` (PKG-014) —
+   `ended_at is null` como índice único parcial, baja cierra la fila
+   abierta, "volver a afiliarse" inserta una nueva. `status` real de
+   Postgres, "cuota pendiente" derivada (`memberships/domain.ts`), nunca
+   un tercer estado.
+2. **`memberships/service.ts`**: `getCurrentMembership`,
+   `listMembershipHistory`, `createMembership` (alta y reactivación,
+   misma función), `updateMembership`, `endMembership` — todas filtran
+   por `organizationId` explícitamente.
+3. **`memberships/actions.ts`**: quién puede editar = quién puede ver el
+   Contact (`getContactForMember`), no una regla de permisos aparte.
+4. **UI**: `membership-status.tsx` (presentación, solo lectura,
+   compartida) + `membership-section.tsx` (formulario siempre visible en
+   `/contacts/[id]`, sin modo vista/edición separado, "Dar de baja" con
+   `ConfirmDialog`). Ficha del panel de conversación
+   (`contact-ficha.tsx`) sigue de solo lectura, nueva sección
+   "Afiliación" al principio (orden de `CONVERSATION_WORKSPACE.md` §3).
+5. **Bug real encontrado y corregido**: alta + baja + "volver a
+   afiliarse" el mismo día produce dos filas con `started_at` idéntico
+   (el formulario solo pide fecha, no hora) — `getCurrentMembership`
+   podía devolver la fila cerrada por falta de desempate determinista.
+   Corregido ordenando primero por fila abierta. Test de regresión en
+   `tests/integration/memberships.test.ts` y el propio E2E
+   (`membership.spec.ts`) lo reprodujo primero contra el bug real.
+6. `tests/unit/memberships-domain.test.ts` (7 tests, `isFeeOverdue`/
+   `firstUnpaidMonth`, puros, sin DB), `tests/integration/memberships.test.ts`
+   (10 tests: alta/edición/baja/reactivación/aislamiento multi-tenant/el
+   bug de arriba), `tests/e2e/membership.spec.ts` (camino feliz completo).
+
+**Pendiente, anotado (no bloquea el cierre del paquete):**
+
+- **Migración sin aplicar en staging/producción** — recordatorio de
+  memoria: hay que correr `npm run db:migrate` a mano contra esas bases
+  antes de que el código llegue allí (este repo no migra en el deploy).
+- **Cambiar el rol de un `<input type="date">` a algo que capture también
+  la hora** no se planteó — no hace falta: el desempate en `service.ts`
+  ya resuelve el caso real sin pedirle más precisión al formulario.
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive) o `UI-10c`
+(adjuntos sin almacenar + trámites, bloqueado por Fase 7 — trámites del
+knowledge base) — ninguno depende del otro. Ver
+`docs/ui/CONVERSATION_WORKSPACE.md` §6 para el resto de la fase.
+
+---
+
+## Registro: UI-10a cerrado; Inbox con estado en URL + caché cliente (fixes post-cierre, 4ª-5ª ronda) (2026-09-29)
 
 Último commit: `6680152`.
 

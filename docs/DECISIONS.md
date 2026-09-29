@@ -2809,6 +2809,90 @@ se desplazan de lado; confirmado con `git stash` que falla sin el arreglo.
 
 ---
 
+## 2026-09-29 — UI-10b: `Membership`, alta/edición/baja manual
+
+**Contexto:** siguiente paquete de la fase UI-10
+(`docs/ui/CONVERSATION_WORKSPACE.md` §5.1), ya planificado el 2026-09-28:
+afiliación con alta manual, tres estados visibles (activa y al corriente /
+activa con cuota pendiente / baja) donde "cuota pendiente" se deriva, no
+se guarda como tercer valor, y edición restringida a quien ya ve la ficha
+del Contact (PKG-014).
+
+**Decisión:**
+
+1. **`memberships`** (`src/modules/memberships/schema.ts`): una fila por
+   período continuo de afiliación, nunca columnas sueltas en `contacts` —
+   mismo razonamiento y misma forma que `contact_assignments` (PKG-014):
+   dar de baja no borra ni muta a otra cosa, cierra la fila (`endedAt` +
+   `status = INACTIVE`); "volver a afiliarse" inserta una fila nueva, así
+   que el histórico de períodos (y el "desde cuándo"/"afiliado del X al
+   Y" tras una baja) es la tabla misma. Índice único parcial
+   `memberships_active_unique` sobre `ended_at is null` — idéntica
+   expresión a `contact_assignments_active_unique` — garantiza como
+   mucho un período abierto por Contact. `status` (`ACTIVE`/`INACTIVE`,
+   enum real de Postgres) es redundante con `ended_at IS NULL` a
+   propósito: se escriben siempre juntos en `memberships/service.ts`,
+   nunca por separado, y evita que cada lectura tenga que re-derivarlo.
+2. **"Cuota pendiente" se deriva** (`memberships/domain.ts::isFeeOverdue`,
+   pura, sin DB — mismo patrón que `messaging/domain.ts`): `ACTIVE` y
+   `feePaidUntil` anterior al mes en curso. Nunca `true` en `INACTIVE` ni
+   sin cuota registrada (nada de lo que estar "atrasado" hasta que se
+   registra una vez). `firstUnpaidMonth` da el mes exacto para el aviso
+   ("cuota de septiembre pendiente").
+3. **Quién puede editar = quién puede ver el Contact**
+   (`memberships/actions.ts::requireEditableContact`, vía
+   `getContactForMember`/`contactVisibilityCondition`): reutiliza el
+   mismo predicado que ya decide si la ficha del panel es visible, en vez
+   de mantener una segunda regla de permisos en paralelo. Llegar a
+   `/contacts/[id]` (que ya devuelve 404 si el Contact no es visible) es
+   entonces equivalente a poder editar su `Membership` — sin un flag
+   `canEdit` que sincronizar a mano.
+4. **Un único formulario siempre visible** en `/contacts/[id]`
+   (`membership-section.tsx`), sin modo vista/edición separado — mismo
+   patrón que la tarjeta "Editar" de esa misma página. Alta y "volver a
+   afiliarse" comparten la misma Server Action
+   (`createMembershipAction`): el dominio los trata como la misma
+   operación (insertar una fila ACTIVE cuando no hay ninguna abierta), y
+   solo cambia la etiqueta del botón. La ficha del panel de conversación
+   (`contact-ficha.tsx`) sigue siendo de solo lectura — reutiliza el
+   mismo componente de presentación (`membership-status.tsx`), sin
+   formulario propio, tal como se decidió el 2026-09-28 para toda la
+   ficha en esta fase.
+
+**Bug real encontrado y corregido antes de cerrar** (no anticipado): el
+formulario de alta solo pide una **fecha** (`<input type="date">`, sin
+hora) para `startedAt`. Dar de baja y "volver a afiliarse" el mismo día
+produce dos filas con `started_at` **idéntico** — un caso de uso
+perfectamente normal, no un borde raro. `getCurrentMembership` ordenaba
+solo por `ORDER BY started_at DESC LIMIT 1`, sin desempate determinista
+entre esas dos filas; Postgres podía devolver la fila **cerrada** como
+"actual", y así lo hizo de forma reproducible en el E2E (verificado
+también con un `page.reload()`, para descartar que fuera una fila de
+caché del cliente: el dato mal leído venía del servidor). Corregido
+ordenando primero por si la fila está abierta
+(`(ended_at is null) desc`) antes que por `started_at`, con `created_at`
+como último desempate. `listMembershipHistory` recibió el mismo
+desempate por consistencia. Test de regresión en
+`tests/integration/memberships.test.ts` que fija un `started_at`
+idéntico explícito (no el de `defaultNow()`, que casi nunca empata) para
+las dos filas y comprueba que se devuelve la abierta.
+
+**Alternativas consideradas:** guardar `status` solo como columna
+derivada (sin persistir) — descartado porque el encargo original lista
+`status` como campo explícito y una columna consultable es más simple
+que recalcular `ended_at IS NULL` en cada lectura; un `canEdit` calculado
+aparte de la visibilidad — descartado por el riesgo de que las dos reglas
+diverjan con el tiempo.
+
+**Verificación:** 319/319 unit+integration (10 tests nuevos en
+`tests/integration/memberships.test.ts`, 7 en
+`tests/unit/memberships-domain.test.ts`), 39/39 E2E (`membership.spec.ts`
+nuevo: alta con cuota atrasada → aviso ámbar, baja → aviso de
+oportunidad, volver a afiliarse en el mismo día → estado activo, el caso
+exacto que reprodujo el bug de arriba).
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

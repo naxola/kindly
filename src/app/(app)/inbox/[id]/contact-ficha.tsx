@@ -6,6 +6,7 @@ import { markContactIdentifiedAction, reassignConversationContactAction } from "
 import type { ConversationWorkspaceData } from "@/app/(app)/inbox/conversation-workspace-types";
 import { IdentificationSection } from "@/app/(app)/inbox/[id]/identification-section";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
+import { MembershipStatus } from "@/app/(app)/contacts/membership-status";
 import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -42,6 +43,10 @@ export function ContactFicha({
 
   return (
     <div className="flex flex-col">
+      <FichaSection title="Afiliación">
+        <MembershipStatus membership={ficha.membership} />
+      </FichaSection>
+
       <FichaSection title="Contacto">
         <dl className="flex flex-col gap-1 type-body text-foreground">
           <div className="flex justify-between gap-2">

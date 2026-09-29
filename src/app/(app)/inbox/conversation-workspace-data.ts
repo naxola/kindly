@@ -8,6 +8,7 @@ import {
 } from "@/modules/conversations/service";
 import { listContactsForMember } from "@/modules/contacts/service";
 import { getActiveAssignment, listAssignmentHistory, type ContactAssignment } from "@/modules/contacts/assignments";
+import { getCurrentMembership } from "@/modules/memberships/service";
 import { listCasesForContact } from "@/modules/cases/service";
 import { isTaskPending, listTasksForContact } from "@/modules/tasks/service";
 import type { ConversationWorkspaceData, WorkspaceAssignment } from "@/app/(app)/inbox/conversation-workspace-types";
@@ -29,13 +30,14 @@ export async function getConversationWorkspace(
   }
   const contactId = details.contact.id;
 
-  const [threadState, members, contacts, activeAssignment, history, cases, tasks, contactConversations] =
+  const [threadState, members, contacts, activeAssignment, history, membership, cases, tasks, contactConversations] =
     await Promise.all([
       getConversationThreadState(organizationId, member, conversationId, { markRead }),
       listOrganizationMembers(organizationId),
       listContactsForMember(organizationId, member),
       getActiveAssignment(organizationId, contactId),
       listAssignmentHistory(organizationId, contactId),
+      getCurrentMembership(organizationId, contactId),
       listCasesForContact(organizationId, member, contactId),
       listTasksForContact(organizationId, member, contactId),
       listConversationsWithPreview(organizationId, member, { contactId }),
@@ -81,6 +83,15 @@ export async function getConversationWorkspace(
       activeAssignment: activeAssignment ? toAssignment(activeAssignment) : null,
       assignmentHistory: history.map(toAssignment),
       delegates: members.map((m) => ({ userId: m.userId, name: m.name })),
+      membership: membership
+        ? {
+            status: membership.status,
+            memberNumber: membership.memberNumber,
+            startedAt: membership.startedAt.toISOString(),
+            endedAt: membership.endedAt?.toISOString() ?? null,
+            feePaidUntil: membership.feePaidUntil,
+          }
+        : null,
       cases: cases.map((c) => ({ id: c.id, title: c.title, status: c.status })),
       pendingTasks: tasks
         .filter(isTaskPending)

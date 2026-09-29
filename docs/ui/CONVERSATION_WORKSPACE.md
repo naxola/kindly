@@ -2,8 +2,32 @@
 
 Conversación + ficha del afiliado + copiloto, en un único panel. Planificada
 el 2026-09-28 (encargo del usuario: "crea una fase con todo lo comentado
-para desarrollarlo a posteriori"); **UI-10a construido el 2026-09-29** — ver
-§6 para el resto de paquetes, todavía sin empezar.
+para desarrollarlo a posteriori"); **UI-10a y UI-10b construidos el
+2026-09-29** — ver §6 para el resto de paquetes, todavía sin empezar.
+
+**UI-10b, hecho:** entidad `Membership` (`src/modules/memberships/`), un
+período de afiliación por fila — nunca columnas sueltas en `contacts` —
+con índice único parcial sobre `ended_at is null` (mismo patrón que
+`contact_assignments`, PKG-014): dar de baja cierra la fila abierta,
+"volver a afiliarse" inserta una nueva, y el histórico de períodos queda
+intacto. `status` (`ACTIVE`/`INACTIVE`) es un enum real de Postgres;
+"cuota pendiente" se deriva de `feePaidUntil` contra el mes en curso
+(`memberships/domain.ts::isFeeOverdue`), nunca un tercer valor de estado.
+Alta/edición/baja manual desde `/contacts/[id]`
+(`membership-section.tsx`) — un formulario siempre visible, sin modo
+vista/edición separado, igual que la tarjeta "Editar" de esa misma
+página; quién puede editar es exactamente quién puede ver el Contact
+(`getContactForMember`, el mismo criterio que la ficha). La ficha del
+panel (`contact-ficha.tsx`) solo lee el mismo componente de estado
+(`membership-status.tsx`), sin formulario propio. **Bug real encontrado y
+corregido antes de cerrar**: el formulario de alta solo pide una fecha
+(`<input type=date>`, sin hora), así que una baja y una "vuelta a
+afiliarse" el mismo día producen dos filas con `started_at` idéntico —
+`ORDER BY started_at DESC` por sí solo no tiene desempate determinista y
+podía devolver la fila cerrada como "actual"; corregido ordenando
+primero por si la fila está abierta (`ended_at is null`). Test de
+regresión con un `started_at` idéntico explícito, no solo el de
+`defaultNow()` (que rara vez empata). Detalle en `docs/DECISIONS.md`.
 
 **UI-10a, hecho:** el panel (hoy `ConversationPanel`,
 `src/app/(app)/inbox/[id]/conversation-panel.tsx`, en cliente — ver
@@ -118,7 +142,7 @@ como huecos vacíos en la ficha.
 
 | Sección | Contenido | Fuente | ¿Existe hoy? |
 |---|---|---|---|
-| **Afiliación** | Estado: **activa y al corriente**, **activa con la cuota actual pendiente** o **baja**; número de afiliado; desde cuándo (y hasta cuándo si causó baja); cuota pagada hasta (mes). Baja → aviso ámbar "buen momento para proponer la afiliación"; cuota pendiente → aviso ámbar "cuota de <mes> pendiente". Ambos son **reglas fijas**, no sugerencias de IA | Entidad nueva, alta manual (§5.1) | ❌ |
+| **Afiliación** | Estado: **activa y al corriente**, **activa con la cuota actual pendiente** o **baja**; número de afiliado; desde cuándo (y hasta cuándo si causó baja); cuota pagada hasta (mes). Baja → aviso ámbar "buen momento para proponer la afiliación"; cuota pendiente → aviso ámbar "cuota de <mes> pendiente". Ambos son **reglas fijas**, no sugerencias de IA | `Membership`, alta manual (§5.1) | ✅ |
 | Contacto | Teléfono, email, canal, delegado, notas | `contacts`, `messaging_accounts` | ✅ |
 | Identificación | "Sin identificar" + "Marcar como identificado" / "Reasignar" (hoy en un `Alert` sobre el chat; se mueve aquí) | `contacts.is_unassigned` | ✅ (acciones ya existen; se mueven) |
 | **Situación (resumen IA)** | 3-5 líneas sobre la situación actual a partir de las conversaciones previas, con etiqueta "IA", fecha de generación, nº de conversaciones/mensajes y enlace "ver en qué mensajes se basa" | Paquete UI-10d (§5.3) | ❌ |
@@ -253,7 +277,7 @@ pero **sin citar** — y con `EvidenceLevel` acorde.
 |---|---|---|
 | **PKG-014** (previo) | Un delegado actual por afiliado + histórico; visibilidad por rol en Inbox, Contactos, ficha y descargas; reasignación por ADMIN | Decisión pendiente sobre las conversaciones al reasignar |
 | **UI-10a** ✅ | Panel de dos columnas + ficha de solo lectura con los datos que ya existen (contacto, identificación movida del `Alert`, notas, casos, tareas, otras conversaciones); plegar ficha con preferencia recordada; pestañas por debajo de `xl`; tokens nuevos; E2E camino feliz | Nada — cerrado 2026-09-29 |
-| **UI-10b** | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | PKG-014 (quién puede editar = delegado asignado + ADMIN) |
+| **UI-10b** ✅ | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | Nada — cerrado 2026-09-29 |
 | **UI-10c** | Metadatos de adjunto en `Message` + descarga por proxy en streaming sin almacenar + aviso al afiliado + sección "Trámite y documentación" | Trámites (`Procedure`, Fase 7) para la lista de requeridos; confirmar plazos de medios de Meta; texto del aviso revisado |
 | **UI-10d** | Resumen de situación | Fase 8 (`LLMProvider`) |
 | **UI-10e** | Copiloto dinámico en la conversación | Fases 7 y 8 |

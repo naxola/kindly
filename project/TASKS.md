@@ -660,7 +660,7 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 ### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
 
 - [x] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (cerrado 2026-09-29).
-- [ ] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente.
+- [x] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente (cerrado 2026-09-29).
 - [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
 - [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
