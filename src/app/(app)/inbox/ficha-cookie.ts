@@ -1,16 +1,13 @@
 import "server-only";
 import { cookies } from "next/headers";
-
-export const FICHA_COOKIE_NAME = "kindly_ficha";
+import { FICHA_COOKIE_NAME } from "@/app/(app)/inbox/ficha-preference";
 
 /**
  * Whether the conversation panel's ficha column renders collapsed (UI-10a,
- * `docs/ui/CONVERSATION_WORKSPACE.md` §2 — only relevant at `xl`, where
- * chat + ficha don't comfortably fit together). Read on the server so the
- * first paint already has the right layout, same pattern as
- * `sidebar-cookie.ts`; the write side is `ficha-actions.ts`, a separate
- * "use server" file for the same reason that one is separate from
- * `sidebar-actions.ts`.
+ * `docs/ui/CONVERSATION_WORKSPACE.md` §2). Read on the server so the first
+ * paint already has the right layout; written from the client
+ * (`ficha-preference.ts`), not a Server Action — setting a cookie in a
+ * Server Action makes Next re-render the whole current page on the server.
  */
 export async function getFichaCollapsed(): Promise<boolean> {
   const store = await cookies();

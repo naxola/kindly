@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (fix post-cierre de UI-10a, dos rondas: lista y panel del Inbox se abren como un solo movimiento sincronizado).
+Última actualización: 2026-09-29 (panel de conversación del Inbox rehecho en cliente: abre/cierra sin ir al servidor, con transición en ambos sentidos).
 
 ## Resumen en una línea
 

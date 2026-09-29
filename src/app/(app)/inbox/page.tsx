@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
-import { InboxList } from "@/app/(app)/inbox/inbox-list";
+import { getFichaCollapsed } from "@/app/(app)/inbox/ficha-cookie";
+import { InboxWorkspace } from "@/app/(app)/inbox/inbox-workspace";
 import { pageTitle } from "@/lib/page-title";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -12,18 +13,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function InboxPage({ searchParams }: { searchParams: Promise<InboxSearchParams> }) {
   const params = await searchParams;
   const member = await requireCurrentOrganizationMember();
-  const { filters, conversations, counts, members, availableChannels } = await getInboxListData(member, params);
+  const [{ filters, conversations, counts, members, availableChannels }, fichaCollapsed] = await Promise.all([
+    getInboxListData(member, params),
+    getFichaCollapsed(),
+  ]);
 
-  // This markup never re-renders once a conversation opens via soft
-  // navigation (the `@sheet` slot changes on its own) — `InboxList` owns its
-  // own `flex-1`/width story for exactly that reason (docs/ui/CHAT.md §5),
-  // reacting to a row click directly instead of waiting for that.
   return (
-    // Remounts on every filter change (the key), so the poll/banner state
-    // below never carries over from a different view/search — docs/ui/
-    // INBOX.md §6.
-    <InboxList
-      key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
+    <InboxWorkspace
       filters={filters}
       initialConversations={conversations}
       initialCounts={counts}
@@ -31,6 +27,8 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
       viewerId={member.userId}
       isAdmin={member.role === "ADMIN"}
       availableChannels={availableChannels}
+      initialConversation={null}
+      initialFichaCollapsed={fichaCollapsed}
     />
   );
 }

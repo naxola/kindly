@@ -51,6 +51,9 @@ export function InboxList({
   viewerId,
   isAdmin,
   availableChannels,
+  openConversationId,
+  onOpenConversation,
+  onPrefetchConversation,
 }: {
   filters: InboxFilters;
   initialConversations: ConversationPreview[];
@@ -59,6 +62,11 @@ export function InboxList({
   viewerId: string;
   isAdmin: boolean;
   availableChannels: string[];
+  /** The conversation open in the panel next to this list, if any (`InboxWorkspace` owns it). */
+  openConversationId: string | null;
+  /** Opens the conversation in the panel next to this list, client-side (`InboxWorkspace`). */
+  onOpenConversation: (conversationId: string) => void;
+  onPrefetchConversation: (conversationId: string) => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -76,10 +84,6 @@ export function InboxList({
   const listContainerRef = useRef<HTMLDivElement>(null);
 
   const delegateNameById = useMemo(() => new Map(members.map((m) => [m.userId, m.name])), [members]);
-
-  // A conversation open in the panel is always `/inbox/<id>` exactly —
-  // never one of this route's own subpaths — so this can't misfire.
-  const openConversationId = /^\/inbox\/([^/]+)$/.exec(pathname)?.[1] ?? null;
 
   // Opening a conversation marks it read on the server, but this list only
   // learns that on its next poll — until then the unread dot would linger
@@ -316,6 +320,8 @@ export function InboxList({
                 aria-label="Conversaciones"
                 items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
                 isSelected={(item) => item.conversation.id === openConversationId}
+                onItemActivate={(item) => onOpenConversation(item.key)}
+                onItemIntent={(item) => onPrefetchConversation(item.key)}
                 renderItem={(item) => {
                   const conversation = item.conversation;
                   // PKG-014: a DELEGATE can now see a Conversation that

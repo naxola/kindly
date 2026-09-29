@@ -26,3 +26,18 @@ export function useMediaQuery(query: string): boolean {
     () => false,
   );
 }
+
+const noopSubscribe = () => () => {};
+
+/**
+ * `false` on the server and during hydration, `true` after — for a
+ * component that has to tell "`useMediaQuery` said false because it really
+ * doesn't match" apart from "because it can't know yet".
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}

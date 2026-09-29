@@ -3,12 +3,10 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/input";
 
 /**
- * "Contacto no identificado" (docs/PRODUCT.md sección 4): a plain function,
- * not a Client Component — its only interactivity is two native `<form>`s
- * bound to Server Actions, which works the same inside a Server Component.
- * Moved out of `conversation-sheet.tsx` into the ficha's "Identificación"
- * section (UI-10a, `docs/ui/CONVERSATION_WORKSPACE.md` §3) — same markup,
- * same actions, new home.
+ * "Contacto no identificado" (docs/PRODUCT.md sección 4), in the ficha's
+ * "Identificación" section (UI-10a, `docs/ui/CONVERSATION_WORKSPACE.md` §3).
+ * Its two native `<form>`s take whatever action the caller passes — the
+ * Inbox panel wraps the Server Actions so it can reload its own data after.
  */
 export function IdentificationSection({
   otherContacts,

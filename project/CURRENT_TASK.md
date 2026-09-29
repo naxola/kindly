@@ -4,40 +4,45 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado; fix post-cierre reportado por el usuario (dos rondas) — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10a cerrado; panel de conversación rehecho en cliente (fix post-cierre, 3ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: `ff62f78`.
+Último commit: sin commits (pendiente de commitear esta sesión).
 
-### Fix post-cierre (2026-09-29, reportado por el usuario probando UI-10a, dos rondas)
+### Fix post-cierre (2026-09-29, reportado por el usuario, tres rondas)
 
-**Primera ronda**: la lista del Inbox se quedaba a ancho completo un
-momento y luego saltaba de golpe a su ancho estrecho en el mismo instante
-en que aparecía el panel. Primer arreglo: reservar el ancho de la lista
-en el propio clic. Quitó el salto pero introdujo un problema distinto.
+El usuario reportó tres veces el mismo síntoma al abrir una conversación
+(la lista "tintineaba", luego "se encoge más rápido que se expande el
+chat", luego "tarda en abrir unos milisegundos; debe ser suave y limpio al
+abrir y al cerrar; plegar la ficha no desplaza el chat; ¿se recarga la
+lista al cerrar?"). Las dos primeras rondas (`d098f1d`, `ff62f78`) fueron
+arreglos de CSS sobre una causa de arquitectura. **Tercera ronda, arreglo
+real**: el panel ya no es una ruta (se eliminaron `@sheet` y la ruta
+interceptada) sino un componente cliente siempre montado junto a la lista
+(`inbox-workspace.tsx` + `[id]/conversation-panel.tsx`); abrir/cambiar/
+cerrar actualizan la URL con `history.pushState`/`replaceState`, sin ir al
+servidor; los datos llegan por `GET /api/conversations/<id>/workspace`,
+precargados al pasar el ratón por la fila. Un único `<aside>` transiciona
+su ancho en los tres casos (abrir, cerrar, plegar), con la lista siguiéndolo.
+Además se quitaron tres fuentes de re-render completo de la página en el
+servidor: la Server Action de la cookie de la ficha (ahora
+`document.cookie`) y los `revalidatePath("/inbox")` de las acciones del
+Inbox (incluido enviar un mensaje). Detalle, mediciones y alternativas en
+`docs/DECISIONS.md` ("Panel de conversación en cliente, sin navegación") y
+`docs/ui/CHAT.md` §1/§3/§4/§5.
 
-**Segunda ronda, reportado por el usuario**: "sigue habiendo tintineo...
-se encoge más rápido que lo que se expande el chat" — correcto: el primer
-arreglo reaccionaba al clic (~10-70 ms) mientras que el panel de verdad no
-aparece hasta que el servidor responde (~400-500 ms), dos movimientos
-desincronizados. **Solución final**: revertido el primer arreglo por
-completo; el propio `<aside>` del panel pasa de `animate-slide-in-right`
-(`transform`, nunca toca el layout) a una transición real de `width` con
-`@starting-style` (crece desde `0` al insertarse) — la lista, un simple
-hermano `flex-1` sin ninguna clase nueva, sigue ese crecimiento frame a
-frame porque ahora es una propiedad que de verdad cambia de forma
-continua en el propio panel (mismo mecanismo que ya usa
-`app-sidebar.tsx`). Detalle completo de ambas rondas (incluida la
-solución descartada) en `docs/DECISIONS.md` (dos entradas del
-2026-09-29) y `docs/ui/CHAT.md` §5.
+Verificado con lint+typecheck+298/298 unit-integration+36/36 E2E (4 tests
+del panel en `tests/e2e/conversation-workspace.spec.ts`: transición real en
+ambos sentidos con lista y panel al unísono, plegar desplaza el chat,
+abrir/cerrar/Atrás/Adelante sin peticiones de ruta al servidor ni remonte
+de la lista) + medición con clics reales (panel en marcha a ~30 ms del
+clic, fin a ~230 ms).
 
-Verificado con lint+typecheck+300/300 unit-integration+35/35 E2E (test
-reescrito en `tests/e2e/conversation-workspace.spec.ts` — muestrea el
-ancho real del panel frame a frame y comprueba interpolación real, no un
-salto; confirmado a mano con `git stash` que falla contra el `<aside>`
-anterior y pasa con el arreglo).
+**Pendiente, anotado (no bloquea):** "Error al cargar" del panel (red/500)
+se queda en esqueleto sin "Reintentar" (`docs/ui/CHAT.md` §3). Un cambio
+de filtro con una conversación abierta sigue siendo navegación de servidor
+(como siempre) y remonta lista y panel.
 
-**Próximo paso concreto:** sin cambios respecto a antes de este fix —
-`UI-8` o `UI-10b`, elección del usuario.
+**Próximo paso concreto:** `UI-8` o `UI-10b`, elección del usuario.
 
 ---
 

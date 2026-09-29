@@ -303,14 +303,10 @@ test("a second organization sees none of the first organization's inbox", async 
 
 /**
  * Real bug, found live in staging, not by any existing test: re-clicking a
- * conversation row that is already open navigates to the exact URL the
- * browser is already at. Next's router does not treat that as the no-op a
- * same-page link click normally is — for this route (intercepted/parallel:
- * `@sheet/(.)[id]` next to `inbox/page.tsx`) it resolved the slots
- * differently the second time and dropped the list entirely, leaving only
- * the panel pinned to the left edge with no list beside it. Fixed in
- * `DataList` by never starting a navigation from a click on the
- * already-selected row.
+ * conversation row that is already open used to navigate to the exact URL
+ * the browser was already at, and the (then route-based) panel dropped the
+ * list entirely. `DataList` never acts on a click on the already-selected
+ * row; kept as a regression test now that the panel is client-driven.
  */
 test("re-clicking the already-open conversation keeps the list next to the panel", async ({ page, request }) => {
   const delegateName = `Reclick Delegate ${randomUUID().slice(0, 8)}`;

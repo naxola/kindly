@@ -21,6 +21,8 @@ export function DataList<T extends DataListItem>({
   items,
   renderItem,
   isSelected,
+  onItemActivate,
+  onItemIntent,
   "aria-label": ariaLabel,
   className,
 }: {
@@ -28,6 +30,14 @@ export function DataList<T extends DataListItem>({
   renderItem: (item: T, index: number) => ReactNode;
   /** Marks a row as the one currently open elsewhere (e.g. Inbox's open conversation, docs/ui/CHAT.md §3): `state-selected` + a left bar + `aria-current="true"`. */
   isSelected?: (item: T) => boolean;
+  /**
+   * Handles a plain click itself instead of following `href` (the Inbox
+   * opens its conversation panel client-side, docs/ui/CHAT.md §1). A
+   * modified click (new tab/window) still follows the link as usual.
+   */
+  onItemActivate?: (item: T) => void;
+  /** Pointer or keyboard focus reached the row — a cue to prefetch what activating it will need. */
+  onItemIntent?: (item: T) => void;
   "aria-label": string;
   className?: string;
 }) {
@@ -78,25 +88,29 @@ export function DataList<T extends DataListItem>({
                 rowRefs.current[index] = node;
               }}
               href={item.href}
+              // Prefetching a route the click will never navigate to is
+              // only wasted server work (`onItemActivate` handles it).
+              prefetch={onItemActivate ? false : undefined}
               tabIndex={index === safeActiveIndex ? 0 : -1}
               aria-current={selected ? "true" : undefined}
-              onFocus={() => setActiveIndex(index)}
+              onFocus={() => {
+                setActiveIndex(index);
+                onItemIntent?.(item);
+              }}
+              onPointerEnter={onItemIntent ? () => onItemIntent(item) : undefined}
               onKeyDown={(event) => handleKeyDown(event, index)}
               onClick={(event) => {
-                // Re-clicking the already-open row would navigate to the
-                // exact URL the browser is already at. Next's router does
-                // not treat that as a no-op the way a plain same-page link
-                // click would — for a target using intercepted/parallel
-                // routes (Inbox's conversation panel) it can resolve the
-                // slots differently the second time, dropping the list
-                // entirely instead of re-showing it next to the panel
-                // (found live, not in any test — docs/ui/CHAT.md §1 already
-                // flagged a related, previously unreproduced click-pattern
-                // bug in the same area). Never letting the click start a
-                // navigation to where we already are avoids the whole class
-                // of bug outright.
+                // Re-clicking the already-open row is a no-op, never a
+                // navigation to the URL the browser is already at (that
+                // once dropped the Inbox list entirely, docs/ui/CHAT.md §5).
                 if (selected) {
                   event.preventDefault();
+                  return;
+                }
+                const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+                if (onItemActivate && !modified) {
+                  event.preventDefault();
+                  onItemActivate(item);
                 }
               }}
               // `group`: lets `renderItem`'s content use `group-hover:`/

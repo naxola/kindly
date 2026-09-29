@@ -8,44 +8,45 @@ debajo. Es el patrón de Supabase para "vistas detalladas sin perder el
 contexto" (`ui-patterns/modality`: Sheet para vistas detalladas, derecha
 por defecto).
 
-### Rutas (Next.js 16: parallel + intercepting routes)
+### Arquitectura: panel en cliente, sin navegación (2026-09-29)
+
+**Supersede el diseño de UI-6** (rutas paralelas `@sheet` + interceptadas
+`(.)[id]`), retirado por completo — detalle y motivo en `docs/DECISIONS.md`
+("Panel de conversación en cliente..."). Con rutas, abrir era un viaje
+al servidor antes de mostrar nada, cerrar desmontaba el panel sin
+animación de salida posible, y en carga directa cerrar volvía a pedir la
+lista entera al servidor.
 
 ```text
 src/app/(app)/inbox/
-  layout.tsx              → renderiza {children} + {sheet} (docs/ui/CHAT.md §1)
-  page.tsx                → lista
-  [id]/page.tsx           → carga directa / refresco: lista + panel, compuestos aquí mismo
-  @sheet/page.tsx         → null (match real de /inbox — ver corrección abajo)
-  @sheet/default.tsx      → null (fallback de carga directa/refresco)
-  @sheet/(.)[id]/page.tsx → <ConversationSheet id> (navegación suave desde /inbox)
+  layout.tsx                        → InboxOrderProvider + {children}
+  page.tsx                          → <InboxWorkspace> (sin conversación)
+  [id]/page.tsx                     → <InboxWorkspace initialConversation> (carga directa / refresco)
+  inbox-workspace.tsx               → lista + panel; estado abierto, URL, caché y precarga
+  [id]/conversation-panel.tsx       → el panel (siempre montado)
+  conversation-workspace-data.ts    → construye los datos del panel (servidor)
+src/app/api/conversations/[id]/workspace/route.ts → esos datos en JSON, para un clic dentro del Inbox
 ```
 
-- La URL sigue siendo `/inbox/<id>`: enlazable, recargable, con historial
-  (Atrás cierra el Sheet).
-- Carga directa de `/inbox/<id>`: se pinta la lista con el Sheet ya
-  abierto (misma experiencia), no una página distinta. La intercepción no
-  aplica a la carga directa, así que `[id]/page.tsx` (el slot `children`)
-  compone la lista y `<ConversationSheet>` él mismo — no hay otro slot que
-  aporte la lista en ese caso.
-- Cerrar = `router.back()` si se llegó por navegación suave; si no,
-  `router.push('/inbox' + filtros actuales)`. Esto se resuelve por
-  **construcción**, no en tiempo de ejecución: `@sheet/(.)[id]/page.tsx`
-  solo se renderiza nunca por navegación suave (una carga directa nunca
-  pasa por una ruta interceptada), así que siempre pasa `closeMode="back"`;
-  `[id]/page.tsx` (slot `children`, carga directa) siempre pasa
-  `closeMode="push"` con el href construido a partir de los filtros
-  actuales (`buildHref`).
-- **Corrección de implementación**: `@sheet/default.tsx` **no basta** para
-  cerrar el panel al navegar a `/inbox` con un `<Link>` normal (p. ej. desde
-  el nav global). `default.tsx` solo es el *fallback* de una carga directa;
-  en una navegación suave a una URL sin ruta real para ese slot, Next.js
-  **deja el slot mostrando lo último que tenía** (documentado en la propia
-  guía de Next, sección "Modals": *"client-side navigations to a route that
-  no longer matches the slot will remain visible"*). Hace falta un
-  `@sheet/page.tsx` real (no interceptado) que devuelva `null`, igual que
-  su ejemplo `@auth/page.tsx`. Sin este archivo, cerrar por cualquier vía
-  que no sea `router.back()` deja el panel fantasma abierto.
-- Documentación de referencia: `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/{parallel-routes,intercepting-routes}.md` (sección "Modals").
+- **Abrir/cambiar/cerrar no navegan**: `InboxWorkspace` actualiza un estado
+  local urgente en el propio clic y la URL con `window.history.pushState`/
+  `replaceState` (API nativa integrada oficialmente con `usePathname` —
+  `node_modules/next/dist/docs/01-app/01-getting-started/04-linking-and-navigating.md`,
+  "Native History API"). La URL sigue siendo `/inbox/<id>`: enlazable y
+  recargable. Atrás/Adelante los restaura Next desde la propia entrada del
+  historial, sin ir al servidor.
+- **Cerrar** vuelve atrás si la entrada la creó un clic desde la lista
+  (marcador en `history.state`) — un solo paso de historial — y si no
+  (carga directa), añade una entrada `/inbox` + filtros. Ninguna de las
+  dos vuelve a cargar la lista.
+- **Datos del panel**: `GET /api/conversations/<id>/workspace`, precargado
+  al pasar el ratón o el foco por la fila (`DataList.onItemIntent`) y
+  cacheado por conversación; nunca marca como leída (la precarga no debe).
+  La marca el primer sondeo del hilo, que ahora se hace al montarse.
+- **Carga directa**: `[id]/page.tsx` construye los mismos datos en el
+  servidor (y marca como leída) y renderiza el mismo `InboxWorkspace`.
+- Los filtros de la lista siguen siendo navegación de servidor
+  (`router.push`), como siempre.
 
 ## 2. Anatomía
 
@@ -117,20 +118,17 @@ src/app/(app)/inbox/
 | Ventana cerrada | `Alert` en lugar del compositor |
 | Borrador sin enviar al cerrar | Se conserva por conversación (`sessionStorage`, clave por id) — no pide confirmación: cerrar no pierde nada |
 
-**Diferido en esta fase** (no implementado, no confundir con "hecho"):
+**Estado real (2026-09-29, panel en cliente, §1):**
 
-- *Cargando la conversación*: no hay un `loading.tsx` propio del slot
-  `@sheet` — la navegación simplemente espera a que el servidor responda
-  antes de mostrar el panel (el mismo comportamiento por defecto que UI-4
-  aceptó para el resto de páginas sin una carga lo bastante lenta como para
-  justificarlo). Se añade si algún canal real resulta notablemente lento.
-- *Error al cargar*: sin un `error.tsx` propio de `@sheet`; un fallo aquí
-  sube al `error.tsx` de `inbox/` (cubre toda la ruta, no solo el panel).
-- *No encontrada / sin permiso*: sigue usando `notFound()` de Next (el
-  404 genérico), como ya hacía la página que este componente reemplaza —
-  no el `EmptyState` a medida "Esta conversación no existe..." que este
-  documento proponía. Correcto (nunca expone una Conversation de otra
-  Organization), solo no es la presentación más amable posible todavía.
+- *Cargando la conversación*: hecho — si los datos no estaban precargados,
+  el panel abre igualmente al instante con esqueleto de cabecera, burbujas
+  y ficha (sin compositor), y se rellena al llegar.
+- *No encontrada / sin permiso*: hecho al abrir desde el Inbox —
+  `EmptyState` "Esta conversación no existe o no tienes acceso" (la API
+  responde 404). En carga directa de `/inbox/<id>` sigue siendo el
+  `notFound()` genérico de Next.
+- *Error al cargar* (red/500): **diferido** — el panel se queda en
+  esqueleto; sin "Reintentar" todavía.
 
 ## 4. Comportamiento
 
@@ -147,8 +145,18 @@ y **sin velo** en pantallas anchas):
 
 Común a los tres:
 
-- Apertura `slide-in-right` (`--duration-slow`); en anclado, el cambio
-  entre conversaciones **no** anima (solo cambia el contenido).
+- En anclado, **un único `<aside>` siempre montado** cuyo `width`
+  transiciona (`--duration-slow`, `ease-emphasized`) entre tres estados:
+  cerrado (`0`), solo chat, chat + ficha. Abrir, cerrar y plegar/desplegar
+  la ficha son la misma transición en ambos sentidos, y la lista (hermano
+  `flex-1`) la sigue frame a frame sin código propio. Las columnas de
+  dentro tienen ancho fijo y el panel `overflow-hidden`: se deslizan por el
+  borde en vez de comprimirse (al plegar, el chat se desplaza a la derecha
+  y la ficha sale por el borde). Cambiar de conversación **no** anima.
+  El panel empieza a moverse ~30 ms después del clic (medido), sin esperar
+  datos: si no estaban precargados, abre con esqueleto. Modal/pantalla
+  completa: `Sheet` de Radix controlado, con su propia animación de
+  entrada y salida.
 - Al cerrar, el foco vuelve a la fila de la lista que lo abrió.
 - Anchura en anclado: `--sheet-w-sm` (384 px) en `xl`, `--sheet-w-md`
   (560 px) en `2xl+` para la columna del chat; con la ficha visible (UI-10a)
@@ -244,39 +252,24 @@ keeps the list next to the panel"`. Detalle completo en
 `docs/DECISIONS.md` (entrada del 2026-09-28, "Fix: migración pendiente en
 staging + panel roto...").
 
-**Reportado por el usuario (2026-09-29), tras UI-10a, en dos rondas**:
-primero, que abrir una conversación hacía que la lista "tintineara" — se
-quedaba a su ancho completo un momento y luego saltaba de golpe a su
-ancho estrecho en el mismo instante en que aparecía el panel. Un primer
-arreglo (reservar el ancho de la lista en el propio clic, antes de que el
-panel llegase) quitó el salto pero introdujo un problema distinto,
-señalado por el usuario en la segunda ronda: "se encoge más rápido que lo
-que se expande el chat" — la lista y el panel se movían por separado, no
-juntos. **Solución final: que un único elemento anime, y el resto lo siga
-gratis.** El `<aside>` del panel anclado ya no usa `animate-slide-in-right`
-(`transform`, que nunca toca el layout — por eso la lista siempre tenía
-su ancho final desde el primer frame, sin nada que animar cuando el panel
-por fin llegaba); ahora es una transición real de `width`, con
-`@starting-style` (`starting:w-0` de Tailwind) para crecer desde `0` al
-insertarse, sin JavaScript ni estado en la lista. La lista — un simple
-hermano `flex-1`, sin ninguna clase nueva — sigue ese crecimiento **frame
-a frame**, porque ahora es una propiedad que de verdad cambia de forma
-continua en el propio elemento del panel: el mismo mecanismo por el que
-el contenido junto a la sidebar (`app-sidebar.tsx`) ya se ajusta solo
-cuando esta colapsa. `overflow-hidden` en el `<aside>`: sus dos columnas
-mantienen su ancho fijo durante todo el crecimiento, así que se revelan
-de izquierda a derecha (chat primero, ficha al final) en vez de
-comprimirse. Test de regresión, sin temporizadores frágiles:
-`tests/e2e/conversation-workspace.spec.ts::"anchored: the panel grows
-into place (and the list follows it) over several frames, not in one
-jump"` — muestrea el ancho real del panel en cada frame y comprueba más
-de dos valores distintos (interpolación real, no un salto); verificado a
-mano contra el código anterior: falla sin el arreglo. Detalle completo,
-incluida la primera solución descartada, en `docs/DECISIONS.md`.
+**Reportado por el usuario (2026-09-29), tras UI-10a, en tres rondas**:
+la lista "tintineaba" al abrir una conversación; dos arreglos sucesivos
+de CSS/animación (reservar el ancho de la lista al clic; hacer crecer el
+panel con `@starting-style`) mejoraron el síntoma pero no la causa, que
+era de arquitectura: abrir y cerrar eran **navegaciones de servidor**
+(rutas paralelas/interceptadas), así que nada podía empezar a moverse
+antes del viaje de ida y vuelta, cerrar desmontaba el panel sin
+transición de salida, y plegar la ficha la desmontaba al instante. Se
+resolvió con el panel en cliente siempre montado (§1). Tests de regresión
+en `tests/e2e/conversation-workspace.spec.ts`: transición real en ambos
+sentidos con la lista moviéndose al unísono (suma de anchos constante en
+cada frame), plegar desplaza el chat, y abrir/cerrar/Atrás no generan
+ninguna petición de ruta al servidor ni remontan la lista. Detalle en
+`docs/DECISIONS.md`.
 
 ## 6. Reutilización
 
-`ConversationSheet` es un componente único: lo usan el Inbox y, en el
+`ConversationPanel` (antes `ConversationSheet`) es un componente único: lo usan el Inbox y, en el
 futuro, la ficha de Contacto y de Caso ("Conversaciones" → abre el mismo
 Sheet). La lógica de `conversation-thread.tsx` (optimista, sondeo,
 reintento, "escribiendo…") se conserva tal cual; solo cambia la

@@ -874,13 +874,18 @@ export async function getConversationThreadState(
   organizationId: string,
   member: VisibilityMember,
   conversationId: string,
+  // `false` for a prefetch (the Inbox loads a conversation on hover so it
+  // opens instantly) — hovering a row must not mark it read.
+  { markRead = true }: { markRead?: boolean } = {},
 ): Promise<ConversationThreadState | null> {
   const details = await getConversationWithDetails(organizationId, member, conversationId);
   if (!details) {
     return null;
   }
   const conversation = details.conversation;
-  await markConversationRead(organizationId, conversationId);
+  if (markRead) {
+    await markConversationRead(organizationId, conversationId);
+  }
   const [rows, serviceWindow] = await Promise.all([
     listMessages(organizationId, conversationId),
     getConversationServiceWindow(organizationId, conversationId, conversation.channel),

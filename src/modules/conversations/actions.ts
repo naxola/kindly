@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import {
   sendOutboundMessage,
@@ -19,8 +18,10 @@ export type SendReplyResult = { ok: true; message: ThreadMessage } | { ok: false
  * re-rendering the page, and reports failure as a value the screen can put
  * next to that message rather than as an error page.
  *
- * No `revalidatePath` of the conversation itself: the screen owns its
- * thread state and polls for the rest.
+ * No `revalidatePath` at all: the screen owns its thread state and the
+ * Inbox list polls for itself (every 5 s) — revalidating `/inbox` here only
+ * made Next re-render the whole Inbox page on the server after every sent
+ * message, for props the already-mounted list never reads again.
  */
 export async function sendReplyAction(conversationId: string, text: string): Promise<SendReplyResult> {
   const member = await requireCurrentOrganizationMember();
@@ -36,7 +37,6 @@ export async function sendReplyAction(conversationId: string, text: string): Pro
       conversationId,
       text: trimmed,
     });
-    revalidatePath("/inbox");
     return { ok: true, message: toThreadMessage(message) };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "No se pudo enviar." };
@@ -49,12 +49,14 @@ export async function signalTypingAction(conversationId: string): Promise<void> 
   await signalTyping(member.organizationId, conversationId);
 }
 
-export async function markContactIdentifiedAction(contactId: string, conversationId: string) {
+/**
+ * No `revalidatePath` (same reason as `sendReplyAction`): the conversation
+ * panel is client-driven and reloads its own data after this resolves
+ * (docs/ui/CHAT.md §1); the list picks it up on its next poll.
+ */
+export async function markContactIdentifiedAction(contactId: string) {
   const member = await requireCurrentOrganizationMember();
   await markContactIdentified(member.organizationId, member.userId, contactId);
-
-  revalidatePath(`/inbox/${conversationId}`);
-  revalidatePath("/inbox");
 }
 
 export async function reassignConversationContactAction(conversationId: string, formData: FormData) {
@@ -65,7 +67,4 @@ export async function reassignConversationContactAction(conversationId: string, 
   }
 
   await reassignConversationContact(member.organizationId, member.userId, conversationId, targetContactId);
-
-  revalidatePath(`/inbox/${conversationId}`);
-  revalidatePath("/inbox");
 }

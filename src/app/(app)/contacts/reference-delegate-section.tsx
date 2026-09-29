@@ -1,12 +1,19 @@
-import type { ContactAssignment } from "@/modules/contacts/assignments";
 import { ReassignDelegateControl } from "@/app/(app)/contacts/reassign-delegate-control";
+
+export interface ReferenceDelegateAssignment {
+  id: string;
+  delegateId: string;
+  delegateName: string;
+  /** A `Date` from a Server Component, an ISO string from JSON (the Inbox panel). */
+  startedAt: Date | string;
+  endedAt: Date | string | null;
+}
 
 /**
  * "Delegado de referencia" (PKG-014): who currently answers for this
- * Contact, plus their history. Extracted from `contacts/[id]/page.tsx` so
- * the conversation ficha (UI-10a) can show the same content without a
- * second copy of the branching logic — callers provide their own wrapper
- * (a `Card` on the full contact page, a plain `<section>` in the ficha).
+ * Contact, plus their history. Shared by `contacts/[id]/page.tsx` (inside a
+ * `Card`) and the Inbox panel's ficha (inside a plain `<section>`), so the
+ * branching lives in one place.
  */
 export function ReferenceDelegateSection({
   isAdmin,
@@ -15,15 +22,15 @@ export function ReferenceDelegateSection({
   activeAssignment,
   history,
   delegates,
-  nameById,
+  onReassigned,
 }: {
   isAdmin: boolean;
   contactId: string;
   contactName: string;
-  activeAssignment: ContactAssignment | null;
-  history: ContactAssignment[];
+  activeAssignment: ReferenceDelegateAssignment | null;
+  history: ReferenceDelegateAssignment[];
   delegates: { userId: string; name: string }[];
-  nameById: Map<string, string>;
+  onReassigned?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -34,24 +41,23 @@ export function ReferenceDelegateSection({
             contactName={contactName}
             currentDelegateId={activeAssignment.delegateId}
             delegates={delegates}
+            onReassigned={onReassigned}
           />
         ) : (
           <p className="type-body text-foreground-lighter">Todavía no tiene delegado asignado.</p>
         )
       ) : (
-        <p className="type-body text-foreground">
-          {activeAssignment ? (nameById.get(activeAssignment.delegateId) ?? "—") : "Sin asignar"}
-        </p>
+        <p className="type-body text-foreground">{activeAssignment ? activeAssignment.delegateName : "Sin asignar"}</p>
       )}
 
       {history.length > 1 && (
         <ul className="flex flex-col gap-1 border-t border-border pt-3 type-caption text-foreground-lighter">
           {history.map((assignment) => (
             <li key={assignment.id}>
-              {nameById.get(assignment.delegateId) ?? assignment.delegateId}
+              {assignment.delegateName}
               {" — "}
-              {assignment.startedAt.toLocaleDateString("es-ES")}
-              {assignment.endedAt ? ` a ${assignment.endedAt.toLocaleDateString("es-ES")}` : " (actual)"}
+              {new Date(assignment.startedAt).toLocaleDateString("es-ES")}
+              {assignment.endedAt ? ` a ${new Date(assignment.endedAt).toLocaleDateString("es-ES")}` : " (actual)"}
             </li>
           ))}
         </ul>

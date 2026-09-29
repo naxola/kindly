@@ -5,13 +5,16 @@ el 2026-09-28 (encargo del usuario: "crea una fase con todo lo comentado
 para desarrollarlo a posteriori"); **UI-10a construido el 2026-09-29** — ver
 §6 para el resto de paquetes, todavía sin empezar.
 
-**UI-10a, hecho:** el panel (`ConversationSheet`,
-`src/app/(app)/inbox/[id]/conversation-sheet.tsx`) pasa de una columna a
+**UI-10a, hecho:** el panel (hoy `ConversationPanel`,
+`src/app/(app)/inbox/[id]/conversation-panel.tsx`, en cliente — ver
+`CHAT.md` §1) pasa de una columna a
 dos en modo anclado (`xl+`): el chat con su ancho de siempre
 (`--sheet-w-sm`/`md`) y una nueva columna `--workspace-context-w` (340px)
 con `ContactFicha` (`src/app/(app)/inbox/[id]/contact-ficha.tsx`), plegable
 con un botón en el header cuya preferencia se recuerda en cookie
-(`ficha-cookie.ts`/`ficha-actions.ts`, mismo patrón que la sidebar). Por
+(leída en servidor por `ficha-cookie.ts`, escrita en el navegador por
+`ficha-preference.ts` — no con una Server Action, que re-renderizaría la
+página entera en cada clic). Por
 debajo de `xl` (modal o pantalla completa) no cabían las dos columnas, así
 que pasan a ser pestañas "Chat"/"Ficha" del mismo panel (`Tabs`, sin tocar
 la URL). La ficha reutiliza datos y componentes que ya existían —

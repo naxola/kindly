@@ -173,6 +173,11 @@ export function ConversationThread({
   }, [conversationId, isNearBottom]);
 
   useEffect(() => {
+    // At once, not only on the first tick: the initial state may come from
+    // a hover prefetch seconds old, and this request is also what marks the
+    // conversation read now that it is actually open (the prefetch never does).
+    // Deferred a tick, same as the draft read above (`set-state-in-effect`).
+    const initial = setTimeout(() => void refresh(), 0);
     const timer = setInterval(() => {
       if (document.visibilityState === "visible") {
         void refresh();
@@ -181,6 +186,7 @@ export function ConversationThread({
     const onVisible = () => document.visibilityState === "visible" && void refresh();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      clearTimeout(initial);
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };

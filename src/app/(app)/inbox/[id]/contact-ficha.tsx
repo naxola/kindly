@@ -1,21 +1,16 @@
+"use client";
+
+import type { ReactNode } from "react";
 import Link from "next/link";
-import type { contacts } from "@/modules/contacts/schema";
-import type { ContactAssignment } from "@/modules/contacts/assignments";
-import type { cases } from "@/modules/cases/schema";
-import type { tasks } from "@/modules/tasks/schema";
-import type { ConversationPreview } from "@/modules/conversations/service";
-import { isTaskPending } from "@/modules/tasks/service";
+import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
+import type { ConversationWorkspaceData } from "@/app/(app)/inbox/conversation-workspace-types";
 import { IdentificationSection } from "@/app/(app)/inbox/[id]/identification-section";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
 import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 
-type ContactRecord = typeof contacts.$inferSelect;
-type CaseRecord = typeof cases.$inferSelect;
-type TaskRecord = typeof tasks.$inferSelect;
-
-function FichaSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FichaSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2 border-t border-border px-4 py-4 first:border-t-0">
       <h3 className="type-label text-foreground-light">{title}</h3>
@@ -27,53 +22,23 @@ function FichaSection({ title, children }: { title: string; children: React.Reac
 /**
  * "Ficha del afiliado" (UI-10a, `docs/ui/CONVERSATION_WORKSPACE.md` §3): a
  * read-only second column next to the chat, built from data that already
- * exists today. A Server Component — everything it needs is already
- * resolved by the page (`[id]/page.tsx` / `@sheet/(.)[id]/page.tsx`), the
- * same way those pages already hand a fully-built `ConversationThreadState`
- * to `ConversationSheet` — so it does no fetching of its own.
+ * exists today. Renders `ConversationWorkspaceData` as-is — no fetching of
+ * its own; after a mutation it asks the panel to reload (`onMutated`),
+ * since the panel owns that data rather than a server route.
  *
- * Only the sections the underlying domain already supports today are here.
  * Afiliación (UI-10b), trámites/documentación (UI-10c) and the AI summary
  * (UI-10d) have no domain yet and are deliberately absent, not stubbed.
  */
 export function ContactFicha({
-  contact,
-  channel,
-  delegateName,
-  isAdmin,
-  otherContacts,
-  markContactIdentified,
-  reassignConversation,
-  activeAssignment,
-  assignmentHistory,
-  delegates,
-  nameById,
-  cases,
-  tasks,
-  otherConversations,
+  data,
+  onOpenConversation,
+  onMutated,
 }: {
-  contact: ContactRecord;
-  channel: string;
-  delegateName: string;
-  isAdmin: boolean;
-  otherContacts: { id: string; name: string }[];
-  markContactIdentified: () => Promise<void>;
-  reassignConversation: (formData: FormData) => Promise<void>;
-  activeAssignment: ContactAssignment | null;
-  assignmentHistory: ContactAssignment[];
-  delegates: { userId: string; name: string }[];
-  nameById: Map<string, string>;
-  cases: CaseRecord[];
-  tasks: TaskRecord[];
-  otherConversations: ConversationPreview[];
+  data: ConversationWorkspaceData;
+  onOpenConversation: (conversationId: string) => void;
+  onMutated: () => void;
 }) {
-  const pendingTasks = tasks
-    .filter(isTaskPending)
-    .sort((a, b) => {
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return a.dueDate.getTime() - b.dueDate.getTime();
-    });
+  const { contact, ficha } = data;
 
   return (
     <div className="flex flex-col">
@@ -89,11 +54,11 @@ export function ContactFicha({
           </div>
           <div className="flex justify-between gap-2">
             <dt className="text-foreground-lighter">Canal</dt>
-            <dd>{channel}</dd>
+            <dd>{data.channel}</dd>
           </div>
           <div className="flex justify-between gap-2">
             <dt className="text-foreground-lighter">Delegado</dt>
-            <dd>{delegateName}</dd>
+            <dd>{data.delegateName}</dd>
           </div>
           {contact.notes && <p className="mt-1 type-caption text-foreground-lighter">{contact.notes}</p>}
         </dl>
@@ -105,31 +70,37 @@ export function ContactFicha({
       {contact.isUnassigned && (
         <FichaSection title="Identificación">
           <IdentificationSection
-            otherContacts={otherContacts}
-            markContactIdentified={markContactIdentified}
-            reassignConversation={reassignConversation}
+            otherContacts={ficha.otherContacts}
+            markContactIdentified={async () => {
+              await markContactIdentifiedAction(contact.id);
+              onMutated();
+            }}
+            reassignConversation={async (formData) => {
+              await reassignConversationContactAction(data.conversationId, formData);
+              onMutated();
+            }}
           />
         </FichaSection>
       )}
 
       <FichaSection title="Delegado de referencia">
         <ReferenceDelegateSection
-          isAdmin={isAdmin}
+          isAdmin={ficha.isAdmin}
           contactId={contact.id}
           contactName={contact.name}
-          activeAssignment={activeAssignment}
-          history={assignmentHistory}
-          delegates={delegates}
-          nameById={nameById}
+          activeAssignment={ficha.activeAssignment}
+          history={ficha.assignmentHistory}
+          delegates={ficha.delegates}
+          onReassigned={onMutated}
         />
       </FichaSection>
 
       <FichaSection title="Casos abiertos">
-        {cases.length === 0 ? (
+        {ficha.cases.length === 0 ? (
           <EmptyState variant="inline" title="Sin casos abiertos" />
         ) : (
           <ul className="flex flex-col gap-2">
-            {cases.map((c) => (
+            {ficha.cases.map((c) => (
               <li key={c.id} className="flex items-center justify-between gap-2">
                 <Link href={`/cases/${c.id}`} className="focus-ring truncate rounded-sm type-body text-foreground hover:underline">
                   {c.title}
@@ -142,17 +113,17 @@ export function ContactFicha({
       </FichaSection>
 
       <FichaSection title="Tareas pendientes">
-        {pendingTasks.length === 0 ? (
+        {ficha.pendingTasks.length === 0 ? (
           <EmptyState variant="inline" title="Sin tareas pendientes" />
         ) : (
           <ul className="flex flex-col gap-2">
-            {pendingTasks.map((task) => (
+            {ficha.pendingTasks.map((task) => (
               <li key={task.id} className="flex items-center justify-between gap-2">
                 <Link href={`/tasks/${task.id}`} className="focus-ring truncate rounded-sm type-body text-foreground hover:underline">
                   {task.title}
                 </Link>
                 <span className="shrink-0 type-caption text-foreground-lighter">
-                  {task.dueDate ? task.dueDate.toLocaleDateString("es-ES") : "Sin fecha"}
+                  {task.dueDate ? new Date(task.dueDate).toLocaleDateString("es-ES") : "Sin fecha"}
                 </span>
               </li>
             ))}
@@ -161,21 +132,28 @@ export function ContactFicha({
       </FichaSection>
 
       <FichaSection title="Otras conversaciones">
-        {otherConversations.length === 0 ? (
+        {ficha.otherConversations.length === 0 ? (
           <EmptyState variant="inline" title="No hay otras conversaciones" />
         ) : (
           <ul className="flex flex-col gap-2">
-            {otherConversations.map((conversation) => (
+            {ficha.otherConversations.map((conversation) => (
               <li key={conversation.id}>
                 <Link
                   href={`/inbox/${conversation.id}`}
+                  onClick={(event) => {
+                    // Same panel, different conversation — no route change
+                    // (docs/ui/CHAT.md §1). A modified click still opens a tab.
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+                    event.preventDefault();
+                    onOpenConversation(conversation.id);
+                  }}
                   className="focus-ring flex flex-col rounded-sm type-body text-foreground hover:underline"
                 >
                   <span>
-                    {conversation.channel} · {nameById.get(conversation.delegateId) ?? "—"}
+                    {conversation.channel} · {conversation.delegateName}
                   </span>
-                  {conversation.lastMessage && (
-                    <span className="truncate type-caption text-foreground-lighter">{conversation.lastMessage.body}</span>
+                  {conversation.lastMessageBody && (
+                    <span className="truncate type-caption text-foreground-lighter">{conversation.lastMessageBody}</span>
                   )}
                 </Link>
               </li>

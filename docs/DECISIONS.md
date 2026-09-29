@@ -2555,6 +2555,10 @@ y **pasa** con el arreglo. 300/300 unit+integration, 35/35 E2E completo.
 
 ## 2026-09-29 — Fix: reservar el ancho al clic no bastaba, hacía falta una sola transición
 
+**Superseded — ver "Panel de conversación en cliente, sin navegación"
+(misma fecha, más abajo).** El `@starting-style` de esta entrada solo
+animaba la entrada, y seguía empezando tras el viaje al servidor.
+
 **Reportado por el usuario**, probando el arreglo de la entrada anterior:
 "sigue habiendo tintineo cuando se expande el chat y la ficha al hacer
 clic... se encoge más rápido que lo que se expande el chat". Diagnóstico
@@ -2615,6 +2619,86 @@ del clic hasta después de que la ficha es visible, y comprueba que hay
 de verdad, no un salto. Verificado a mano con `git stash` que **falla**
 contra el `<aside>` anterior (un único valor de ancho, el salto) y
 **pasa** con el arreglo. 300/300 unit+integration, 35/35 E2E completo.
+
+---
+
+## 2026-09-29 — Panel de conversación en cliente, sin navegación (supersede el diseño de rutas de UI-6)
+
+**Contexto:** tercera ronda del usuario sobre el mismo síntoma: "al hacer
+clic, tarda en abrir unos milisegundos... debe ser suave y limpio al
+aparecer y al cerrar... el botón de contraer la ficha no desplaza a la
+derecha el panel de chats... revisa si al cerrar se recarga el listado".
+Las dos entradas anteriores trataron el síntoma con CSS; la causa era de
+arquitectura. Revisado a fondo:
+
+1. **Abrir era una navegación de servidor** (ruta interceptada
+   `@sheet/(.)[id]`, UI-6): nada podía empezar a moverse antes del viaje
+   de ida y vuelta (~400-500 ms, más desde que la ficha añadió consultas).
+2. **Cerrar desmontaba el panel** (la ruta dejaba de coincidir): ninguna
+   transición de salida era posible. En carga directa, además, cerraba con
+   `router.push('/inbox')`, que **sí volvía a renderizar la lista entera en
+   el servidor**.
+3. **Plegar la ficha la desmontaba al instante** (render condicional), y
+   la preferencia se guardaba con una Server Action que escribe cookie:
+   según la documentación de Next (`cookies.md`), eso re-renderiza la
+   página actual en el servidor — **toda la lista, en cada clic**.
+4. `sendReplyAction`, `markContactIdentifiedAction` y
+   `reassignConversationContactAction` llamaban a `revalidatePath("/inbox")`:
+   otro re-render completo de la página en el servidor **en cada mensaje
+   enviado**, para unas props que la lista ya montada nunca vuelve a leer
+   (inicializa su estado una vez y sondea `/api/inbox` cada 5 s).
+
+**Decisión:** el panel pasa a ser un componente cliente **siempre montado**
+junto a la lista (`InboxWorkspace` + `ConversationPanel`), y abrir/cambiar/
+cerrar dejan de ser navegaciones:
+
+- Estado "abierto" local y urgente, actualizado en el propio clic; URL con
+  `window.history.pushState`/`replaceState` (API nativa, integrada
+  oficialmente con `usePathname`; Atrás/Adelante los restaura Next desde
+  la propia entrada del historial — verificado en
+  `node_modules/next/dist/client/components/app-router.js`). `/inbox/<id>`
+  sigue siendo una URL real (carga directa = `[id]/page.tsx`, mismo
+  componente con los datos resueltos en servidor).
+- Datos del panel por `GET /api/conversations/<id>/workspace` (mismo
+  constructor que la carga directa, `conversation-workspace-data.ts`),
+  **precargados al pasar el ratón o el foco por la fila** y cacheados; la
+  precarga no marca como leída (`getConversationThreadState` gana
+  `{ markRead }`), lo hace el primer sondeo del hilo, ahora inmediato.
+  Sin datos todavía, el panel abre igual al instante con esqueleto.
+- Un único `<aside>` cuyo `width` transiciona entre cerrado / solo chat /
+  chat + ficha: abrir, cerrar y plegar son la misma transición en ambos
+  sentidos, la lista (`flex-1`) la sigue frame a frame, y la ficha ya no se
+  desmonta al plegar — sale por el borde mientras el chat se desplaza a la
+  derecha. El contenido cerrado sigue renderizado hasta terminar de salir.
+- Cookie de la ficha escrita desde el navegador (`ficha-preference.ts`);
+  eliminadas `ficha-actions.ts` y todas las carpetas `@sheet`.
+- Quitados los `revalidatePath` de las tres acciones del Inbox; la ficha
+  recarga sus propios datos tras una mutación (`onMutated`), y
+  `ReassignDelegateControl` gana `onReassigned` para lo mismo.
+- Filas: `DataList` gana `onItemActivate` (un clic normal abre sin navegar;
+  un clic con modificador sigue abriendo pestaña) y `onItemIntent`
+  (precarga); con `onItemActivate` los enlaces dejan de prefetchear una
+  ruta a la que nunca se navega.
+
+**Alternativas consideradas:** mantener las rutas y animar alrededor (las
+dos entradas anteriores — el viaje al servidor seguía siendo el primer
+paso de cada apertura, y el cierre seguía sin salida animable); abrir en
+`/inbox?c=<id>` (una sola ruta, pero cambia URLs ya enlazadas y
+documentadas).
+
+**Medido tras el cambio** (Playwright, clics reales, 1600 px): el panel
+empieza a moverse a ~30 ms del clic y termina a ~230 ms, con el contenido
+ya presente desde el primer frame si se precargó; plegar/desplegar y
+cerrar, igual; cambiar de conversación, sin movimiento y contenido a
+~12 ms. **Tests**: `tests/e2e/conversation-workspace.spec.ts` — transición
+real en ambos sentidos con la suma de anchos lista + panel constante en
+cada frame; plegar desplaza el chat a la derecha; abrir/cerrar/Atrás/
+Adelante sin ninguna petición de ruta al servidor y sin remontar la lista.
+298/298 unit+integration (el test de tokens crea un caso por `.tsx`: se
+borraron 3 `@sheet`, se añadió 1), 36/36 E2E.
+
+**Supersede a:** el diseño de rutas paralelas/interceptadas de UI-6
+(`docs/ui/CHAT.md` §1, reescrito) y las dos entradas anteriores de hoy.
 
 ---
 

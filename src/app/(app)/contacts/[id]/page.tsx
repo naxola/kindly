@@ -44,6 +44,10 @@ export default async function ContactDetailPage({
   ]);
   const updateThisContact = updateContactAction.bind(null, contact.id);
   const nameById = new Map(members.map((m) => [m.userId, m.name]));
+  const withName = (assignment: NonNullable<typeof activeAssignment>) => ({
+    ...assignment,
+    delegateName: nameById.get(assignment.delegateId) ?? "—",
+  });
 
   return (
     <PageContainer>
@@ -85,10 +89,9 @@ export default async function ContactDetailPage({
             isAdmin={isAdmin}
             contactId={contact.id}
             contactName={contact.name}
-            activeAssignment={activeAssignment}
-            history={history}
+            activeAssignment={activeAssignment ? withName(activeAssignment) : null}
+            history={history.map(withName)}
             delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
-            nameById={nameById}
           />
         </CardContent>
       </Card>

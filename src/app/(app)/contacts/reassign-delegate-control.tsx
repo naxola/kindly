@@ -18,11 +18,14 @@ export function ReassignDelegateControl({
   contactName,
   currentDelegateId,
   delegates,
+  onReassigned,
 }: {
   contactId: string;
   contactName: string;
   currentDelegateId: string;
   delegates: { userId: string; name: string }[];
+  /** For a caller that owns its own data (the Inbox panel) and has to reload it — `/contacts/[id]` relies on the action's `revalidatePath`. */
+  onReassigned?: () => void;
 }) {
   const [pendingDelegateId, setPendingDelegateId] = useState<string | null>(null);
   const open = pendingDelegateId !== null && pendingDelegateId !== currentDelegateId;
@@ -63,6 +66,7 @@ export function ReassignDelegateControl({
           if (result?.error) {
             throw new Error(result.error);
           }
+          onReassigned?.();
         }}
       />
     </>
