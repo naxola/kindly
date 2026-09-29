@@ -31,7 +31,12 @@ async function registerAndReachInbox(page: import("@playwright/test").Page, name
   return email;
 }
 
-async function openAConversation(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext, delegateName: string) {
+/** Connects the fake channel and gets one conversation showing in the list, without opening it. */
+async function createAConversation(
+  page: import("@playwright/test").Page,
+  request: import("@playwright/test").APIRequestContext,
+  delegateName: string,
+) {
   await page.goto("/organization/channels");
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
@@ -59,6 +64,11 @@ async function openAConversation(page: import("@playwright/test").Page, request:
     await page.goto("/inbox");
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
+  return contactName;
+}
+
+async function openAConversation(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext, delegateName: string) {
+  const contactName = await createAConversation(page, request, delegateName);
   await page.getByText(contactName).click();
   await expect(page).toHaveURL(/\/inbox\/.+/);
   return contactName;
@@ -106,4 +116,29 @@ test("below xl: chat and ficha are tabs of the same panel instead of two columns
   await page.getByRole("tab", { name: "Ficha" }).click();
   await expect(page.getByRole("heading", { name: "Casos abiertos" })).toBeVisible();
   await expect(thread).not.toBeVisible();
+});
+
+test("anchored: opening a conversation narrows the list immediately, not once the panel's data has loaded", async ({
+  page,
+  request,
+}) => {
+  const delegateName = `Ficha Timing Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachInbox(page, delegateName);
+  const contactName = await createAConversation(page, request, delegateName);
+
+  const list = page.getByRole("list", { name: "Conversaciones" });
+  const fullWidth = (await list.boundingBox())!.width;
+
+  await page.getByText(contactName).click();
+  // No wait in between: `.click()` resolves once the click has been
+  // dispatched, before the server round trip that opens the conversation
+  // could possibly have completed. The list's own width reservation reacts
+  // to the click itself, synchronously (docs/ui/CHAT.md §5) — it must
+  // already be narrower *right here*, not once the panel's data arrives.
+  // A time-based race (poll for N ms) would be flaky in both directions:
+  // checking this deterministically, with no wait at all, is what actually
+  // catches a regression back to "waits for the panel, then snaps narrow
+  // in the same paint it appears in" — the bug this reserving exists to fix.
+  const widthRightAfterClick = (await list.boundingBox())!.width;
+  expect(widthRightAfterClick).toBeLessThan(fullWidth - 100);
 });

@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (UI-10a cerrado: panel de conversación con ficha del afiliado).
+Última actualización: 2026-09-29 (fix post-cierre de UI-10a: lista del Inbox ya no "tintinea" al abrir una conversación).
 
 ## Resumen en una línea
 

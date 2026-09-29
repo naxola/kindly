@@ -2475,6 +2475,76 @@ comparada con el mockup de `docs/ui/mockups/conversation-workspace.html`.
 
 ---
 
+## 2026-09-29 — Fix: la lista "tintineaba" al abrir una conversación
+
+**Reportado por el usuario**, probando UI-10a: al hacer clic en una
+conversación desde `/inbox`, la zona de la lista hacía "una animación
+extraña... tintineando, reapareciendo todo el listado" al aparecer el
+chat y la ficha. Pedido explícito: quitar esa animación; que la única
+animación visible sea la entrada del panel y la contracción de la lista.
+
+**Diagnóstico** (con un script Playwright instrumentado con
+`MutationObserver` + muestreo de `getBoundingClientRect()` por frame,
+relativo al timestamp real del clic, no a `performance.now()` desde la
+carga de la página — el primer intento midió mal por esta confusión):
+la lista **nunca se remonta** (el nodo `<ul>` persiste; PKG-014 ya lo
+garantiza — ver la entrada de arriba sobre el bug de re-clic). El único
+cambio real es que su ancho salta **instantáneamente**, sin transición,
+en el mismo commit de React en que el panel (`ConversationSheet`)
+termina de montarse — y ese commit llega solo después de que el
+`Promise.all` de datos del panel (más consultas desde que UI-10a añadió
+la ficha) resuelve en el servidor, típicamente 400-500 ms después del
+clic. La causa de que sea *instantáneo* en vez de transicionado: el
+ancho de un hermano `flex-1` que cambia porque **otro hermano se acaba
+de insertar** no es una propiedad transicionable de ese elemento — es un
+recálculo de layout ajeno, y CSS no anima eso.
+
+**Por qué `loading.tsx` no sirve aquí**: se probó primero un esqueleto
+(`@sheet/(.)[id]/loading.tsx`) del tamaño final del panel, para que el
+hueco se reservara en cuanto Next empezara a cargar la ruta. No se llegó
+a ver nunca: Next envuelve la navegación cliente en una transición de
+React, que mantiene la UI **anterior** en pantalla (aquí, nada) hasta que
+el árbol nuevo está listo — el *fallback* de Suspense nunca llega a
+pintarse para este tipo de navegación. Se retiró (no tiene sentido dejar
+código que nunca se ejecuta).
+
+**Decisión: reaccionar al propio evento de clic, no a la navegación.**
+`DataList` (`src/components/ui/data-list.tsx`) gana un `onItemClick`,
+disparado de forma síncrona en el mismo `onClick` que ya existía (el
+guardarraíl de PKG-014 contra el re-clic de la fila ya seleccionada).
+`InboxList` lo usa para reservar el ancho final del panel **en el mismo
+frame que el clic** — con un estado local (`pendingOpenId`), no atado al
+router ni a ninguna transición. Como ahora el cambio de ancho es un
+alternar de clase sobre el propio elemento (igual que el colapso de la
+sidebar, `app-sidebar.tsx`), sí es transicionable de verdad
+(`transition-[max-width]`).
+
+**Segundo bug real, encontrado verificando la propia transición**: con la
+clase ya puesta, el ancho seguía saltando sin animar. Causa: el estado
+"sin reservar" no llevaba ningún `max-w-*` (equivalente a `max-width:
+none`), y una transición CSS no puede interpolar hacia o desde `none` —
+ninguna de las dos partes que compara existía como valor concreto.
+Corregido dándole también un valor definido al estado por defecto
+(`xl:max-w-full`, visualmente idéntico a no tener la clase, pero
+transicionable).
+
+**La reserva adivina el ancho de la ficha** (colapsada o no) leyendo la
+cookie `kindly_ficha` directamente con `document.cookie` en un efecto
+diferido (no importada de `ficha-cookie.ts`, que es `server-only`) — solo
+tiene que acertar lo bastante a menudo como para no producir un
+*segundo* salto, no estar siempre actualizada al segundo.
+
+**Verificación**: nuevo test E2E,
+`tests/e2e/conversation-workspace.spec.ts::"opening a conversation
+narrows the list immediately, not once the panel's data has loaded"` —
+deliberadamente sin espera de por medio (una carrera contra un
+temporizador habría sido frágil en ambos sentidos); comprueba el ancho
+justo después de que `.click()` resuelve. Verificado a mano con
+`git stash` que **falla** contra el código anterior (ancho sin cambiar)
+y **pasa** con el arreglo. 300/300 unit+integration, 35/35 E2E completo.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

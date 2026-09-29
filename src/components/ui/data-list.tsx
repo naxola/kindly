@@ -21,6 +21,7 @@ export function DataList<T extends DataListItem>({
   items,
   renderItem,
   isSelected,
+  onItemClick,
   "aria-label": ariaLabel,
   className,
 }: {
@@ -28,6 +29,8 @@ export function DataList<T extends DataListItem>({
   renderItem: (item: T, index: number) => ReactNode;
   /** Marks a row as the one currently open elsewhere (e.g. Inbox's open conversation, docs/ui/CHAT.md §3): `state-selected` + a left bar + `aria-current="true"`. */
   isSelected?: (item: T) => boolean;
+  /** Fired synchronously on click, before navigation — for a caller that needs to react immediately, not once the route transition eventually resolves (docs/ui/CHAT.md §5, list-width reservation). Never fires for a re-click on the already-selected row. */
+  onItemClick?: (item: T) => void;
   "aria-label": string;
   className?: string;
 }) {
@@ -97,7 +100,9 @@ export function DataList<T extends DataListItem>({
                 // of bug outright.
                 if (selected) {
                   event.preventDefault();
+                  return;
                 }
+                onItemClick?.(item);
               }}
               // `group`: lets `renderItem`'s content use `group-hover:`/
               // `group-focus:` (e.g. a hover background on the whole row).

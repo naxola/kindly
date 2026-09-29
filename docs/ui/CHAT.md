@@ -244,6 +244,34 @@ keeps the list next to the panel"`. Detalle completo en
 `docs/DECISIONS.md` (entrada del 2026-09-28, "Fix: migración pendiente en
 staging + panel roto...").
 
+**Reportado por el usuario (2026-09-29), tras UI-10a**: abrir una
+conversación por primera vez hacía que la lista "tintineara" — se quedaba
+a su ancho completo un momento y luego saltaba de golpe a su ancho
+estrecho en el mismo instante en que aparecía el panel, en vez de
+contraerse junto con él. Causa: la lista vive en el slot `children`, que
+Next no vuelve a renderizar en esta navegación suave (el slot `@sheet` se
+resuelve por su cuenta) — nada en la lista reaccionaba hasta que React
+confirmaba el nuevo árbol del panel entero, tras el viaje de ida y vuelta
+al servidor (más lento desde UI-10a, con las consultas nuevas de la
+ficha). Y ese salto tampoco podía suavizarse con una transición CSS: lo
+que cambia el ancho de un hermano `flex-1` al insertarse **otro** hermano
+nuevo no es una propiedad propia transicionable, es un recálculo de
+layout ajeno. Corregido reaccionando al propio clic, no a la navegación:
+`InboxList` (`inbox-list.tsx`) reserva el ancho final del panel en el
+mismo evento de clic (vía un `onItemClick` nuevo en `DataList`,
+`src/components/ui/data-list.tsx`), como una clase propia que alterna
+sobre sí misma — igual que la sidebar, y por eso sí es transicionable de
+verdad (`transition-[max-width]`). Segundo hallazgo real dentro del
+mismo arreglo: esa transición no se animaba pese a estar bien declarada
+porque el estado "sin reservar" usaba la ausencia de `max-width`
+(equivalente a `none`), y una transición no puede interpolar hacia o
+desde `none` — arreglado dándole también un valor concreto
+(`max-w-full`) al estado por defecto. Test de regresión:
+`tests/e2e/conversation-workspace.spec.ts::"opening a conversation
+narrows the list immediately, not once the panel's data has loaded"`
+(verificado además a mano contra el código anterior: falla sin el
+arreglo). Detalle completo en `docs/DECISIONS.md`.
+
 ## 6. Reutilización
 
 `ConversationSheet` es un componente único: lo usan el Inbox y, en el

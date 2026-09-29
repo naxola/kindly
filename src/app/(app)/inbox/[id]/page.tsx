@@ -73,18 +73,16 @@ export default async function ConversationDetailPage({
 
   return (
     <>
-      <div className="flex h-full min-w-0 flex-1">
-        <InboxList
-          key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
-          filters={filters}
-          initialConversations={conversations}
-          initialCounts={counts}
-          members={members.map((m) => ({ userId: m.userId, name: m.name }))}
-          viewerId={member.userId}
-          isAdmin={isAdmin}
-          availableChannels={availableChannels}
-        />
-      </div>
+      <InboxList
+        key={`${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`}
+        filters={filters}
+        initialConversations={conversations}
+        initialCounts={counts}
+        members={members.map((m) => ({ userId: m.userId, name: m.name }))}
+        viewerId={member.userId}
+        isAdmin={isAdmin}
+        availableChannels={availableChannels}
+      />
       <ConversationSheet
         conversationId={id}
         contact={{ id: details.contact.id, name: details.contact.name, isUnassigned: details.contact.isUnassigned }}

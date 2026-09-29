@@ -4,7 +4,40 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10a cerrado; fix post-cierre reportado por el usuario — siguiente UI-8 o UI-10b
+
+Último commit: sin commits (pendiente de commitear esta sesión).
+
+### Fix post-cierre (2026-09-29, reportado por el usuario probando UI-10a)
+
+El usuario pidió quitar "una animación extraña" en la lista del Inbox al
+abrir una conversación: la lista se quedaba a ancho completo un momento y
+luego saltaba de golpe a su ancho estrecho en el mismo instante en que
+aparecía el panel, en vez de contraerse junto con él. Diagnosticado con un
+script Playwright instrumentado (no era un remonte de la lista — el nodo
+persiste, PKG-014 ya lo garantiza — sino un salto de ancho instantáneo,
+sin transición, retrasado ~400-500 ms por el viaje de ida y vuelta al
+servidor del panel). Detalle completo del diagnóstico y de los dos bugs
+reales encontrados al corregirlo (por qué un `loading.tsx` no sirve para
+este caso; por qué la transición no animaba la primera vez) en
+`docs/DECISIONS.md` (entrada "2026-09-29 — Fix: la lista 'tintineaba' al
+abrir una conversación") y `docs/ui/CHAT.md` §5.
+
+**Corregido reaccionando al propio clic, no a la navegación**: `DataList`
+gana un `onItemClick` síncrono; `InboxList` reserva el ancho final del
+panel en el mismo frame que el clic (estado local, no atado al router),
+como un alternar de clase transicionable sobre sí misma (mismo patrón que
+el colapso de la sidebar). Verificado con lint+typecheck+300/300
+unit-integration+35/35 E2E (nuevo test en
+`tests/e2e/conversation-workspace.spec.ts`, confirmado a mano con
+`git stash` que falla contra el código anterior y pasa con el arreglo).
+
+**Próximo paso concreto:** sin cambios respecto a antes de este fix —
+`UI-8` o `UI-10b`, elección del usuario.
+
+---
+
+## Registro: UI-10a cerrado (2026-09-29)
 
 Último commit: `1a3fd7e`.
 
