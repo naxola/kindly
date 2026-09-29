@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowDown, Send } from "lucide-react";
 import { sendReplyAction, signalTypingAction } from "@/modules/conversations/actions";
 import type { ConversationThreadState, ThreadMessage } from "@/modules/conversations/service";
 import { TYPING_INDICATOR_THROTTLE_MS } from "@/modules/conversations/domain";
+import { inboxKeys } from "@/app/(app)/inbox/inbox-queries";
 import { DeliveryTicks, type DisplayStatus } from "@/app/(app)/inbox/[id]/delivery-ticks";
 import { SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -87,6 +89,7 @@ export function ConversationThread({
   /** The delegate whose number this Conversation actually is, shown when `canReply` is false. */
   ownerName: string;
 }) {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ThreadMessage[]>(initialState.messages);
   const [serviceWindow, setServiceWindow] = useState(initialState.serviceWindow);
   const [pending, setPending] = useState<PendingMessage[]>([]);
@@ -211,6 +214,9 @@ export function ConversationThread({
   async function deliver(item: PendingMessage) {
     const result = await sendReplyAction(conversationId, item.body);
     if (result.ok) {
+      // The list shows each conversation's last message: refresh it now
+      // rather than on its next background tick.
+      void queryClient.invalidateQueries({ queryKey: inboxKeys.lists() });
       setPending((current) => current.filter((p) => p.tempId !== item.tempId));
       setMessages((current) =>
         current.some((m) => m.id === result.message.id) ? current : [...current, result.message],

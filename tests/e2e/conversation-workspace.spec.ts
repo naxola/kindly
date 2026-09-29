@@ -70,8 +70,26 @@ async function createAConversation(
 async function openAConversation(page: import("@playwright/test").Page, request: import("@playwright/test").APIRequestContext, delegateName: string) {
   const contactName = await createAConversation(page, request, delegateName);
   await page.getByText(contactName).click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   return contactName;
+}
+
+/**
+ * Any route render — a document load, or a real (non-prefetch) RSC
+ * navigation — would mean the Inbox went back to the server. Link
+ * prefetches are not counted: the sidebar/header links (including the one
+ * to `/inbox` itself) prefetch on their own schedule, and a prefetch never
+ * renders anything. The Inbox's own data (`/api/...`) is expected.
+ */
+function recordRouteRequests(page: import("@playwright/test").Page): string[] {
+  const routeRequests: string[] = [];
+  page.on("request", (req) => {
+    const headers = req.headers();
+    if (req.resourceType() === "document" || (headers["rsc"] && !headers["next-router-prefetch"])) {
+      routeRequests.push(req.url());
+    }
+  });
+  return routeRequests;
 }
 
 /** Starts recording, every animation frame, the panel's and the list's rendered widths. */
@@ -192,17 +210,7 @@ test("opening, closing and the back button never reload the page or the list fro
   await registerAndReachInbox(page, delegateName);
   const contactName = await createAConversation(page, request, delegateName);
 
-  // Any route render — a document load, or an RSC fetch that isn't just a
-  // link prefetching some *other* page — would mean the Inbox went back to
-  // the server. The panel's own data (`/api/...`) is expected.
-  const routeRequests: string[] = [];
-  page.on("request", (req) => {
-    const headers = req.headers();
-    const isInboxRoute = new URL(req.url()).pathname.startsWith("/inbox");
-    if (req.resourceType() === "document" || (headers["rsc"] && (isInboxRoute || !headers["next-router-prefetch"]))) {
-      routeRequests.push(req.url());
-    }
-  });
+  const routeRequests = recordRouteRequests(page);
   await page.evaluate(() => {
     document.querySelector('ul[aria-label="Conversaciones"]')!.setAttribute("data-probe", "same-list");
   });
@@ -212,7 +220,7 @@ test("opening, closing and the back button never reload the page or the list fro
   // shows the same name.
   const row = page.getByRole("list", { name: "Conversaciones" }).getByText(contactName);
   await row.click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   await expect(ficha).toBeVisible();
 
   await page.getByRole("button", { name: "Cerrar conversación" }).click();
@@ -225,9 +233,55 @@ test("opening, closing and the back button never reload the page or the list fro
   await expect(page).toHaveURL(/\/inbox$/);
   await expect(ficha).toHaveCount(0);
   await page.evaluate(() => window.history.forward());
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   await expect(ficha).toBeVisible();
 
   expect(routeRequests).toEqual([]);
   await expect(page.locator('ul[aria-label="Conversaciones"][data-probe="same-list"]')).toHaveCount(1);
+});
+
+test("filtering the list is client state too: no page request, and back restores the previous filter", async ({
+  page,
+  request,
+}) => {
+  const delegateName = `Ficha Filter Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachInbox(page, delegateName);
+  const contactName = await createAConversation(page, request, delegateName);
+
+  const routeRequests = recordRouteRequests(page);
+
+  const list = page.getByRole("list", { name: "Conversaciones" });
+  await page.getByLabel("Mostrar").selectOption("pending");
+  await expect(page).toHaveURL(/\/inbox\?view=pending$/);
+  await expect(list.getByText(contactName)).toBeVisible();
+
+  await page.getByLabel("Buscar").fill("nadie-se-llama-asi");
+  await expect(page.getByText("Ninguna conversación coincide con «nadie-se-llama-asi»")).toBeVisible();
+  // The search box keeps focus while its debounced value lands in the URL.
+  await expect(page.getByLabel("Buscar")).toBeFocused();
+
+  await page.getByRole("button", { name: "Quitar filtros" }).first().click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await expect(list.getByText(contactName)).toBeVisible();
+
+  await page.evaluate(() => window.history.back());
+  await expect(page).toHaveURL(/view=pending/);
+  await expect(page.getByLabel("Mostrar")).toHaveValue("pending");
+
+  expect(routeRequests).toEqual([]);
+});
+
+test("a conversation that fails to load offers a retry instead of hanging on a skeleton", async ({ page, request }) => {
+  const delegateName = `Ficha Retry Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachInbox(page, delegateName);
+  const contactName = await createAConversation(page, request, delegateName);
+
+  await page.route("**/api/conversations/*/workspace", (route) => route.abort("internetdisconnected"));
+  await page.getByRole("list", { name: "Conversaciones" }).getByText(contactName).click();
+  await expect(page.getByText("No se pudo cargar la conversación")).toBeVisible({ timeout: 15_000 });
+
+  await page.unroute("**/api/conversations/*/workspace");
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByRole("log", { name: "Mensajes" }).getByText("Necesito ayuda")).toBeVisible();
+  await expect(page.getByText("No se pudo cargar la conversación")).toHaveCount(0);
 });

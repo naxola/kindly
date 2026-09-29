@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentOrganizationMember } from "@/modules/organizations/service";
 import { AppShell } from "@/components/shell/app-shell";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 /**
  * Authenticated shell (UI-2, docs/ui/LAYOUT_NAVIGATION.md). Stays a Server
@@ -14,5 +15,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     redirect("/login");
   }
 
-  return <AppShell member={member}>{children}</AppShell>;
+  return (
+    <QueryProvider>
+      <AppShell member={member}>{children}</AppShell>
+    </QueryProvider>
+  );
 }

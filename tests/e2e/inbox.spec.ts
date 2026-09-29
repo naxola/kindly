@@ -100,7 +100,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await expect(conversationList.getByText("Sin identificar", { exact: true })).toBeVisible();
 
   await page.getByText(contactName).click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   // The list stays visible next to (or behind) the open conversation
   // (docs/ui/CHAT.md) — scope to its message log so a row's own preview
   // text (which can read the same words) is never an ambiguous match.
@@ -111,9 +111,8 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   // list's next 5 s poll (the short timeout is what tells the two apart).
   await expect(conversationList.getByText(contactName)).not.toHaveClass(/font-semibold/, { timeout: 1_000 });
 
-  // A direct load of the same URL (docs/ui/CHAT.md §1: interception only
-  // applies to the soft navigation that just opened it) must render the
-  // exact same list-next-to-conversation view, not a bare page or a 404.
+  // A direct load of the same URL (`?conversation=<id>`, docs/ui/CHAT.md §1)
+  // must render the exact same list-next-to-conversation view.
   await page.reload();
   await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
   await expect(conversationList.getByText(contactName)).toBeVisible();
@@ -125,16 +124,16 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   await page.getByRole("link", { name: "Conversaciones", exact: true }).click();
   await expect(page).toHaveURL(/\/inbox$/);
   await expect(page.getByRole("list", { name: "Conversaciones" }).getByText("Sin identificar", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(contactName)).not.toHaveClass(/font-semibold/);
+  await expect(conversationList.getByText(contactName)).not.toHaveClass(/font-semibold/);
 
   // Reply from the conversation.
-  await page.getByText(contactName).click();
+  await conversationList.getByText(contactName).click();
   await page.getByPlaceholder("Escribe una respuesta...").fill("Claro, cuéntame más");
   await page.getByRole("button", { name: "Enviar" }).click();
   // PKG-013: shown at once, composer emptied, then confirmed with one tick.
   await expect(thread.getByText("Claro, cuéntame más")).toBeVisible();
   await expect(page.getByPlaceholder("Escribe una respuesta...")).toHaveValue("");
-  await expect(page.getByRole("img", { name: "Enviado" })).toBeVisible();
+  await expect(thread.getByRole("img", { name: "Enviado" })).toBeVisible();
 
   // PKG-013: the open conversation picks up the delivery receipt and a new
   // inbound message by itself — no reload.
@@ -160,7 +159,7 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
   });
   expect(receipts.status()).toBe(200);
   await expect(thread.getByText("Gracias, te escribo los detalles")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("img", { name: "Entregado" })).toBeVisible({ timeout: 15_000 });
+  await expect(thread.getByRole("img", { name: "Entregado" })).toBeVisible({ timeout: 15_000 });
 });
 
 /**
@@ -212,7 +211,7 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   }).toPass({ timeout: 15_000 });
 
   await page.getByText(contactName).click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   const thread = page.getByRole("log", { name: "Mensajes" });
   await expect(thread.getByText("Te confirmo la cita mañana")).toBeVisible();
   await expect(thread.getByText("desde el móvil")).toBeVisible();
@@ -344,7 +343,7 @@ test("re-clicking the already-open conversation keeps the list next to the panel
   const thread = page.getByRole("log", { name: "Mensajes" });
 
   await row.click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
   await expect(thread.getByText("Hola")).toBeVisible();
 
   // Click the same row again, twice — the list must stay put next to the

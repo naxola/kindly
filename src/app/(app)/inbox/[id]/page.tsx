@@ -1,47 +1,24 @@
-import { notFound } from "next/navigation";
-import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
-import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
-import { getConversationWorkspace } from "@/app/(app)/inbox/conversation-workspace-data";
-import { getFichaCollapsed } from "@/app/(app)/inbox/ficha-cookie";
-import { InboxWorkspace } from "@/app/(app)/inbox/inbox-workspace";
+import { redirect } from "next/navigation";
+import { CONVERSATION_PARAM } from "@/app/(app)/inbox/inbox-filters";
 
 /**
- * A direct load of `/inbox/<id>` (URL typed in, bookmarked, or a refresh).
- * Inside the Inbox, opening a conversation never comes through here — it
- * only updates the URL (docs/ui/CHAT.md §1) — so this is the one place the
- * panel's data is resolved on the server, and the only one that marks the
- * conversation read as part of rendering.
+ * Old-style link to a conversation (`/inbox/<id>`, before the open
+ * conversation became Inbox state — docs/ui/CHAT.md §1). Kept so existing
+ * links and bookmarks still land on it: `/inbox?conversation=<id>`, with
+ * any other query string preserved.
  */
-export default async function ConversationDetailPage({
+export default async function LegacyConversationPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<InboxSearchParams>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const member = await requireCurrentOrganizationMember();
-  const [conversation, listData, fichaCollapsed] = await Promise.all([
-    getConversationWorkspace(member, id, { markRead: true }),
-    getInboxListData(member, await searchParams),
-    getFichaCollapsed(),
-  ]);
-  if (!conversation) {
-    notFound();
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(await searchParams)) {
+    if (typeof value === "string" && key !== CONVERSATION_PARAM) query.set(key, value);
   }
-
-  const { filters, conversations, counts, members, availableChannels } = listData;
-  return (
-    <InboxWorkspace
-      filters={filters}
-      initialConversations={conversations}
-      initialCounts={counts}
-      members={members.map((m) => ({ userId: m.userId, name: m.name }))}
-      viewerId={member.userId}
-      isAdmin={member.role === "ADMIN"}
-      availableChannels={availableChannels}
-      initialConversation={conversation}
-      initialFichaCollapsed={fichaCollapsed}
-    />
-  );
+  query.set(CONVERSATION_PARAM, id);
+  redirect(`/inbox?${query.toString()}`);
 }

@@ -152,7 +152,7 @@ test("acceso temporal: highlight, banner, reassign, and read-only across two del
   // Luis's own Conversation is read-only for Ana: she can see it (as
   // temporary access, before the reassignment below) but not reply through
   // it — that would mean answering Marta from a number that isn't Ana's.
-  await anaPage.goto(`/inbox/${luisConversationId}`);
+  await anaPage.goto(`/inbox?conversation=${luisConversationId}`);
   await expect(anaPage.getByText("Solo lectura")).toBeVisible();
   await expect(anaPage.getByPlaceholder("Escribe una respuesta...")).toHaveCount(0);
 

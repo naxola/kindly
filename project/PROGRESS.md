@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (panel de conversación del Inbox rehecho en cliente: abre/cierra sin ir al servidor, con transición en ambos sentidos).
+Última actualización: 2026-09-29 (Inbox con estado en la URL y caché cliente TanStack Query: abrir, cerrar y filtrar sin volver al servidor).
 
 ## Resumen en una línea
 

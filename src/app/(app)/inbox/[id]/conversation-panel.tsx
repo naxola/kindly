@@ -56,6 +56,10 @@ export interface ConversationPanelProps {
   /** `undefined` while it is still loading — the panel opens at once anyway, with a skeleton. */
   data: ConversationWorkspaceData | undefined;
   notFound: boolean;
+  /** Couldn't load (network/server) and nothing cached to show instead. */
+  loadFailed: boolean;
+  retrying: boolean;
+  onRetry: () => void;
   fichaCollapsed: boolean;
   onToggleFicha: () => void;
   onClose: () => void;
@@ -76,8 +80,20 @@ export interface ConversationPanelProps {
  * full screen under `md`.
  */
 export function ConversationPanel(props: ConversationPanelProps) {
-  const { open, conversationId, data, notFound, fichaCollapsed, onToggleFicha, onClose, onOpenConversation, onMutated } =
-    props;
+  const {
+    open,
+    conversationId,
+    data,
+    notFound,
+    loadFailed,
+    retrying,
+    onRetry,
+    fichaCollapsed,
+    onToggleFicha,
+    onClose,
+    onOpenConversation,
+    onMutated,
+  } = props;
   const hydrated = useHydrated();
   const isAnchored = useMediaQuery(ANCHORED_QUERY);
   const isModalOrWider = useMediaQuery(MODAL_QUERY);
@@ -90,7 +106,7 @@ export function ConversationPanel(props: ConversationPanelProps) {
 
   // Before hydration `useMediaQuery` can't know the viewport: render the
   // anchored shell with CSS deciding its visibility (`hidden xl:block`),
-  // so a direct load of `/inbox/<id>` paints the panel at its final width
+  // so a direct load of `/inbox?conversation=<id>` paints the panel at its final width
   // straight away — never a modal first, never the list at full width.
   const mode: "ssr" | "anchored" | "sheet" = !hydrated ? "ssr" : isAnchored ? "anchored" : "sheet";
 
@@ -276,6 +292,21 @@ export function ConversationPanel(props: ConversationPanelProps) {
 
   const chatBody = notFound ? (
     <EmptyState title="Esta conversación no existe o no tienes acceso" />
+  ) : loadFailed ? (
+    <div className="px-4 py-4">
+      <Alert
+        tone="destructive"
+        live
+        title="No se pudo cargar la conversación"
+        actions={
+          <Button size="sm" variant="outline" onClick={onRetry} loading={retrying}>
+            Reintentar
+          </Button>
+        }
+      >
+        Comprueba la conexión e inténtalo de nuevo.
+      </Alert>
+    </div>
   ) : data ? (
     <ConversationThread
       key={data.conversationId}
@@ -295,7 +326,7 @@ export function ConversationPanel(props: ConversationPanelProps) {
 
   const fichaBody = data ? (
     <ContactFicha data={data} onOpenConversation={onOpenConversation} onMutated={onMutated} />
-  ) : notFound ? null : (
+  ) : notFound || loadFailed ? null : (
     <div aria-hidden className="flex flex-col gap-3 px-4 py-4">
       <Skeleton className="h-3.5 w-1/3" />
       <Skeleton className="h-3 w-2/3" />

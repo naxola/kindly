@@ -2624,6 +2624,13 @@ contra el `<aside>` anterior (un único valor de ancho, el salto) y
 
 ## 2026-09-29 — Panel de conversación en cliente, sin navegación (supersede el diseño de rutas de UI-6)
 
+**Superseded en parte — ver "Inbox con estado en la URL y caché cliente"
+(misma fecha, más abajo).** Sigue vigente: panel siempre montado,
+transición única de ancho, cookie de ficha en cliente, sin
+`revalidatePath` en las acciones del Inbox. Cambia: la URL (`/inbox/<id>`
+→ `?conversation=<id>`), la caché casera (→ TanStack Query) y la lista y
+los filtros, que aquí seguían siendo navegación de servidor.
+
 **Contexto:** tercera ronda del usuario sobre el mismo síntoma: "al hacer
 clic, tarda en abrir unos milisegundos... debe ser suave y limpio al
 aparecer y al cerrar... el botón de contraer la ficha no desplaza a la
@@ -2699,6 +2706,73 @@ borraron 3 `@sheet`, se añadió 1), 36/36 E2E.
 
 **Supersede a:** el diseño de rutas paralelas/interceptadas de UI-6
 (`docs/ui/CHAT.md` §1, reescrito) y las dos entradas anteriores de hoy.
+
+---
+
+## 2026-09-29 — Inbox con estado en la URL y caché cliente (TanStack Query)
+
+**Contexto:** cuarta ronda del usuario: "has tratado de optimizar un
+problema en vez de resolverlo... desde la URL no debería llamarse al
+servidor al hacer clic en una conversación... la pantalla debería cargar
+las conversaciones por detrás y tenerlas en caché, como TanStack Query...
+`/inbox?conversation=<id>`... con botón de reintentar si se queda sin red,
+y el filtro iría más rápido". Correcto: la entrada anterior sacó el panel
+de las rutas pero dejó la mitad del Inbox atada al servidor — cada cambio
+de filtro era `router.push` (render completo de la página y remonte de la
+lista), la conversación abierta era un segmento de ruta (`/inbox/<id>`,
+otra página distinta de `/inbox`), y los datos del panel vivían en una
+caché casera sin reintentos ni estado de error.
+
+**Decisión:**
+
+- **Todo el estado de la pantalla es query string**:
+  `/inbox?view&search&channel&delegateId&conversation=<id>`, una sola
+  ruta. Cambiarlo — abrir, cambiar o cerrar conversación, filtrar — es
+  History API (`pushState`/`replaceState`), nunca navegación. `page.tsx`
+  solo se renderiza en la primera carga o una recarga. `/inbox/<id>`
+  queda como redirección a `?conversation=<id>` (enlaces y marcadores).
+- **TanStack Query** (`@tanstack/react-query` 5, dependencia nueva, pedida
+  por el usuario) como caché cliente del área autenticada
+  (`src/components/providers/query-provider.tsx`, en el layout `(app)`):
+  una consulta por combinación de filtros (refresco en segundo plano cada
+  5 s, sustituye al `setInterval` propio; `keepPreviousData` para que un
+  filtro nuevo no parpadee a esqueleto) y una por conversación (chat +
+  ficha; precarga al pasar el ratón, reutilizada 15 s). El servidor la
+  siembra en la primera carga (`HydrationBoundary` + `dehydrate`), así que
+  el primer pintado sale completo. Tras una mutación se invalidan las
+  consultas afectadas; enviar un mensaje refresca la lista al momento.
+- **Errores**: dos reintentos automáticos en fallos de red/5xx (nunca en
+  4xx), y después "Reintentar" visible en la lista y en el panel. 404/403
+  → `EmptyState`, también en carga directa.
+- `/api/inbox` y la página comparten un único parser de filtros
+  (`inbox-filters.ts`); de paso se corrige que la API tomara "pending"
+  como vista por defecto y la página "all".
+- La lista ya no se remonta al cambiar de filtro (antes llevaba `key` por
+  filtros): el buscador conserva el foco mientras se escribe; el aviso de
+  "conversaciones nuevas" se reinicia por su cuenta al cambiar de filtro.
+
+**Alternativas consideradas:** mantener `/inbox/<id>` como URL de la
+conversación (obliga a dos páginas de servidor distintas para la misma
+pantalla y a mezclar ruta y estado); una caché propia (ya existía y era
+justo lo que faltaba: reintentos, invalidación, deduplicación, estado de
+error); SWR (equivalente para este caso; TanStack Query es la opción que
+nombró el usuario y trae hidratación desde Server Components documentada).
+
+**Por qué no contradice `docs/ARCHITECTURE.md` §14 ("no introducir
+infraestructura sin necesidad"):** es una biblioteca de cliente, sin
+servicio ni proceso nuevo; la necesidad concreta es este Inbox.
+`docs/ARCHITECTURE.md` §11/§13 actualizados.
+
+**Verificación:** 299/299 unit+integration, 38/38 E2E. Nuevos en
+`tests/e2e/conversation-workspace.spec.ts`: filtrar (incluido escribir en
+el buscador, que conserva el foco) y volver atrás sin ninguna navegación
+de servidor; un fallo de red al abrir muestra "Reintentar" y, al
+recuperarse, carga. Los tests existentes cuentan como petición de servidor
+cualquier documento o RSC que no sea precarga de enlaces (la barra lateral
+precarga `/inbox` por su cuenta).
+
+**Supersede a:** en parte, "Panel de conversación en cliente, sin
+navegación" (misma fecha).
 
 ---
 

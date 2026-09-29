@@ -139,7 +139,8 @@ export function ContactFicha({
             {ficha.otherConversations.map((conversation) => (
               <li key={conversation.id}>
                 <Link
-                  href={`/inbox/${conversation.id}`}
+                  href={`/inbox?conversation=${conversation.id}`}
+                  prefetch={false}
                   onClick={(event) => {
                     // Same panel, different conversation — no route change
                     // (docs/ui/CHAT.md §1). A modified click still opens a tab.

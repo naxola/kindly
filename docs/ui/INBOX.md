@@ -68,8 +68,9 @@ este documento define dónde van (§4).
 - `PageContainer size="full"`; la lista ocupa el ancho disponible; la
   conversación se abre en `Sheet` a la derecha (`CHAT.md`), la lista
   sigue ahí debajo.
-- **Vistas como filtro** ("Mostrar", desplegable en el `FilterBar`, por
-  `searchParams` `?view=`): **Todas** (por defecto), No leídas,
+- **Vistas como filtro** ("Mostrar", desplegable en el `FilterBar`,
+  `?view=` en la URL — estado cliente, sin navegación de servidor; cada
+  combinación de filtros es su propia consulta cacheada, `CHAT.md` §1): **Todas** (por defecto), No leídas,
   Pendientes de respuesta (último mensaje entrante), Sin identificar —
   cada opción con su contador.
 - **No leídas**: punto verde (`bg-primary`) y nombre en negrita. Se
@@ -132,15 +133,19 @@ texto. Una ayuda "Atajos de teclado" (`?`) los lista.
 
 ## 6. Tiempo real y estados
 
-- Sondeo cada 5 s mientras la pestaña está visible, ahora en el cliente
-  (`InboxList`, `src/app/(app)/inbox/inbox-list.tsx`; reemplaza el antiguo
-  `auto-refresh.tsx` de PKG-013, eliminado) — compara el orden de los IDs
+- Refresco en segundo plano cada 5 s mientras la pestaña está visible:
+  `refetchInterval` de la consulta de TanStack Query de la lista
+  (`InboxList`, `src/app/(app)/inbox/inbox-list.tsx`; desde 2026-09-29 —
+  antes un `setInterval` propio) — compara el orden de los IDs
   recibidos contra el actual: mismo orden → aplica en el sitio (previews,
   no leída); orden distinto → lo retiene y muestra un aviso
   "N conversaciones nuevas · Ver" en vez de mover filas bajo el cursor. Los
   contadores del filtro "Mostrar" sí se actualizan siempre, aunque el aviso siga
   pendiente de aceptar.
-- Cargando: skeleton de 8 filas con la forma real. Vacío inicial:
+- Cambio de filtro: se siguen viendo los resultados anteriores atenuados
+  (`keepPreviousData`, `aria-busy`) hasta que llegan los nuevos — nunca un
+  parpadeo a esqueleto; una combinación ya usada sale al instante de caché.
+- Cargando (primera vez de una combinación sin nada que mostrar): skeleton de filas con la forma real. Vacío inicial:
   `EmptyState` "Todavía no hay conversaciones" + "Conectar canal" (si no
   hay canales) o explicación (si los hay). Sin resultados: `EmptyState
   inline` con la búsqueda citada y "Quitar filtros". Error de carga:

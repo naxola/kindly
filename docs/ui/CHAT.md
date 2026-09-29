@@ -8,45 +8,52 @@ debajo. Es el patrón de Supabase para "vistas detalladas sin perder el
 contexto" (`ui-patterns/modality`: Sheet para vistas detalladas, derecha
 por defecto).
 
-### Arquitectura: panel en cliente, sin navegación (2026-09-29)
+### Arquitectura: estado en la URL + caché cliente (2026-09-29)
 
 **Supersede el diseño de UI-6** (rutas paralelas `@sheet` + interceptadas
-`(.)[id]`), retirado por completo — detalle y motivo en `docs/DECISIONS.md`
-("Panel de conversación en cliente..."). Con rutas, abrir era un viaje
-al servidor antes de mostrar nada, cerrar desmontaba el panel sin
-animación de salida posible, y en carga directa cerrar volvía a pedir la
-lista entera al servidor.
+`(.)[id]`) y una primera versión intermedia del mismo día (panel en
+cliente pero con `/inbox/<id>` como ruta y lista/filtros aún ligados al
+servidor) — detalle en `docs/DECISIONS.md` ("Inbox con estado en la URL y
+caché cliente").
 
 ```text
+/inbox?view=unread&search=ana&conversation=<id>
+        └──── filtros de la lista ────┘ └── conversación abierta ──┘
+
 src/app/(app)/inbox/
-  layout.tsx                        → InboxOrderProvider + {children}
-  page.tsx                          → <InboxWorkspace> (sin conversación)
-  [id]/page.tsx                     → <InboxWorkspace initialConversation> (carga directa / refresco)
-  inbox-workspace.tsx               → lista + panel; estado abierto, URL, caché y precarga
+  page.tsx                          → única carga de servidor: siembra la caché (hidratación) y pinta
+  [id]/page.tsx                     → redirección de enlaces antiguos /inbox/<id> → ?conversation=<id>
+  inbox-workspace.tsx               → estado (URL), apertura/cierre, precarga; lista + panel
+  inbox-list.tsx                    → consulta de la lista por filtros (refresco cada 5 s)
   [id]/conversation-panel.tsx       → el panel (siempre montado)
-  conversation-workspace-data.ts    → construye los datos del panel (servidor)
-src/app/api/conversations/[id]/workspace/route.ts → esos datos en JSON, para un clic dentro del Inbox
+  inbox-filters.ts / inbox-queries.ts → URL ↔ filtros; claves y fetchers de TanStack Query
+src/app/api/inbox/route.ts                        → la lista por filtros (JSON)
+src/app/api/conversations/[id]/workspace/route.ts → chat + ficha de una conversación (JSON)
+src/components/providers/query-provider.tsx       → QueryClient del área autenticada
 ```
 
-- **Abrir/cambiar/cerrar no navegan**: `InboxWorkspace` actualiza un estado
-  local urgente en el propio clic y la URL con `window.history.pushState`/
-  `replaceState` (API nativa integrada oficialmente con `usePathname` —
+- **Todo el estado de la pantalla está en el query string**, y cambiarlo
+  nunca vuelve a pedir la página al servidor: abrir/cambiar/cerrar
+  conversación y filtrar son `window.history.pushState`/`replaceState` (API
+  nativa integrada oficialmente con `useSearchParams` —
   `node_modules/next/dist/docs/01-app/01-getting-started/04-linking-and-navigating.md`,
-  "Native History API"). La URL sigue siendo `/inbox/<id>`: enlazable y
-  recargable. Atrás/Adelante los restaura Next desde la propia entrada del
-  historial, sin ir al servidor.
-- **Cerrar** vuelve atrás si la entrada la creó un clic desde la lista
-  (marcador en `history.state`) — un solo paso de historial — y si no
-  (carga directa), añade una entrada `/inbox` + filtros. Ninguna de las
-  dos vuelve a cargar la lista.
-- **Datos del panel**: `GET /api/conversations/<id>/workspace`, precargado
-  al pasar el ratón o el foco por la fila (`DataList.onItemIntent`) y
-  cacheado por conversación; nunca marca como leída (la precarga no debe).
-  La marca el primer sondeo del hilo, que ahora se hace al montarse.
-- **Carga directa**: `[id]/page.tsx` construye los mismos datos en el
-  servidor (y marca como leída) y renderiza el mismo `InboxWorkspace`.
-- Los filtros de la lista siguen siendo navegación de servidor
-  (`router.push`), como siempre.
+  "Native History API"). Atrás/Adelante los restaura Next desde la propia
+  entrada del historial. Escribir en el buscador reemplaza la entrada en
+  vez de apilar una por pulsación. La URL es enlazable y recargable.
+- **Datos: TanStack Query.** La lista es una consulta por combinación de
+  filtros, refrescada por detrás cada 5 s; cada conversación (chat +
+  ficha) es otra, precargada al pasar el ratón o el foco por la fila y
+  reutilizada al reabrirla. La precarga nunca marca como leída; lo hace el
+  primer sondeo del hilo al abrirla (o la carga directa en servidor).
+  Tras una mutación (marcar identificado, reasignar, enviar) se invalidan
+  las consultas afectadas en vez de re-renderizar la página.
+- **Primera carga** (o recarga): `page.tsx` resuelve en servidor
+  exactamente la lista de esos filtros y, si hay `?conversation=`, esa
+  conversación (marcándola leída), y los entrega como estado inicial de
+  la caché — primer pintado completo, sin esqueletos.
+- **Errores**: lista o conversación que no cargan por red muestran
+  "Reintentar" (dos reintentos automáticos antes; nunca en un 4xx). Una
+  conversación inexistente o sin permiso: `EmptyState`.
 
 ## 2. Anatomía
 
@@ -118,17 +125,16 @@ src/app/api/conversations/[id]/workspace/route.ts → esos datos en JSON, para u
 | Ventana cerrada | `Alert` en lugar del compositor |
 | Borrador sin enviar al cerrar | Se conserva por conversación (`sessionStorage`, clave por id) — no pide confirmación: cerrar no pierde nada |
 
-**Estado real (2026-09-29, panel en cliente, §1):**
+**Estado real (2026-09-29, §1):**
 
-- *Cargando la conversación*: hecho — si los datos no estaban precargados,
-  el panel abre igualmente al instante con esqueleto de cabecera, burbujas
-  y ficha (sin compositor), y se rellena al llegar.
-- *No encontrada / sin permiso*: hecho al abrir desde el Inbox —
-  `EmptyState` "Esta conversación no existe o no tienes acceso" (la API
-  responde 404). En carga directa de `/inbox/<id>` sigue siendo el
-  `notFound()` genérico de Next.
-- *Error al cargar* (red/500): **diferido** — el panel se queda en
-  esqueleto; sin "Reintentar" todavía.
+- *Cargando la conversación*: si los datos no estaban ya en caché (lo
+  normal es que sí, por la precarga), el panel abre igualmente al instante
+  con esqueleto de cabecera, burbujas y ficha, y se rellena al llegar.
+- *No encontrada / sin permiso*: `EmptyState` "Esta conversación no
+  existe o no tienes acceso", también en carga directa (`?conversation=`
+  de otra organización o inexistente).
+- *Error al cargar* (red/500): `Alert` destructivo "No se pudo cargar la
+  conversación" + "Reintentar", tras dos reintentos automáticos.
 
 ## 4. Comportamiento
 
@@ -252,19 +258,23 @@ keeps the list next to the panel"`. Detalle completo en
 `docs/DECISIONS.md` (entrada del 2026-09-28, "Fix: migración pendiente en
 staging + panel roto...").
 
-**Reportado por el usuario (2026-09-29), tras UI-10a, en tres rondas**:
+**Reportado por el usuario (2026-09-29), tras UI-10a, en cuatro rondas**:
 la lista "tintineaba" al abrir una conversación; dos arreglos sucesivos
 de CSS/animación (reservar el ancho de la lista al clic; hacer crecer el
 panel con `@starting-style`) mejoraron el síntoma pero no la causa, que
 era de arquitectura: abrir y cerrar eran **navegaciones de servidor**
 (rutas paralelas/interceptadas), así que nada podía empezar a moverse
 antes del viaje de ida y vuelta, cerrar desmontaba el panel sin
-transición de salida, y plegar la ficha la desmontaba al instante. Se
-resolvió con el panel en cliente siempre montado (§1). Tests de regresión
-en `tests/e2e/conversation-workspace.spec.ts`: transición real en ambos
-sentidos con la lista moviéndose al unísono (suma de anchos constante en
-cada frame), plegar desplaza el chat, y abrir/cerrar/Atrás no generan
-ninguna petición de ruta al servidor ni remontan la lista. Detalle en
+transición de salida, y plegar la ficha la desmontaba al instante. La
+tercera ronda puso el panel en cliente, siempre montado; la cuarta llevó
+también la lista y los filtros a estado en la URL + caché cliente (§1),
+de modo que nada del Inbox vuelve al servidor tras la primera carga.
+Tests de regresión en `tests/e2e/conversation-workspace.spec.ts`:
+transición real en ambos sentidos con la lista moviéndose al unísono (suma
+de anchos constante en cada frame), plegar desplaza el chat,
+abrir/cerrar/Atrás/filtrar sin ninguna navegación de servidor ni remonte
+de la lista (el buscador conserva el foco), y "Reintentar" tras un fallo
+de red. Detalle en
 `docs/DECISIONS.md`.
 
 ## 6. Reutilización

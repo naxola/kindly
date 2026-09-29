@@ -1,37 +1,19 @@
 import { getCurrentOrganizationMember } from "@/modules/organizations/service";
-import { countConversationsByView, listConversationsWithPreview, type InboxView } from "@/modules/conversations/service";
-
-const VALID_VIEWS: InboxView[] = ["pending", "unread", "unassigned", "all"];
-
-function parseView(value: string | null): InboxView {
-  return VALID_VIEWS.includes(value as InboxView) ? (value as InboxView) : "pending";
-}
+import { parseInboxFilters } from "@/app/(app)/inbox/inbox-filters";
+import { getInboxList } from "@/app/(app)/inbox/inbox-data";
 
 /**
- * Polled by the Inbox list every few seconds (UI-5, docs/ui/INBOX.md §6) —
- * same "no realtime infrastructure" choice as the conversation thread
- * (docs/DECISIONS.md, 2026-09-25). Scoped to the member's organization like
- * every other read; view/search/channel/delegate come from the query
- * string, the same filters `listConversationsWithPreview` takes.
+ * The Inbox list for one set of filters — the client cache's source
+ * (docs/ui/CHAT.md §1): fetched when a filter combination is first used,
+ * then refreshed in the background every few seconds, same "no realtime
+ * infrastructure" choice as the conversation thread (docs/DECISIONS.md,
+ * 2026-09-25). Scoped to the member's organization like every other read.
  */
 export async function GET(request: Request) {
   const member = await getCurrentOrganizationMember();
   if (!member) {
     return new Response(null, { status: 401 });
   }
-
-  const url = new URL(request.url);
-  const filters = {
-    view: parseView(url.searchParams.get("view")),
-    search: url.searchParams.get("search")?.trim() || undefined,
-    channel: url.searchParams.get("channel")?.trim() || undefined,
-    delegateId: url.searchParams.get("delegateId")?.trim() || undefined,
-  };
-
-  const [conversations, counts] = await Promise.all([
-    listConversationsWithPreview(member.organizationId, member, filters),
-    countConversationsByView(member.organizationId, member, { channel: filters.channel, delegateId: filters.delegateId }),
-  ]);
-
-  return Response.json({ conversations, counts }, { headers: { "Cache-Control": "no-store" } });
+  const filters = parseInboxFilters(new URL(request.url).searchParams);
+  return Response.json(await getInboxList(member, filters), { headers: { "Cache-Control": "no-store" } });
 }

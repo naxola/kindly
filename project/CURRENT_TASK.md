@@ -4,11 +4,34 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado; panel de conversación rehecho en cliente (fix post-cierre, 3ª ronda) — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fix post-cierre, 4ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: `e170cbd`.
+Último commit: sin commits (pendiente de commitear esta sesión).
 
-### Fix post-cierre (2026-09-29, reportado por el usuario, tres rondas)
+### Fix post-cierre, 4ª ronda (2026-09-29): estado en la URL + TanStack Query
+
+El usuario señaló que la 3ª ronda optimizaba en vez de resolver: los
+filtros seguían siendo navegación de servidor y la conversación una ruta.
+Ahora todo el estado del Inbox es query string
+(`/inbox?view&search&channel&delegateId&conversation=<id>`), cambiado con
+History API; `page.tsx` solo se renderiza en la primera carga y siembra la
+caché; lista (por filtros, refresco cada 5 s) y conversación (chat + ficha,
+precarga al hover) son consultas de TanStack Query con reintentos y
+"Reintentar". `/inbox/<id>` redirige a `?conversation=<id>`. Detalle en
+`docs/DECISIONS.md` ("Inbox con estado en la URL y caché cliente"),
+`docs/ui/CHAT.md` §1, `docs/ui/INBOX.md` §6, `docs/ARCHITECTURE.md`
+§11/§13. Verificado: lint+typecheck+299/299+38/38 E2E.
+
+**Pendiente, anotado:** ninguno de este fix. (El sondeo del hilo de
+mensajes sigue siendo su `setInterval` propio, `conversation-thread.tsx` —
+funciona y tiene lógica optimista propia; pasarlo a TanStack Query no era
+necesario para esto.)
+
+**Próximo paso concreto:** `UI-8` o `UI-10b`, elección del usuario.
+
+---
+
+### Fix post-cierre, rondas 1-3 (2026-09-29) — superado por la 4ª ronda (arriba)
 
 El usuario reportó tres veces el mismo síntoma al abrir una conversación
 (la lista "tintineaba", luego "se encoge más rápido que se expande el

@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import type { ConversationPreview, InboxView, InboxViewCounts } from "@/modules/conversations/service";
-import type { InboxFilters } from "@/app/(app)/inbox/inbox-data";
-import { buildHref } from "@/app/(app)/inbox/inbox-href";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { ConversationPreview, InboxView } from "@/modules/conversations/service";
+import { inboxUrl, type InboxFilters } from "@/app/(app)/inbox/inbox-filters";
+import { fetchInboxList, inboxKeys, retryUnlessClientError, type InboxListData } from "@/app/(app)/inbox/inbox-queries";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
 import { DataList } from "@/components/ui/data-list";
@@ -17,8 +17,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/primitives";
 import { InboxRow } from "@/app/(app)/inbox/inbox-row";
 import { useInboxOrderPublisher } from "@/app/(app)/inbox/inbox-order-context";
+import { cn } from "@/lib/cn";
 
-const POLL_INTERVAL_MS = 5_000;
+const REFRESH_INTERVAL_MS = 5_000;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const CONVERSATIONS_TITLE = "Conversaciones";
@@ -32,66 +33,112 @@ const VIEW_LABELS: Record<InboxView, string> = {
   unassigned: "Sin identificar",
 };
 
+const NO_FILTERS: InboxFilters = { view: "all", search: "", channel: "", delegateId: "" };
+
+function filtersKey(filters: InboxFilters): string {
+  return `${filters.view}:${filters.search}:${filters.channel}:${filters.delegateId}`;
+}
+
+function sameOrder(a: ConversationPreview[], b: ConversationPreview[]): boolean {
+  return a.length === b.length && a.every((conversation, index) => conversation.id === b[index].id);
+}
+
 /**
- * The Inbox list (UI-5, docs/ui/INBOX.md): views + search/filters (all in
- * the URL) + a dense, keyboard-navigable list that polls for updates
- * without reordering under the reader (§6 — a banner offers the update
- * instead of applying it under the cursor).
+ * The Inbox list (UI-5, docs/ui/INBOX.md; data from the client cache since
+ * 2026-09-29, docs/ui/CHAT.md §1): a "Mostrar"/channel/delegate/search
+ * filter row + a dense, keyboard-navigable list. Each filter combination is
+ * its own cached query, refreshed in the background every few seconds; a
+ * filter change shows the previous results (dimmed) until the new ones
+ * arrive instead of blanking the list.
  *
- * One list of every conversation, newest activity first, the way a
- * WhatsApp chat list reads (2026-09-28, docs/ui/INBOX.md §2): the views are
- * a "Mostrar" dropdown in the filter row, not a side menu — they are
- * filters over that one list, not separate places to navigate to.
+ * A background refresh that would reorder the rows under the reader is not
+ * applied directly — a banner offers it instead (§6). Changing filters, or
+ * a refresh that keeps the same order, applies at once.
  */
 export function InboxList({
   filters,
-  initialConversations,
-  initialCounts,
   members,
   viewerId,
   isAdmin,
   availableChannels,
   openConversationId,
+  onFiltersChange,
   onOpenConversation,
   onPrefetchConversation,
 }: {
   filters: InboxFilters;
-  initialConversations: ConversationPreview[];
-  initialCounts: InboxViewCounts;
   members: { userId: string; name: string }[];
   viewerId: string;
   isAdmin: boolean;
   availableChannels: string[];
   /** The conversation open in the panel next to this list, if any (`InboxWorkspace` owns it). */
   openConversationId: string | null;
-  /** Opens the conversation in the panel next to this list, client-side (`InboxWorkspace`). */
+  onFiltersChange: (next: Partial<InboxFilters>, options?: { replace?: boolean }) => void;
   onOpenConversation: (conversationId: string) => void;
   onPrefetchConversation: (conversationId: string) => void;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [, startTransition] = useTransition();
   const { setOrder, focusListRef } = useInboxOrderPublisher();
-
-  const [conversations, setConversations] = useState(initialConversations);
-  const [counts, setCounts] = useState(initialCounts);
-  const [pendingUpdate, setPendingUpdate] = useState<{ conversations: ConversationPreview[]; newCount: number } | null>(
-    null,
-  );
-  const [searchValue, setSearchValue] = useState(filters.search);
-  const currentIdsRef = useRef(initialConversations.map((c) => c.id));
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const key = filtersKey(filters);
+
+  const listQuery = useQuery({
+    queryKey: inboxKeys.list(filters),
+    queryFn: () => fetchInboxList(filters),
+    refetchInterval: REFRESH_INTERVAL_MS,
+    placeholderData: keepPreviousData,
+    retry: retryUnlessClientError,
+  });
+  const data = listQuery.data;
+
+  // What the reader sees, and a newer version held back behind the banner
+  // (docs/ui/INBOX.md §6) — "adjusted during render" as data arrives, not in
+  // an effect (`react-hooks/set-state-in-effect`).
+  const [shown, setShown] = useState<{ key: string; data: InboxListData } | null>(data ? { key, data } : null);
+  const [pendingUpdate, setPendingUpdate] = useState<InboxListData | null>(null);
+  const [lastData, setLastData] = useState(data);
+  const [seenKey, setSeenKey] = useState(key);
+  if (key !== seenKey) {
+    // A held-back update belongs to the previous filters, never to these.
+    setSeenKey(key);
+    setPendingUpdate(null);
+  }
+  if (data !== lastData) {
+    setLastData(data);
+    if (data) {
+      const reordersUnderReader =
+        shown !== null && shown.key === key && !listQuery.isPlaceholderData && !sameOrder(shown.data.conversations, data.conversations);
+      if (reordersUnderReader) {
+        setPendingUpdate(data);
+      } else {
+        setShown({ key, data });
+        setPendingUpdate(null);
+      }
+    }
+  }
+  const conversations = useMemo(() => shown?.data.conversations ?? [], [shown]);
+  const counts = data?.counts;
+  const newCount = pendingUpdate
+    ? pendingUpdate.conversations.filter((c) => !conversations.some((shownOne) => shownOne.id === c.id)).length
+    : 0;
+
+  // The search box is local while typing (debounced into the URL); the URL
+  // still wins when it changes on its own (back/forward, "Quitar filtros").
+  const [searchValue, setSearchValue] = useState(filters.search);
+  const [seenSearch, setSeenSearch] = useState(filters.search);
+  if (filters.search !== seenSearch) {
+    setSeenSearch(filters.search);
+    setSearchValue(filters.search);
+  }
 
   const delegateNameById = useMemo(() => new Map(members.map((m) => [m.userId, m.name])), [members]);
 
   // Opening a conversation marks it read on the server, but this list only
-  // learns that on its next poll — until then the unread dot would linger
+  // learns that on its next refresh — until then the unread dot would linger
   // on a conversation the user has just read. Remember, per conversation,
   // the last message it had when opened here, and treat it as read up to
   // that point (a newer message still brings the dot back). Updated during
-  // render, not in an effect: React's "adjust state when a prop changes"
-  // pattern, which `react-hooks/set-state-in-effect` requires.
+  // render: React's "adjust state when a prop changes" pattern.
   const [readUpTo, setReadUpTo] = useState<Record<string, string>>({});
   const openLastMessageAt = conversations.find((c) => c.id === openConversationId)?.lastMessage?.createdAt;
   const openLastMessageIso = openLastMessageAt ? new Date(openLastMessageAt).toISOString() : null;
@@ -117,62 +164,13 @@ export function InboxList({
     };
   }, [focusListRef]);
 
-  const navigate = useCallback(
-    (next: Partial<InboxFilters>) => {
-      startTransition(() => {
-        router.push(buildHref(pathname, { ...filters, ...next }));
-      });
-    },
-    [filters, pathname, router, startTransition],
-  );
-
-  const poll = useCallback(async () => {
-    const params = new URLSearchParams();
-    params.set("view", filters.view);
-    if (filters.search) params.set("search", filters.search);
-    if (filters.channel) params.set("channel", filters.channel);
-    if (filters.delegateId) params.set("delegateId", filters.delegateId);
-
-    const response = await fetch(`/api/inbox?${params.toString()}`, { cache: "no-store" }).catch(() => null);
-    if (!response?.ok) {
-      return;
-    }
-    const data = (await response.json()) as { conversations: ConversationPreview[]; counts: InboxViewCounts };
-    setCounts(data.counts);
-
-    const freshIds = data.conversations.map((c) => c.id);
-    const sameOrder =
-      freshIds.length === currentIdsRef.current.length && freshIds.every((id, index) => id === currentIdsRef.current[index]);
-    if (sameOrder) {
-      // Same conversations, same order — updating previews/unread flags in
-      // place cannot move anything under the reader's cursor.
-      setConversations(data.conversations);
-      return;
-    }
-    const newCount = freshIds.filter((id) => !currentIdsRef.current.includes(id)).length;
-    setPendingUpdate({ conversations: data.conversations, newCount });
-  }, [filters.view, filters.search, filters.channel, filters.delegateId]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void poll();
-      }
-    }, POLL_INTERVAL_MS);
-    const onVisible = () => document.visibilityState === "visible" && void poll();
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [poll]);
+  useEffect(() => () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+  }, []);
 
   function applyPendingUpdate() {
-    if (!pendingUpdate) {
-      return;
-    }
-    currentIdsRef.current = pendingUpdate.conversations.map((c) => c.id);
-    setConversations(pendingUpdate.conversations);
+    if (!pendingUpdate) return;
+    setShown({ key, data: pendingUpdate });
     setPendingUpdate(null);
   }
 
@@ -181,10 +179,18 @@ export function InboxList({
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-    searchDebounceRef.current = setTimeout(() => navigate({ search: value }), SEARCH_DEBOUNCE_MS);
+    searchDebounceRef.current = setTimeout(() => onFiltersChange({ search: value.trim() }, { replace: true }), SEARCH_DEBOUNCE_MS);
+  }
+
+  function clearFilters() {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setSearchValue("");
+    onFiltersChange(NO_FILTERS);
   }
 
   const hasActiveFilters = Boolean(filters.view !== "all" || filters.search || filters.channel || filters.delegateId);
+  // Previous filter's rows while this one loads — shown, but visibly not final.
+  const refreshingForFilters = listQuery.isPlaceholderData || (shown !== null && shown.key !== key);
 
   return (
     <div className="h-full min-w-0 flex-1 overflow-y-auto">
@@ -200,8 +206,9 @@ export function InboxList({
                 value={searchValue}
                 onChange={(event) => handleSearchChange(event.target.value)}
                 onClear={() => {
+                  if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
                   setSearchValue("");
-                  navigate({ search: "" });
+                  onFiltersChange({ search: "" }, { replace: true });
                 }}
               />
             }
@@ -210,19 +217,20 @@ export function InboxList({
                 <NativeSelect
                   aria-label="Mostrar"
                   value={filters.view}
-                  onChange={(event) => navigate({ view: event.target.value as InboxView })}
+                  onChange={(event) => onFiltersChange({ view: event.target.value as InboxView })}
                   className="w-auto"
                 >
                   {VIEWS.map((view) => (
                     <option key={view} value={view}>
-                      {VIEW_LABELS[view]} ({counts[view]})
+                      {VIEW_LABELS[view]}
+                      {counts ? ` (${counts[view]})` : ""}
                     </option>
                   ))}
                 </NativeSelect>
                 <NativeSelect
                   aria-label="Canal"
                   value={filters.channel}
-                  onChange={(event) => navigate({ channel: event.target.value })}
+                  onChange={(event) => onFiltersChange({ channel: event.target.value })}
                   className="w-auto"
                 >
                   <option value="">Todos los canales</option>
@@ -236,7 +244,7 @@ export function InboxList({
                   <NativeSelect
                     aria-label="Delegado"
                     value={filters.delegateId}
-                    onChange={(event) => navigate({ delegateId: event.target.value })}
+                    onChange={(event) => onFiltersChange({ delegateId: event.target.value })}
                     className="w-auto"
                   >
                     <option value="">Todos los delegados</option>
@@ -251,14 +259,7 @@ export function InboxList({
             }
             actions={
               hasActiveFilters && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSearchValue("");
-                    navigate({ view: "all", search: "", channel: "", delegateId: "" });
-                  }}
-                >
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
                   Quitar filtros
                 </Button>
               )
@@ -274,17 +275,33 @@ export function InboxList({
                 </Button>
               }
             >
-              {pendingUpdate.newCount > 0
-                ? `${pendingUpdate.newCount} conversación${pendingUpdate.newCount === 1 ? "" : "es"} nueva${pendingUpdate.newCount === 1 ? "" : "s"}`
+              {newCount > 0
+                ? `${newCount} conversación${newCount === 1 ? "" : "es"} nueva${newCount === 1 ? "" : "s"}`
                 : "Hay actualizaciones en la lista"}
             </Alert>
           )}
 
           <div aria-live="polite" className="sr-only">
-            {pendingUpdate ? `${pendingUpdate.newCount} conversaciones nuevas` : ""}
+            {pendingUpdate ? `${newCount} conversaciones nuevas` : ""}
           </div>
 
-          {conversations.length === 0 ? (
+          {shown === null ? (
+            listQuery.isError ? (
+              <Alert
+                tone="destructive"
+                title="No se pudo cargar la lista"
+                actions={
+                  <Button size="sm" variant="outline" onClick={() => void listQuery.refetch()} loading={listQuery.isFetching}>
+                    Reintentar
+                  </Button>
+                }
+              >
+                Comprueba la conexión e inténtalo de nuevo.
+              </Alert>
+            ) : (
+              <InboxListSkeleton />
+            )
+          ) : conversations.length === 0 && !refreshingForFilters ? (
             hasActiveFilters ? (
               <EmptyState
                 variant="inline"
@@ -295,13 +312,7 @@ export function InboxList({
                 }
                 description="Prueba con otro nombre o quita los filtros."
                 action={
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      setSearchValue("");
-                      navigate({ view: "all", search: "", channel: "", delegateId: "" });
-                    }}
-                  >
+                  <Button size="sm" onClick={clearFilters}>
                     Quitar filtros
                   </Button>
                 }
@@ -310,7 +321,14 @@ export function InboxList({
               <EmptyState variant="inline" title="Todavía no hay conversaciones." />
             )
           ) : (
-            <div ref={listContainerRef} className="@container">
+            <div
+              ref={listContainerRef}
+              aria-busy={refreshingForFilters || undefined}
+              className={cn(
+                "@container transition-opacity duration-(--duration-base) ease-standard",
+                refreshingForFilters && "opacity-60",
+              )}
+            >
               {/* `@container`: the row's secondary bits (delegate name) hide
                   by the *list column's* own width, not the viewport — the
                   anchored conversation panel (docs/ui/CHAT.md §4) can make
@@ -318,7 +336,11 @@ export function InboxList({
                   `sm:` viewport breakpoint would never notice. */}
               <DataList
                 aria-label="Conversaciones"
-                items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
+                items={conversations.map((conversation) => ({
+                  key: conversation.id,
+                  href: inboxUrl(filters, conversation.id),
+                  conversation,
+                }))}
                 isSelected={(item) => item.conversation.id === openConversationId}
                 onItemActivate={(item) => onOpenConversation(item.key)}
                 onItemIntent={(item) => onPrefetchConversation(item.key)}
@@ -357,7 +379,7 @@ export function InboxList({
   );
 }
 
-/** Skeleton shown while the server fetches the first page (docs/ui/INBOX.md §6). */
+/** Skeleton shown while a filter combination loads for the first time (docs/ui/INBOX.md §6). */
 export function InboxListSkeleton() {
   return (
     <div aria-busy className="flex flex-col gap-3 px-3 py-2.5">
