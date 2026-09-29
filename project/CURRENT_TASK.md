@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fix post-cierre, 4ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: sin commits (pendiente de commitear esta sesión).
+Último commit: `dcfbf76`.
 
 ### Fix post-cierre, 4ª ronda (2026-09-29): estado en la URL + TanStack Query
 
