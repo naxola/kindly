@@ -1,8 +1,30 @@
 # CONVERSATION_WORKSPACE.md — Espacio de respuesta (Fase UI-10)
 
-Conversación + ficha del afiliado + copiloto, en un único panel. Fase
-**planificada, sin código todavía** (encargo del usuario del 2026-09-28:
-"crea una fase con todo lo comentado para desarrollarlo a posteriori").
+Conversación + ficha del afiliado + copiloto, en un único panel. Planificada
+el 2026-09-28 (encargo del usuario: "crea una fase con todo lo comentado
+para desarrollarlo a posteriori"); **UI-10a construido el 2026-09-29** — ver
+§6 para el resto de paquetes, todavía sin empezar.
+
+**UI-10a, hecho:** el panel (`ConversationSheet`,
+`src/app/(app)/inbox/[id]/conversation-sheet.tsx`) pasa de una columna a
+dos en modo anclado (`xl+`): el chat con su ancho de siempre
+(`--sheet-w-sm`/`md`) y una nueva columna `--workspace-context-w` (340px)
+con `ContactFicha` (`src/app/(app)/inbox/[id]/contact-ficha.tsx`), plegable
+con un botón en el header cuya preferencia se recuerda en cookie
+(`ficha-cookie.ts`/`ficha-actions.ts`, mismo patrón que la sidebar). Por
+debajo de `xl` (modal o pantalla completa) no cabían las dos columnas, así
+que pasan a ser pestañas "Chat"/"Ficha" del mismo panel (`Tabs`, sin tocar
+la URL). La ficha reutiliza datos y componentes que ya existían —
+`ReferenceDelegateSection` e `IdentificationSection` se extrajeron de
+`/contacts/[id]` y del `Alert` que vivía sobre el chat, respectivamente,
+sin cambiar su lógica — y añade tres consultas nuevas de solo lectura
+(`listCasesForContact`, `listTasksForContact`, `listConversationsWithPreview`
+con un filtro `contactId`), todas sobre `contactVisibilityCondition` ya
+existente, sin migración. `F6`/`Ctrl+F6` ahora recorren tres zonas (lista →
+chat → ficha) cuando la ficha está visible, dos en caso contrario, igual
+que antes. Las secciones ❌ de la tabla de abajo (afiliación, trámites,
+resumen IA) no tienen dominio todavía y quedan deliberadamente fuera, no
+como huecos vacíos en la ficha.
 
 - **Mockup visual (datos ficticios):**
   `docs/ui/mockups/conversation-workspace.html` — publicado también como
@@ -227,7 +249,7 @@ pero **sin citar** — y con `EvidenceLevel` acorde.
 | Paquete | Alcance | Depende de |
 |---|---|---|
 | **PKG-014** (previo) | Un delegado actual por afiliado + histórico; visibilidad por rol en Inbox, Contactos, ficha y descargas; reasignación por ADMIN | Decisión pendiente sobre las conversaciones al reasignar |
-| **UI-10a** | Panel de dos columnas + ficha de solo lectura con los datos que ya existen (contacto, identificación movida del `Alert`, notas, casos, tareas, otras conversaciones); plegar ficha con preferencia recordada; pestañas por debajo de `xl`; tokens nuevos; E2E camino feliz | Nada — se puede empezar ya |
+| **UI-10a** ✅ | Panel de dos columnas + ficha de solo lectura con los datos que ya existen (contacto, identificación movida del `Alert`, notas, casos, tareas, otras conversaciones); plegar ficha con preferencia recordada; pestañas por debajo de `xl`; tokens nuevos; E2E camino feliz | Nada — cerrado 2026-09-29 |
 | **UI-10b** | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | PKG-014 (quién puede editar = delegado asignado + ADMIN) |
 | **UI-10c** | Metadatos de adjunto en `Message` + descarga por proxy en streaming sin almacenar + aviso al afiliado + sección "Trámite y documentación" | Trámites (`Procedure`, Fase 7) para la lista de requeridos; confirmar plazos de medios de Meta; texto del aviso revisado |
 | **UI-10d** | Resumen de situación | Fase 8 (`LLMProvider`) |

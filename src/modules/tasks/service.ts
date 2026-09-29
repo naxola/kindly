@@ -78,6 +78,26 @@ export async function getTaskForMember(organizationId: string, member: Visibilit
   return row ?? null;
 }
 
+/**
+ * A single Contact's Tasks, for the conversation ficha (UI-10a). Unlike
+ * `taskVisibilityCondition` (which also admits `contactId IS NULL` general
+ * tasks), a specific `contactId` is already given, so only
+ * `contactVisibilityCondition` applies.
+ */
+export async function listTasksForContact(organizationId: string, member: VisibilityMember, contactId: string) {
+  return db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.organizationId, organizationId),
+        eq(tasks.contactId, contactId),
+        contactVisibilityCondition(organizationId, member, tasks.contactId),
+      ),
+    )
+    .orderBy(desc(tasks.createdAt));
+}
+
 async function assertRelatedEntitiesBelongToOrganization(
   organizationId: string,
   contactId: string | null | undefined,

@@ -16,14 +16,14 @@ import {
   listContactsForMember,
 } from "@/modules/contacts/service";
 import { assignContactToDelegate, getActiveAssignment, listAssignmentHistory } from "@/modules/contacts/assignments";
-import { listCasesForMember } from "@/modules/cases/service";
+import { listCasesForMember, listCasesForContact } from "@/modules/cases/service";
 import { createCase } from "@/modules/cases/service";
 import { createTask } from "@/modules/tasks/service";
-import { listTasksForMember } from "@/modules/tasks/service";
+import { listTasksForMember, listTasksForContact } from "@/modules/tasks/service";
 import { connectMessagingAccount } from "@/modules/messaging/service";
 import { clearMessagingAdapters, registerMessagingAdapter } from "@/modules/messaging/registry";
 import { receiveWebhook } from "@/modules/messaging/webhook-service";
-import { listConversations } from "@/modules/conversations/service";
+import { listConversations, listConversationsWithPreview } from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { FakeMessagingAdapter } from "@/modules/messaging/testing/fake-adapter";
 
@@ -327,6 +327,52 @@ describe("PKG-014 contact assignment (integration, real PostgreSQL)", () => {
       const asStranger = { userId: stranger.id, role: "DELEGATE" as const };
       expect(await listTasksForMember(org.id, asReference)).toHaveLength(2);
       expect((await listTasksForMember(org.id, asStranger)).map((t) => t.title)).toEqual(["General task"]);
+    });
+  });
+
+  describe("UI-10a ficha — Contact-scoped Case/Task/Conversation queries", () => {
+    it("listCasesForContact/listTasksForContact only return the visible Contact's own rows", async () => {
+      const { org, members } = await createOrgWithMembers("Ficha Scoped Org", ["DELEGATE", "DELEGATE"]);
+      const [reference, stranger] = members;
+      const contact = await createContact({ organizationId: org.id, actorUserId: reference.id, name: "Marta" });
+      const otherContact = await createContact({ organizationId: org.id, actorUserId: reference.id, name: "Javier" });
+      await createCase({ organizationId: org.id, actorUserId: reference.id, contactId: contact.id, title: "Baja médica" });
+      await createCase({ organizationId: org.id, actorUserId: reference.id, contactId: otherContact.id, title: "Otro caso" });
+      await createTask({
+        organizationId: org.id,
+        actorUserId: reference.id,
+        title: "Pedir documento",
+        contactId: contact.id,
+      });
+
+      const asReference = { userId: reference.id, role: "DELEGATE" as const };
+      const asStranger = { userId: stranger.id, role: "DELEGATE" as const };
+      expect((await listCasesForContact(org.id, asReference, contact.id)).map((c) => c.title)).toEqual(["Baja médica"]);
+      expect(await listCasesForContact(org.id, asStranger, contact.id)).toHaveLength(0);
+      expect(await listTasksForContact(org.id, asReference, contact.id)).toHaveLength(1);
+      expect(await listTasksForContact(org.id, asStranger, contact.id)).toHaveLength(0);
+    });
+
+    it("listConversationsWithPreview({ contactId }) lists every Conversation of one Contact, respecting visibility", async () => {
+      const { org, members } = await createOrgWithMembers("Ficha Other Conversations Org", [
+        "DELEGATE",
+        "DELEGATE",
+        "DELEGATE",
+      ]);
+      const [luis, ana, stranger] = members;
+      const luisAccount = await connectFakeAccount(org.id, luis.id);
+      const anaAccount = await connectFakeAccount(org.id, ana.id);
+
+      await receiveInboundMessage(luisAccount.id, { text: "Hola Luis" });
+      const [luisConversation] = await listConversations(org.id);
+      const contactId = luisConversation.contactId;
+      await attachConversation(org.id, contactId, anaAccount.id, "fake", "INBOUND", new Date());
+
+      const asLuis = { userId: luis.id, role: "DELEGATE" as const };
+      expect(await listConversationsWithPreview(org.id, asLuis, { contactId })).toHaveLength(2);
+
+      const asStranger = { userId: stranger.id, role: "DELEGATE" as const };
+      expect(await listConversationsWithPreview(org.id, asStranger, { contactId })).toHaveLength(0);
     });
   });
 

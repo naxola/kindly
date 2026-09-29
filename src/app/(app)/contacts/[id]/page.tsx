@@ -6,7 +6,7 @@ import { getActiveAssignment, listAssignmentHistory } from "@/modules/contacts/a
 import { updateContactAction } from "@/modules/contacts/actions";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { ActivityFeed } from "@/app/(app)/activity-feed";
-import { ReassignDelegateControl } from "@/app/(app)/contacts/reassign-delegate-control";
+import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,42 +74,22 @@ export default async function ContactDetailPage({
         </form>
       </Card>
 
-      {/* PKG-014: quién responde por este afiliado. Sección propia de esta
-          página hasta que exista la ficha completa de UI-10. */}
+      {/* PKG-014: quién responde por este afiliado. También se muestra en la
+          ficha del panel de conversación (UI-10a, `ReferenceDelegateSection`). */}
       <Card className="max-w-page-sm">
         <CardHeader>
           <CardTitle>Delegado de referencia</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {isAdmin ? (
-            activeAssignment ? (
-              <ReassignDelegateControl
-                contactId={contact.id}
-                contactName={contact.name}
-                currentDelegateId={activeAssignment.delegateId}
-                delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
-              />
-            ) : (
-              <p className="type-body text-foreground-lighter">Todavía no tiene delegado asignado.</p>
-            )
-          ) : (
-            <p className="type-body text-foreground">
-              {activeAssignment ? (nameById.get(activeAssignment.delegateId) ?? "—") : "Sin asignar"}
-            </p>
-          )}
-
-          {history.length > 1 && (
-            <ul className="flex flex-col gap-1 border-t border-border pt-3 type-caption text-foreground-lighter">
-              {history.map((assignment) => (
-                <li key={assignment.id}>
-                  {nameById.get(assignment.delegateId) ?? assignment.delegateId}
-                  {" — "}
-                  {assignment.startedAt.toLocaleDateString("es-ES")}
-                  {assignment.endedAt ? ` a ${assignment.endedAt.toLocaleDateString("es-ES")}` : " (actual)"}
-                </li>
-              ))}
-            </ul>
-          )}
+        <CardContent>
+          <ReferenceDelegateSection
+            isAdmin={isAdmin}
+            contactId={contact.id}
+            contactName={contact.name}
+            activeAssignment={activeAssignment}
+            history={history}
+            delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
+            nameById={nameById}
+          />
         </CardContent>
       </Card>
 

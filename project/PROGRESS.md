@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-28 (PKG-014 cerrado por completo, dominio + UI).
+Última actualización: 2026-09-29 (UI-10a cerrado: panel de conversación con ficha del afiliado).
 
 ## Resumen en una línea
 
@@ -59,7 +59,14 @@ de otro delegado), y la UI completa: fila resaltada + "Ref.: <delegado>"
 en el Inbox, aviso de redirección en la conversación, compositor oculto
 en modo solo lectura, y "Reasignar" (ADMIN) desde `/contacts/[id]`.
 Siguiente: `UI-8` (accesibilidad y responsive) o seguir hacia `UI-10`
-(que ya no está bloqueada).
+(que ya no está bloqueada). **`UI-10a`** (2026-09-29, cerrado): el panel de
+conversación pasa de una sola columna a dos — chat y **ficha del afiliado**
+de solo lectura (contacto, identificación, delegado de referencia, casos
+abiertos, tareas pendientes, otras conversaciones), plegable con preferencia
+recordada en `xl`, como pestañas "Chat"/"Ficha" por debajo de ese ancho.
+Sin dominio nuevo: tres consultas `...ForContact` añadidas a
+`cases`/`tasks`/`conversations` reutilizando `contactVisibilityCondition`.
+Siguiente paso lógico de esta fase: `UI-10b` (afiliación/`Membership`).
 
 ## Estado por fase / paquete
 
@@ -88,7 +95,8 @@ Siguiente: `UI-8` (accesibilidad y responsive) o seguir hacia `UI-10`
 | **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | UI-8 … UI-9 | A11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
 | **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
-| UI-10 | Espacio de respuesta: conversación + ficha del afiliado + copiloto | Código (agente) | ⚪ Planificada (2026-09-28) — `docs/ui/CONVERSATION_WORKSPACE.md`; ya no bloqueada |
+| **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |
+| UI-10b…f | Afiliación, trámites, resumen IA, copiloto, ficha editable | Código (agente) | ⚪ No iniciadas — `docs/ui/CONVERSATION_WORKSPACE.md` §6 |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |

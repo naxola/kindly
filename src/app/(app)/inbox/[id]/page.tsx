@@ -4,13 +4,19 @@ import {
   channelSupportsTypingIndicator,
   getConversationThreadState,
   getConversationWithDetails,
+  listConversationsWithPreview,
 } from "@/modules/conversations/service";
 import { listContactsForMember } from "@/modules/contacts/service";
+import { getActiveAssignment, listAssignmentHistory } from "@/modules/contacts/assignments";
+import { listCasesForContact } from "@/modules/cases/service";
+import { listTasksForContact } from "@/modules/tasks/service";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
 import { getInboxListData, type InboxSearchParams } from "@/app/(app)/inbox/inbox-data";
 import { buildHref } from "@/app/(app)/inbox/inbox-href";
+import { getFichaCollapsed } from "@/app/(app)/inbox/ficha-cookie";
 import { InboxList } from "@/app/(app)/inbox/inbox-list";
 import { ConversationSheet } from "@/app/(app)/inbox/[id]/conversation-sheet";
+import { ContactFicha } from "@/app/(app)/inbox/[id]/contact-ficha";
 
 /**
  * A direct load of `/inbox/<id>` (URL typed in, bookmarked, or a refresh):
@@ -34,17 +40,26 @@ export default async function ConversationDetailPage({
     notFound();
   }
 
-  const [threadState, listData, contacts] = await Promise.all([
-    getConversationThreadState(member.organizationId, member, id),
-    getInboxListData(member, await searchParams),
-    listContactsForMember(member.organizationId, member),
-  ]);
+  const [threadState, listData, contacts, activeAssignment, assignmentHistory, cases, tasks, otherConversations, fichaCollapsed] =
+    await Promise.all([
+      getConversationThreadState(member.organizationId, member, id),
+      getInboxListData(member, await searchParams),
+      listContactsForMember(member.organizationId, member),
+      getActiveAssignment(member.organizationId, details.contact.id),
+      listAssignmentHistory(member.organizationId, details.contact.id),
+      listCasesForContact(member.organizationId, member, details.contact.id),
+      listTasksForContact(member.organizationId, member, details.contact.id),
+      listConversationsWithPreview(member.organizationId, member, { contactId: details.contact.id }),
+      getFichaCollapsed(),
+    ]);
   if (!threadState) {
     notFound();
   }
 
   const { filters, conversations, counts, members, availableChannels } = listData;
-  const delegateName = members.find((m) => m.userId === details.delegateId)?.name ?? "—";
+  const isAdmin = member.role === "ADMIN";
+  const nameById = new Map(members.map((m) => [m.userId, m.name]));
+  const delegateName = nameById.get(details.delegateId) ?? "—";
   const otherContacts = contacts.filter((c) => c.id !== details.contact.id).map((c) => ({ id: c.id, name: c.name }));
   const closeHref = buildHref("/inbox", filters);
   // PKG-014: this Conversation's own account may not belong to the viewer
@@ -53,7 +68,7 @@ export default async function ConversationDetailPage({
   const canReply = details.delegateId === member.userId;
   const referenceDelegateName =
     details.referenceDelegateId && details.referenceDelegateId !== member.userId
-      ? (members.find((m) => m.userId === details.referenceDelegateId)?.name ?? "—")
+      ? (nameById.get(details.referenceDelegateId) ?? "—")
       : undefined;
 
   return (
@@ -66,7 +81,7 @@ export default async function ConversationDetailPage({
           initialCounts={counts}
           members={members.map((m) => ({ userId: m.userId, name: m.name }))}
           viewerId={member.userId}
-          isAdmin={member.role === "ADMIN"}
+          isAdmin={isAdmin}
           availableChannels={availableChannels}
         />
       </div>
@@ -77,13 +92,29 @@ export default async function ConversationDetailPage({
         delegateName={delegateName}
         canReply={canReply}
         referenceDelegateName={referenceDelegateName}
-        otherContacts={otherContacts}
         threadState={threadState}
         supportsTyping={channelSupportsTypingIndicator(details.conversation.channel)}
         closeMode="push"
         closeHref={closeHref}
-        markContactIdentified={markContactIdentifiedAction.bind(null, details.contact.id, id)}
-        reassignConversation={reassignConversationContactAction.bind(null, id)}
+        initialFichaCollapsed={fichaCollapsed}
+        ficha={
+          <ContactFicha
+            contact={details.contact}
+            channel={details.conversation.channel}
+            delegateName={delegateName}
+            isAdmin={isAdmin}
+            otherContacts={otherContacts}
+            markContactIdentified={markContactIdentifiedAction.bind(null, details.contact.id, id)}
+            reassignConversation={reassignConversationContactAction.bind(null, id)}
+            activeAssignment={activeAssignment}
+            assignmentHistory={assignmentHistory}
+            delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
+            nameById={nameById}
+            cases={cases}
+            tasks={tasks}
+            otherConversations={otherConversations.filter((c) => c.id !== id)}
+          />
+        }
       />
     </>
   );

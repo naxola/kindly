@@ -4,7 +4,66 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: PKG-014 cerrado; fix post-cierre de un bug real en staging — siguiente UI-8 o UI-10
+## Paquete activo: UI-10a cerrado — siguiente UI-8 o UI-10b
+
+Último commit: sin commits (pendiente de commitear esta sesión).
+
+### UI-10a — Panel de conversación con ficha del afiliado (2026-09-29)
+
+El usuario pidió continuar con UI-10 (fase ya planificada en
+`docs/ui/CONVERSATION_WORKSPACE.md`) y eligió empezar por `UI-10a`, el
+único paquete de esa fase sin dominio nuevo. Detalle completo de las
+decisiones no triviales en `docs/DECISIONS.md` (entrada "2026-09-29 —
+UI-10a: panel de dos columnas (chat + ficha del afiliado)"); resumen del
+diseño en `docs/ui/CONVERSATION_WORKSPACE.md` (nota al inicio del
+documento) y `docs/ui/CHAT.md` §2/§4.
+
+**Hecho, verificado con lint+typecheck+300/300 unit-integration+34/34
+E2E+captura visual real a 1280/1536/1920px y móvil:**
+
+1. **`ConversationSheet` pasa de una columna a dos** en modo anclado
+   (`xl+`): chat con su ancho de siempre + una columna nueva
+   (`--workspace-context-w`, 340px) con la ficha, plegable con un botón en
+   el header cuya preferencia se recuerda en cookie
+   (`src/app/(app)/inbox/ficha-cookie.ts`/`ficha-actions.ts`, mismo patrón
+   que la sidebar). Por debajo de `xl` (modal/pantalla completa), la ficha
+   pasa a ser una pestaña "Ficha" junto a "Chat" (`Tabs`, sin tocar la
+   URL). `F6`/`Ctrl+F6` recorren ahora tres zonas (lista → chat → ficha)
+   cuando la ficha está visible.
+2. **`ContactFicha`** (`src/app/(app)/inbox/[id]/contact-ficha.tsx`, Server
+   Component sin fetch propio): secciones Contacto, Identificación (solo
+   si `isUnassigned`), Delegado de referencia, Casos abiertos, Tareas
+   pendientes, Otras conversaciones — todo de solo lectura, con los datos
+   que ya existían. Afiliación/trámites/resumen IA/copiloto (UI-10b…e) no
+   tienen dominio todavía y no aparecen ni como huecos vacíos.
+3. **Dos piezas extraídas, sin cambiar su lógica**:
+   `identification-section.tsx` (el `Alert` "Contacto no identificado" que
+   vivía sobre el chat) y `reference-delegate-section.tsx` (la sección
+   "Delegado de referencia" de `/contacts/[id]`, que ya llevaba una nota
+   señalando que era provisional hasta que existiera la ficha) —
+   reutilizadas por la ficha y por su sitio original, no reescritas.
+4. **Tres consultas nuevas, sin migración**: `listCasesForContact`,
+   `listTasksForContact` (`contactVisibilityCondition` acotado a un
+   `contactId`) y un filtro `contactId` en `listConversationsWithPreview`
+   (para "otras conversaciones", reutilizando la consulta del Inbox en vez
+   de una nueva).
+5. `tests/integration/contact-assignments.test.ts`: 3 tests nuevos
+   (visibilidad de `listCasesForContact`/`listTasksForContact` y de
+   `listConversationsWithPreview` con `contactId`).
+   `tests/e2e/conversation-workspace.spec.ts` nuevo: ficha visible por
+   defecto y plegable con preferencia persistente en anclado; pestañas
+   Chat/Ficha por debajo de `xl`. `tests/e2e/inbox.spec.ts` y
+   `contact-assignments.spec.ts` pasan sin modificarse (el viewport por
+   defecto de Playwright, 1280px, ya cae en modo anclado).
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive) o seguir la
+fase con `UI-10b` (afiliación/`Membership`) — ninguno depende del otro,
+elección del usuario. Ver `docs/ui/CONVERSATION_WORKSPACE.md` §6 para el
+resto de paquetes de la fase.
+
+---
+
+## Registro: PKG-014 cerrado; fix post-cierre de un bug real en staging (2026-09-28)
 
 Último commit: `f8e0dd9`.
 

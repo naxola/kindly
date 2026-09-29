@@ -2411,6 +2411,70 @@ E2E (reconstruido desde cero).
 
 ---
 
+## 2026-09-29 — UI-10a: panel de dos columnas (chat + ficha del afiliado)
+
+**Contexto:** `docs/ui/CONVERSATION_WORKSPACE.md` (fase UI-10, decisiones
+del usuario del 2026-09-28) pide que el panel de conversación pase de una
+columna (solo chat) a dos — chat y una ficha del afiliado de solo lectura
+— con un solo cierre y una sola animación de entrada. UI-10a es el primer
+paquete de esa fase, el único sin dominio nuevo.
+
+**Decisión:** la ficha vive como segunda columna del mismo `<aside>`
+anclado (`ConversationSheet`), no como un panel independiente — así el
+cierre y la animación de entrada siguen siendo uno solo por construcción,
+sin coordinar dos componentes. Es plegable en `xl+` con un botón en el
+header (`PanelRightClose`/`PanelRightOpen`), cuya preferencia se recuerda
+en una cookie (`kindly_ficha`, `src/app/(app)/inbox/ficha-cookie.ts` +
+`ficha-actions.ts`) exactamente igual que la sidebar
+(`sidebar-cookie.ts`/`sidebar-actions.ts`) — mismo motivo: seguir
+correcto en la siguiente carga completa basta, no hace falta esperar la
+escritura en el clic. Por debajo de `xl` no caben dos columnas legibles
+(mismo umbral y razón que UI-6 para el modal), así que la ficha pasa a
+ser una pestaña "Ficha" junto a "Chat" del mismo panel (`Tabs`, estado
+local, sin tocar la URL).
+
+**Identificación, movida; delegado de referencia, extraído sin
+duplicarse:** el `Alert` "Contacto no identificado" que vivía sobre el
+chat (`conversation-sheet.tsx`) se movió tal cual a la ficha
+(`identification-section.tsx`) — la acción de "acceso temporal" (aviso
+"Su delegado de referencia es X") **no** se movió: sigue sobre el chat en
+los tres modos, porque describe una situación de *esta* conversación, no
+del afiliado en general (`CONVERSATION_WORKSPACE.md` §7: "la ficha se
+muestra completa" con o sin ese aviso). La sección "Delegado de
+referencia" de `/contacts/[id]` (que ya llevaba una nota deliberada
+señalando que era provisional hasta que existiera la ficha) se extrajo a
+`src/app/(app)/contacts/reference-delegate-section.tsx`, reutilizada por
+ambos sitios en vez de reescrita — la página de contacto sigue mostrando
+exactamente lo mismo que antes.
+
+**Tres consultas nuevas, sin migración:** `listCasesForContact`,
+`listTasksForContact` (mismo predicado `contactVisibilityCondition` que
+sus variantes `...ForMember`, acotado a un `contactId`) y un filtro
+`contactId` añadido a `listConversationsWithPreview` — la ficha reutiliza
+la consulta ya probada del Inbox en vez de escribir una nueva para
+"otras conversaciones".
+
+**Teclado:** `F6`/`Ctrl+F6`, que alternaban entre lista y chat, pasan a
+recorrer tres zonas (lista → chat → ficha) cuando la ficha está visible
+(detectando la zona actual por `contains(document.activeElement)`), dos
+en caso contrario — generalización que coincide exactamente con el
+comportamiento anterior en el caso de dos zonas.
+
+**Fuera de esta fase, a propósito:** afiliación/`Membership` (UI-10b),
+adjuntos sin almacenar (UI-10c), resumen de situación por IA (UI-10d) y
+copiloto (UI-10e) no tienen dominio todavía — sus filas de la tabla de
+`CONVERSATION_WORKSPACE.md` §3 no aparecen en la ficha, no se dejaron como
+huecos vacíos o placeholders.
+
+**Verificación:** 300/300 unit+integration (12 tests nuevos en
+`tests/integration/contact-assignments.test.ts`), 34/34 E2E (2 nuevos en
+`tests/e2e/conversation-workspace.spec.ts`: ficha visible por defecto y
+plegable con preferencia persistente en anclado; pestañas Chat/Ficha por
+debajo de `xl`), captura visual real a 1280/1536/1920px y móvil (390px)
+comparada con el mockup de `docs/ui/mockups/conversation-workspace.html`.
+
+---
+
 <!--
 Plantilla para nuevas entradas:
 

@@ -545,6 +545,8 @@ export interface ListConversationsFilters {
   view?: InboxView;
   /** Matches contact name, contact phone, or the last message's text. */
   search?: string;
+  /** Restricts to one Contact's Conversations — the ficha's "Otras conversaciones" (UI-10a). */
+  contactId?: string;
 }
 
 /**
@@ -595,7 +597,7 @@ function inboxViewCondition(view: InboxView, lastMessage: ReturnType<typeof last
 function inboxFilterConditions(
   organizationId: string,
   member: VisibilityMember,
-  filters: Pick<ListConversationsFilters, "channel" | "delegateId" | "search">,
+  filters: Pick<ListConversationsFilters, "channel" | "delegateId" | "search" | "contactId">,
   lastMessage: ReturnType<typeof lastMessageLateralQuery>,
 ) {
   return and(
@@ -607,6 +609,7 @@ function inboxFilterConditions(
     contactVisibilityCondition(organizationId, member, conversations.contactId),
     filters.channel ? eq(conversations.channel, filters.channel) : undefined,
     filters.delegateId ? eq(messagingAccounts.delegateId, filters.delegateId) : undefined,
+    filters.contactId ? eq(conversations.contactId, filters.contactId) : undefined,
     filters.search
       ? or(
           ilike(contacts.name, `%${filters.search}%`),

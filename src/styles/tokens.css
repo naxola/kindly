@@ -177,6 +177,7 @@
   --sheet-w-sm: 24rem;
   --sheet-w-md: 35rem;
   --sheet-w-lg: 45rem;
+  --workspace-context-w: 21.25rem; /* 340px — ficha del afiliado (UI-10a, docs/ui/CONVERSATION_WORKSPACE.md §2) */
   --dialog-w-sm: 25rem;
   --dialog-w-md: 32rem;
   --dialog-w-lg: 40rem;
@@ -337,6 +338,7 @@
   --container-sheet-sm: var(--sheet-w-sm);
   --container-sheet-md: var(--sheet-w-md);
   --container-sheet-lg: var(--sheet-w-lg);
+  --container-workspace-context: var(--workspace-context-w);
   --container-dialog-sm: var(--dialog-w-sm);
   --container-dialog-md: var(--dialog-w-md);
   --container-dialog-lg: var(--dialog-w-lg);

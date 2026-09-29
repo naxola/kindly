@@ -92,11 +92,17 @@ src/app/(app)/inbox/
   con `Send`; indicación de ventana de servicio. Ventana cerrada → el
   compositor se sustituye por el `Alert` warning actual (texto de
   PKG-013/PKG-005, no se suaviza).
-- **Futuro copiloto** (Fase 8 del producto; diseño detallado y ficha del
-  afiliado al lado en `CONVERSATION_WORKSPACE.md`, fase UI-10): panel colapsable entre
-  historial y compositor con el borrador en `font-document`, fuentes,
-  vigencia y `EvidenceLevel`; "Usar borrador" solo **rellena** el
-  compositor. Nunca un botón que envíe la sugerencia (`CLAUDE.md` §2).
+- **Futuro copiloto** (Fase 8 del producto; diseño detallado en
+  `CONVERSATION_WORKSPACE.md`, paquete UI-10e todavía sin empezar): panel
+  colapsable entre historial y compositor con el borrador en
+  `font-document`, fuentes, vigencia y `EvidenceLevel`; "Usar borrador" solo
+  **rellena** el compositor. Nunca un botón que envíe la sugerencia
+  (`CLAUDE.md` §2).
+- **Ficha del afiliado** (UI-10a, hecho el 2026-09-29, detalle completo en
+  `CONVERSATION_WORKSPACE.md`): segunda columna del mismo panel en modo
+  anclado, plegable; pestaña "Ficha" junto a "Chat" por debajo de `xl`. No
+  es un panel aparte — abrir/cerrar la conversación sigue siendo una sola
+  animación, un solo cierre.
 
 ## 3. Estados
 
@@ -145,8 +151,11 @@ Común a los tres:
   entre conversaciones **no** anima (solo cambia el contenido).
 - Al cerrar, el foco vuelve a la fila de la lista que lo abrió.
 - Anchura en anclado: `--sheet-w-sm` (384 px) en `xl`, `--sheet-w-md`
-  (560 px) en `2xl+`; el modal usa `--sheet-w-md`. La lista ocupa el
-  resto. **Abrir el panel nunca toca la sidebar global** (decisión del
+  (560 px) en `2xl+` para la columna del chat; con la ficha visible (UI-10a)
+  se suma `--workspace-context-w` (340px) como segunda columna del mismo
+  panel — plegarla no reduce el chat, solo el panel entero. El modal usa
+  `--sheet-w-md`. La lista ocupa el resto. **Abrir el panel nunca toca la
+  sidebar global** (decisión del
   2026-09-28, ver `docs/DECISIONS.md`): igual que el asistente de
   Supabase Studio — un panel hermano del contenido que solo estrecha lo
   que tiene al lado —, el ancho se gana con un panel más estrecho en

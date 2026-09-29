@@ -1,23 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronDown, ChevronUp, MessageCircle, MoreHorizontal, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, MessageCircle, MoreHorizontal, PanelRightClose, PanelRightOpen, X } from "lucide-react";
 import type { ConversationThreadState } from "@/modules/conversations/service";
 import { useInboxFocusList, useInboxOrderList } from "@/app/(app)/inbox/inbox-order-context";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { ConversationThread } from "@/app/(app)/inbox/[id]/conversation-thread";
+import { setFichaCollapsedAction } from "@/app/(app)/inbox/ficha-actions";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar } from "@/components/ui/primitives";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { NativeSelect } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const ANCHORED_QUERY = "(min-width: 1280px)";
 const MODAL_QUERY = "(min-width: 768px)";
+
+type Zone = "list" | "chat" | "ficha";
+const FOCUSABLE_SELECTOR = "textarea, button, a, input, select";
 
 /**
  * `SheetTitle`/`SheetDescription` wrap Radix's `Dialog.Title`/`Description`,
@@ -52,21 +56,24 @@ export interface ConversationSheetProps {
   canReply: boolean;
   /** Set only when the Contact's reference delegate is someone other than the viewer (PKG-014, "acceso temporal"). */
   referenceDelegateName?: string;
-  otherContacts: { id: string; name: string }[];
   threadState: ConversationThreadState;
   supportsTyping: boolean;
   /** `"back"`: reached by soft navigation, `router.back()` restores the list's exact prior state. `"push"`: reached by a direct/hard load, so there is no prior in-app history entry to return to. */
   closeMode: "back" | "push";
   closeHref: string;
-  markContactIdentified: () => Promise<void>;
-  reassignConversation: (formData: FormData) => Promise<void>;
+  /** "Ficha del afiliado" (UI-10a) — built by the page, which already has everything it needs resolved. */
+  ficha: ReactNode;
+  /** From the `kindly_ficha` cookie (`ficha-cookie.ts`) — only meaningful once anchored. */
+  initialFichaCollapsed: boolean;
 }
 
 /**
- * The conversation panel (docs/ui/CHAT.md), one component reused from both
- * routing entry points (`@sheet/(.)[id]` on soft navigation, `[id]/page.tsx`
- * on a direct load). Picks its own chrome by viewport: anchored `aside`
- * without an overlay on `xl+`, a modal `Sheet` below that, full screen
+ * The conversation panel (docs/ui/CHAT.md, docs/ui/CONVERSATION_WORKSPACE.md
+ * UI-10a), one component reused from both routing entry points
+ * (`@sheet/(.)[id]` on soft navigation, `[id]/page.tsx` on a direct load).
+ * Picks its own chrome by viewport: anchored `aside` without an overlay on
+ * `xl+` (chat and ficha as two columns, the ficha foldable), a modal `Sheet`
+ * below that (chat/ficha as tabs, no room for two columns), full screen
  * under `md` — see `useMediaQuery`'s own note on why this needs JS rather
  * than a CSS breakpoint.
  */
@@ -78,11 +85,12 @@ export function ConversationSheet(props: ConversationSheetProps) {
     delegateName,
     canReply,
     referenceDelegateName,
-    otherContacts,
     threadState,
     supportsTyping,
     closeMode,
     closeHref,
+    ficha,
+    initialFichaCollapsed,
   } = props;
   const router = useRouter();
   const isAnchored = useMediaQuery(ANCHORED_QUERY);
@@ -90,6 +98,19 @@ export function ConversationSheet(props: ConversationSheetProps) {
   const order = useInboxOrderList();
   const focusListRef = useInboxFocusList();
   const panelRef = useRef<HTMLDivElement>(null);
+  const chatColumnRef = useRef<HTMLDivElement>(null);
+  const fichaColumnRef = useRef<HTMLDivElement>(null);
+  const [fichaCollapsed, setFichaCollapsed] = useState(initialFichaCollapsed);
+
+  const toggleFicha = useCallback(() => {
+    setFichaCollapsed((current) => {
+      const next = !current;
+      // Only has to be right by the next full load, same as the sidebar's
+      // own toggle — the click already updated this render optimistically.
+      void setFichaCollapsedAction(next);
+      return next;
+    });
+  }, []);
 
   const { previousId, nextId } = useMemo(() => {
     const index = order.indexOf(conversationId);
@@ -121,22 +142,36 @@ export function ConversationSheet(props: ConversationSheetProps) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isAnchored, close]);
 
-  // `F6` moves focus to the list's active row, `Ctrl+F6` back to this panel
-  // — the anchored mode's stand-in for a focus trap it deliberately does
-  // not have (docs/ui/ACCESSIBILITY.md §2).
+  // `F6` cycles focus forward through the visible zones (`Ctrl+F6`
+  // backward) — the anchored mode's stand-in for a focus trap it
+  // deliberately does not have (docs/ui/ACCESSIBILITY.md §2). With the
+  // ficha open (UI-10a) that's list → chat → ficha; collapsed or outside
+  // anchored mode, just list → chat, same as before.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "F6") return;
       event.preventDefault();
-      if (event.ctrlKey) {
-        panelRef.current?.querySelector<HTMLElement>("textarea, button, a")?.focus();
-      } else {
+
+      const zones: Zone[] = isAnchored && !fichaCollapsed ? ["list", "chat", "ficha"] : ["list", "chat"];
+      const currentIndex = fichaColumnRef.current?.contains(document.activeElement)
+        ? zones.indexOf("ficha")
+        : chatColumnRef.current?.contains(document.activeElement)
+          ? zones.indexOf("chat")
+          : zones.indexOf("list");
+      const delta = event.ctrlKey ? -1 : 1;
+      const nextZone = zones[(currentIndex + delta + zones.length) % zones.length];
+
+      if (nextZone === "list") {
         focusListRef.current?.();
+      } else if (nextZone === "chat") {
+        chatColumnRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
+      } else {
+        fichaColumnRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus();
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [focusListRef]);
+  }, [focusListRef, isAnchored, fichaCollapsed]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -196,6 +231,17 @@ export function ConversationSheet(props: ConversationSheetProps) {
         >
           <ChevronDown />
         </Button>
+        {isAnchored && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-pressed={!fichaCollapsed}
+            aria-label={fichaCollapsed ? "Mostrar ficha del afiliado" : "Plegar ficha del afiliado"}
+            onClick={toggleFicha}
+          >
+            {fichaCollapsed ? <PanelRightOpen /> : <PanelRightClose />}
+          </Button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Más acciones">
@@ -215,48 +261,13 @@ export function ConversationSheet(props: ConversationSheetProps) {
     </SheetHeader>
   );
 
-  const contextualAlert = contact.isUnassigned && (
-    <div className="px-4 pt-3">
-      <Alert
-        tone="warning"
-        title="Contacto no identificado"
-        actions={
-          <>
-            <form action={props.markContactIdentified}>
-              <Button type="submit" size="sm">
-                Marcar como identificado
-              </Button>
-            </form>
-            {otherContacts.length > 0 && (
-              <form action={props.reassignConversation} className="flex items-center gap-2">
-                <NativeSelect name="targetContactId" aria-label="Reasignar a" className="w-auto" defaultValue="">
-                  <option value="" disabled>
-                    Reasignar a...
-                  </option>
-                  {otherContacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-                <Button type="submit" size="sm" variant="outline">
-                  Reasignar
-                </Button>
-              </form>
-            )}
-          </>
-        }
-      >
-        Creado automáticamente a partir de este mensaje.
-      </Alert>
-    </div>
-  );
-
   // PKG-014 ("Delegado de referencia y acceso temporal", docs/DECISIONS.md):
   // shown whenever the Contact's reference delegate is someone other than
   // the viewer — including on the viewer's *own* Conversation with them,
   // which is exactly the scenario the rule describes ("Ana ve a Marta
-  // resaltada... su delegado de referencia es Luis").
+  // resaltada... su delegado de referencia es Luis"). Stays with the chat,
+  // not the ficha (docs/ui/CONVERSATION_WORKSPACE.md §7): "la ficha se
+  // muestra completa" regardless of this notice.
   const referenceAlert = referenceDelegateName && (
     <div className="px-4 pt-3">
       <Alert tone="info" title={`Su delegado de referencia es ${referenceDelegateName}`}>
@@ -266,19 +277,14 @@ export function ConversationSheet(props: ConversationSheetProps) {
     </div>
   );
 
-  const content = (
-    <>
-      {header}
-      {referenceAlert}
-      {contextualAlert}
-      <ConversationThread
-        conversationId={conversationId}
-        initialState={threadState}
-        supportsTyping={supportsTyping}
-        canReply={canReply}
-        ownerName={delegateName}
-      />
-    </>
+  const thread = (
+    <ConversationThread
+      conversationId={conversationId}
+      initialState={threadState}
+      supportsTyping={supportsTyping}
+      canReply={canReply}
+      ownerName={delegateName}
+    />
   );
 
   if (isAnchored) {
@@ -289,21 +295,50 @@ export function ConversationSheet(props: ConversationSheetProps) {
         // No Radix here to gate this on `data-state=open` (there is no
         // modal), so it just plays once on mount — matches the modal
         // Sheet's own entrance, which the user expects even anchored.
-        // Narrower on `xl` so sidebar + product menu + list + panel fit
-        // side by side without collapsing the sidebar (docs/ui/CHAT.md §4,
-        // same as Supabase Studio's assistant panel: it only ever shrinks
-        // the content next to it, never the navigation).
-        className="flex h-full w-sheet-sm shrink-0 flex-col border-l border-border bg-surface-200 animate-slide-in-right 2xl:w-sheet-md"
+        // No fixed width on the outer element any more (UI-10a): its two
+        // children below each carry their own, so the ficha folding away
+        // shrinks the whole panel instead of leaving empty space.
+        className="flex h-full shrink-0 border-l border-border bg-surface-200 animate-slide-in-right"
       >
-        {content}
+        <div ref={chatColumnRef} className="flex h-full w-sheet-sm shrink-0 flex-col 2xl:w-sheet-md">
+          {header}
+          {referenceAlert}
+          {thread}
+        </div>
+        {!fichaCollapsed && (
+          <div
+            ref={fichaColumnRef}
+            role="complementary"
+            aria-label="Ficha del afiliado"
+            className="h-full w-workspace-context shrink-0 overflow-y-auto border-l border-border"
+          >
+            {ficha}
+          </div>
+        )}
       </aside>
     );
   }
 
+  // Below `xl` there's no room for chat and ficha side by side
+  // (docs/ui/CONVERSATION_WORKSPACE.md §2) — the ficha becomes a second tab
+  // instead, switched locally without touching the URL.
   return (
     <Sheet open onOpenChange={(open) => !open && close()}>
       <SheetContent side="right" size={isModalOrWider ? "md" : "full"} showClose={false}>
-        {content}
+        {header}
+        {referenceAlert}
+        <Tabs defaultValue="chat" className="flex min-h-0 flex-1 flex-col">
+          <TabsList className="px-4">
+            <TabsTrigger value="chat">Chat</TabsTrigger>
+            <TabsTrigger value="ficha">Ficha</TabsTrigger>
+          </TabsList>
+          <TabsContent value="chat" className="flex min-h-0 flex-1 flex-col pt-0">
+            {thread}
+          </TabsContent>
+          <TabsContent value="ficha" className="min-h-0 flex-1 overflow-y-auto pt-0">
+            {ficha}
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );

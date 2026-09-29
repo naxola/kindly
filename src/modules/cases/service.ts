@@ -54,6 +54,21 @@ export async function getCaseForMember(organizationId: string, member: Visibilit
   return row ?? null;
 }
 
+/** A single Contact's Cases, for the conversation ficha (UI-10a) — same visibility rule as `listCasesForMember`, scoped to one Contact. */
+export async function listCasesForContact(organizationId: string, member: VisibilityMember, contactId: string) {
+  return db
+    .select()
+    .from(cases)
+    .where(
+      and(
+        eq(cases.organizationId, organizationId),
+        eq(cases.contactId, contactId),
+        contactVisibilityCondition(organizationId, member, cases.contactId),
+      ),
+    )
+    .orderBy(desc(cases.createdAt));
+}
+
 export interface CreateCaseInput {
   organizationId: string;
   actorUserId: string;

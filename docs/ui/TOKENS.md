@@ -118,6 +118,7 @@ Sombras teñidas de tinta (`--palette-shadow`), nunca negro puro.
 | `context-nav-w` | 208px | `w-context-nav` |
 | `inbox-list-w` | 384px | `w-inbox-list` |
 | `sheet-w-sm/md/lg` | 384/560/720px | `max-w-sheet-md` |
+| `workspace-context-w` | 340px | `w-workspace-context` — ficha del afiliado (UI-10a) |
 | `dialog-w-sm/md/lg` | 400/512/640px | `max-w-dialog-sm` |
 | `page-w-sm/md/lg` | 768/1024/1280px | `max-w-page-md` |
 | `page-gutter` | 16 → 24 (md) → 32 (xl) | `px-gutter` (responsive por token) |
