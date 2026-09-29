@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10a cerrado — siguiente UI-8 o UI-10b
 
-Último commit: sin commits (pendiente de commitear esta sesión).
+Último commit: `1a3fd7e`.
 
 ### UI-10a — Panel de conversación con ficha del afiliado (2026-09-29)
 
