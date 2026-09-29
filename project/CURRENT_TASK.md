@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10a cerrado; panel de conversación rehecho en cliente (fix post-cierre, 3ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: sin commits (pendiente de commitear esta sesión).
+Último commit: `e170cbd`.
 
 ### Fix post-cierre (2026-09-29, reportado por el usuario, tres rondas)
 
