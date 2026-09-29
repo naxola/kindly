@@ -69,6 +69,27 @@
 
   /* Shadow tint: ink, never pure black, so elevation reads as paper. */
   --palette-shadow: 16 28 51;
+
+  /* Dark-theme-only accents ("-night"): the light accents above don't reach
+     4.5:1 as text on a near-black background, so the dark theme gets its
+     own brighter hues for primary/destructive/warning/info — same brand
+     hues, tuned for a dark surface. Everything else in the dark theme
+     (backgrounds, text, borders) reuses --palette-ink-* in reverse. */
+  --palette-green-night: #34a37a;
+  --palette-green-night-hover: #3bb090;
+  --palette-green-night-soft: #0f2a20;
+  --palette-green-night-border: #1f6b4e;
+  --palette-red-night: #e35d5b;
+  --palette-red-night-hover: #d6605e;
+  --palette-red-night-soft: #2b1516;
+  --palette-red-night-border: #7a3838;
+  --palette-amber-night: #d99a3d;
+  --palette-amber-night-soft: #2b2010;
+  --palette-amber-night-border: #6b4a1a;
+  --palette-blue-night: #5b8fd6;
+  --palette-blue-night-soft: #101d2e;
+  --palette-blue-night-border: #35547e;
+  --palette-slate-selected-night: #33415a;
 }
 
 /* ── 2. Semantic (light theme — the default) ───────────────────────────── */
@@ -215,6 +236,166 @@
   :root {
     --page-gutter: 2rem;
   }
+}
+
+/* ── 2b. Semantic (dark theme) ──────────────────────────────────────────
+   UI-8 (docs/ui/ROADMAP.md "Fase 8", aprobado 2026-09-26). Redefines
+   exactly the same names as the light :root above — nothing else, no
+   component ever changes for this. Duplicated in both blocks on purpose
+   (no preprocessor mixin here): the @media block is "Sistema" honouring a
+   dark OS (guarded by :not([data-theme="light"]) so an explicit "Claro"
+   choice always wins over the OS), the attribute block is an explicit
+   "Oscuro" choice regardless of OS. "Sistema" itself needs no block: it's
+   simply the absence of the data-theme attribute. Every pair below is
+   contrast-checked in tests/unit/ui-tokens.test.ts, same as light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: var(--palette-ink-950);
+    --background-muted: var(--palette-ink-900);
+    --surface-100: var(--palette-ink-900);
+    --surface-200: var(--palette-ink-900);
+    --surface-300: var(--palette-ink-800);
+    --overlay: rgb(10 18 34 / 0.6);
+    --control: var(--palette-ink-900);
+    --control-disabled: var(--palette-ink-800);
+
+    --state-hover: var(--palette-ink-800);
+    --state-selected: var(--palette-slate-selected-night);
+
+    --foreground: var(--palette-ink-50);
+    --foreground-light: var(--palette-ink-200);
+    --foreground-lighter: var(--palette-ink-300);
+    --foreground-muted: var(--palette-ink-600);
+    --foreground-inverse: var(--palette-ink-950);
+
+    --border: var(--palette-ink-800);
+    --border-strong: var(--palette-ink-700);
+    --border-control: var(--palette-ink-400);
+
+    --primary: var(--palette-green-night);
+    --primary-hover: var(--palette-green-night-hover);
+    --primary-foreground: var(--palette-ink-950);
+    --primary-soft: var(--palette-green-night-soft);
+    --primary-soft-foreground: var(--palette-green-night);
+    --primary-border: var(--palette-green-night-border);
+    --ring: var(--palette-green-night);
+
+    --destructive: var(--palette-red-night);
+    --destructive-hover: var(--palette-red-night-hover);
+    --destructive-foreground: var(--palette-ink-950);
+    --destructive-soft: var(--palette-red-night-soft);
+    --destructive-soft-foreground: var(--palette-red-night);
+    --destructive-border: var(--palette-red-night-border);
+
+    --warning: var(--palette-amber-night);
+    --warning-soft: var(--palette-amber-night-soft);
+    --warning-soft-foreground: var(--palette-amber-night);
+    --warning-border: var(--palette-amber-night-border);
+
+    --success: var(--palette-green-night);
+    --success-soft: var(--palette-green-night-soft);
+    --success-soft-foreground: var(--palette-green-night);
+    --success-border: var(--palette-green-night-border);
+
+    --info: var(--palette-blue-night);
+    --info-soft: var(--palette-blue-night-soft);
+    --info-soft-foreground: var(--palette-blue-night);
+    --info-border: var(--palette-blue-night-border);
+
+    --evidence-sufficient: var(--palette-green-night);
+    --evidence-partial: var(--palette-amber-night);
+    --evidence-insufficient: var(--palette-red-night);
+    --alert: var(--palette-red-night);
+
+    --bubble-inbound: var(--palette-ink-800);
+    --bubble-inbound-foreground: var(--palette-ink-50);
+    --bubble-outbound: var(--palette-green-night-soft);
+    --bubble-outbound-foreground: var(--palette-ink-50);
+    --bubble-outbound-border: var(--palette-green-night-border);
+    --read-receipt: var(--palette-blue-night);
+
+    --ink: var(--palette-ink-50);
+    --ink-soft: var(--palette-ink-200);
+    --ink-faint: var(--palette-ink-300);
+    --paper: var(--palette-ink-950);
+    --line: var(--palette-ink-800);
+    --stamp: var(--palette-green-night);
+    --stamp-soft: var(--palette-green-night-soft);
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: var(--palette-ink-950);
+  --background-muted: var(--palette-ink-900);
+  --surface-100: var(--palette-ink-900);
+  --surface-200: var(--palette-ink-900);
+  --surface-300: var(--palette-ink-800);
+  --overlay: rgb(10 18 34 / 0.6);
+  --control: var(--palette-ink-900);
+  --control-disabled: var(--palette-ink-800);
+
+  --state-hover: var(--palette-ink-800);
+  --state-selected: var(--palette-slate-selected-night);
+
+  --foreground: var(--palette-ink-50);
+  --foreground-light: var(--palette-ink-200);
+  --foreground-lighter: var(--palette-ink-300);
+  --foreground-muted: var(--palette-ink-600);
+  --foreground-inverse: var(--palette-ink-950);
+
+  --border: var(--palette-ink-800);
+  --border-strong: var(--palette-ink-700);
+  --border-control: var(--palette-ink-400);
+
+  --primary: var(--palette-green-night);
+  --primary-hover: var(--palette-green-night-hover);
+  --primary-foreground: var(--palette-ink-950);
+  --primary-soft: var(--palette-green-night-soft);
+  --primary-soft-foreground: var(--palette-green-night);
+  --primary-border: var(--palette-green-night-border);
+  --ring: var(--palette-green-night);
+
+  --destructive: var(--palette-red-night);
+  --destructive-hover: var(--palette-red-night-hover);
+  --destructive-foreground: var(--palette-ink-950);
+  --destructive-soft: var(--palette-red-night-soft);
+  --destructive-soft-foreground: var(--palette-red-night);
+  --destructive-border: var(--palette-red-night-border);
+
+  --warning: var(--palette-amber-night);
+  --warning-soft: var(--palette-amber-night-soft);
+  --warning-soft-foreground: var(--palette-amber-night);
+  --warning-border: var(--palette-amber-night-border);
+
+  --success: var(--palette-green-night);
+  --success-soft: var(--palette-green-night-soft);
+  --success-soft-foreground: var(--palette-green-night);
+  --success-border: var(--palette-green-night-border);
+
+  --info: var(--palette-blue-night);
+  --info-soft: var(--palette-blue-night-soft);
+  --info-soft-foreground: var(--palette-blue-night);
+  --info-border: var(--palette-blue-night-border);
+
+  --evidence-sufficient: var(--palette-green-night);
+  --evidence-partial: var(--palette-amber-night);
+  --evidence-insufficient: var(--palette-red-night);
+  --alert: var(--palette-red-night);
+
+  --bubble-inbound: var(--palette-ink-800);
+  --bubble-inbound-foreground: var(--palette-ink-50);
+  --bubble-outbound: var(--palette-green-night-soft);
+  --bubble-outbound-foreground: var(--palette-ink-50);
+  --bubble-outbound-border: var(--palette-green-night-border);
+  --read-receipt: var(--palette-blue-night);
+
+  --ink: var(--palette-ink-50);
+  --ink-soft: var(--palette-ink-200);
+  --ink-faint: var(--palette-ink-300);
+  --paper: var(--palette-ink-950);
+  --line: var(--palette-ink-800);
+  --stamp: var(--palette-green-night);
+  --stamp-soft: var(--palette-green-night-soft);
 }
 
 /* ── Tailwind bridge: semantic tokens → utilities ──────────────────────── */

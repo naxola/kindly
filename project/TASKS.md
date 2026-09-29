@@ -614,7 +614,7 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 ### UI-8 — Accesibilidad y responsive
 
 - [ ] axe en E2E, auditoría manual, 320–1440 px.
-- [ ] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26).
+- [x] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26, cerrado 2026-09-29 — `docs/DECISIONS.md`).
 
 ### UI-9 — Consolidación
 

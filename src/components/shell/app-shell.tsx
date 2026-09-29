@@ -3,6 +3,7 @@ import { AppHeader } from "@/components/shell/app-header";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { SkipToContent } from "@/components/shell/skip-to-content";
 import { getSidebarCollapsed } from "@/components/shell/sidebar-cookie";
+import { getThemePreference } from "@/components/shell/theme-cookie";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toast";
 import { countUnreadConversations } from "@/modules/conversations/service";
@@ -21,16 +22,17 @@ export async function AppShell({
   member: CurrentOrganizationMember;
   children: ReactNode;
 }) {
-  const [collapsed, unreadCount] = await Promise.all([
+  const [collapsed, unreadCount, theme] = await Promise.all([
     getSidebarCollapsed(),
     countUnreadConversations(member.organizationId, member),
+    getThemePreference(),
   ]);
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="grid h-dvh grid-rows-[auto_1fr]">
         <SkipToContent />
-        <AppHeader member={member} unreadCount={unreadCount} />
+        <AppHeader member={member} unreadCount={unreadCount} theme={theme} />
         <div className="grid grid-cols-[auto_1fr] overflow-hidden">
           <AppSidebar initialCollapsed={collapsed} unreadCount={unreadCount} />
           {/* Width, gutter and vertical rhythm are each page's own

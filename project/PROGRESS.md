@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (UI-10b: `Membership` con alta/edición/baja manual en `/contacts/[id]`).
+Última actualización: 2026-09-29 (UI-8, primer tramo: tema oscuro con selector Claro/Oscuro/Sistema).
 
 ## Resumen en una línea
 
@@ -77,8 +77,28 @@ IA. Bug real encontrado y corregido antes de cerrar: un alta y una
 "vuelta a afiliarse" el mismo día generan dos filas con el mismo
 `started_at` (el formulario solo pide fecha, no hora) — `ORDER BY
 started_at DESC` sin desempate podía devolver la fila cerrada; corregido
-ordenando primero por fila abierta. Siguiente paso lógico de esta fase:
-`UI-10c` (adjuntos sin almacenar + trámites), bloqueado por Fase 7.
+ordenando primero por fila abierta. `UI-10c/d/e` siguen bloqueados (Fase
+7/8 de producto), y `UI-10f` espera validación visual del usuario — el
+único paquete de UI desbloqueado era `UI-8`.
+
+**`UI-8`, primer tramo (2026-09-29, cerrado): tema oscuro.** Selector
+Claro/Oscuro/Sistema en `UserMenu` (por defecto Sistema), capa semántica
+en `tokens.css` bajo `[data-theme="dark"]` (cero cambios de componentes:
+la arquitectura de tokens de tres capas ya lo permitía), cookie
+`kindly_theme` leída en `src/app/layout.tsx` para pintar sin parpadeo,
+paleta con 5 acentos nuevos "-night" (los tonos claros no llegan a 4.5:1
+sobre un fondo casi negro) verificados contra las 30 parejas de
+`tests/unit/ui-tokens.test.ts`. **Coste aceptado por el usuario tras
+preguntarle**: leer la cookie en el layout raíz (compartido por sitio
+público y app) hace que las 33 rutas pasen a render dinámico, incluidas
+las 8 que eran estáticas desde PKG-010 (`/`, `/login`, legal…) — no hay
+forma de "pintar en servidor sin parpadeo" en el App Router sin ese
+coste. Detalle completo, paleta y la pregunta al usuario en
+`docs/DECISIONS.md`. Verificado con lint+typecheck+352/352
+unit-integration+40/40 E2E+build limpio+captura visual real (`/login`,
+`/inbox`, `/ui-kit`, `/contacts/[id]`) en oscuro y claro. **Pendiente de
+esta fase**: `@axe-core/playwright`, recorrido manual de teclado/lector
+de pantalla, verificación responsive 320–1440 px.
 
 ## Estado por fase / paquete
 
@@ -105,7 +125,8 @@ ordenando primero por fila abierta. Siguiente paso lógico de esta fase:
 | **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
-| UI-8 … UI-9 | A11y, consolidación | Código (agente) | ⚪ No iniciadas — ver `docs/ui/ROADMAP.md` |
+| **UI-8** | **Accesibilidad y responsive** | Código (agente) | 🟡 **En marcha** — tema oscuro completo (2026-09-29); falta axe-core y recorrido manual, ver `docs/ui/ROADMAP.md` |
+| UI-9 | Consolidación | Código (agente) | ⚪ No iniciada — ver `docs/ui/ROADMAP.md` |
 | **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |
 | **UI-10b** | **`Membership`: alta/edición/baja manual en `/contacts/[id]` + sección en la ficha** | Código (agente) | 🟢 **Completo** (2026-09-29) |

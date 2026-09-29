@@ -42,7 +42,9 @@ test("give a Contact a Membership, watch the fee warning, then baja and rejoin",
   // Dar de baja.
   await page.getByRole("button", { name: "Dar de baja" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Dar de baja" }).click();
-  await expect(page.getByText("Afiliación dada de baja")).toBeVisible();
+  // "Afiliación dada de baja" also appears in the activity feed below and
+  // in the confirmation toast — the status badge is the first match.
+  await expect(page.getByText("Afiliación dada de baja").first()).toBeVisible();
   await expect(page.getByText("Buen momento para proponer que vuelva a afiliarse.")).toBeVisible();
 
   // Volver a afiliarse: same form, different submit label, same member number kept.

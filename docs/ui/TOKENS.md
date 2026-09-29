@@ -23,9 +23,18 @@ Componentes (Button, Field, Badge…) + tokens de componente (--control-h-md, --
 Consecuencias:
 
 - **Rebrand** = cambiar primitivas. **Tema oscuro** = redefinir la capa
-  semántica bajo `[data-theme="dark"]` (aprobado, se implementa en la
-  Fase 8; ver `ROADMAP.md`). **Densidad** = cambiar tokens de componente (`--control-h-*`).
-  Ningún caso exige tocar componentes.
+  semántica bajo `[data-theme="dark"]` — **hecho en Fase 8** (2026-09-29,
+  ver `ROADMAP.md` y `docs/DECISIONS.md`): dos bloques en `tokens.css`
+  (`@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {…} }`
+  para "Sistema", y `:root[data-theme="dark"] {…}` para una elección
+  explícita), con 5 acentos nuevos "-night" (primary/destructive/warning/
+  info/selected) porque los tonos claros no alcanzan 4.5:1 sobre un fondo
+  casi negro — todo lo demás reutiliza `--palette-ink-*` invertido.
+  Selector Claro/Oscuro/Sistema en `UserMenu`, cookie `kindly_theme` leída
+  en `src/app/layout.tsx` (server-side, sin parpadeo — coste: todas las
+  rutas pasan a render dinámico, decisión aceptada explícitamente, ver
+  `docs/DECISIONS.md`). **Densidad** = cambiar tokens de componente
+  (`--control-h-*`). Ningún caso exige tocar componentes.
 - Un componente **nunca** usa `--palette-*`, ni la paleta por defecto de
   Tailwind (`zinc-500`…), ni hex, ni `z-50`, ni `duration-150`, ni
   `h-[34px]`. El test lo impide en `src/components/` y `src/app/(app)/ui-kit`;
@@ -149,8 +158,9 @@ más `xs`). Uso por superficie en `RESPONSIVE.md`.
   `palette/ink/600` ↔ `--palette-ink-600`; `size/control/md` ↔
   `--control-h-md`; `radius/card`, `shadow/md`, `z/modal`.
 - Dos colecciones: **Primitives** (un modo) y **Semantic** (modos `light`
-  y, en el futuro, `dark`), con alias de Semantic → Primitives — la misma
-  indirección que el CSS.
+  y `dark`, este último ya implementado en CSS — el exportador DTCG a
+  Figma Variables sigue pendiente de Fase 9), con alias de Semantic →
+  Primitives — la misma indirección que el CSS.
 - Estilos de texto = roles `type/*` de la tabla de tipografía.
 - Valores en hex (lo que Figma Variables maneja nativamente).
 - **Pendiente (Fase 9):** script `scripts/export-tokens.ts` que genere un

@@ -64,6 +64,36 @@ test("collapsing the sidebar is remembered across a reload", async ({ page }) =>
   await expect(page.getByRole("button", { name: "Contraer menú" })).toBeVisible();
 });
 
+test("picking a theme from the user menu applies it instantly and the server paints it on the next load, no flash", async ({
+  page,
+}) => {
+  const name = `Theme ${randomUUID().slice(0, 8)}`;
+  await register(page, name);
+
+  await page.getByRole("button", { name, exact: true }).click();
+  await page.getByRole("menuitemradio", { name: "Oscuro" }).click();
+
+  // Applied to <html> immediately — no reload, no router.refresh().
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  // The preference is a cookie, not just client state: the *server-rendered*
+  // markup for another route already carries the attribute, proving there
+  // is no light-then-dark flash on the next navigation.
+  const response = await page.request.get("/organization");
+  const html = await response.text();
+  expect(html).toContain('data-theme="dark"');
+
+  // Survives a hard reload too.
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name, exact: true }).click();
+  await expect(page.getByRole("menuitemradio", { name: "Oscuro" })).toHaveAttribute("aria-checked", "true");
+
+  // Back to "Sistema": the attribute is removed, not set to some third value.
+  await page.getByRole("menuitemradio", { name: "Sistema" }).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+});
+
 test("below md, the sidebar is a Sheet opened from the header and closes itself on navigation", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await register(page, `Mobile ${randomUUID().slice(0, 8)}`);

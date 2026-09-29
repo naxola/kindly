@@ -77,6 +77,31 @@ export function DropdownMenuCheckboxItem({
   );
 }
 
+export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
+
+/** An exclusive choice among menu items (e.g. the theme selector, UI-8) — unlike `DropdownMenuCheckboxItem`, only one can be checked at a time. */
+export function DropdownMenuRadioItem({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
+  return (
+    <DropdownMenuPrimitive.RadioItem
+      className={cn(
+        "relative flex cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-2 pl-7 type-body text-foreground outline-hidden select-none",
+        "data-highlighted:bg-state-hover data-disabled:pointer-events-none data-disabled:opacity-50",
+        className,
+      )}
+      {...props}
+    >
+      <DropdownMenuPrimitive.ItemIndicator className="absolute left-2 inline-flex items-center">
+        <Check className="size-3.5" aria-hidden />
+      </DropdownMenuPrimitive.ItemIndicator>
+      {children}
+    </DropdownMenuPrimitive.RadioItem>
+  );
+}
+
 export function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Label>) {
   return <DropdownMenuPrimitive.Label className={cn("px-2 py-1.5 type-caption text-foreground-lighter", className)} {...props} />;
 }

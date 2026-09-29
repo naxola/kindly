@@ -2904,3 +2904,100 @@ Plantilla para nuevas entradas:
 **Por qué:** justificación.
 **Supersede a:** (si aplica) enlace a la entrada anterior que queda obsoleta.
 -->
+
+## 2026-09-29 — UI-8 (Fase 8), primer tramo: tema oscuro
+
+**Contexto:** con `UI-10b` cerrado, el resto de `UI-10` (c/d/e) sigue
+bloqueado por Fase 7/8 de producto (knowledge base y AI, que no existen
+todavía) y `UI-10f` espera validación visual del usuario — el único
+paquete de UI realmente desbloqueado es `UI-8` (`docs/ui/ROADMAP.md`
+"Fase 8"), aprobado el 2026-09-26. Es una fase con tres piezas
+independientes (tema oscuro, axe-core automático, recorrido manual); esta
+entrada cubre solo la primera.
+
+**Decisión — arquitectura:** la capa de tokens de tres niveles
+(`docs/ui/TOKENS.md`) hace que el tema oscuro sea *solo* un cambio de
+`tokens.css`, cero cambios de componentes (ninguno referencia un color
+directamente). Dos bloques nuevos redefinen exactamente los mismos
+nombres semánticos que el `:root` claro:
+`@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {…} }`
+para "Sistema" (con el guard para que una elección explícita "Claro"
+siempre gane sobre el SO) y `:root[data-theme="dark"] {…}` para una
+elección explícita "Oscuro". "Sistema" no necesita valor de cookie ni
+bloque propio: es la ausencia del atributo `data-theme`.
+
+**Decisión — paleta:** los acentos claros (verde/rojo/ámbar/azul) no
+alcanzan 4.5:1 como texto sobre un fondo casi negro, así que el tema
+oscuro añade 5 primitivas "-night" (`--palette-green-night` etc., más su
+variante `-hover`/`-soft`/`-border`) — mismos matices de marca, ajustados
+para superficie oscura. Todo lo demás (fondos, texto, bordes) reutiliza
+`--palette-ink-*` invertido, sin primitivas nuevas. Las 30 parejas de
+`tests/unit/ui-tokens.test.ts` se verificaron a mano con la misma fórmula
+de contraste antes de escribir el CSS (un fork hizo el diseño inicial y
+el cálculo; se re-verificó independientemente con un script Node
+reproduciendo `luminance`/`contrast` línea a línea, hallazgo trivial en
+el propio script de verificación — un desfase de índices en el slice del
+hex sin `#` — no en la paleta). Margen más ajustado:
+`primary-soft-foreground/primary-soft` y
+`destructive-soft-foreground/destructive-soft`, ambos ~4.9:1. Nota de
+diseño: el verde suficientemente brillante para ser texto legible sobre
+`background` no admite texto blanco encima a la vez (matemáticamente
+incompatible con un único tono) — los sólidos (`primary`/`destructive`)
+llevan texto oscuro (`ink-950`) en el tema oscuro, no blanco: "el acento
+brilla sobre la tinta", coherente con la identidad "ink on paper" del
+producto, no una inversión genérica de colores.
+
+**Decisión — cookie y SSR sin parpadeo:** `kindly_theme`
+(`src/components/shell/theme-cookie.ts` server-only +
+`theme-preference.ts` cliente, mismo patrón exacto que
+`sidebar-cookie.ts`/`ficha-cookie.ts`+`ficha-preference.ts`: la constante
+del nombre de cookie vive en el archivo *sin* `"server-only"`, y el
+archivo server-only la importa de ahí — nunca al revés, para que un
+import de tipo/constante no arrastre `"server-only"` a un bundle de
+cliente). Escritura de cookie sin Server Action (evita re-renderizar toda
+la página en cada cambio de tema, igual que `ficha-preference.ts`):
+`document.documentElement.setAttribute`/`removeAttribute` aplica el
+cambio al instante, `document.cookie` solo deja lista la *siguiente*
+carga completa.
+
+**Pregunta al usuario y decisión — coste de render dinámico:**
+`src/app/layout.tsx` es el único sitio donde se puede fijar
+`<html data-theme>` (una capa anidada no puede re-declarar `<html>`/
+`<body>` en el App Router), y es compartido por el sitio público y la
+app. Leer `cookies()` ahí para evitar el parpadeo fuerza **todas** las
+rutas a render dinámico — confirmado con un build limpio: las 8 rutas
+que eran estáticas (`/`, `/login`, `/forgot-password`,
+`/reset-password`, `/privacidad`, `/terminos`, `/aviso-legal`,
+`/eliminacion-de-datos`, deliberadamente estáticas desde PKG-010) pasan
+a `ƒ` (dinámica) junto con las 25 que ya lo eran. Se preguntó
+explícitamente al usuario entre aceptar este coste (un solo mecanismo,
+más simple) o mantener estático el sitio público (el selector solo vive
+en la app autenticada, que ya era 100% dinámica; el público seguiría
+solo el tema del sistema operativo vía CSS puro, sin cookie ni
+override) — **eligió aceptar el coste**. Sin ese cambio no hay forma de
+"pintar en servidor sin parpadeo" en el App Router; la alternativa
+(script bloqueante en `<head>` que lee la cookie y fija el atributo
+antes del primer pintado) evita el coste de render dinámico pero ya no
+es estrictamente "servidor" y no se implementó.
+
+**Piezas nuevas:** `DropdownMenuRadioGroup`/`DropdownMenuRadioItem` en
+`dropdown-menu.tsx` (primera vez que se usa `RadioGroup` de Radix en el
+repo — más honesto que tres `DropdownMenuItem` con un check a mano para
+una elección exclusiva de 3 vías); selector en `UserMenu`, recibe el
+valor inicial como prop desde `AppShell` → `AppHeader` (mismo
+`Promise.all` que ya leía `getSidebarCollapsed`).
+
+**Verificación:** 352/352 unit+integration (nuevo `describe("design
+tokens: contrast (dark theme, UI-8)")` reutilizando el array `PAIRS`
+existente contra un segundo mapa de tokens resuelto desde el bloque
+`:root[data-theme="dark"]`), 40/40 E2E (nuevo test en `shell.spec.ts`:
+selección instantánea sin recarga, `page.request.get()` confirma que el
+HTML *servido por el servidor* ya trae el atributo antes de cualquier
+hidratación, persiste tras `page.reload()`, "Sistema" quita el atributo
+en vez de fijar un tercer valor), build limpio, captura visual real de
+`/login`, `/inbox`, `/ui-kit` y `/contacts/[id]` (con los estados de
+`Membership` de UI-10b) en modo oscuro y claro del sistema.
+
+**Pendiente de esta fase (no de este tramo):** `@axe-core/playwright` en
+los E2E principales, recorrido manual de teclado/lector de pantalla,
+verificación responsive 320/768/1024/1440 — siguiente paso, aparte.

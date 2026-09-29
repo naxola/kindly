@@ -4,7 +4,81 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10b cerrado — siguiente UI-8, UI-10c (bloqueado por Fase 7) o cualquier otro pendiente
+## Paquete activo: UI-8 (tema oscuro) cerrado — siguiente: resto de UI-8 (axe-core + auditoría manual) o cualquier otro pendiente
+
+Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+
+### UI-8, primer tramo — tema oscuro (2026-09-29)
+
+Con `UI-10b` cerrado, el resto de `UI-10` sigue bloqueado (c/d/e por
+Fase 7/8 de producto; f por validación visual del usuario), así que
+`UI-8` (`docs/ui/ROADMAP.md` "Fase 8", aprobado 2026-09-26) era el único
+paquete de UI desbloqueado. Se planificó con `EnterPlanMode` (un Plan
+agent diseñó la capa de tokens y la paleta oscura, verificada a mano
+después) antes de escribir código, dado el alcance (toca el sistema de
+diseño entero). Detalle completo — paleta, arquitectura CSS, y la
+pregunta que se le hizo al usuario sobre el coste de render dinámico —
+en `docs/DECISIONS.md` (entrada "UI-8 (Fase 8), primer tramo: tema
+oscuro") y `docs/ui/TOKENS.md`/`ROADMAP.md`.
+
+**Hecho, verificado con lint+typecheck+352/352 unit-integration+40/40
+E2E+build limpio+captura visual real:**
+
+1. **`src/styles/tokens.css`**: 11 primitivas nuevas "-night"
+   (primary/destructive/warning/info/selected, más `-hover`/`-soft`/
+   `-border`) — los tonos claros no alcanzan 4.5:1 sobre un fondo casi
+   negro. Dos bloques que redefinen la capa semántica completa (mismos
+   nombres que el `:root` claro): `@media (prefers-color-scheme: dark) {
+   :root:not([data-theme="light"]) {…} }` para "Sistema", y
+   `:root[data-theme="dark"] {…}` para una elección explícita. Cero
+   cambios en componentes — la arquitectura de tokens de tres capas ya
+   lo permitía.
+2. **Cookie `kindly_theme`**: `src/components/shell/theme-cookie.ts`
+   (server-only, lectura) + `theme-preference.ts` (cliente, escritura sin
+   Server Action, mismo patrón que `ficha-preference.ts`). `src/app/
+   layout.tsx` pasa a `async`, lee la cookie y fija `data-theme` en
+   `<html>` — **compartido por sitio público y app**, la única forma de
+   pintar sin parpadeo en el App Router (`<html>` solo se declara en el
+   layout raíz).
+3. **Selector Claro/Oscuro/Sistema** en `UserMenu`
+   (`DropdownMenuRadioGroup`/`DropdownMenuRadioItem`, nuevo en
+   `dropdown-menu.tsx` — primer uso de `RadioGroup` de Radix en el
+   repo), valor inicial desde `AppShell` → `AppHeader` (mismo
+   `Promise.all` que ya leía `getSidebarCollapsed`).
+4. **Test de contraste oscuro** (`tests/unit/ui-tokens.test.ts`): nuevo
+   `resolveDarkTokens` + `describe` que corre las mismas 30 parejas
+   contra el bloque `:root[data-theme="dark"]`. `tests/e2e/shell.spec.ts`:
+   nuevo test que confirma que el HTML **servido por el servidor** (no
+   solo el DOM tras hidratar) ya trae el atributo correcto.
+5. **Bug de test encontrado de paso, no relacionado con el tema**:
+   `tests/e2e/membership.spec.ts` (de la sesión anterior, UI-10b) se
+   volvió ambiguo (`getByText("Afiliación dada de baja")` resolvía a 3
+   elementos: badge, historial de actividad y el toast de confirmación)
+   — corregido con `.first()`, patrón ya usado en otros specs del repo.
+
+**Pregunta hecha al usuario, con su respuesta:** leer la cookie en el
+layout raíz hace que las 33 rutas pasen a render dinámico, incluidas las
+8 que eran estáticas desde PKG-010 (`/`, `/login`, `/privacidad`…). Se
+preguntó explícitamente entre aceptar ese coste o mantener estático el
+sitio público (con una arquitectura más compleja y una inconsistencia
+menor). **El usuario eligió aceptar el coste** — implementado tal cual.
+
+**Pendiente, anotado (resto de la fase, no de este tramo):**
+
+- `@axe-core/playwright` en los E2E principales (Inbox, conversación,
+  organización).
+- Recorrido manual de teclado/lector de pantalla (`ACCESSIBILITY.md` §7).
+- Verificación responsive explícita a 320/768/1024/1440 px (`RESPONSIVE.md`).
+- Exportador de tokens a Figma Variables/DTCG — pendiente de Fase 9, no
+  de esta.
+
+**Próximo paso concreto:** seguir con el resto de `UI-8` (arriba) o
+cualquier otro paquete pendiente — elección del usuario. `UI-10c` sigue
+bloqueado por Fase 7 (trámites del knowledge base).
+
+---
+
+## Registro: UI-10b cerrado (2026-09-29)
 
 Último commit: `4a437e3`.
 
@@ -54,9 +128,9 @@ E2E+build limpio:**
 
 **Pendiente, anotado (no bloquea el cierre del paquete):**
 
-- **Migración sin aplicar en staging/producción** — recordatorio de
-  memoria: hay que correr `npm run db:migrate` a mano contra esas bases
-  antes de que el código llegue allí (este repo no migra en el deploy).
+- ~~Migración sin aplicar en staging/producción~~ — aplicada por el
+  usuario (`npm run db:migrate`) el 2026-09-29, confirmado en esta misma
+  sesión.
 - **Cambiar el rol de un `<input type="date">` a algo que capture también
   la hora** no se planteó — no hace falta: el desempate en `service.ts`
   ya resuelve el caso real sin pedirle más precisión al formulario.

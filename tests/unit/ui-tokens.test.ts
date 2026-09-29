@@ -40,10 +40,48 @@ function resolveTokens(css: string): Map<string, string> {
   return resolved;
 }
 
-const tokens = resolveTokens(tokensCss);
+/**
+ * The dark theme (UI-8, `docs/ui/ROADMAP.md` "Fase 8"): the primitives
+ * block (shared by both themes) merged with the `:root[data-theme="dark"]`
+ * block specifically — not the `@media (prefers-color-scheme: dark)` one,
+ * which redefines the exact same names, so testing one covers the other.
+ * Both blocks are flat declarations with no nested braces, so a
+ * non-greedy match up to the first `}` is safe.
+ */
+function resolveDarkTokens(css: string): Map<string, string> {
+  const primitives = css.match(/:root\s*{([^}]*)}/);
+  const dark = css.match(/:root\[data-theme="dark"\]\s*{([^}]*)}/);
+  if (!primitives || !dark) {
+    throw new Error("Could not find the primitives or the dark theme block in tokens.css");
+  }
+  const raw = new Map<string, string>();
+  for (const block of [primitives[1], dark[1]]) {
+    for (const match of block.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) {
+      if (!raw.has(match[1])) {
+        raw.set(match[1], match[2].trim());
+      }
+    }
+  }
+  const resolved = new Map<string, string>();
+  const resolve = (name: string, depth = 0): string => {
+    const value = raw.get(name);
+    if (value === undefined || depth > 10) {
+      throw new Error(`Unresolvable token ${name}`);
+    }
+    const reference = value.match(/^var\((--[a-z0-9-]+)\)$/);
+    return reference ? resolve(reference[1], depth + 1) : value;
+  };
+  for (const name of raw.keys()) {
+    resolved.set(name, resolve(name));
+  }
+  return resolved;
+}
 
-function hex(name: string): string {
-  const value = tokens.get(`--${name}`);
+const tokens = resolveTokens(tokensCss);
+const darkTokens = resolveDarkTokens(tokensCss);
+
+function hex(name: string, tokenMap: Map<string, string> = tokens): string {
+  const value = tokenMap.get(`--${name}`);
   if (!value || !/^#[0-9a-f]{6}$/i.test(value)) {
     throw new Error(`--${name} is not a 6-digit hex colour (got ${value})`);
   }
@@ -56,8 +94,10 @@ function luminance(color: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-function contrast(foreground: string, background: string): number {
-  const [light, dark] = [luminance(hex(foreground)), luminance(hex(background))].sort((a, b) => b - a);
+function contrast(foreground: string, background: string, tokenMap: Map<string, string> = tokens): number {
+  const [light, dark] = [luminance(hex(foreground, tokenMap)), luminance(hex(background, tokenMap))].sort(
+    (a, b) => b - a,
+  );
   return (light + 0.05) / (dark + 0.05);
 }
 
@@ -106,6 +146,16 @@ describe("design tokens: contrast", () => {
 
   it("keeps foreground-muted for disabled/decorative text only (it is below AA by design)", () => {
     expect(contrast("foreground-muted", "background")).toBeLessThan(TEXT);
+  });
+});
+
+describe("design tokens: contrast (dark theme, UI-8)", () => {
+  it.each(PAIRS)("%s on %s reaches %s:1", (foreground, background, minimum) => {
+    expect(contrast(foreground, background, darkTokens)).toBeGreaterThanOrEqual(minimum);
+  });
+
+  it("keeps foreground-muted for disabled/decorative text only (it is below AA by design)", () => {
+    expect(contrast("foreground-muted", "background", darkTokens)).toBeLessThan(TEXT);
   });
 });
 

@@ -408,7 +408,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   verificación visual real a 900/1280/1920 px (sidebar, `ProductMenu`,
   `ContextNav` móvil, menú de organización del header).
 
-## Fase 8 — Accesibilidad y responsive · ⚪
+## Fase 8 — Accesibilidad y responsive · 🟡 En marcha (tema oscuro hecho, 2026-09-29)
 
 - **Objetivo**: auditar el sistema completo contra `ACCESSIBILITY.md` y
   `RESPONSIVE.md`.
@@ -418,6 +418,23 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   selector Claro / Oscuro / Sistema en el menú de usuario (por defecto
   Sistema), preferencia en cookie para pintarlo en servidor sin parpadeo,
   test de contraste también para el tema oscuro, `/ui-kit` en ambos.
+- **Tema oscuro, hecho (2026-09-29)**: los dos bloques de `tokens.css`
+  (`@media (prefers-color-scheme: dark)` + `:root[data-theme="dark"]`),
+  cookie `kindly_theme` (`src/components/shell/theme-cookie.ts` +
+  `theme-preference.ts`, mismo patrón que `sidebar-cookie.ts`/
+  `ficha-preference.ts`: lectura server-only, escritura desde cliente sin
+  Server Action), selector en `UserMenu` (`DropdownMenuRadioGroup` nuevo
+  en `dropdown-menu.tsx`), test de contraste oscuro en
+  `tests/unit/ui-tokens.test.ts`, E2E de "sin parpadeo" en
+  `tests/e2e/shell.spec.ts`. **Coste aceptado por el usuario**: leer la
+  cookie en `src/app/layout.tsx` (raíz, compartido por sitio público y
+  app) hace que las 33 rutas pasen a render dinámico, incluidas las 8 que
+  eran estáticas (sitio público, legal, auth) — decisión explícita, no
+  hay mecanismo de "pintado en servidor sin parpadeo" que preserve
+  render estático en el App Router. Detalle completo, paleta oscura y la
+  pregunta hecha al usuario en `docs/DECISIONS.md`.
+- **Pendiente de esta fase**: `@axe-core/playwright`, recorrido manual de
+  teclado/lector de pantalla, verificación responsive 320/768/1024/1440.
 - **Criterios de aceptación**: sin violaciones axe serias/críticas;
   checklist manual documentado aquí.
 
