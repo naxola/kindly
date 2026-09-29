@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10a cerrado; Inbox con estado en URL + caché cliente (fixes post-cierre, 4ª-5ª ronda) — siguiente UI-8 o UI-10b
 
-Último commit: sin commits (pendiente de commitear esta sesión).
+Último commit: `6680152`.
 
 ### Fix post-cierre, 5ª ronda (2026-09-29): panel corrido de lado al abrirse
 
