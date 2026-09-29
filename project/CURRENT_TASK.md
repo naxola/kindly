@@ -4,33 +4,37 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-10a cerrado; fix post-cierre reportado por el usuario — siguiente UI-8 o UI-10b
+## Paquete activo: UI-10a cerrado; fix post-cierre reportado por el usuario (dos rondas) — siguiente UI-8 o UI-10b
 
-Último commit: `d098f1d`.
+Último commit: sin commits (pendiente de commitear esta sesión).
 
-### Fix post-cierre (2026-09-29, reportado por el usuario probando UI-10a)
+### Fix post-cierre (2026-09-29, reportado por el usuario probando UI-10a, dos rondas)
 
-El usuario pidió quitar "una animación extraña" en la lista del Inbox al
-abrir una conversación: la lista se quedaba a ancho completo un momento y
-luego saltaba de golpe a su ancho estrecho en el mismo instante en que
-aparecía el panel, en vez de contraerse junto con él. Diagnosticado con un
-script Playwright instrumentado (no era un remonte de la lista — el nodo
-persiste, PKG-014 ya lo garantiza — sino un salto de ancho instantáneo,
-sin transición, retrasado ~400-500 ms por el viaje de ida y vuelta al
-servidor del panel). Detalle completo del diagnóstico y de los dos bugs
-reales encontrados al corregirlo (por qué un `loading.tsx` no sirve para
-este caso; por qué la transición no animaba la primera vez) en
-`docs/DECISIONS.md` (entrada "2026-09-29 — Fix: la lista 'tintineaba' al
-abrir una conversación") y `docs/ui/CHAT.md` §5.
+**Primera ronda**: la lista del Inbox se quedaba a ancho completo un
+momento y luego saltaba de golpe a su ancho estrecho en el mismo instante
+en que aparecía el panel. Primer arreglo: reservar el ancho de la lista
+en el propio clic. Quitó el salto pero introdujo un problema distinto.
 
-**Corregido reaccionando al propio clic, no a la navegación**: `DataList`
-gana un `onItemClick` síncrono; `InboxList` reserva el ancho final del
-panel en el mismo frame que el clic (estado local, no atado al router),
-como un alternar de clase transicionable sobre sí misma (mismo patrón que
-el colapso de la sidebar). Verificado con lint+typecheck+300/300
-unit-integration+35/35 E2E (nuevo test en
-`tests/e2e/conversation-workspace.spec.ts`, confirmado a mano con
-`git stash` que falla contra el código anterior y pasa con el arreglo).
+**Segunda ronda, reportado por el usuario**: "sigue habiendo tintineo...
+se encoge más rápido que lo que se expande el chat" — correcto: el primer
+arreglo reaccionaba al clic (~10-70 ms) mientras que el panel de verdad no
+aparece hasta que el servidor responde (~400-500 ms), dos movimientos
+desincronizados. **Solución final**: revertido el primer arreglo por
+completo; el propio `<aside>` del panel pasa de `animate-slide-in-right`
+(`transform`, nunca toca el layout) a una transición real de `width` con
+`@starting-style` (crece desde `0` al insertarse) — la lista, un simple
+hermano `flex-1` sin ninguna clase nueva, sigue ese crecimiento frame a
+frame porque ahora es una propiedad que de verdad cambia de forma
+continua en el propio panel (mismo mecanismo que ya usa
+`app-sidebar.tsx`). Detalle completo de ambas rondas (incluida la
+solución descartada) en `docs/DECISIONS.md` (dos entradas del
+2026-09-29) y `docs/ui/CHAT.md` §5.
+
+Verificado con lint+typecheck+300/300 unit-integration+35/35 E2E (test
+reescrito en `tests/e2e/conversation-workspace.spec.ts` — muestrea el
+ancho real del panel frame a frame y comprueba interpolación real, no un
+salto; confirmado a mano con `git stash` que falla contra el `<aside>`
+anterior y pasa con el arreglo).
 
 **Próximo paso concreto:** sin cambios respecto a antes de este fix —
 `UI-8` o `UI-10b`, elección del usuario.

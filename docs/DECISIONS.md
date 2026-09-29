@@ -2477,6 +2477,14 @@ comparada con el mockup de `docs/ui/mockups/conversation-workspace.html`.
 
 ## 2026-09-29 — Fix: la lista "tintineaba" al abrir una conversación
 
+**Superseded — ver la entrada siguiente ("...reservar el ancho al clic no
+bastaba")**: la solución de esta entrada (reservar el ancho de la lista en
+el propio evento de clic) sí quitó el salto sin transición, pero introdujo
+un problema nuevo — la lista y el panel dejaban de moverse a la vez. Se
+conserva esta entrada porque el diagnóstico de por qué el salto no era
+transicionable (hermano `flex-1` reaccionando a la inserción de otro
+hermano) sigue siendo válido y es la base del arreglo final.
+
 **Reportado por el usuario**, probando UI-10a: al hacer clic en una
 conversación desde `/inbox`, la zona de la lista hacía "una animación
 extraña... tintineando, reapareciendo todo el listado" al aparecer el
@@ -2542,6 +2550,71 @@ temporizador habría sido frágil en ambos sentidos); comprueba el ancho
 justo después de que `.click()` resuelve. Verificado a mano con
 `git stash` que **falla** contra el código anterior (ancho sin cambiar)
 y **pasa** con el arreglo. 300/300 unit+integration, 35/35 E2E completo.
+
+---
+
+## 2026-09-29 — Fix: reservar el ancho al clic no bastaba, hacía falta una sola transición
+
+**Reportado por el usuario**, probando el arreglo de la entrada anterior:
+"sigue habiendo tintineo cuando se expande el chat y la ficha al hacer
+clic... se encoge más rápido que lo que se expande el chat". Diagnóstico
+correcto del usuario: el arreglo anterior hacía que la lista reaccionara
+al clic **de inmediato** (~10-70 ms, confirmado por muestreo), mientras
+que el panel de verdad no empieza a aparecer hasta que el servidor
+responde (~400-500 ms) — dos movimientos separados, desincronizados, en
+vez de uno solo. La lista "terminaba" su animación mucho antes de que el
+panel ni siquiera empezara la suya.
+
+**Decisión: que sea un único elemento el que anima, y que el resto lo
+siga gratis.** Se revirtió por completo el mecanismo de la entrada
+anterior (`onItemClick` de `DataList`, `pendingOpenId`, la adivinanza de
+la cookie de ficha, las clases `max-w-*` de `InboxList`) — nada de eso
+sobrevive. En su lugar, el propio `<aside>` del panel
+(`conversation-sheet.tsx`) pasa de una animación de `transform`
+(`animate-slide-in-right`, que nunca toca el layout — por eso la lista ya
+tenía su ancho final desde el primer frame, sin nada que animar cuando el
+panel por fin llegaba) a una transición real de `width`, con
+`@starting-style` (variante `starting:` de Tailwind — soportado por los
+navegadores actuales) para que crezca desde `0` en el momento de
+insertarse, sin JavaScript. La lista, un simple hermano `flex-1` sin
+ninguna clase nueva, sigue ese crecimiento **frame a frame** porque ahora
+es una propiedad que de verdad cambia de forma continua en el propio
+elemento — el mismo mecanismo por el que el panel de contenido junto a la
+sidebar (`app-sidebar.tsx`) ya se ajusta solo cuando esta colapsa, sin
+ningún código propio.
+
+**Por qué no valía con transicionar el `max-width` de la lista** (lo que
+hacía la entrada anterior): eso solo puede dispararse en el mismo commit
+en que el panel real aparece — que es exactamente el momento en que React
+ya no muestra ningún estado intermedio para esta navegación (ver la
+entrada anterior, "por qué `loading.tsx` no sirve aquí"). Adelantarlo al
+clic (como se hizo) lo desacopla del panel real. La única forma de que
+ambos se muevan **a la vez y a la misma velocidad** es que uno sea
+la causa física del otro — de ahí crecer el propio panel en vez de
+reservar espacio por separado.
+
+**`overflow-hidden` en el `<aside>`**: sus dos columnas (chat, ficha)
+mantienen su ancho fijo de siempre durante todo el crecimiento — no se
+comprimen, se revelan de izquierda a derecha a medida que el panel se
+ensancha. Verificado con capturas rápidas en sucesión: el chat se revela
+primero (ocupa casi todo el crecimiento inicial), la ficha aparece y se
+termina de revelar en el último tramo — un fotograma suelto puede pillar
+el borde derecho de la ficha a medio cortar, se resuelve en el fotograma
+siguiente. Aceptado como razonable dada la brevedad (con
+`--duration-slow`, 250 ms nominales).
+
+**Verificación, sin depender de temporizadores frágiles**: el test E2E
+anterior (que medía "¿ya es más estrecha justo después del clic?") ya no
+tiene sentido — con este mecanismo la lista **no** reacciona antes de que
+el panel llegue, reacciona **con** él. Se sustituyó por
+`tests/e2e/conversation-workspace.spec.ts::"anchored: the panel grows
+into place (and the list follows it) over several frames, not in one
+jump"`: muestrea el ancho real del `<aside>` en cada frame desde antes
+del clic hasta después de que la ficha es visible, y comprueba que hay
+**más de dos valores distintos** — la señal de que hubo una interpolación
+de verdad, no un salto. Verificado a mano con `git stash` que **falla**
+contra el `<aside>` anterior (un único valor de ancho, el salto) y
+**pasa** con el arreglo. 300/300 unit+integration, 35/35 E2E completo.
 
 ---
 

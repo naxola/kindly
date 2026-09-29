@@ -244,33 +244,35 @@ keeps the list next to the panel"`. Detalle completo en
 `docs/DECISIONS.md` (entrada del 2026-09-28, "Fix: migración pendiente en
 staging + panel roto...").
 
-**Reportado por el usuario (2026-09-29), tras UI-10a**: abrir una
-conversación por primera vez hacía que la lista "tintineara" — se quedaba
-a su ancho completo un momento y luego saltaba de golpe a su ancho
-estrecho en el mismo instante en que aparecía el panel, en vez de
-contraerse junto con él. Causa: la lista vive en el slot `children`, que
-Next no vuelve a renderizar en esta navegación suave (el slot `@sheet` se
-resuelve por su cuenta) — nada en la lista reaccionaba hasta que React
-confirmaba el nuevo árbol del panel entero, tras el viaje de ida y vuelta
-al servidor (más lento desde UI-10a, con las consultas nuevas de la
-ficha). Y ese salto tampoco podía suavizarse con una transición CSS: lo
-que cambia el ancho de un hermano `flex-1` al insertarse **otro** hermano
-nuevo no es una propiedad propia transicionable, es un recálculo de
-layout ajeno. Corregido reaccionando al propio clic, no a la navegación:
-`InboxList` (`inbox-list.tsx`) reserva el ancho final del panel en el
-mismo evento de clic (vía un `onItemClick` nuevo en `DataList`,
-`src/components/ui/data-list.tsx`), como una clase propia que alterna
-sobre sí misma — igual que la sidebar, y por eso sí es transicionable de
-verdad (`transition-[max-width]`). Segundo hallazgo real dentro del
-mismo arreglo: esa transición no se animaba pese a estar bien declarada
-porque el estado "sin reservar" usaba la ausencia de `max-width`
-(equivalente a `none`), y una transición no puede interpolar hacia o
-desde `none` — arreglado dándole también un valor concreto
-(`max-w-full`) al estado por defecto. Test de regresión:
-`tests/e2e/conversation-workspace.spec.ts::"opening a conversation
-narrows the list immediately, not once the panel's data has loaded"`
-(verificado además a mano contra el código anterior: falla sin el
-arreglo). Detalle completo en `docs/DECISIONS.md`.
+**Reportado por el usuario (2026-09-29), tras UI-10a, en dos rondas**:
+primero, que abrir una conversación hacía que la lista "tintineara" — se
+quedaba a su ancho completo un momento y luego saltaba de golpe a su
+ancho estrecho en el mismo instante en que aparecía el panel. Un primer
+arreglo (reservar el ancho de la lista en el propio clic, antes de que el
+panel llegase) quitó el salto pero introdujo un problema distinto,
+señalado por el usuario en la segunda ronda: "se encoge más rápido que lo
+que se expande el chat" — la lista y el panel se movían por separado, no
+juntos. **Solución final: que un único elemento anime, y el resto lo siga
+gratis.** El `<aside>` del panel anclado ya no usa `animate-slide-in-right`
+(`transform`, que nunca toca el layout — por eso la lista siempre tenía
+su ancho final desde el primer frame, sin nada que animar cuando el panel
+por fin llegaba); ahora es una transición real de `width`, con
+`@starting-style` (`starting:w-0` de Tailwind) para crecer desde `0` al
+insertarse, sin JavaScript ni estado en la lista. La lista — un simple
+hermano `flex-1`, sin ninguna clase nueva — sigue ese crecimiento **frame
+a frame**, porque ahora es una propiedad que de verdad cambia de forma
+continua en el propio elemento del panel: el mismo mecanismo por el que
+el contenido junto a la sidebar (`app-sidebar.tsx`) ya se ajusta solo
+cuando esta colapsa. `overflow-hidden` en el `<aside>`: sus dos columnas
+mantienen su ancho fijo durante todo el crecimiento, así que se revelan
+de izquierda a derecha (chat primero, ficha al final) en vez de
+comprimirse. Test de regresión, sin temporizadores frágiles:
+`tests/e2e/conversation-workspace.spec.ts::"anchored: the panel grows
+into place (and the list follows it) over several frames, not in one
+jump"` — muestrea el ancho real del panel en cada frame y comprueba más
+de dos valores distintos (interpolación real, no un salto); verificado a
+mano contra el código anterior: falla sin el arreglo. Detalle completo,
+incluida la primera solución descartada, en `docs/DECISIONS.md`.
 
 ## 6. Reutilización
 

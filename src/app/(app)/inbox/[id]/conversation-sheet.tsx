@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/cn";
 
 const ANCHORED_QUERY = "(min-width: 1280px)";
 const MODAL_QUERY = "(min-width: 768px)";
@@ -293,12 +294,29 @@ export function ConversationSheet(props: ConversationSheetProps) {
         ref={panelRef}
         aria-labelledby={titleId}
         // No Radix here to gate this on `data-state=open` (there is no
-        // modal), so it just plays once on mount — matches the modal
-        // Sheet's own entrance, which the user expects even anchored.
-        // No fixed width on the outer element any more (UI-10a): its two
-        // children below each carry their own, so the ficha folding away
-        // shrinks the whole panel instead of leaving empty space.
-        className="flex h-full shrink-0 border-l border-border bg-surface-200 animate-slide-in-right"
+        // modal), so entrance is a plain CSS insertion transition
+        // (`starting:w-0`, Chrome/Firefox/Safari all current), not the
+        // `animate-slide-in-right` keyframe the modal Sheet uses. That one
+        // was a `transform`, which never touches layout — the list next
+        // to it got its final narrower width in the very first frame no
+        // matter how the panel *looked* like it was still sliding in, so
+        // once the panel's own data was ready (a server round trip, only
+        // slower since UI-10a's ficha), the list had nothing left to
+        // animate and just snapped. Actually growing this element's own
+        // `width` makes the list's resize a live flex reflow of an
+        // *animating* sibling, frame by frame — no code in the list at
+        // all, same reason `app-sidebar.tsx`'s content pane already
+        // tracks its collapse smoothly with no transition of its own.
+        // `overflow-hidden`: the two children below keep their own full
+        // widths throughout, so early frames reveal them left-to-right
+        // instead of squeezing their content.
+        className={cn(
+          "flex h-full shrink-0 overflow-hidden border-l border-border bg-surface-200",
+          "transition-[width] duration-(--duration-slow) ease-emphasized starting:w-0",
+          fichaCollapsed
+            ? "w-sheet-sm 2xl:w-sheet-md"
+            : "w-[calc(var(--sheet-w-sm)+var(--workspace-context-w))] 2xl:w-[calc(var(--sheet-w-md)+var(--workspace-context-w))]",
+        )}
       >
         <div ref={chatColumnRef} className="flex h-full w-sheet-sm shrink-0 flex-col 2xl:w-sheet-md">
           {header}

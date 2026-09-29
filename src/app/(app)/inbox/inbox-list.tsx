@@ -17,12 +17,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/primitives";
 import { InboxRow } from "@/app/(app)/inbox/inbox-row";
 import { useInboxOrderPublisher } from "@/app/(app)/inbox/inbox-order-context";
-import { cn } from "@/lib/cn";
-
-// Same name as `FICHA_COOKIE_NAME` in `ficha-cookie.ts` — not imported from
-// there directly, since that file is `import "server-only"` and would break
-// this Client Component's bundle.
-const FICHA_COOKIE_NAME = "kindly_ficha";
 
 const POLL_INTERVAL_MS = 5_000;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -81,58 +75,11 @@ export function InboxList({
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
-  // Reserves the panel's width the instant a row is clicked, not once the
-  // route transition eventually resolves (docs/ui/CHAT.md §5): this list
-  // lives in a parallel slot that never itself re-renders for the panel's
-  // own navigation (`@sheet` mounts on its own), and Next wraps that
-  // navigation in a transition that keeps the *old* UI on screen — nothing
-  // here would otherwise change — until the new one is fully ready. Without
-  // this, the list stayed full width for however long that took and then
-  // snapped narrow in the same paint the panel appeared in: an untransitioned
-  // jump (a `flex-1` sibling's size can't be CSS-transitioned when what
-  // changes is a *sibling* being inserted, not one of its own properties)
-  // that read as the whole list flickering back in. Reacting to the click
-  // itself sidesteps both problems: the resize is a plain class toggle on
-  // this same element (genuinely transitionable, like the sidebar's own
-  // collapse) and it happens in the same frame as the click.
-  const [pendingOpenId, setPendingOpenId] = useState<string | null>(null);
-  // Best-effort guess at whether the ficha column will be collapsed, so the
-  // reservation matches the panel's real final width instead of leaving a
-  // gap (or over-narrowing) when it turns out narrower — read once, since
-  // it only has to be right often enough to avoid a *second* jump, not be
-  // perfectly live.
-  const [fichaGuessCollapsed, setFichaGuessCollapsed] = useState(false);
-  useEffect(() => {
-    // Deferred a tick, same reason as `conversation-thread.tsx`'s draft
-    // read: reading `document.cookie` is inherently a post-mount concern,
-    // and this keeps it off the synchronous "setState in an effect"
-    // pattern (`react-hooks/set-state-in-effect`).
-    const timer = setTimeout(() => {
-      setFichaGuessCollapsed(document.cookie.includes(`${FICHA_COOKIE_NAME}=1`));
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-
   const delegateNameById = useMemo(() => new Map(members.map((m) => [m.userId, m.name])), [members]);
 
   // A conversation open in the panel is always `/inbox/<id>` exactly —
   // never one of this route's own subpaths — so this can't misfire.
   const openConversationId = /^\/inbox\/([^/]+)$/.exec(pathname)?.[1] ?? null;
-
-  // The real navigation has caught up (opened, or closed back to `/inbox`,
-  // or moved to a different conversation) — whatever `pendingOpenId` was
-  // reserving space for, `openConversationId` (or its absence) now reflects
-  // reality on its own, so there is nothing left for it to bridge. Cleared
-  // during render, not in an effect — same "adjust state when a prop
-  // changes" pattern as `readUpTo` below (`react-hooks/set-state-in-effect`).
-  const [lastPathname, setLastPathname] = useState(pathname);
-  if (lastPathname !== pathname) {
-    setLastPathname(pathname);
-    if (pendingOpenId !== null) {
-      setPendingOpenId(null);
-    }
-  }
-  const isPanelReserving = openConversationId !== null || pendingOpenId !== null;
 
   // Opening a conversation marks it read on the server, but this list only
   // learns that on its next poll — until then the unread dot would linger
@@ -236,23 +183,7 @@ export function InboxList({
   const hasActiveFilters = Boolean(filters.view !== "all" || filters.search || filters.channel || filters.delegateId);
 
   return (
-    <div
-      className={cn(
-        "h-full min-w-0 flex-1 overflow-y-auto transition-[max-width] duration-(--duration-slow) ease-emphasized",
-        // Reserves the anchored panel's width the instant a row is clicked
-        // (see `pendingOpenId` above) — only `xl+`, where the panel is a
-        // column next to this one rather than a modal overlaid on top of it.
-        // Always a definite value on both sides (never the bare `max-w-full`
-        // utility's `none`-equivalent absence vs. a calc()) — a transition
-        // cannot interpolate to/from `none`, which is exactly why this
-        // silently snapped instead of animating the first time around.
-        isPanelReserving
-          ? fichaGuessCollapsed
-            ? "xl:max-w-[calc(100%-var(--sheet-w-sm))] 2xl:max-w-[calc(100%-var(--sheet-w-md))]"
-            : "xl:max-w-[calc(100%-var(--sheet-w-sm)-var(--workspace-context-w))] 2xl:max-w-[calc(100%-var(--sheet-w-md)-var(--workspace-context-w))]"
-          : "xl:max-w-full",
-      )}
-    >
+    <div className="h-full min-w-0 flex-1 overflow-y-auto">
       <PageContainer size="full">
         <PageHeader title={CONVERSATIONS_TITLE} description={CONVERSATIONS_DESCRIPTION} />
 
@@ -385,7 +316,6 @@ export function InboxList({
                 aria-label="Conversaciones"
                 items={conversations.map((conversation) => ({ key: conversation.id, href: `/inbox/${conversation.id}`, conversation }))}
                 isSelected={(item) => item.conversation.id === openConversationId}
-                onItemClick={(item) => setPendingOpenId(item.key)}
                 renderItem={(item) => {
                   const conversation = item.conversation;
                   // PKG-014: a DELEGATE can now see a Conversation that

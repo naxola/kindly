@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (fix post-cierre de UI-10a: lista del Inbox ya no "tintinea" al abrir una conversación).
+Última actualización: 2026-09-29 (fix post-cierre de UI-10a, dos rondas: lista y panel del Inbox se abren como un solo movimiento sincronizado).
 
 ## Resumen en una línea
 

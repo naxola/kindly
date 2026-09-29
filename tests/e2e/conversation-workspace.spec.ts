@@ -118,7 +118,7 @@ test("below xl: chat and ficha are tabs of the same panel instead of two columns
   await expect(thread).not.toBeVisible();
 });
 
-test("anchored: opening a conversation narrows the list immediately, not once the panel's data has loaded", async ({
+test("anchored: the panel grows into place (and the list follows it) over several frames, not in one jump", async ({
   page,
   request,
 }) => {
@@ -126,19 +126,31 @@ test("anchored: opening a conversation narrows the list immediately, not once th
   await registerAndReachInbox(page, delegateName);
   const contactName = await createAConversation(page, request, delegateName);
 
-  const list = page.getByRole("list", { name: "Conversaciones" });
-  const fullWidth = (await list.boundingBox())!.width;
-
+  // Sample the panel's own rendered width on every animation frame from
+  // just before the click through just after the panel's data arrives.
+  // `docs/ui/CHAT.md §5`: the panel's entrance is a real `width` transition
+  // (`starting:w-0`, not the modal Sheet's `transform`) specifically so the
+  // list next to it — a plain `flex-1` sibling, no code of its own — grows
+  // and shrinks with it frame by frame instead of jumping once when the
+  // panel's data (a server round trip) finally arrives. Distinct
+  // intermediate widths is exactly the signal that tells the two apart.
+  await page.evaluate(() => {
+    const probe = window as unknown as { __widths: number[] };
+    probe.__widths = [];
+    let frames = 0;
+    function sample() {
+      const aside = document.querySelector("aside[aria-labelledby]");
+      if (aside) probe.__widths.push(Math.round(aside.getBoundingClientRect().width));
+      frames++;
+      if (frames < 60) requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+  });
   await page.getByText(contactName).click();
-  // No wait in between: `.click()` resolves once the click has been
-  // dispatched, before the server round trip that opens the conversation
-  // could possibly have completed. The list's own width reservation reacts
-  // to the click itself, synchronously (docs/ui/CHAT.md §5) — it must
-  // already be narrower *right here*, not once the panel's data arrives.
-  // A time-based race (poll for N ms) would be flaky in both directions:
-  // checking this deterministically, with no wait at all, is what actually
-  // catches a regression back to "waits for the panel, then snaps narrow
-  // in the same paint it appears in" — the bug this reserving exists to fix.
-  const widthRightAfterClick = (await list.boundingBox())!.width;
-  expect(widthRightAfterClick).toBeLessThan(fullWidth - 100);
+  await expect(page.getByRole("complementary", { name: "Ficha del afiliado" })).toBeVisible();
+  await page.waitForTimeout(300);
+
+  const widths = await page.evaluate(() => (window as unknown as { __widths: number[] }).__widths);
+  const distinctPositiveWidths = new Set(widths.filter((w: number) => w > 0));
+  expect(distinctPositiveWidths.size).toBeGreaterThan(2);
 });
