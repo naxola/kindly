@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-10a cerrado; fix post-cierre reportado por el usuario (dos rondas) — siguiente UI-8 o UI-10b
 
-Último commit: sin commits (pendiente de commitear esta sesión).
+Último commit: `ff62f78`.
 
 ### Fix post-cierre (2026-09-29, reportado por el usuario probando UI-10a, dos rondas)
 
