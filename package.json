@@ -16,7 +16,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "auth:reset-password": "tsx scripts/reset-password.ts",
-    "tokens:export": "tsx scripts/export-tokens.ts"
+    "tokens:export": "tsx scripts/export-tokens.ts",
+    "knowledge:ingest": "NODE_OPTIONS=--conditions=react-server tsx scripts/ingest-knowledge.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.5",
@@ -33,7 +34,8 @@
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -70,7 +70,7 @@ export interface ChunkInput {
   content: string;
 }
 
-interface CreateDocumentVersionInput {
+export interface CreateDocumentVersionInput {
   documentId: string;
   version: string;
   /** Defaults to DRAFT. A CURRENT version supersedes the document's prior CURRENT. */

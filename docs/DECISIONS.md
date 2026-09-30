@@ -3327,3 +3327,102 @@ de documentos y de chunks, superseder de CURRENT, round-trip del embedding y
 recuperación por coseno con hard filter de tenancy)+build limpio. Migración
 `0009` aplicada en local; **pendiente aplicarla a mano contra
 staging/producción** (`npm run db:migrate`, este repo no migra en el deploy).
+
+## 2026-09-30 — Fase 7b: ingesta (PDF/web → chunks jerárquicos) + pipeline de embeddings
+
+**Contexto:** cerrada la Fase 7a (capa de datos del backbone RAG), el
+usuario eligió continuar con **7b** — el hueco que 7a dejó anotado:
+`createDocumentVersion` ya sabe insertar chunks embebidos, pero esperaba la
+lista hecha a mano. 7b añade la extracción (PDF/web/texto → texto plano), el
+chunker jerárquico y un proveedor real de embeddings, sin tocar el dominio
+de 7a. Sigue sin haber UI (7e).
+
+**Decisiones tomadas con el usuario (`AskUserQuestion`):**
+
+1. **`unpdf` para PDF** (wrapper de pdf.js, sin binarios nativos, pensado
+   para serverless) en vez de `pdf-parse` o aplazar el PDF. Cero dependencias
+   transitivas nuevas; exige Node ≥22 (ya lo usa el repo).
+2. **OpenAI cableado ya**, no solo el fake. `OpenAIEmbeddingProvider`
+   (`knowledge/openai-embedding-provider.ts`) registrado desde
+   `src/instrumentation.ts` solo si `OPENAI_API_KEY` está presente — ausente
+   en todos los entornos salvo que se configure, igual que hoy
+   (`getEmbeddingProvider()` sigue lanzando, **nunca** cae en silencio al
+   fake, que sería semánticamente falso para conocimiento real — `CLAUDE.md`
+   §3). `fetch` crudo, sin el SDK de OpenAI, mismo patrón que
+   `ResendEmailSender` (`email/resend.ts`): una sola llamada no justifica una
+   dependencia, error mapeado solo al mensaje de OpenAI (nunca la request,
+   que lleva la clave — `CLAUDE.md` §5).
+3. **Disparo por script de operador** (`npm run knowledge:ingest`), no por
+   UI ni ruta HTTP — no hay UI de Knowledge hasta 7e. `ingestDocumentVersion`
+   (`knowledge/ingestion/pipeline.ts`) es la única función que el script usa
+   y que 7e reutilizará; ya queda en forma de envolver con `after()` sin
+   reescritura cuando haga falta (decisión previa de no meter worker
+   todavía, `ARCHITECTURE.md` §8).
+
+**Hallazgo de diseño, reutilizable para futuros scripts:** `knowledge/
+service.ts`, `embedding-provider.ts` y `openai-embedding-provider.ts`
+empiezan con `import "server-only"`, que **lanza siempre** en un proceso
+Node/tsx normal — confirmado en vivo (`node script.mjs` lanza, `node
+--conditions=react-server script.mjs` no, porque `server-only`'s
+`package.json` resuelve a un no-op bajo esa condición de `exports`).
+`scripts/reset-password.ts` evitaba el problema hablando SQL crudo
+directamente, aceptable para una sola `UPDATE`; aquí habría significado
+duplicar el invariante GLOBAL/ORG, el superseder de `CURRENT` y la
+denormalización de tenancy de 7a, con riesgo real de desincronización. En
+vez de eso, `package.json` invoca el script con `NODE_OPTIONS=
+--conditions=react-server`, que `tsx` respeta igual que `node` — los alias
+`@/*` de `tsconfig.json` se resuelven igual bajo esa condición. El script
+reutiliza `createDocument`/`createDocumentVersion`/`ingestDocumentVersion`
+sin tocarlos ni un carácter. El mismo `NODE_OPTIONS` sirve para cualquier
+script futuro que necesite importar un módulo `server-only`.
+
+**Segundo hallazgo, de proceso:** el script colgaba varios minutos tras
+terminar su trabajo (documento y versión creados correctamente, pero el
+proceso nunca salía). Causa: el pool de PostgreSQL de `db/client.ts` está
+cacheado en `globalThis` (compartido con toda la app, PKG-004) y ningún
+script lo cierra — a diferencia de `reset-password.ts`, que abre su propia
+conexión y la cierra en un `finally`, este script reutiliza el pool
+compartido, que no es suyo para cerrar. Arreglado saliendo explícitamente
+con `process.exit(0)`/`process.exit(1)` al terminar, en vez de dejar que el
+runtime intente drenar un event loop que nunca se vacía solo.
+
+4. **Heurística de chunking, mejor esfuerzo documentado como tal**
+   (`ingestion/chunking.ts`, función pura): reconoce `TÍTULO`/`CAPÍTULO`
+   (nivel `CHAPTER`), `SECCIÓN` (`SECTION`) y `ARTÍCULO` (`ARTICLE`) al
+   inicio de línea, manteniendo un breadcrumb de contexto para `path`. Cada
+   fila de `knowledge_chunks` es el contenido de **una unidad concreta**, no
+   "una fila por nivel" (el esquema no tiene aristas padre/hijo entre
+   chunks): una unidad que cabe en un chunk conserva su propio nivel; una
+   demasiado larga se divide por párrafo (`PARAGRAPH`); un párrafo todavía
+   demasiado largo, o cualquier texto sin estructura reconocible (una web
+   genérica, un manual interno), cae a fragmentos de tamaño fijo
+   (`FRAGMENT`). El texto que sigue a una cabecera en la misma línea se trata
+   siempre como cuerpo, nunca como parte del `label` — la extracción de PDF
+   suele colapsar un artículo entero en una sola línea, así que "lo que
+   sigue al número" es a menudo prosa, no un título. Límite conocido: el
+   orden de extracción de texto de un PDF con columnas/cabeceras puede
+   desordenar las líneas; aceptado como limitación de "cuando sea posible"
+   (`DATABASE.md` §14), no un parser legal completo.
+5. **Extracción de web sin librería de parseo HTML** (`ingestion/
+   extract-web.ts`): un stripper por regex (etiquetas de bloque → salto de
+   línea, el resto fuera, entidades decodificadas) en vez de cheerio/jsdom
+   en producción (`CLAUDE.md` §2) — suficiente para páginas oficiales
+   estáticas. Rechaza esquemas que no sean `http(s)` y limita el tamaño de
+   la respuesta (10 MiB) antes de procesarla.
+6. **`--provider fake` como escape explícito**, nunca por defecto
+   (`scripts/lib/knowledge-ingest-args.ts`): el operador tiene que pedirlo a
+   propósito para ingerir con el fake determinista (dev/testing), con un
+   aviso en consola de que el resultado es semánticamente inútil — igual
+   que el resto de fakes del repo, nunca una sustitución silenciosa.
+
+**Verificación:** lint+typecheck+471/471 unit-integration (420 previos + 51
+nuevos: `knowledge-chunking.test.ts` — 11, chunker puro;
+`knowledge-extract-web.test.ts` — 11, `htmlToText` puro + `fetchWebText` con
+`fetchImpl` de prueba; `knowledge-openai-provider.test.ts` — 6, `fetch`
+mockeado; `knowledge-ingest-args.test.ts` — 18, parseo/validación de flags;
+`knowledge-ingestion.test.ts` — 5, pipeline completo PDF/WEB/TEXT contra
+PostgreSQL real con el fake registrado, incluida una fixture PDF mínima
+válida en `tests/fixtures/knowledge/sample.pdf`)+build limpio. Sin E2E
+(sigue sin haber UI, mismo motivo que 7a). Smoke test manual del script con
+`--provider fake` contra la base local (texto, PDF, y el camino de error de
+flags faltantes) antes de cerrar la sesión; filas de prueba borradas después.

@@ -9,7 +9,8 @@
  * See docs/DECISIONS.md, bloque "PKG-004", for the full rationale.
  *
  * Also registers PKG-011's WhatsApp test adapter, under its own opt-in
- * (see `registerWhatsAppTestAdapter` below).
+ * (see `registerWhatsAppTestAdapter` below), and Fase 7b's real
+ * `EmbeddingProvider` (see `registerOpenAIEmbeddingProvider` below).
  */
 export async function register() {
   // The fake adapter uses `node:crypto`, unsupported in the Edge runtime —
@@ -21,6 +22,7 @@ export async function register() {
   }
 
   await registerWhatsAppTestAdapter();
+  await registerOpenAIEmbeddingProvider();
 
   if (process.env.E2E_FAKE_MESSAGING_CHANNEL !== "true") {
     return;
@@ -81,4 +83,22 @@ async function registerWhatsAppTestAdapter() {
       verifyToken,
     }),
   );
+}
+
+/**
+ * Fase 7b: the real `EmbeddingProvider` (OpenAI `text-embedding-3-small`),
+ * registered only when `OPENAI_API_KEY` is set. Absent everywhere else
+ * (local dev without a key, CI), `getEmbeddingProvider()` keeps throwing as
+ * it did before this package — no silent fallback to the deterministic
+ * fake, which must never produce real search results (`CLAUDE.md` §3).
+ */
+async function registerOpenAIEmbeddingProvider() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return;
+  }
+
+  const { registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
+  const { OpenAIEmbeddingProvider } = await import("@/modules/knowledge/openai-embedding-provider");
+  registerEmbeddingProvider(new OpenAIEmbeddingProvider({ apiKey }));
 }

@@ -706,8 +706,8 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 ### Fase 7b… — pendiente
 
 - [ ] **Trámites** (`Procedure`, por Organization, versionados): pasos y documentos requeridos; vinculables a Caso/conversación (pedido 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md` §5.2). (Fase 7d — desbloquea `UI-10c`.)
-- [ ] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo. (Fase 7b.)
-- [ ] Pipeline de embeddings (worker vía `after()`, reusando `EmbeddingProvider`). (Fase 7b.)
+- [x] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo. (Fase 7b, cerrado 2026-09-30 — `knowledge/ingestion/extract-web.ts` + `extract-pdf.ts`.)
+- [x] Pipeline de embeddings (reusando `EmbeddingProvider`; disparado por script de operador, no worker — sin UI hasta 7e). (Fase 7b, cerrado 2026-09-30 — `knowledge/ingestion/pipeline.ts`, `OpenAIEmbeddingProvider`.)
 - [ ] PostgreSQL FTS + pgvector, búsqueda híbrida (query de recuperación). (Fase 7c.)
 - [ ] Hard filters de tenancy/vigencia antes de ranking semántico (en la query). (Fase 7c.)
 - [ ] Citations trazables en UI. (Fase 7e.)
