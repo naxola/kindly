@@ -45,11 +45,13 @@ describe("htmlToText", () => {
   });
 });
 
+const publicHost = async () => ["93.184.216.34"];
+
 describe("fetchWebText", () => {
   it("fetches and extracts text from the given URL", async () => {
     const fetchImpl = vi.fn(async () => new Response("<p>Contenido</p>", { status: 200 }));
 
-    const text = await fetchWebText("https://example.org/ley", { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const text = await fetchWebText("https://example.org/ley", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost });
 
     expect(text).toBe("Contenido");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -59,7 +61,7 @@ describe("fetchWebText", () => {
     const fetchImpl = vi.fn();
 
     await expect(
-      fetchWebText("file:///etc/passwd", { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      fetchWebText("file:///etc/passwd", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost }),
     ).rejects.toThrow(/http/i);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -68,7 +70,7 @@ describe("fetchWebText", () => {
     const fetchImpl = vi.fn(async () => new Response("not found", { status: 404 }));
 
     await expect(
-      fetchWebText("https://example.org/missing", { fetchImpl: fetchImpl as unknown as typeof fetch }),
+      fetchWebText("https://example.org/missing", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost }),
     ).rejects.toThrow(/404/);
   });
 
@@ -76,7 +78,50 @@ describe("fetchWebText", () => {
     const fetchImpl = vi.fn(async () => new Response("x".repeat(100), { status: 200 }));
 
     await expect(
-      fetchWebText("https://example.org/huge", { fetchImpl: fetchImpl as unknown as typeof fetch, maxBytes: 10 }),
+      fetchWebText("https://example.org/huge", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost, maxBytes: 10 }),
     ).rejects.toThrow(/exceeds/i);
+  });
+
+  it("refuses a host that resolves to a private address, without fetching", async () => {
+    const fetchImpl = vi.fn();
+
+    await expect(
+      fetchWebText("https://interno.example.org/", {
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        resolveHost: async () => ["10.0.0.5"],
+      }),
+    ).rejects.toThrow(/public address/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("re-checks every redirect hop: a public URL redirecting to cloud metadata is refused", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest" } }));
+
+    await expect(
+      fetchWebText("https://example.org/r", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost }),
+    ).rejects.toThrow(/public address/i);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("follows a redirect to another public URL", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 301, headers: { location: "/nueva" } }))
+      .mockResolvedValueOnce(new Response("<p>Final</p>", { status: 200 }));
+
+    const text = await fetchWebText("https://example.org/vieja", {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      resolveHost: publicHost,
+    });
+    expect(text).toBe("Final");
+    expect(fetchImpl.mock.calls[1][0].href).toBe("https://example.org/nueva");
+  });
+
+  it("gives up after too many redirects", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 302, headers: { location: "/loop" } }));
+
+    await expect(
+      fetchWebText("https://example.org/loop", { fetchImpl: fetchImpl as unknown as typeof fetch, resolveHost: publicHost }),
+    ).rejects.toThrow(/redirects/i);
   });
 });

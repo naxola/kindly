@@ -38,6 +38,8 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   ORGANIZATION_RENAMED: "Organización renombrada",
   PROCEDURE_CREATED: "Trámite creado",
   PROCEDURE_VERSION_PUBLISHED: "Versión de trámite publicada",
+  KNOWLEDGE_DOCUMENT_CREATED: "Documento de conocimiento creado",
+  KNOWLEDGE_VERSION_PUBLISHED: "Versión de conocimiento publicada",
 };
 
 function labelFor(type: string): string {

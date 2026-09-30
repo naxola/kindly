@@ -10,7 +10,8 @@ export type ActivityEntityType =
   | "conversation"
   | "messaging_account"
   | "organization"
-  | "procedure";
+  | "procedure"
+  | "knowledge_document";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -39,6 +40,8 @@ export type ActivityEntityType =
  * its own page and activity feed.
  * Fase 7d adds PROCEDURE_CREATED/PROCEDURE_VERSION_PUBLISHED
  * (`procedures/service.ts`) — entity `procedure`.
+ * Fase 7f adds KNOWLEDGE_DOCUMENT_CREATED/KNOWLEDGE_VERSION_PUBLISHED
+ * (`knowledge/upload.ts`) — entity `knowledge_document`.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -68,7 +71,9 @@ export type ActivityType =
   | "MEMBER_ROLE_CHANGED"
   | "ORGANIZATION_RENAMED"
   | "PROCEDURE_CREATED"
-  | "PROCEDURE_VERSION_PUBLISHED";
+  | "PROCEDURE_VERSION_PUBLISHED"
+  | "KNOWLEDGE_DOCUMENT_CREATED"
+  | "KNOWLEDGE_VERSION_PUBLISHED";
 
 interface RecordActivityInput {
   organizationId: string;

@@ -23,6 +23,7 @@ export async function register() {
 
   await registerWhatsAppTestAdapter();
   await registerOpenAIEmbeddingProvider();
+  await registerFakeEmbeddingProviderForE2E();
 
   if (process.env.E2E_FAKE_MESSAGING_CHANNEL !== "true") {
     return;
@@ -101,4 +102,31 @@ async function registerOpenAIEmbeddingProvider() {
   const { registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
   const { OpenAIEmbeddingProvider } = await import("@/modules/knowledge/openai-embedding-provider");
   registerEmbeddingProvider(new OpenAIEmbeddingProvider({ apiKey }));
+}
+
+/**
+ * Fase 7f: the deterministic fake `EmbeddingProvider`, only when
+ * `E2E_FAKE_EMBEDDINGS=true` — set exclusively by `playwright.config.ts`, so
+ * the E2E suite can upload and search documents without an OpenAI key. Never
+ * in `.env.example` or any deployment config, and refused outright on Vercel
+ * (its vectors are semantically meaningless; `CLAUDE.md` §3).
+ */
+async function registerFakeEmbeddingProviderForE2E() {
+  if (process.env.E2E_FAKE_EMBEDDINGS !== "true" || process.env.NEXT_RUNTIME !== "nodejs") {
+    return;
+  }
+  if (process.env.VERCEL) {
+    console.warn("[knowledge] E2E_FAKE_EMBEDDINGS is ignored on Vercel.");
+    return;
+  }
+  // The real provider wins if both are configured.
+  const { getEmbeddingProvider, registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
+  try {
+    getEmbeddingProvider();
+    return;
+  } catch {
+    // none registered yet: fall through
+  }
+  const { createFakeEmbeddingProvider } = await import("@/modules/knowledge/testing/fake-embedding-provider");
+  registerEmbeddingProvider(createFakeEmbeddingProvider());
 }

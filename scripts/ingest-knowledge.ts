@@ -2,9 +2,9 @@
  * Operator tool: ingest a PDF, a web page or a plain text file into the
  * Knowledge base (Fase 7b) — extraction + hierarchical chunking +
  * embeddings + persistence, reusing `ingestDocumentVersion`
- * (`knowledge/ingestion/pipeline.ts`) unchanged. There is no UI for this
- * yet (7e); GLOBAL knowledge (laws, official guides) and an organization's
- * own private knowledge are both loaded this way until then.
+ * (`knowledge/ingestion/pipeline.ts`) unchanged. Since Fase 7f an ADMIN
+ * uploads their organization's knowledge from the UI; this script remains
+ * the only way to load GLOBAL knowledge (laws, official guides).
  *
  * This script imports `knowledge/service.ts` and friends, which start with
  * `import "server-only"` — that throws under a plain Node/tsx run unless

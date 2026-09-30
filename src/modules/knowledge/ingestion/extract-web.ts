@@ -60,7 +60,13 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+import { assertPublicHost, type HostResolver } from "@/modules/knowledge/ingestion/network-guard";
+
+const MAX_REDIRECTS = 5;
+
 export interface FetchWebTextOptions {
+  /** Injectable for tests — never a real DNS lookup in CI. */
+  resolveHost?: HostResolver;
   /** Injectable for tests — never a real network call in CI. */
   fetchImpl?: typeof fetch;
   /** Hard cap on the response body size, to avoid pathological memory use. */
@@ -71,19 +77,33 @@ const DEFAULT_MAX_BYTES = 10 * 1024 * 1024; // 10 MiB
 
 /**
  * Fetch a web page and return its extracted text. Rejects any protocol but
- * http(s) — this is operator-triggered (no public HTTP endpoint calls it
- * yet), but there is no reason to ever resolve a `file:`/other scheme.
+ * http(s), and (Fase 7f, the URL now comes from the UI) any host that does
+ * not resolve to a public address — re-checked on every redirect hop, which
+ * are followed manually for exactly that reason.
  */
 export async function fetchWebText(url: string, options: FetchWebTextOptions = {}): Promise<string> {
-  const parsed = new URL(url);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`Refusing to fetch a non-http(s) URL: ${url}`);
-  }
-
   const fetchImpl = options.fetchImpl ?? fetch;
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
 
-  const response = await fetchImpl(parsed);
+  let current = new URL(url);
+  let response: Response | undefined;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (current.protocol !== "http:" && current.protocol !== "https:") {
+      throw new Error(`Refusing to fetch a non-http(s) URL: ${current.href}`);
+    }
+    await assertPublicHost(current, options.resolveHost);
+
+    response = await fetchImpl(current, { redirect: "manual" });
+    const location = response.status >= 300 && response.status < 400 ? response.headers.get("location") : null;
+    if (!location) {
+      break;
+    }
+    current = new URL(location, current);
+    response = undefined;
+  }
+  if (!response) {
+    throw new Error(`Fetching ${url} failed: too many redirects.`);
+  }
   if (!response.ok) {
     throw new Error(`Fetching ${url} failed: HTTP ${response.status}`);
   }

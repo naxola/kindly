@@ -15,7 +15,11 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { PageSection } from "@/components/patterns/page-section";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { uploadKnowledgeVersionAction } from "@/modules/knowledge/actions";
+import { UploadForm } from "@/app/(app)/knowledge/upload-form";
 import { pageTitle } from "@/lib/page-title";
+
+export const maxDuration = 60;
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -59,6 +63,21 @@ export default async function KnowledgeDocumentPage({ params }: { params: Promis
           ) : undefined
         }
       />
+
+      {member.role === "ADMIN" && document.visibility === "ORGANIZATION" && (
+        <Card className="max-w-page-sm">
+          <CardHeader>
+            <CardTitle>Nueva versión</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UploadForm
+              action={uploadKnowledgeVersionAction.bind(null, document.id)}
+              withDocumentFields={false}
+              submitLabel="Subir versión"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <PageSection title="Versiones" description="De la más reciente a la más antigua">
         {versions.length === 0 && <p className="type-body text-foreground-lighter">Este documento no tiene versiones.</p>}

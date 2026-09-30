@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { listDocumentsForOrganization } from "@/modules/knowledge/service";
 import { retrieveKnowledge, type KnowledgeSearchResult } from "@/modules/knowledge/retrieval";
+import { UploadDocumentSheet } from "@/app/(app)/knowledge/upload-document-sheet";
 import { CitationCard } from "@/app/(app)/knowledge/citation-card";
 import { SOURCE_TYPE_LABELS, VISIBILITY_LABELS } from "@/app/(app)/knowledge/labels";
 import { PageContainer } from "@/components/patterns/page-container";
@@ -15,6 +16,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { pageTitle } from "@/lib/page-title";
+
+// Uploading embeds every chunk in the request: give the Server Action room (Vercel).
+export const maxDuration = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
   const member = await requireCurrentOrganizationMember();
@@ -51,9 +55,12 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
         title="Conocimiento"
         description="Normativa y documentación con fuente, versión y vigencia verificables"
         aside={
-          <Link href="/knowledge/procedures" className="focus-ring type-body rounded-sm text-foreground-lighter underline">
-            Trámites
-          </Link>
+          <>
+            <Link href="/knowledge/procedures" className="focus-ring type-body rounded-sm text-foreground-lighter underline">
+              Trámites
+            </Link>
+            {member.role === "ADMIN" && <UploadDocumentSheet />}
+          </>
         }
       />
 
@@ -113,7 +120,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
               <TableEmpty
                 colSpan={4}
                 title="Todavía no hay documentos"
-                description="La ingesta de documentos se hace por ahora desde el script de operador."
+                description={member.role === "ADMIN" ? "Sube el primero con «Subir documento»." : "Un administrador puede subirlos."}
               />
             )}
           </TableBody>

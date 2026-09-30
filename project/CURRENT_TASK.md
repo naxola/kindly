@@ -4,9 +4,26 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7d (Trámites) cerrada — Fase 7 completa. Siguiente: UI-10c o Fase 8
+## Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
 
 Último commit: ver `git log` (este commit incluye el registro).
+
+### Fase 7f — Subida de documentos de Knowledge desde la UI (2026-09-30)
+
+Hecho: "Subir documento" en `/knowledge` y "Nueva versión" en
+`/knowledge/[id]` (solo ADMIN; PDF, texto o web; solo conocimiento de la
+organización), `knowledge/upload.ts` + `actions.ts`, validación
+(`ingestion/upload-validation.ts`), guardia SSRF (`ingestion/network-guard.ts`,
+redirecciones re-comprobadas), tests y E2E con embeddings falsos. Detalle en
+`docs/DECISIONS.md` ("Fase 7f").
+
+**Pendiente, anotado:** la subida es síncrona (puede ser lenta con
+documentos grandes; siguiente paso `after()` + estado); el conocimiento
+GLOBAL sigue solo por script de operador (`npm run knowledge:ingest`);
+migraciones `0009`/`0010` a aplicar a mano en staging/producción.
+**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**.
+
+---
 
 ### Fase 7d — Trámites (2026-09-30)
 

@@ -3571,3 +3571,53 @@ CURRENT, aislamiento entre organizaciones, listado)+49/49 E2E (48 previos +
 `procedures.spec.ts`: ADMIN crea y publica v2, DELEGATE solo lee; axe sin
 violaciones serias)+build limpio.
 
+## 2026-09-30 — Fase 7f: subida de documentos de Knowledge desde la UI
+
+**Contexto:** el usuario pidió poder subir archivos sin el script de operador
+(solo ADMIN, ya decidido en 7d).
+
+**Decisiones:**
+
+1. **Solo ADMIN, solo conocimiento de la organización.** La UI crea siempre
+   `ORGANIZATION`; **el conocimiento `GLOBAL` (afecta a todos los tenants)
+   sigue siendo solo del script de operador**. Una nueva versión solo puede
+   añadirse a documentos propios (un GLOBAL o de otra organización da error).
+2. **El archivo no se guarda**, solo el texto extraído y sus chunks
+   (mismo principio que los archivos de afiliados). Orígenes: PDF, texto
+   (.txt/.md, UTF-8) y página web.
+3. **Validación de archivos (`CLAUDE.md` §5):** PDF ≤ 4 MB (la función
+   serverless de Vercel rechaza cuerpos > 4,5 MB antes de llegar al código),
+   texto ≤ 2 MB, comprobación de la cabecera `%PDF-` (no solo la extensión),
+   texto sin NUL y UTF-8 válido; texto extraído ≤ 400 000 caracteres y ≤ 400
+   chunks (acota el coste de embeddings de una subida). `bodySizeLimit` de
+   Server Actions subido a 5 MB (`next.config.ts`).
+4. **Protección SSRF en la URL** (ahora viene de la UI, no de un operador):
+   solo http(s), sin credenciales, el host debe resolver **solo** a
+   direcciones públicas (bloquea loopback, privadas, link-local/metadatos
+   cloud, CGNAT, multicast, IPv6 equivalentes y IPv4-mapeadas), y las
+   redirecciones se siguen a mano (máx. 5) **re-comprobando cada salto**.
+   Residual conocido: rebinding de DNS entre la comprobación y el `fetch`;
+   aceptado porque quien llama es un ADMIN autenticado y cerrarlo exige
+   fijar la IP con un dispatcher propio.
+5. **Síncrono, sin worker**: la acción extrae, trocea, embebe y guarda en la
+   petición (`maxDuration = 60` en las páginas). Sigue la decisión de no
+   introducir colas (`CLAUDE.md` §2); si los documentos reales resultan
+   demasiado lentos, el siguiente paso es `after()` + estado del documento.
+6. **Errores en el formulario, no excepciones**: la acción devuelve
+   `{ error, values }`; los valores se devuelven porque React 19 resetea el
+   formulario tras la acción y el usuario perdería lo escrito. Un documento
+   nuevo cuya versión falla se borra (no quedan documentos vacíos).
+7. **E2E con embeddings falsos**: `E2E_FAKE_EMBEDDINGS=true`, solo en
+   `playwright.config.ts`, ignorado en Vercel y nunca por encima de un
+   proveedor real; `OPENAI_API_KEY` se vacía en el servidor E2E. Así la
+   subida y la búsqueda con cita se prueban de extremo a extremo. Coste: el
+   aviso "La búsqueda no está disponible" ya no se cubre en E2E.
+8. Auditoría: `KNOWLEDGE_DOCUMENT_CREATED` / `KNOWLEDGE_VERSION_PUBLISHED`
+   (entidad `knowledge_document`).
+
+**Verificación:** lint+typecheck+build+unit/integración (nuevos: 19 validación
+de subida, 24 guardia de red, 4 redirecciones/SSRF en `extractWebText`, 7
+integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
++51/51 E2E (49 previos + 2 de subida: texto+nueva versión+búsqueda con cita,
+PDF real/PDF falso/URL privada, y DELEGATE sin botón).
+
