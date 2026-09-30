@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-9 cerrado — rediseño UI/UX completo (`UI-0`…`UI-9`). Siguiente: elección del usuario (Fase 6 — Cases, Fase 7 — Knowledge, o cualquier otro pendiente)
 
-Último commit: sin commits todavía en esta sesión (pendiente).
+Último commit: `b717458`.
 
 ### UI-9 — Consolidación (2026-09-30)
 
