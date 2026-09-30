@@ -6,8 +6,7 @@
 
 ## Paquete activo: Fase 6 (Cases) cerrada. Siguiente: elección del usuario (Fase 7 — Knowledge, o `UI-10c/d/e/f` si se resuelve su bloqueo)
 
-Último commit: pendiente de esta sesión (se registra en el próximo commit
-de documentación, mismo patrón que las fases anteriores).
+Último commit: `e820da3`.
 
 ### Fase 6 — Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation (2026-09-30)
 
