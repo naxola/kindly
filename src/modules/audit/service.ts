@@ -32,6 +32,10 @@ export type ActivityEntityType =
  * (`memberships/service.ts`) — entity `contact`, like
  * CONTACT_DELEGATE_ASSIGNED, since a Membership has no page of its own and
  * shows up in the Contact's activity feed.
+ * Fase 6 adds CASE_CONVERSATION_LINKED/CASE_CONVERSATION_UNLINKED
+ * (`conversations/service.ts::linkConversationToCase`/
+ * `unlinkConversationFromCase`) — entity `case`, the Case is the side with
+ * its own page and activity feed.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -45,6 +49,8 @@ export type ActivityType =
   | "CASE_CREATED"
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"
+  | "CASE_CONVERSATION_LINKED"
+  | "CASE_CONVERSATION_UNLINKED"
   | "TASK_CREATED"
   | "TASK_COMPLETED"
   | "MESSAGE_RECEIVED"

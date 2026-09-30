@@ -21,6 +21,8 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   CASE_CREATED: "Case creado",
   CASE_ASSIGNED: "Case asignado",
   CASE_STATUS_CHANGED: "Estado del case cambiado",
+  CASE_CONVERSATION_LINKED: "Conversación vinculada",
+  CASE_CONVERSATION_UNLINKED: "Conversación desvinculada",
   TASK_CREATED: "Task creada",
   TASK_COMPLETED: "Task completada",
   MESSAGE_RECEIVED: "Mensaje recibido",

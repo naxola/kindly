@@ -152,6 +152,27 @@ export async function isOrganizationMember(organizationId: string, userId: strin
   return Boolean(row);
 }
 
+/**
+ * Defense in depth for `Case.assignedTo` (Fase 6, `docs/DECISIONS.md`): a
+ * Case can only be assigned to a DELEGATE, never an ADMIN — an ADMIN
+ * administers, it does not carry a caseload, same split as the Contact
+ * "delegado de referencia" (PKG-014).
+ */
+export async function isOrganizationDelegate(organizationId: string, userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ userId: organizationMembers.userId })
+    .from(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.organizationId, organizationId),
+        eq(organizationMembers.userId, userId),
+        eq(organizationMembers.role, "DELEGATE"),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
 /** General page (UI-7): name and creation date, alongside the caller's own role/membership count. */
 export async function getOrganization(organizationId: string) {
   const [row] = await db.select().from(organizations).where(eq(organizations.id, organizationId)).limit(1);

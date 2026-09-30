@@ -97,8 +97,45 @@ export async function linkConversationToCase(organizationId: string, conversatio
   if (!relatedCase) {
     throw new Error("Case not found in this organization.");
   }
+  // A Case always belongs to exactly one Contact (`cases.contactId NOT
+  // NULL`) — linking a Conversation from a different Contact has no product
+  // meaning (Fase 6, docs/PRODUCT.md sección 7) and nothing else checks it.
+  if (relatedCase.contactId !== conversation.contactId) {
+    throw new Error("Cannot link a Conversation to a Case of a different Contact.");
+  }
 
   await db.insert(conversationCases).values({ conversationId, caseId }).onConflictDoNothing();
+}
+
+/** Conversations linked to a Case (Fase 6), most recently linked first. */
+export async function listLinkedConversations(organizationId: string, caseId: string) {
+  return db
+    .select({ conversation: conversations, linkedAt: conversationCases.createdAt })
+    .from(conversationCases)
+    .innerJoin(conversations, eq(conversations.id, conversationCases.conversationId))
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversationCases.caseId, caseId)))
+    .orderBy(desc(conversationCases.createdAt));
+}
+
+/** Case ids a Conversation is linked to (Fase 6) — used by the Inbox ficha to mark cases already linked. */
+export async function listCaseIdsLinkedToConversation(organizationId: string, conversationId: string): Promise<string[]> {
+  const rows = await db
+    .select({ caseId: conversationCases.caseId })
+    .from(conversationCases)
+    .innerJoin(conversations, eq(conversations.id, conversationCases.conversationId))
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversationCases.conversationId, conversationId)));
+  return rows.map((row) => row.caseId);
+}
+
+export async function unlinkConversationFromCase(organizationId: string, conversationId: string, caseId: string) {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    throw new Error("Conversation not found in this organization.");
+  }
+
+  await db
+    .delete(conversationCases)
+    .where(and(eq(conversationCases.conversationId, conversationId), eq(conversationCases.caseId, caseId)));
 }
 
 interface InboundContactInfo {

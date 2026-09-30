@@ -2,9 +2,10 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { cases, caseStatus } from "@/modules/cases/schema";
+import { isValidCaseStatusTransition } from "@/modules/cases/domain";
 import { getContact } from "@/modules/contacts/service";
 import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
-import { isOrganizationMember } from "@/modules/organizations/service";
+import { isOrganizationDelegate } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
 
 export async function listCases(organizationId: string) {
@@ -89,8 +90,8 @@ export async function createCase(input: CreateCaseInput) {
     throw new Error("Contact not found in this organization.");
   }
 
-  if (input.assignedTo && !(await isOrganizationMember(input.organizationId, input.assignedTo))) {
-    throw new Error("Cannot assign a case to a user outside the organization.");
+  if (input.assignedTo && !(await isOrganizationDelegate(input.organizationId, input.assignedTo))) {
+    throw new Error("Cases can only be assigned to a DELEGATE.");
   }
 
   const [createdCase] = await db
@@ -144,8 +145,12 @@ export async function updateCase(input: UpdateCaseInput) {
     return null;
   }
 
-  if (input.assignedTo && !(await isOrganizationMember(input.organizationId, input.assignedTo))) {
-    throw new Error("Cannot assign a case to a user outside the organization.");
+  if (input.assignedTo && !(await isOrganizationDelegate(input.organizationId, input.assignedTo))) {
+    throw new Error("Cases can only be assigned to a DELEGATE.");
+  }
+
+  if (!isValidCaseStatusTransition(existing.status, input.status)) {
+    throw new Error("Invalid case status transition.");
   }
 
   const statusChanged = existing.status !== input.status;

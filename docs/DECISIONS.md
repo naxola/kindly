@@ -3175,3 +3175,63 @@ comparado antes/después para los 12 sitios de `(public)` en riesgo.
 
 Con esto, `UI-9` (`docs/ui/ROADMAP.md` "Fase 9") queda completa y el
 rediseño UI/UX completo (`UI-0`…`UI-9`) queda cerrado.
+
+## 2026-09-30 — Fase 6: máquina de estados de Case, asignación restringida a DELEGATE, vínculo Conversation↔Case en UI
+
+El usuario eligió `Fase 6` (`project/TASKS.md`) entre las opciones
+ofrecidas al cerrar `UI-9` (`Fase 6`, `Fase 7`, o cualquier otro
+pendiente). Tres decisiones de producto, todas confirmadas explícitamente
+por el usuario antes de escribir código:
+
+**1. Máquina de estados con reapertura, sustituye "sin restricciones de
+transición" (PKG-002, más arriba en este documento).** El encargo original
+solo listaba los cinco estados sin especificar transiciones; PKG-002
+decidió no restringir nada a falta de una decisión de producto explícita.
+Esa decisión ahora se supersede — no se borra, PKG-002 seguía siendo
+correcta con la información disponible entonces. Regla elegida:
+`OPEN → IN_PROGRESS → WAITING → RESOLVED → CLOSED` hacia adelante,
+`WAITING → IN_PROGRESS` hacia atrás, `RESOLVED → IN_PROGRESS` reabre un
+caso resuelto, `CLOSED` es terminal (ninguna transición de salida, ni
+siquiera para un ADMIN). Implementado como tabla pura
+(`src/modules/cases/domain.ts::CASE_STATUS_TRANSITIONS`/
+`isValidCaseStatusTransition`, sin DB, mismo patrón que
+`memberships/domain.ts`), validada en `cases/service.ts::updateCase` antes
+de escribir, con el `<select>` de `/cases/[id]` limitado a las opciones
+válidas desde el estado actual — el guardarraíl es visible, no solo del
+lado servidor.
+
+**2. `Case.assignedTo` restringido a `DELEGATE`, antes cualquier miembro.**
+El nombre de la tarea en `project/TASKS.md` ("Asignación de Case a
+DELEGATE") es más explícito que el dominio original: un ADMIN administra
+la organización, no lleva un caso. Mismo reparto que el "delegado de
+referencia" de un Contact (PKG-014). Nueva
+`isOrganizationDelegate` (`organizations/service.ts`, mismo shape que
+`isOrganizationMember`) usada por `createCase`/`updateCase`; los
+`<select>` de "Asignar a" (`/cases`, `/cases/[id]`) solo listan miembros
+con rol `DELEGATE`.
+
+**3. Vínculo `Conversation ↔ Case` (`conversation_cases`, PKG-003) gana UI
+en los dos sitios que el usuario pidió**, no solo uno: la página del Case
+(control completo — vincular una conversación existente del mismo
+Contact, quitar un vínculo) y una acción rápida desde la ficha del
+afiliado en el Inbox (UI-10a, sección "Casos abiertos" — vincular la
+conversación que se está viendo a uno de los casos del Contact sin salir
+del Inbox). `linkConversationToCase` (`conversations/service.ts`, existía
+desde PKG-003 sin ningún llamador) gana una validación que nunca tuvo: la
+Conversation y el Case deben compartir Contact, no solo organización — un
+Case es siempre de un único Contact (`cases.contactId NOT NULL`) y
+vincular la conversación de otro Contact no tenía sentido de producto ni
+nada lo impedía hasta ahora. Sin `ConfirmDialog` al quitar un vínculo: a
+diferencia de dar de baja una Membership (UI-10b), retirar una fila de una
+tabla N:M es trivialmente reversible y no borra nada del Contact ni de la
+Conversation. Dos tipos de actividad nuevos,
+`CASE_CONVERSATION_LINKED`/`CASE_CONVERSATION_UNLINKED` (entidad `case`,
+`audit/service.ts`).
+
+**Verificación:** lint+typecheck+398/398 unit-integration (365 previos +
+33 nuevos: `cases-domain.test.ts` — 22, transiciones puras; ampliaciones de
+`crm.test.ts` — 5, ciclo de vida/asignación; `cases-conversations.test.ts`
+nuevo — 6, el vínculo)+45/45 E2E (42 previos + `cases.spec.ts` nuevo, 3
+tests: ciclo de vida completo por UI verificando las opciones ofrecidas en
+cada paso, asignación limitada a DELEGATE, vincular/quitar una conversación
+desde la página del Case)+build limpio.

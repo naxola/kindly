@@ -59,7 +59,7 @@ export function NewCaseSheet({ contacts, members }: { contacts: Option[]; member
             <Field label="Prioridad" optional description="Texto libre.">
               <Input type="text" name="priority" />
             </Field>
-            <Field label="Asignar a" optional>
+            <Field label="Asignar a" optional description="Solo delegados.">
               <NativeSelect name="assignedTo" defaultValue="">
                 <option value="">Sin asignar</option>
                 {members.map((member) => (

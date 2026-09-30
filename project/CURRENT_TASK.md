@@ -4,7 +4,72 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-9 cerrado — rediseño UI/UX completo (`UI-0`…`UI-9`). Siguiente: elección del usuario (Fase 6 — Cases, Fase 7 — Knowledge, o cualquier otro pendiente)
+## Paquete activo: Fase 6 (Cases) cerrada. Siguiente: elección del usuario (Fase 7 — Knowledge, o `UI-10c/d/e/f` si se resuelve su bloqueo)
+
+Último commit: pendiente de esta sesión (se registra en el próximo commit
+de documentación, mismo patrón que las fases anteriores).
+
+### Fase 6 — Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation (2026-09-30)
+
+El usuario pidió continuar tras cerrar `UI-9`; eligió `Fase 6` entre las
+opciones ofrecidas (`Fase 6`, `Fase 7`). Planificado con `EnterPlanMode`
+(toca dominio, servicio, dos superficies de UI y tests en varios niveles)
+tras `AskUserQuestion` para las tres decisiones de producto no triviales.
+Detalle completo en `docs/DECISIONS.md` (entrada "2026-09-30 — Fase 6:
+máquina de estados de Case, asignación restringida a DELEGATE, vínculo
+Conversation↔Case en UI").
+
+**Hecho, verificado con lint+typecheck+398/398 unit-integration (365
+previos+33 nuevos)+45/45 E2E (42 previos+3 nuevos)+build limpio:**
+
+1. **Máquina de estados de `Case`** (`src/modules/cases/domain.ts`, puro,
+   sin DB): `OPEN → IN_PROGRESS → WAITING → RESOLVED → CLOSED` hacia
+   adelante, `WAITING → IN_PROGRESS` hacia atrás, `RESOLVED → IN_PROGRESS`
+   reabre, `CLOSED` terminal. Sustituye la decisión de PKG-002 de no
+   restringir nada (superseded, no borrada). `updateCase` valida el salto;
+   `/cases/[id]` solo ofrece las opciones válidas desde el estado actual.
+2. **Asignación restringida a `DELEGATE`**: nueva `isOrganizationDelegate`
+   (`organizations/service.ts`); `createCase`/`updateCase` la usan para
+   `assignedTo` en vez de `isOrganizationMember`. Los `<select>` de
+   "Asignar a" (`/cases`, `/cases/[id]`) solo listan `DELEGATE`.
+3. **Vínculo `Conversation ↔ Case` en UI**, en los dos sitios pedidos:
+   página del Case (sección "Conversaciones vinculadas": vincular una
+   conversación existente del mismo Contact, quitar un vínculo) y acción
+   rápida desde la ficha del Inbox (UI-10a, "Casos abiertos" — vincular la
+   conversación abierta a uno de los casos del Contact). `linkConversationToCase`
+   (`conversations/service.ts`, sin llamador desde PKG-003) gana la
+   validación de que Conversation y Case compartan Contact. Nuevas
+   `listLinkedConversations`/`unlinkConversationFromCase`/
+   `listCaseIdsLinkedToConversation`. Sin `ConfirmDialog` al quitar — a
+   diferencia de dar de baja una Membership, es trivialmente reversible.
+4. **Historial de actividad**: ya existía desde PKG-002; se amplía con
+   `CASE_CONVERSATION_LINKED`/`CASE_CONVERSATION_UNLINKED`
+   (`audit/service.ts`, `activity-feed.tsx`).
+5. Tests nuevos: `tests/unit/cases-domain.test.ts` (22, todas las
+   transiciones válidas/inválidas de la máquina de estados);
+   `tests/integration/crm.test.ts` ampliado (5 nuevos: ciclo de vida
+   completo, rechazo de saltos, terminalidad de `CLOSED`, asignación
+   ADMIN rechazada/DELEGATE aceptada — más 2 tests existentes corregidos
+   para las nuevas reglas, que antes asignaban a un ADMIN y saltaban
+   `OPEN→RESOLVED` directamente); `tests/integration/cases-conversations.test.ts`
+   nuevo (6: vincular/listar/desvincular, idempotencia, rechazo
+   cross-contact y cross-organización, actividad registrada);
+   `tests/e2e/cases.spec.ts` nuevo (3: ciclo de vida completo por UI
+   comprobando las opciones ofrecidas en cada paso, asignación limitada a
+   DELEGATE via invitación real, vincular/quitar una conversación real
+   desde la página del Case sin bypass de SQL — el Contact del webhook
+   fake y el del Case son el mismo).
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno.
+
+**Próximo paso concreto:** elección del usuario — `Fase 7` (Knowledge:
+documentos, trámites, RAG — desbloquea `UI-10c` y toda la `Fase 8`), o
+`UI-10c/d/e/f` si primero se resuelve su bloqueo (Fase 7/8 de producto, o
+validación visual del usuario para `UI-10f`).
+
+---
+
+## Registro: UI-9 cerrado — rediseño UI/UX completo (`UI-0`…`UI-9`) (2026-09-30)
 
 Último commit: `b717458`.
 

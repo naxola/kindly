@@ -666,12 +666,16 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
 - [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
 
-## Fase 6 — Cases
+## Fase 6 — Cases (cerrada 2026-09-30)
 
-- [ ] Ciclo de vida completo de `Case` (transiciones de estado).
-- [ ] Asignación de Case a `DELEGATE`.
-- [ ] Relación Case ↔ Conversation múltiple vía `conversation_cases` en UI.
-- [ ] Historial de actividad ligado a Case.
+- [x] Ciclo de vida completo de `Case` (transiciones de estado) — máquina de
+      estados con reapertura, `src/modules/cases/domain.ts`.
+- [x] Asignación de Case a `DELEGATE` — restringido por rol, ya no cualquier miembro.
+- [x] Relación Case ↔ Conversation múltiple vía `conversation_cases` en UI —
+      página del Case + acción rápida desde la ficha del Inbox.
+- [x] Historial de actividad ligado a Case — ya existía desde PKG-002
+      (`ActivityFeed` en `/cases/[id]`), ampliado con
+      `CASE_CONVERSATION_LINKED`/`UNLINKED`.
 
 ## Fase 7 — Knowledge
 

@@ -4,6 +4,7 @@ import {
   channelSupportsTypingIndicator,
   getConversationThreadState,
   getConversationWithDetails,
+  listCaseIdsLinkedToConversation,
   listConversationsWithPreview,
 } from "@/modules/conversations/service";
 import { listContactsForMember } from "@/modules/contacts/service";
@@ -30,7 +31,7 @@ export async function getConversationWorkspace(
   }
   const contactId = details.contact.id;
 
-  const [threadState, members, contacts, activeAssignment, history, membership, cases, tasks, contactConversations] =
+  const [threadState, members, contacts, activeAssignment, history, membership, cases, tasks, contactConversations, linkedCaseIds] =
     await Promise.all([
       getConversationThreadState(organizationId, member, conversationId, { markRead }),
       listOrganizationMembers(organizationId),
@@ -41,6 +42,7 @@ export async function getConversationWorkspace(
       listCasesForContact(organizationId, member, contactId),
       listTasksForContact(organizationId, member, contactId),
       listConversationsWithPreview(organizationId, member, { contactId }),
+      listCaseIdsLinkedToConversation(organizationId, conversationId),
     ]);
   if (!threadState) {
     return null;
@@ -92,7 +94,7 @@ export async function getConversationWorkspace(
             feePaidUntil: membership.feePaidUntil,
           }
         : null,
-      cases: cases.map((c) => ({ id: c.id, title: c.title, status: c.status })),
+      cases: cases.map((c) => ({ id: c.id, title: c.title, status: c.status, linked: linkedCaseIds.includes(c.id) })),
       pendingTasks: tasks
         .filter(isTaskPending)
         .sort((a, b) => {

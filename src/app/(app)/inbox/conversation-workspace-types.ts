@@ -32,7 +32,7 @@ export interface ConversationWorkspaceData {
     assignmentHistory: WorkspaceAssignment[];
     delegates: { userId: string; name: string }[];
     membership: WorkspaceMembership | null;
-    cases: { id: string; title: string; status: CaseStatus }[];
+    cases: { id: string; title: string; status: CaseStatus; linked: boolean }[];
     /** Pending only, soonest due first (no due date last). */
     pendingTasks: { id: string; title: string; dueDate: string | null }[];
     otherConversations: { id: string; channel: string; delegateName: string; lastMessageBody: string | null }[];

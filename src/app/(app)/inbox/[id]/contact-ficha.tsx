@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
+import { linkCurrentConversationToCaseAction } from "@/modules/cases/actions";
 import type { ConversationWorkspaceData } from "@/app/(app)/inbox/conversation-workspace-types";
 import { IdentificationSection } from "@/app/(app)/inbox/[id]/identification-section";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
@@ -10,6 +11,8 @@ import { MembershipStatus } from "@/app/(app)/contacts/membership-status";
 import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { NativeSelect } from "@/components/ui/input";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 function FichaSection({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -110,10 +113,38 @@ export function ContactFicha({
                 <Link href={`/cases/${c.id}`} className="focus-ring truncate rounded-sm type-body text-foreground hover:underline">
                   {c.title}
                 </Link>
-                <Badge tone={CASE_STATUS_TONES[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                <div className="flex shrink-0 items-center gap-1">
+                  {c.linked && <Badge tone="neutral">Vinculado</Badge>}
+                  <Badge tone={CASE_STATUS_TONES[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                </div>
               </li>
             ))}
           </ul>
+        )}
+        {ficha.cases.some((c) => !c.linked) && (
+          <form
+            action={async (formData) => {
+              await linkCurrentConversationToCaseAction(data.conversationId, formData);
+              onMutated();
+            }}
+            className="flex items-center gap-2"
+          >
+            <NativeSelect name="caseId" aria-label="Vincular esta conversación a un caso" className="w-auto" defaultValue="">
+              <option value="" disabled>
+                Vincular a un caso...
+              </option>
+              {ficha.cases
+                .filter((c) => !c.linked)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+            </NativeSelect>
+            <SubmitButton size="sm" variant="outline">
+              Vincular
+            </SubmitButton>
+          </form>
         )}
       </FichaSection>
 

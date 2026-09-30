@@ -253,7 +253,18 @@ encargo original nunca especificó valores concretos, así que no se inventa
 un enum cerrado (ver `docs/DECISIONS.md`). `assigned_to` referencia
 `users.id` (`ON DELETE SET NULL`). `closed_at` se rellena automáticamente
 cuando `status` pasa a `RESOLVED` o `CLOSED`. Sin eliminación (solo
-crear/listar/ver/editar) y sin restricciones de transición entre estados.
+crear/listar/ver/editar).
+
+**Fase 6** (`src/modules/cases/domain.ts::CASE_STATUS_TRANSITIONS`,
+`docs/DECISIONS.md`) sustituye "sin restricciones de transición entre
+estados" por una máquina de estados con reapertura: `OPEN → IN_PROGRESS →
+WAITING → RESOLVED → CLOSED` hacia adelante, `WAITING → IN_PROGRESS` hacia
+atrás, `RESOLVED → IN_PROGRESS` reabre un caso, `CLOSED` es terminal (sin
+transiciones de salida). `updateCase` valida el salto en servidor; el
+`<select>` de `/cases/[id]` solo ofrece las opciones válidas desde el
+estado actual. Misma fase: `assigned_to` solo acepta usuarios con rol
+`DELEGATE` (`isOrganizationDelegate`, `organizations/service.ts`) — un
+ADMIN administra, no lleva casos.
 
 ## 10. conversation_cases
 
@@ -267,8 +278,17 @@ created_at
 ```
 
 **Implementado en PKG-003** (`src/modules/conversations/schema.ts`): clave
-primaria compuesta `(conversation_id, case_id)`. Solo la tabla y una función
-de servicio (`linkConversationToCase`) — sin UI para vincularlos todavía.
+primaria compuesta `(conversation_id, case_id)`.
+
+**Fase 6** añade la UI en ambos sentidos: la página del Case
+(`/cases/[id]`, sección "Conversaciones vinculadas", vincular/quitar) y una
+acción rápida desde la ficha del afiliado en el Inbox (UI-10a, sección
+"Casos abiertos"). `linkConversationToCase` (`conversations/service.ts`)
+gana una validación más — la Conversation y el Case deben ser del mismo
+Contact, no solo de la misma organización. `listLinkedConversations`/
+`unlinkConversationFromCase`/`listCaseIdsLinkedToConversation` completan el
+servicio. Cada vinculación/desvinculación registra `CASE_CONVERSATION_LINKED`/
+`CASE_CONVERSATION_UNLINKED` en la Activity del Case.
 
 ## 11. Task
 

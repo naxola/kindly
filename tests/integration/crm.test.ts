@@ -48,6 +48,16 @@ async function createTestUserAndOrg(name: string) {
   return { user, org };
 }
 
+/** A second member of an existing organization, with role DELEGATE (Fase 6: a Case can only be assigned to one of these). */
+async function addDelegate(organizationId: string, name: string) {
+  const [user] = await db
+    .insert(users)
+    .values({ id: randomUUID(), name, email: `${randomUUID()}@example.com` })
+    .returning();
+  await db.insert(organizationMembers).values({ organizationId, userId: user.id, role: "DELEGATE" });
+  return user;
+}
+
 describe("PKG-002 CRM services (integration, real PostgreSQL)", () => {
   it("creates a contact and logs CONTACT_CREATED", async () => {
     const { user, org } = await createTestUserAndOrg("Contact Owner");
@@ -76,6 +86,7 @@ describe("PKG-002 CRM services (integration, real PostgreSQL)", () => {
 
   it("creates a case for a contact and logs CASE_CREATED + CASE_ASSIGNED", async () => {
     const { user, org } = await createTestUserAndOrg("Case Owner");
+    const delegate = await addDelegate(org.id, "Case Delegate");
     const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Case Contact" });
 
     const createdCase = await createCase({
@@ -83,7 +94,7 @@ describe("PKG-002 CRM services (integration, real PostgreSQL)", () => {
       actorUserId: user.id,
       contactId: contact.id,
       title: "Renew ID",
-      assignedTo: user.id,
+      assignedTo: delegate.id,
     });
     expect(createdCase.status).toBe("OPEN");
 
@@ -103,6 +114,15 @@ describe("PKG-002 CRM services (integration, real PostgreSQL)", () => {
       title: "Case",
     });
 
+    // OPEN -> RESOLVED directly is not a valid transition (Fase 6) — go
+    // through IN_PROGRESS first, same path the UI's status dropdown offers.
+    await updateCase({
+      organizationId: org.id,
+      actorUserId: user.id,
+      caseId: createdCase.id,
+      title: "Case",
+      status: "IN_PROGRESS",
+    });
     const updated = await updateCase({
       organizationId: org.id,
       actorUserId: user.id,
@@ -114,7 +134,84 @@ describe("PKG-002 CRM services (integration, real PostgreSQL)", () => {
     expect(updated?.closedAt).not.toBeNull();
 
     const activities = await listActivitiesForEntity(org.id, "case", createdCase.id);
-    expect(activities.map((a) => a.type)).toContain("CASE_STATUS_CHANGED");
+    expect(activities.filter((a) => a.type === "CASE_STATUS_CHANGED")).toHaveLength(2);
+  });
+
+  describe("case status lifecycle (Fase 6)", () => {
+    it("rejects a status transition that skips steps", async () => {
+      const { user, org } = await createTestUserAndOrg("Case Lifecycle A");
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Contact" });
+      const createdCase = await createCase({ organizationId: org.id, actorUserId: user.id, contactId: contact.id, title: "Case" });
+
+      await expect(
+        updateCase({ organizationId: org.id, actorUserId: user.id, caseId: createdCase.id, title: "Case", status: "CLOSED" }),
+      ).rejects.toThrow();
+    });
+
+    it("rejects any transition out of CLOSED — it is terminal", async () => {
+      const { user, org } = await createTestUserAndOrg("Case Lifecycle B");
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Contact" });
+      const createdCase = await createCase({ organizationId: org.id, actorUserId: user.id, contactId: contact.id, title: "Case" });
+
+      for (const status of ["IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED"] as const) {
+        const updated = await updateCase({ organizationId: org.id, actorUserId: user.id, caseId: createdCase.id, title: "Case", status });
+        expect(updated?.status).toBe(status);
+      }
+
+      await expect(
+        updateCase({ organizationId: org.id, actorUserId: user.id, caseId: createdCase.id, title: "Case", status: "IN_PROGRESS" }),
+      ).rejects.toThrow();
+    });
+
+    it("allows the full forward path and reopening from WAITING/RESOLVED", async () => {
+      const { user, org } = await createTestUserAndOrg("Case Lifecycle C");
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Contact" });
+      const createdCase = await createCase({ organizationId: org.id, actorUserId: user.id, contactId: contact.id, title: "Case" });
+
+      const path = ["IN_PROGRESS", "WAITING", "IN_PROGRESS", "RESOLVED", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const;
+      for (const status of path) {
+        const updated = await updateCase({ organizationId: org.id, actorUserId: user.id, caseId: createdCase.id, title: "Case", status });
+        expect(updated?.status).toBe(status);
+      }
+    });
+  });
+
+  describe("case assignment restricted to DELEGATE (Fase 6)", () => {
+    it("rejects assigning a case to an ADMIN", async () => {
+      const { user, org } = await createTestUserAndOrg("Case Assign Admin");
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Contact" });
+
+      await expect(
+        createCase({ organizationId: org.id, actorUserId: user.id, contactId: contact.id, title: "Case", assignedTo: user.id }),
+      ).rejects.toThrow();
+
+      const createdCase = await createCase({ organizationId: org.id, actorUserId: user.id, contactId: contact.id, title: "Case" });
+      await expect(
+        updateCase({
+          organizationId: org.id,
+          actorUserId: user.id,
+          caseId: createdCase.id,
+          title: "Case",
+          status: "OPEN",
+          assignedTo: user.id,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it("accepts assigning a case to a DELEGATE", async () => {
+      const { user, org } = await createTestUserAndOrg("Case Assign Delegate");
+      const delegate = await addDelegate(org.id, "Delegate");
+      const contact = await createContact({ organizationId: org.id, actorUserId: user.id, name: "Contact" });
+
+      const createdCase = await createCase({
+        organizationId: org.id,
+        actorUserId: user.id,
+        contactId: contact.id,
+        title: "Case",
+        assignedTo: delegate.id,
+      });
+      expect(createdCase.assignedTo).toBe(delegate.id);
+    });
   });
 
   it("rejects creating a case for a contact from a different organization", async () => {

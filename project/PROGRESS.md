@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (UI-9 cerrada: reset de paleta/radios/sombras por defecto de Tailwind + exportador de tokens a DTCG — rediseño UI/UX completo, `UI-0`…`UI-9` cerradas).
+Última actualización: 2026-09-30 (Fase 6 cerrada: máquina de estados de Case, asignación restringida a DELEGATE, vínculo Conversation↔Case en UI).
 
 ## Resumen en una línea
 
@@ -166,7 +166,7 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
-| Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 6** | **Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | Fase 7 | Knowledge | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 

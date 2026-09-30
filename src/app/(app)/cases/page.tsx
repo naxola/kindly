@@ -34,7 +34,7 @@ export default async function CasesPage() {
         aside={
           <NewCaseSheet
             contacts={contacts}
-            members={members.map((m) => ({ id: m.userId, name: m.name }))}
+            members={members.filter((m) => m.role === "DELEGATE").map((m) => ({ id: m.userId, name: m.name }))}
           />
         }
       />
