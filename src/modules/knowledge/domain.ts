@@ -22,8 +22,11 @@ export interface VersionForSelection {
  * `HISTORICAL` stay eligible on purpose: a version that is no longer current
  * is exactly what a question about a past date must resolve to
  * (`docs/DATABASE.md` §15, version-aware retrieval).
+ *
+ * Exported so `retrieval.ts` (Fase 7c) can reproduce the same rule as a SQL
+ * condition over many documents at once, instead of duplicating the list.
  */
-const APPLICABLE_STATUSES: ReadonlySet<DocumentVersionStatus> = new Set([
+export const APPLICABLE_STATUSES: ReadonlySet<DocumentVersionStatus> = new Set([
   "CURRENT",
   "SUPERSEDED",
   "HISTORICAL",

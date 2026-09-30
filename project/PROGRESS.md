@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7b cerrada: ingesta PDF/web/texto → chunks jerárquicos, `OpenAIEmbeddingProvider` real, script de operador `npm run knowledge:ingest`).
+Última actualización: 2026-09-30 (Fase 7c cerrada: recuperación híbrida FTS+vector con Reciprocal Rank Fusion y hard filters de tenancy/vigencia/jurisdicción).
 
 ## Resumen en una línea
 
@@ -169,7 +169,8 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 6** | **Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7a** | **Knowledge: capa de datos (documentos versionados, chunks, pgvector, `EmbeddingProvider`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7b** | **Knowledge: ingesta (PDF/web/texto → chunks jerárquicos) + `OpenAIEmbeddingProvider` + script de operador** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 7 (c-e) | Knowledge: recuperación híbrida+citas (7c), Trámites (7d, desbloquea `UI-10c`), UI (7e) | Código (futuro paquete) | 🔴 En curso (7a/7b hechos) |
+| **Fase 7c** | **Knowledge: recuperación híbrida FTS+vector (RRF) con hard filters de tenancy/vigencia/jurisdicción** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| Fase 7 (d-e) | Knowledge: Trámites (7d, desbloquea `UI-10c`), UI (7e) | Código (futuro paquete) | 🔴 En curso (7a/7b/7c hechos) |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.

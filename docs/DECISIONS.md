@@ -3426,3 +3426,76 @@ válida en `tests/fixtures/knowledge/sample.pdf`)+build limpio. Sin E2E
 (sigue sin haber UI, mismo motivo que 7a). Smoke test manual del script con
 `--provider fake` contra la base local (texto, PDF, y el camino de error de
 flags faltantes) antes de cerrar la sesión; filas de prueba borradas después.
+
+## 2026-09-30 — Fase 7c: recuperación híbrida (FTS + vector) con hard filters
+
+**Contexto:** cerradas 7a (capa de datos) y 7b (ingesta), el usuario eligió
+continuar con **7c** — la pieza que de verdad "busca": combinar full-text
+search y similitud vectorial aplicando los hard filters de `DATABASE.md`
+§15 antes del ranking. A diferencia de 7b no había decisiones de producto
+abiertas (el stack — PostgreSQL FTS + pgvector, sin Elasticsearch/vector DB
+externa — y los hard filters ya estaban fijados en `ARCHITECTURE.md` §9 y
+`DATABASE.md` §15); las decisiones de esta entrada son de ingeniería.
+
+**Decisiones no triviales:**
+
+1. **Reciprocal Rank Fusion (RRF)** para combinar `ts_rank` (FTS) y
+   similitud coseno (vector) — no son comparables en la misma escala, RRF
+   evita inventar una normalización: cada lista aporta `1/(k+posición)`
+   por elemento (k=60, el estándar de la literatura, el mismo que usa la
+   guía de búsqueda híbrida de Supabase — la referencia de calidad de este
+   proyecto). Implementado como función **pura**
+   (`knowledge/retrieval-fusion.ts::combineRankedResults`), testeable sin
+   DB.
+2. **Dos queries de Drizzle + fusión en JS, no una CTE SQL a mano.** El
+   repo no tenía precedente de `db.execute` con SQL crudo; el patrón
+   existente (`conversations/service.ts::listConversationsWithPreview`) es
+   query builder + fragmentos `sql\`...\`` puntuales. Una query ordenada por
+   `ts_rank(content_tsv, websearch_to_tsquery('spanish', query))` y otra por
+   `cosineDistance` (helper que `drizzle-orm` ya exporta, coincide con el
+   índice HNSW `vector_cosine_ops` de 7a — confirmado
+   `import { cosineDistance } from "drizzle-orm"`), cada una con los mismos
+   hard filters, limit `max(4×limit, 20)` candidatos, fusionadas con RRF. Dos
+   round-trips en vez de uno: aceptable a esta escala (`CLAUDE.md` §2) y
+   mucho más simple/testable que una CTE con window functions.
+3. **Hard filters, reutilizando 7a sin reinventar:** tenancy sigue siendo
+   `knowledgeVisibilityCondition` sin cambios, aplicada sobre
+   `knowledge_chunks` directamente (denormalizado, sin join — tal como 7a lo
+   diseñó). Vigencia/`legal_status`: nueva condición SQL
+   (`versionApplicabilityCondition`, `retrieval.ts`) que reproduce la regla
+   de `domain.ts::selectApplicableVersion` a nivel de fila —
+   `domain.ts` exporta ahora `APPLICABLE_STATUSES` (antes privado) para que
+   la condición SQL no duplique la lista de estados aplicables a mano.
+   Requiere join `knowledge_chunks → knowledge_document_versions →
+   knowledge_documents` — a propósito: 7a solo denormalizó tenancy para
+   evitar join en la ruta caliente, vigencia/jurisdicción siempre lo
+   necesitaron. Jurisdicción/territorio/ámbito: filtro exacto
+   case-insensitive solo cuando el llamador lo pasa (campos de texto libre,
+   sin filtro si se omiten).
+4. **Simplificación conocida y documentada:** a diferencia de
+   `selectApplicableVersion` (que elige *una* versión por documento,
+   desempatando por `effectiveFrom` más reciente si dos se solapasen para
+   la misma fecha — dato mal formado), la condición SQL no hace ese
+   desempate: aquí conviven muchos documentos a la vez, no la selección de
+   una sola versión de un documento concreto. Con datos bien formados
+   (como mucho una versión abierta por fecha) el resultado es idéntico.
+5. **Sin relevancia mínima ("floor"):** la búsqueda vectorial siempre
+   devuelve los `limit` vecinos más cercanos entre lo que pasa los hard
+   filters, aunque ninguno sea realmente relevante — es el comportamiento
+   esperado de k-NN, no un defecto. Fase 8 (AI Copilot) decidirá si un
+   resultado de `score` bajo debe traducirse en `evidenceLevel: INSUFFICIENT`
+   o en no citar nada; 7c no impone un umbral por su cuenta.
+6. **`retrieveKnowledge` requiere `EmbeddingProvider` registrado**, igual
+   que la ingesta de 7b — lanza si no hay ninguno, nunca cae en silencio a
+   un modo "solo FTS" (`CLAUDE.md` §3).
+
+**Fuera de alcance de 7c (anotado, no hecho):** construir
+`AISuggestion`/`AISource` (Fase 8) — 7c solo expone `KnowledgeSearchResult`
+con los metadatos que una cita necesita (documento, versión, nivel,
+`label`/`path`, nota de fuente, URL de origen). Sin UI (7e).
+
+**Verificación:** lint+typecheck+485/485 unit-integration (471 previos + 14
+nuevos: `knowledge-retrieval-fusion.test.ts` — 8, RRF puro;
+`knowledge-retrieval.test.ts` — 6, tenancy/vigencia/jurisdicción/forma del
+resultado/límite contra PostgreSQL real con el fake registrado)+build
+limpio. Sin E2E (sigue sin haber UI, mismo motivo que 7a/7b).
