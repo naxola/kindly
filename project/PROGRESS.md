@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (UI-8 cerrada: axe-core automático + recorrido manual de accesibilidad/responsive).
+Última actualización: 2026-09-30 (UI-9 cerrada: reset de paleta/radios/sombras por defecto de Tailwind + exportador de tokens a DTCG — rediseño UI/UX completo, `UI-0`…`UI-9` cerradas).
 
 ## Resumen en una línea
 
@@ -118,6 +118,20 @@ landmarks/roles/nombres accesibles correctos; sin scroll horizontal a
 Verificado con lint+typecheck+352/352 unit-integration (sin cambios)
 +42/42 E2E+build limpio.
 
+**`UI-9` (2026-09-30, cerrado): Consolidación — última fase del rediseño
+UI/UX.** Reset de la paleta/radios/sombras por defecto de Tailwind
+(`--color-*`/`--radius-*`/`--shadow-*: initial` en `@theme inline`, mismo
+patrón que ya existía para `--breakpoint-*`), con dos supervivientes
+explícitos y pixel-idénticos (`--color-white`, `--radius-2xl`) solo para
+que `src/app/(public)` (no tokenizado a propósito) siguiera renderizando
+exactamente igual — confirmado comparando el CSS generado antes/después.
+Ningún componente obsoleto encontrado (barrido completo); dos filas
+desactualizadas de `COMPONENTS.md` corregidas (`ContextNav`, `AppHeader`).
+Exportador de tokens a DTCG (`npm run tokens:export` →
+`tokens/dtcg/*.json`, flujo multi-set de Tokens Studio), con test de
+parseo propio. Verificado con lint+typecheck+365/365 unit-integration
+(+13 nuevos)+42/42 E2E+build limpio.
+
 ## Estado por fase / paquete
 
 | Fase / Paquete | Nombre | Tipo | Estado |
@@ -144,7 +158,7 @@ Verificado con lint+typecheck+352/352 unit-integration (sin cambios)
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | **UI-8** | **Accesibilidad y responsive** | Código (agente) | 🟢 **Completo** (2026-09-30) — tema oscuro + axe-core + recorrido manual |
-| UI-9 | Consolidación | Código (agente) | ⚪ No iniciada — ver `docs/ui/ROADMAP.md` |
+| **UI-9** | **Consolidación** | Código (agente) | 🟢 **Completo** (2026-09-30) — rediseño UI/UX (`UI-0`…`UI-9`) cerrado por completo |
 | **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |
 | **UI-10b** | **`Membership`: alta/edición/baja manual en `/contacts/[id]` + sección en la ficha** | Código (agente) | 🟢 **Completo** (2026-09-29) |

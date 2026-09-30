@@ -481,7 +481,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
 - **Criterios de aceptación**: sin violaciones axe serias/críticas ✅;
   checklist manual documentado arriba ✅.
 
-## Fase 9 — Consolidación · ⚪
+## Fase 9 — Consolidación · 🟢 Completa (2026-09-30)
 
 - **Objetivo**: eliminar lo obsoleto.
 - **Alcance**: borrar componentes locales sustituidos, retirar la paleta
@@ -489,8 +489,36 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   radios/sombras por defecto, `TOKENISED_DIRECTORIES` = todo `src/app`
   salvo `(public)`, exportador de tokens a DTCG para Figma, revisión de
   `COMPONENTS.md`.
+- **Componentes obsoletos**: barrido completo de `src/components`/`src/app`
+  sin coincidencias — los candidatos que `AUDIT.md` (Fase 0) señalaba
+  (`auto-refresh.tsx`, `sign-out-button.tsx`) ya no existían, retirados en
+  fases anteriores. `COMPONENTS.md` sí tenía dos filas desactualizadas,
+  corregidas: `ContextNav` ("no tiene consumidor" — falso desde UI-7, lo
+  usa `OrganizationContextNav` bajo `lg`) y `AppHeader` ("miga de
+  organización aún no interactiva" — falso desde UI-7, es `OrgMenu`).
+- **Reset de paleta/radios/sombras por defecto** (`src/styles/tokens.css`,
+  `@theme inline`): `--color-*: initial`, `--radius-*: initial`,
+  `--shadow-*: initial`, mismo patrón que ya existía para
+  `--breakpoint-*: initial`. Único punto no cubierto por las claves ya
+  definidas: `src/app/(public)/` (no tokenizado a propósito, nunca
+  sensible al tema oscuro) usaba `bg-white`/`text-white` y `rounded-2xl`
+  del *default* de Tailwind — dos supervivientes explícitos y
+  pixel-idénticos añadidos (`--color-white: var(--palette-white)`,
+  `--radius-2xl: 1rem`) en vez de tocar ese código; confirmado byte a byte
+  comparando el CSS generado antes/después de la build. Verificado
+  también con captura visual real del sitio público en claro y oscuro.
+- **`TOKENISED_DIRECTORIES`**: ya cubría toda la app autenticada salvo
+  `(public)` desde antes de esta fase — sin cambios, revisado y
+  confirmado completo.
+- **Exportador DTCG**: `npm run tokens:export`
+  (`scripts/export-tokens.ts` + `scripts/lib/tokens-dtcg.ts`) parsea
+  `tokens.css` y escribe `tokens/dtcg/{primitives,semantic.light,
+  semantic.dark,$themes}.json`, el flujo multi-set de Tokens Studio.
+  `tests/unit/export-tokens.test.ts` (13 tests) cubre primitivas,
+  ambos temas, radios y sombras (multi-capa incluido) contra los valores
+  reales de `tokens.css`.
 - **Criterios de aceptación**: el test de tokens cubre toda la app
-  autenticada; ningún componente duplicado.
+  autenticada ✅; ningún componente duplicado ✅ (ninguno encontrado).
 
 ## Fase 10 — Espacio de respuesta (conversación + ficha + copiloto) · ⚪ Planificada (2026-09-28)
 

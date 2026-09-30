@@ -85,6 +85,13 @@ Alias heredados del sitio público (PKG-010): `ink`, `ink-soft`, `ink-faint`,
 cambio visual: `ink-faint` pasa de `#7a879e` (3,6:1, no cumplía AA) a
 `#5b6880` (5,2:1 sobre `paper`).
 
+`color-white` (Fase 9): alias literal e **invariante de tema** a
+`--palette-white`, distinto de `surface-100`/`control` (que sí cambian con
+el tema) — reservado para los `bg-white`/`text-white` de `src/app/(public)`,
+que nunca se pensaron para adaptarse al tema oscuro (a diferencia de
+`bg-paper`, que sí cambia: `--paper` claro es `--palette-ink-50`, no blanco
+puro, así que no son intercambiables).
+
 ### Tipografía
 
 | Rol (`@utility`) | Tamaño / interlineado / peso | Figma |
@@ -110,6 +117,7 @@ contenido documental: borradores del copiloto, citas, legales), `font-mono`
 | `radius-overlay` | 10px | Dialog, popover |
 | `radius-bubble` | 12px | Burbujas de chat |
 | `radius-xs…xl` | 2/4/6/8/12px | Escala base |
+| `radius-2xl` | 16px | Reservado para `src/app/(public)`, que no está tokenizado (ver "Alias heredados" abajo) |
 | `shadow-xs` | — | Botones, cards |
 | `shadow-md` | — | Dropdown, popover |
 | `shadow-lg` | — | Dialog, sheet |
@@ -158,15 +166,21 @@ más `xs`). Uso por superficie en `RESPONSIVE.md`.
   `palette/ink/600` ↔ `--palette-ink-600`; `size/control/md` ↔
   `--control-h-md`; `radius/card`, `shadow/md`, `z/modal`.
 - Dos colecciones: **Primitives** (un modo) y **Semantic** (modos `light`
-  y `dark`, este último ya implementado en CSS — el exportador DTCG a
-  Figma Variables sigue pendiente de Fase 9), con alias de Semantic →
-  Primitives — la misma indirección que el CSS.
+  y `dark`), con alias de Semantic → Primitives — la misma indirección que
+  el CSS.
 - Estilos de texto = roles `type/*` de la tabla de tipografía.
 - Valores en hex (lo que Figma Variables maneja nativamente).
-- **Pendiente (Fase 9):** script `scripts/export-tokens.ts` que genere un
-  JSON en formato W3C DTCG desde `tokens.css`, importable con Tokens Studio
-  o la API de Variables. Hasta entonces, el CSS es la fuente y Figma se
-  sincroniza a mano con esta tabla.
+- **Exportador (Fase 9, cerrada 2026-09-30):** `npm run tokens:export`
+  (`scripts/export-tokens.ts`) parsea `tokens.css` y resuelve cada
+  color/radio/sombra a su valor plano, escribiendo JSON W3C DTCG en
+  `tokens/dtcg/` (`primitives.json`, `semantic.light.json`,
+  `semantic.dark.json`, `$themes.json` — el flujo multi-set de Tokens
+  Studio, importable también vía la API de Variables). Tipografía,
+  dimensiones de componente y z-index no se exportan (no los pide esta
+  sección); esos siguen sincronizándose a mano con las tablas de arriba.
+  `tests/unit/export-tokens.test.ts` cubre el parseo contra los valores
+  reales de `tokens.css`. El CSS sigue siendo la fuente única — el JSON es
+  un derivado que se regenera con el comando, no se edita a mano.
 
 ## 4. Cómo añadir o cambiar un token
 

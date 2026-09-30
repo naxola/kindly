@@ -4,7 +4,70 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-8 cerrado por completo — siguiente: UI-9 (Consolidación) o cualquier otro pendiente
+## Paquete activo: UI-9 cerrado — rediseño UI/UX completo (`UI-0`…`UI-9`). Siguiente: elección del usuario (Fase 6 — Cases, Fase 7 — Knowledge, o cualquier otro pendiente)
+
+Último commit: sin commits todavía en esta sesión (pendiente).
+
+### UI-9 — Consolidación (2026-09-30)
+
+El usuario pidió continuar tras cerrar `UI-8`; eligió `UI-9` entre las
+opciones ofrecidas (`UI-9`, Fase 6 — Cases, Fase 7 — Knowledge). Detalle
+completo en `docs/DECISIONS.md` (entrada "2026-09-30 — UI-9 (Fase 9):
+reset de paleta/radios/sombras por defecto + exportador DTCG") y
+`docs/ui/ROADMAP.md` (Fase 9, ahora 🟢 completa). Planificado con
+`EnterPlanMode` antes de escribir código (toca `tokens.css`, el sistema
+de diseño entero, mismo criterio que UI-8 primer tramo).
+
+**Hecho, verificado con lint+typecheck+365/365 unit-integration (352
+previos+13 nuevos)+42/42 E2E+build limpio:**
+
+1. **Componentes obsoletos**: barrido completo sin coincidencias — nada
+   que borrar (los candidatos de `AUDIT.md`, Fase 0, ya no existían).
+   `docs/ui/COMPONENTS.md`: dos filas desactualizadas corregidas
+   (`ContextNav`, `AppHeader` — ambas tenían consumidor/interactividad
+   real desde UI-7 que el documento no reflejaba).
+2. **Reset de paleta/radios/sombras por defecto** (`src/styles/tokens.css`,
+   `@theme inline`): `--color-*`/`--radius-*`/`--shadow-*: initial`, mismo
+   patrón que ya existía para `--breakpoint-*`. Dos supervivientes
+   explícitos y pixel-idénticos (`--color-white`, `--radius-2xl`) para que
+   `src/app/(public)` (no tokenizado a propósito, nunca sensible al tema
+   oscuro) siguiera renderizando exactamente igual — confirmado
+   comparando el CSS generado antes/después, no solo por el build en
+   verde. `docs/ui/TOKENS.md` actualizado.
+3. **`TOKENISED_DIRECTORIES`**: ya cubría toda la app autenticada salvo
+   `(public)` desde antes de esta fase — revisado, sin cambios.
+4. **Exportador DTCG** (`scripts/export-tokens.ts` +
+   `scripts/lib/tokens-dtcg.ts`, `npm run tokens:export`): parsea
+   `tokens.css` y escribe `tokens/dtcg/{primitives,semantic.light,
+   semantic.dark,$themes}.json` (flujo multi-set de Tokens Studio).
+   `tests/unit/export-tokens.test.ts` (13 tests) cubre primitivas, ambos
+   temas, radios y sombras multi-capa contra los valores reales de
+   `tokens.css`. `docs/ui/TOKENS.md` §3 actualizado (ya no "pendiente").
+
+**Hallazgo de proceso, no del producto**: `lsof -ti:3000 | xargs -r kill
+-9` no liberó de verdad el puerto varias veces seguidas (sin error,
+`lsof` posterior lo reportaba libre) — un `next-server` viejo sin las
+variables de entorno de E2E quedó sirviendo tráfico por detrás y
+`reuseExistingServer` lo reutilizó, dando primero 26 E2E en rojo que
+parecían una regresión real y después un falso "la variable
+`DISABLE_AUTH_RATE_LIMIT` no funciona". `ss -ltnp`/`fuser` sí detectaron
+el proceso que `lsof` no. Memoria del agente actualizada
+(`feedback_stale_e2e_server.md`): preferir `ss`/`fuser` a `lsof` para
+verificar puertos en este entorno.
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno. Con
+esto el rediseño UI/UX completo (`UI-0`…`UI-9`, `docs/ui/ROADMAP.md`)
+queda cerrado.
+
+**Próximo paso concreto:** elección del usuario — `Fase 6` (Cases,
+ciclo de vida/asignación/historial), `Fase 7` (Knowledge: documentos,
+trámites, RAG — desbloquea `UI-10c` y toda la `Fase 8`), o `UI-10c/d/e/f`
+si primero se resuelve su bloqueo (Fase 7/8 de producto, o validación
+visual del usuario para `UI-10f`). Ninguno depende de `UI-9`.
+
+---
+
+## Registro: UI-8 cerrado por completo (2026-09-30)
 
 Último commit: `b101b17`.
 

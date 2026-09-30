@@ -3079,3 +3079,99 @@ limpios, build limpio.
 
 Con esto, `UI-8` (`docs/ui/ROADMAP.md` "Fase 8") queda completa.
 Siguiente fase de UI sin empezar: `UI-9` — Consolidación.
+
+---
+
+## 2026-09-30 — UI-9 (Fase 9): reset de paleta/radios/sombras por defecto + exportador DTCG (fase cerrada, rediseño UI/UX completo)
+
+**Contexto:** `UI-9` era la última fase pendiente del rediseño UI/UX
+(`docs/ui/ROADMAP.md` "Fase 9"): retirar componentes obsoletos, cerrar el
+agujero de que la app autenticada aún podía usar la paleta/radios/sombras
+*por defecto* de Tailwind en vez de los tokens propios (el comentario en
+`tokens.css` decía literalmente "Default radii/shadows stay defined until
+legacy pages migrate (Phase 9)"), completar `TOKENISED_DIRECTORIES`, y
+construir el exportador de tokens a DTCG que `docs/ui/TOKENS.md` §3 daba
+por pendiente desde `UI-1`.
+
+**Investigación previa a tocar código (con un agente Explore que compiló
+Tailwind v4 de verdad contra el repo, no solo grep):** ningún archivo de
+componente obsoleto o sin referencias en todo `src/components`/`src/app`
+— los candidatos que `docs/ui/AUDIT.md` (Fase 0) señalaba
+(`auto-refresh.tsx`, `sign-out-button.tsx`) ya no existían, retirados en
+fases anteriores sin que quedara anotado aquí. `TOKENISED_DIRECTORIES`
+(`tests/unit/ui-tokens.test.ts`) ya cubría de hecho toda la app
+autenticada salvo `(public)` — nada que tocar. `docs/ui/COMPONENTS.md`
+tenía dos filas desactualizadas por fases posteriores a cuando se
+escribieron: `ContextNav` ("no tiene consumidor", falso desde que UI-7 le
+dio uno vía `OrganizationContextNav`) y `AppHeader` ("miga de
+organización aún no interactiva", falso desde que UI-7 la convirtió en
+`OrgMenu`) — corregidas.
+
+**Decisión — el reset de `--color-*`/`--radius-*`/`--shadow-*: initial`
+en `tokens.css` es seguro para toda la app salvo `src/app/(public)`:**
+esa carpeta no está tokenizada a propósito (`ROADMAP.md`: "sin cambios
+visuales ahí") y usaba directamente `bg-white`/`text-white` (10 sitios,
+`layout.tsx` + `page.tsx`) y `rounded-2xl` (2 sitios) del *default* de
+Tailwind — sin sombras por defecto en ningún sitio del repo. Dos opciones
+sobre la mesa: (a) migrar esos ~12 sitios a tokens propios, o (b) añadir
+supervivientes explícitos, idénticos en valor, junto al reset. Se eligió
+(b): `--color-white: var(--palette-white)` y `--radius-2xl: 1rem`. Migrar
+a (a) habría sido un cambio real, no cosmético: `--paper` en claro es
+`--palette-ink-50` (`#f5f7f9`), no blanco puro, así que `bg-paper` en vez
+de `bg-white` habría cambiado el tono; y como el sitio público **sí** es
+sensible al tema desde `UI-8` (la cookie `kindly_theme` se lee en el
+layout raíz, compartido), esos elementos habrían pasado a oscurecerse con
+el tema oscuro cuando nunca lo hicieron — exactamente el tipo de cambio
+de comportamiento que "consolidación" no pedía. Verificado comparando el
+CSS generado por Tailwind antes/después del cambio (`rounded-2xl`,
+`bg-white`, `text-white` y su variante `/70` resuelven byte a byte igual)
+y con captura visual real del sitio público en claro y oscuro.
+
+**Decisión — exportador de tokens a DTCG (`scripts/export-tokens.ts` +
+`scripts/lib/tokens-dtcg.ts`, `npm run tokens:export`):** parsea
+`tokens.css` con el mismo patrón ya probado en
+`tests/unit/ui-tokens.test.ts::resolveDarkTokens` (los bloques `:root {
+}`/`:root[data-theme="dark"] { }` son declaraciones planas sin llaves
+anidadas, así que un `[^}]*` no codicioso es seguro), extendido para
+resolver también `rgb(var(--palette-shadow) / alpha)` (sombras y
+`--overlay`) y sombras multi-capa con paréntesis anidados (`rgb(var(...))`
+dentro de `rgb(...)`, que rompía un regex ingenuo de "hasta el primer
+`)`" — resuelto con un escáner de profundidad de paréntesis en vez de una
+regex). Salida: `tokens/dtcg/{primitives,semantic.light,semantic.dark,
+$themes}.json`, el flujo multi-set de Tokens Studio que `TOKENS.md` §3 ya
+anticipaba (dos colecciones, Primitives de un modo y Semantic con modos
+claro/oscuro). Los nombres de token con guiones se anidan en una ruta
+(`foreground-light` → `color.foreground.light`), tal como ya documentaba
+`TOKENS.md` §3 (`color/foreground/light`); cuando un nombre es a la vez
+hoja y prefijo de grupo (`--border` vs. `--border-strong`/`-control`), la
+hoja pasa a `DEFAULT` — convención estándar de Style Dictionary/Tailwind
+para esa colisión exacta. Solo color/radio/sombra se exportan: tipografía,
+dimensiones de componente y z-index no los pide `TOKENS.md` §3 y siguen
+sincronizándose a mano. El JSON se commitea (no es un artefacto de build
+efímero): es lo que se importa a mano en Figma hasta que exista una
+sincronización automática, y `tests/unit/export-tokens.test.ts` (13 tests)
+lo cubre contra los valores reales de `tokens.css` para que un cambio de
+paleta que rompa el exportador falle ahí, no en un JSON corrupto que
+alguien importa sin darse cuenta.
+
+**Hallazgo de proceso, real pero no del producto — anotado en memoria del
+agente:** `lsof -ti:3000 | xargs -r kill -9` no liberó de verdad el puerto
+varias veces seguidas en este entorno (sin error, `lsof` posterior lo
+reportaba libre), dejando un `next-server` viejo (sin
+`DISABLE_AUTH_RATE_LIMIT`/`E2E_FAKE_MESSAGING_CHANNEL`) sirviendo tráfico
+por detrás. `playwright.config.ts` lo reutilizó (`reuseExistingServer`),
+produciendo primero 26 E2E en rojo que parecían un regresión real de este
+cambio, y después — al intentar aislar el problema a mano — un falso
+"la variable `DISABLE_AUTH_RATE_LIMIT` no funciona" que llevó a leer el
+código fuente de `better-auth` (que resultó correcto). `ss -ltnp`/`fuser`
+sí detectaron el proceso vivo que `lsof` no. Con el puerto realmente
+libre, la suite corre 42/42 en verde de forma reproducible. Sin relación
+con `UI-9` ni con ningún paquete anterior — puramente un problema de
+gestión de procesos de esta sesión.
+
+**Verificación:** lint+typecheck+365/365 unit-integration (352 previos +
+13 nuevos de `export-tokens.test.ts`)+42/42 E2E+build limpio; CSS generado
+comparado antes/después para los 12 sitios de `(public)` en riesgo.
+
+Con esto, `UI-9` (`docs/ui/ROADMAP.md` "Fase 9") queda completa y el
+rediseño UI/UX completo (`UI-0`…`UI-9`) queda cerrado.

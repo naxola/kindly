@@ -616,9 +616,9 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
 - [x] axe en E2E, auditoría manual, 320–1440 px (cerrado 2026-09-30 — `docs/DECISIONS.md`, `docs/ui/ROADMAP.md`).
 - [x] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26, cerrado 2026-09-29 — `docs/DECISIONS.md`).
 
-### UI-9 — Consolidación
+### UI-9 — Consolidación — CERRADO 2026-09-30
 
-- [ ] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma.
+- [x] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma (`docs/ui/ROADMAP.md`, `docs/DECISIONS.md`).
 
 ### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol — CERRADO 2026-09-28
 
