@@ -6,7 +6,7 @@
 
 ## Paquete activo: Fase 7a (Knowledge — capa de datos) cerrada. Siguiente: Fase 7b (ingesta + pipeline de embeddings)
 
-Último commit: `<pendiente: commit de docs de esta sesión>`.
+Último commit: `92b72ab` (feat) — este commit de docs registra el hash.
 
 ### Fase 7a — Capa de datos del backbone RAG (2026-09-30)
 
