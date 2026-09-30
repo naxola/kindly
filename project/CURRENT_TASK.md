@@ -4,7 +4,69 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 6 (Cases) cerrada. Siguiente: elección del usuario (Fase 7 — Knowledge, o `UI-10c/d/e/f` si se resuelve su bloqueo)
+## Paquete activo: Fase 7a (Knowledge — capa de datos) cerrada. Siguiente: Fase 7b (ingesta + pipeline de embeddings)
+
+Último commit: `<pendiente: commit de docs de esta sesión>`.
+
+### Fase 7a — Capa de datos del backbone RAG (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 6; eligió arrancar **Fase 7 —
+Knowledge** y, dentro de ella, **el backbone RAG primero** (no los Trámites).
+Fase 7 es grande (10 entregables); se parte en sub-paquetes y este es el
+primero. Planificado con `EnterPlanMode` tras verificar pgvector disponible y
+la baseline verde. Detalle completo en `docs/DECISIONS.md` (entrada
+"2026-09-30 — Fase 7a: capa de datos del backbone RAG").
+
+**Hecho, verificado con lint+typecheck+420/420 unit-integration (398
+previos + 22 nuevos)+build limpio:**
+
+1. **Schema** (`src/modules/knowledge/schema.ts`, migración
+   `drizzle/migrations/0009_parallel_leper_queen.sql`, **aplicada en local**
+   — pendiente contra staging/producción): `knowledge_documents`
+   (`organization_id IS NULL` ⟺ `visibility='GLOBAL'` por CHECK),
+   `knowledge_document_versions` (vigencia `effective_from/until`, `status`
+   real, único parcial de una sola CURRENT por documento), `knowledge_chunks`
+   (jerarquía Chapter/…/Fragment, `embedding vector(1536)`, `content_tsv`
+   generado con FTS `'spanish'`, `organization_id`+`visibility`
+   **denormalizados** para el hard filter sin join). Índices GIN y HNSW
+   coseno. `CREATE EXTENSION vector` añadido a mano en la migración.
+2. **`EmbeddingProvider`** (`embedding-provider.ts`): interfaz + registro
+   `globalThis` (patrón de `messaging/registry.ts`), un único proveedor
+   activo. **Fake determinista** en `testing/fake-embedding-provider.ts`
+   (bolsa de palabras hasheada a 1536 dims, normalizada). En producción
+   lanza hasta cablear el real (7b). Dimensión 1536 = OpenAI
+   `text-embedding-3-small`, para cambiar sin migración.
+3. **Lógica pura** `selectApplicableVersion` (`domain.ts`): version-aware,
+   excluye DRAFT/REPEALED, conserva SUPERSEDED/HISTORICAL. **Visibilidad**
+   `knowledgeVisibilityCondition` (`visibility.ts`, calcado de
+   `contacts/visibility.ts`): GLOBAL + propia, nunca la de otra org.
+4. **Servicios** (`service.ts`): `createDocument` (valida el invariante en
+   código), `createDocumentVersion` (transacción: supersede la CURRENT
+   previa, embebe chunks inline, denormaliza org/visibility del documento
+   padre), `listDocumentsForOrganization`, `getDocumentWithVersions`.
+5. Tests nuevos: `tests/unit/knowledge-domain.test.ts` (7),
+   `tests/unit/knowledge-embedding.test.ts` (6),
+   `tests/integration/knowledge.test.ts` (9: invariante GLOBAL⟺org a nivel
+   de código y de CHECK, aislamiento multi-tenant de documentos y chunks,
+   superseder de CURRENT, round-trip del embedding, recuperación por coseno
+   con hard filter de tenancy). Sin E2E (no hay UI en 7a).
+
+**Pendiente, anotado:** migración `0009` **sin aplicar en staging/
+producción** (`npm run db:migrate` a mano; este repo no migra en el deploy,
+ver memoria `project_manual_migrations.md`).
+
+**Próximo paso concreto:** **Fase 7b** — ingesta (parseo PDF + página web →
+chunks jerárquicos) + pipeline de embeddings (worker vía `after()`, reusando
+`EmbeddingProvider`, según la decisión previa de no meter pg-boss/Inngest
+aún). Luego 7c (recuperación híbrida FTS+vector con hard filters de
+vigencia/jurisdicción y citas trazables), 7d (Trámites, desbloquea
+`UI-10c`), 7e (UI de Knowledge). Nada de esto depende de un proveedor de
+embeddings real: el fake cubre 7b/7c; el real se cablea cuando el usuario lo
+decida (clave OpenAI).
+
+---
+
+## Registro: Fase 6 (Cases) cerrada (2026-09-30)
 
 Último commit: `e820da3`.
 

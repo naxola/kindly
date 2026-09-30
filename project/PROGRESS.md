@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 6 cerrada: máquina de estados de Case, asignación restringida a DELEGATE, vínculo Conversation↔Case en UI).
+Última actualización: 2026-09-30 (Fase 7a cerrada: capa de datos del backbone RAG — documentos versionados, chunks con pgvector, abstracción `EmbeddingProvider`, separación estricta GLOBAL/ORG).
 
 ## Resumen en una línea
 
@@ -167,7 +167,8 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
 | **Fase 6** | **Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 7 | Knowledge | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 7a** | **Knowledge: capa de datos (documentos versionados, chunks, pgvector, `EmbeddingProvider`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| Fase 7 (b-e) | Knowledge: ingesta+pipeline (7b), recuperación híbrida+citas (7c), Trámites (7d, desbloquea `UI-10c`), UI (7e) | Código (futuro paquete) | 🔴 En curso (7a hecho) |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.

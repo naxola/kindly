@@ -64,6 +64,13 @@
       "when": 1790703215630,
       "tag": "0008_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790798096611,
+      "tag": "0009_parallel_leper_queen",
+      "breakpoints": true
     }
   ]
 }

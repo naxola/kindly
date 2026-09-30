@@ -679,17 +679,38 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 
 ## Fase 7 — Knowledge
 
-- [ ] `Document`, `DocumentVersion` con campos de vigencia/jurisdicción.
-- [ ] **Trámites** (`Procedure`, por Organization, versionados): pasos y documentos requeridos; vinculables a Caso/conversación (pedido 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md` §5.2).
-- [ ] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo.
-- [ ] Separación estricta GLOBAL vs. ORGANIZATION knowledge.
-- [ ] `KnowledgeChunk` con jerarquía (Chapter/Section/Article/Paragraph).
-- [ ] Pipeline de embeddings (worker, `EmbeddingProvider`).
-- [ ] PostgreSQL FTS + pgvector, búsqueda híbrida.
-- [ ] Hard filters de tenancy/vigencia antes de ranking semántico.
-- [ ] Version-aware retrieval (selección por fecha relevante, no solo
-      `is_current`).
-- [ ] Citations trazables en UI.
+Partida en sub-paquetes. **7a cerrado (2026-09-30)**: capa de datos del
+backbone RAG. Resto pendiente: 7b (ingesta + pipeline), 7c (recuperación
+híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
+
+### Fase 7a — Capa de datos (backend, sin UI) — CERRADO 2026-09-30
+
+- [x] `Document`, `DocumentVersion` con campos de vigencia/jurisdicción
+      (`knowledge_documents`/`knowledge_document_versions`,
+      `src/modules/knowledge/schema.ts`; migración `0009`).
+- [x] Separación estricta GLOBAL vs. ORGANIZATION knowledge — CHECK
+      `knowledge_documents_global_null_org` + `knowledge/visibility.ts`.
+- [x] `KnowledgeChunk` con jerarquía (Chapter/Section/Article/Paragraph/
+      Fragment) — `knowledge_chunks`, con `embedding vector(1536)` y
+      `content_tsv` generado para FTS.
+- [x] Abstracción `EmbeddingProvider` (`embedding-provider.ts`, registro
+      `globalThis`) + fake determinista para tests. **Proveedor real
+      (OpenAI) y worker/pipeline pendientes de 7b.**
+- [x] Version-aware retrieval — lógica pura `selectApplicableVersion`
+      (`knowledge/domain.ts`), selección por fecha relevante, no solo
+      `is_current`. (La *query* de recuperación que la usa es 7c.)
+- [x] Base de PostgreSQL FTS + pgvector: extensión `vector` habilitada,
+      índices GIN (tsvector) y HNSW (coseno) creados. **La búsqueda híbrida
+      en sí es 7c.**
+
+### Fase 7b… — pendiente
+
+- [ ] **Trámites** (`Procedure`, por Organization, versionados): pasos y documentos requeridos; vinculables a Caso/conversación (pedido 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md` §5.2). (Fase 7d — desbloquea `UI-10c`.)
+- [ ] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo. (Fase 7b.)
+- [ ] Pipeline de embeddings (worker vía `after()`, reusando `EmbeddingProvider`). (Fase 7b.)
+- [ ] PostgreSQL FTS + pgvector, búsqueda híbrida (query de recuperación). (Fase 7c.)
+- [ ] Hard filters de tenancy/vigencia antes de ranking semántico (en la query). (Fase 7c.)
+- [ ] Citations trazables en UI. (Fase 7e.)
 
 ## Fase 8 — AI
 

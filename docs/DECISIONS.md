@@ -3235,3 +3235,95 @@ nuevo — 6, el vínculo)+45/45 E2E (42 previos + `cases.spec.ts` nuevo, 3
 tests: ciclo de vida completo por UI verificando las opciones ofrecidas en
 cada paso, asignación limitada a DELEGATE, vincular/quitar una conversación
 desde la página del Case)+build limpio.
+
+## 2026-09-30 — Fase 7a: capa de datos del backbone RAG (documentos versionados, chunks, pgvector, `EmbeddingProvider`)
+
+**Contexto:** cerrada la Fase 6 y el rediseño UI/UX completo, el usuario
+eligió arrancar la **Fase 7 — Knowledge** y, dentro de ella, empezar por el
+**backbone RAG** (no por los Trámites). Fase 7 es demasiado grande para una
+sesión (10 entregables en `project/TASKS.md`), así que se parte en
+sub-paquetes: **7a** (esta entrada) la capa de datos; 7b la ingesta
+(PDF/web → chunks) + pipeline de embeddings; 7c la recuperación híbrida con
+hard filters y citas; 7d los Trámites (`Procedure`, desbloquea `UI-10c`);
+7e la UI de Knowledge. Este paquete es solo backend/dominio, sin UI.
+
+**Decisiones no triviales:**
+
+1. **Separación estricta GLOBAL vs ORGANIZATION garantizada por un CHECK,
+   no solo por convención** (`CLAUDE.md` §2, `PRODUCT.md` §11). En
+   `knowledge_documents`, `organization_id IS NULL` ⟺ `visibility =
+   'GLOBAL'` mediante el CHECK `knowledge_documents_global_null_org`, además
+   de validarse en `service.ts::createDocument` (defensa en profundidad). El
+   conocimiento público (leyes, guías oficiales) no pertenece a ninguna
+   organización; el privado siempre a una. `knowledgeVisibilityCondition`
+   (`visibility.ts`, calcado de `contacts/visibility.ts`) es el único
+   predicado de lectura: GLOBAL + propia, nunca la privada de otra
+   organización. Sin distinción ADMIN/DELEGATE — el conocimiento es por
+   organización, no por afiliado.
+
+2. **`organization_id` + `visibility` denormalizados en `knowledge_chunks`.**
+   `DATABASE.md` §15 exige aplicar los hard filters de tenancy/visibilidad
+   *antes* del ranking semántico. Duplicar esas dos columnas en la fila del
+   chunk permite que la recuperación de 7c filtre tenancy sobre la propia
+   fila **sin un join** al documento en la ruta caliente. Son inmutables
+   tras la creación (un documento no cambia de organización ni de ámbito) y
+   los escribe siempre junta `createDocumentVersion`, derivados del documento
+   padre — nunca a mano por separado. El test de integración verifica que
+   org A recupera su chunk y nunca el idéntico de org B.
+
+3. **`EmbeddingProvider` con proveedor fake determinista, sin OpenAI todavía**
+   (`ARCHITECTURE.md` §10, `CLAUDE.md` §2/§3). Interfaz + registro respaldado
+   por `globalThis` (mismo patrón que `messaging/registry.ts` y
+   `db/client.ts`, por el aislamiento de módulos de Turbopack en producción);
+   a diferencia de mensajería hay un único proveedor activo, no un mapa
+   por-canal. El fake (`testing/fake-embedding-provider.ts`) es una bolsa de
+   palabras hasheada a 1536 dims y normalizada: texto idéntico → vector
+   idéntico (coseno 1.0, permite tests de round-trip), palabras compartidas →
+   más similitud. En producción `getEmbeddingProvider()` lanza hasta que se
+   cablee el proveedor real (7b+) — coherente con no construir alrededor de
+   una API externa sin confirmarla.
+
+4. **Dimensión fija 1536** = objetivo del proveedor real inicial (OpenAI
+   `text-embedding-3-small`), en `EMBEDDING_DIMENSIONS` (`schema.ts`). Así
+   cambiar a OpenAI más tarde es registrar otro proveedor, **sin migración**,
+   mientras la dimensión coincida.
+
+5. **`CREATE EXTENSION IF NOT EXISTS vector` añadido a mano** al inicio de la
+   migración `0009` (drizzle-kit no la emite), mismo patrón de SQL manual que
+   `0004`/`0007`. La imagen Docker ya era `pgvector/pgvector:pg16` desde
+   PKG-001 (lo dejó preparado a propósito) y Neon trae pgvector, así que la
+   extensión está disponible en todos los entornos. `tsvector` se declara con
+   `customType` (drizzle 0.45 no tiene tipo nativo) para que drizzle-kit lo
+   rastree y la columna generada `content_tsv` no cuente como drift.
+
+6. **FTS en `'spanish'` + índice HNSW coseno**, ambos en `knowledge_chunks`
+   para la búsqueda híbrida de 7c: columna generada `content_tsv =
+   to_tsvector('spanish', content)` con índice GIN (el conocimiento normativo
+   del producto es en español) y `hnsw (embedding vector_cosine_ops)`.
+   `document_versions` lleva un índice único parcial `WHERE status='CURRENT'`
+   (como mucho una versión vigente por documento; una nueva CURRENT supersede
+   la anterior, patrón "cerrar la fila abierta" de `memberships`).
+
+7. **Version-aware retrieval como función pura** (`domain.ts::
+   selectApplicableVersion`, `DATABASE.md` §15): elige la versión cuyo
+   `[effective_from, effective_until]` cubre una fecha relevante, excluyendo
+   `DRAFT`/`REPEALED` pero conservando `SUPERSEDED`/`HISTORICAL` (una norma ya
+   no vigente es justo lo aplicable a un caso pasado). Sin DB, muy testeada;
+   7c y la Fase 8 la reutilizan.
+
+**Fuera de alcance de 7a (anotado, no hecho):** ingesta/parseo de PDF/web
+(7b), ranking de recuperación y hard filters de vigencia/jurisdicción en la
+query (7c), Trámites (7d), UI y visor de citas (7e), auditoría específica de
+knowledge (con la UI). Los chunks se embeben inline en la escritura; 7b
+sustituye "lista de chunks dada a mano" por "parsear PDF/URL → chunks"
+reutilizando la misma llamada al proveedor, movida a un `after()` (decisión
+previa de no meter worker aún).
+
+**Verificación:** lint+typecheck+420/420 unit-integration (398 previos + 22
+nuevos: `knowledge-domain.test.ts` — 7, version-aware puro;
+`knowledge-embedding.test.ts` — 6, el fake; `knowledge.test.ts` — 9,
+invariante GLOBAL⟺org a nivel de código y de CHECK, aislamiento multi-tenant
+de documentos y de chunks, superseder de CURRENT, round-trip del embedding y
+recuperación por coseno con hard filter de tenancy)+build limpio. Migración
+`0009` aplicada en local; **pendiente aplicarla a mano contra
+staging/producción** (`npm run db:migrate`, este repo no migra en el deploy).
