@@ -4,7 +4,92 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7a (Knowledge — capa de datos) cerrada. Siguiente: Fase 7b (ingesta + pipeline de embeddings)
+## Paquete activo: Fase 7b (Knowledge — ingesta + pipeline de embeddings) cerrada. Siguiente: Fase 7c (recuperación híbrida + citas) o 7d (Trámites)
+
+Último commit: `d97e18d` (feat) — este commit de docs registra el hash.
+
+### Fase 7b — Ingesta (PDF/web → chunks jerárquicos) + pipeline de embeddings (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 7a; siguiente paso natural ya
+anotado en el cierre anterior. Tres decisiones de producto/arquitectura no
+triviales resueltas con `AskUserQuestion` antes de planificar: librería de
+PDF (`unpdf`), proveedor de embeddings real ya (OpenAI, no solo el fake) y
+forma de disparo (script de operador, sin UI/ruta HTTP — la UI es 7e).
+Planificado con `EnterPlanMode`. Detalle completo en `docs/DECISIONS.md`
+(entrada "2026-09-30 — Fase 7b").
+
+**Hecho, verificado con lint+typecheck+471/471 unit-integration (420
+previos + 51 nuevos)+build limpio+smoke test manual del script:**
+
+1. **Extracción** (`src/modules/knowledge/ingestion/`): `extract-pdf.ts`
+   (vía `unpdf`, parseo local sin red) y `extract-web.ts` (`htmlToText`
+   puro por regex — sin cheerio/jsdom en producción — + `fetchWebText` con
+   `fetchImpl` inyectable, rechaza esquemas que no sean `http(s)`, límite de
+   10 MiB).
+2. **`chunking.ts`**: chunker jerárquico **puro** para texto normativo en
+   español. Reconoce `TÍTULO`/`CAPÍTULO`→`CHAPTER`, `SECCIÓN`→`SECTION`,
+   `ARTÍCULO`→`ARTICLE` manteniendo un breadcrumb (`path`); una unidad
+   demasiado larga se divide por párrafo (`PARAGRAPH`) y, si aún así un
+   párrafo es demasiado largo (o el texto no tiene estructura reconocible:
+   una web genérica, un manual), por tamaño fijo (`FRAGMENT`). El texto que
+   sigue a una cabecera en su misma línea siempre va al cuerpo, nunca al
+   `label` (la extracción de PDF suele colapsar un artículo entero en una
+   línea). Documentado como "mejor esfuerzo", no un parser legal completo.
+3. **`pipeline.ts::ingestDocumentVersion`**: orquesta extracción + chunking
+   + `createDocumentVersion` de 7a, **sin modificarlo** — ni el invariante
+   GLOBAL/ORG, ni el superseder de `CURRENT`, ni la denormalización de
+   tenancy se tocan. Punto único que el script y la futura UI (7e)
+   compartirán; ya listo para que un futuro `after()` lo envuelva sin
+   reescritura.
+4. **`OpenAIEmbeddingProvider`** (`knowledge/openai-embedding-provider.ts`):
+   `EmbeddingProvider` real (`text-embedding-3-small`, `fetch` crudo sin
+   SDK, mismo patrón que `ResendEmailSender`), registrado desde
+   `src/instrumentation.ts` solo si `OPENAI_API_KEY` está presente — ausente
+   en todo entorno sin configurar, `getEmbeddingProvider()` sigue lanzando,
+   **nunca** cae en silencio al fake.
+5. **`scripts/ingest-knowledge.ts`** + `scripts/lib/knowledge-ingest-args.ts`
+   (parser puro de flags): operador ejecuta `npm run knowledge:ingest --
+   --title ... --visibility GLOBAL --version ... --effective-from ...
+   --pdf|--url|--text-file ...` (o `--document-id` para añadir una versión a
+   un documento existente). `--provider fake` explícito para dev/testing,
+   con aviso en consola — nunca por defecto.
+6. **Hallazgo de diseño reutilizable**: `service.ts`/`embedding-provider.ts`
+   empiezan con `import "server-only"`, que lanza siempre bajo un `node`/
+   `tsx` normal. En vez de duplicar la lógica de servicio a mano (como
+   `reset-password.ts`), el script de npm se invoca con
+   `NODE_OPTIONS=--conditions=react-server` (confirmado en vivo que `tsx` lo
+   respeta igual que `node`, y que los alias `@/*` se resuelven igual) —
+   reutiliza `createDocument`/`createDocumentVersion`/`ingestDocumentVersion`
+   sin tocarlos. Patrón documentado en `docs/DECISIONS.md` para el próximo
+   script que lo necesite.
+7. **Bug real encontrado y corregido, de proceso**: el script se quedaba
+   colgado minutos después de terminar su trabajo — el pool de PostgreSQL de
+   `db/client.ts` está cacheado en `globalThis` (compartido con toda la app)
+   y el script no es quien debe cerrarlo. Arreglado con `process.exit(0)`/
+   `process.exit(1)` explícito al terminar.
+8. Tests nuevos: `knowledge-chunking.test.ts` (11, chunker puro),
+   `knowledge-extract-web.test.ts` (11, `htmlToText` puro + `fetchWebText`
+   con stub), `knowledge-openai-provider.test.ts` (6, `fetch` mockeado —
+   nunca la API real), `knowledge-ingest-args.test.ts` (18, validación de
+   flags), `tests/integration/knowledge-ingestion.test.ts` (5, pipeline
+   completo PDF/WEB/TEXT contra PostgreSQL real con el fake registrado,
+   fixture PDF mínima válida en `tests/fixtures/knowledge/sample.pdf`). Sin
+   E2E (sigue sin haber UI, mismo motivo que 7a).
+
+**Pendiente, anotado (no bloquea el cierre):** ninguno. Limitación conocida
+del chunker (orden de extracción de un PDF con columnas puede desordenar
+líneas) documentada como "mejor esfuerzo" en `docs/DECISIONS.md`, no un
+defecto de esta sesión.
+
+**Próximo paso concreto:** elección del usuario — **Fase 7c** (recuperación
+híbrida FTS+vector con hard filters de vigencia/jurisdicción y citas
+trazables, usa `selectApplicableVersion` de 7a) o **Fase 7d** (Trámites,
+desbloquea `UI-10c`) — ninguna depende de la otra. La Fase 7e (UI de
+Knowledge) necesita al menos 7c para tener algo que mostrar.
+
+---
+
+## Registro: Fase 7a (Knowledge — capa de datos) cerrada (2026-09-30)
 
 Último commit: `92b72ab` (feat) — este commit de docs registra el hash.
 
