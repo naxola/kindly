@@ -6,7 +6,7 @@
 
 ## Paquete activo: UI-8 cerrado por completo — siguiente: UI-9 (Consolidación) o cualquier otro pendiente
 
-Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+Último commit: `b101b17`.
 
 ### UI-8, segundo tramo — axe-core + recorrido manual (2026-09-30)
 
