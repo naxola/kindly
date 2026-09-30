@@ -50,6 +50,11 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Conocimiento"
         description="Normativa y documentación con fuente, versión y vigencia verificables"
+        aside={
+          <Link href="/knowledge/procedures" className="focus-ring type-body rounded-sm text-foreground-lighter underline">
+            Trámites
+          </Link>
+        }
       />
 
       <PageSection title="Buscar" description="Solo devuelve versiones aplicables hoy">

@@ -9,7 +9,8 @@ export type ActivityEntityType =
   | "task"
   | "conversation"
   | "messaging_account"
-  | "organization";
+  | "organization"
+  | "procedure";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -36,6 +37,8 @@ export type ActivityEntityType =
  * (`conversations/service.ts::linkConversationToCase`/
  * `unlinkConversationFromCase`) — entity `case`, the Case is the side with
  * its own page and activity feed.
+ * Fase 7d adds PROCEDURE_CREATED/PROCEDURE_VERSION_PUBLISHED
+ * (`procedures/service.ts`) — entity `procedure`.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -63,7 +66,9 @@ export type ActivityType =
   | "MEMBER_JOINED"
   | "INVITATION_REVOKED"
   | "MEMBER_ROLE_CHANGED"
-  | "ORGANIZATION_RENAMED";
+  | "ORGANIZATION_RENAMED"
+  | "PROCEDURE_CREATED"
+  | "PROCEDURE_VERSION_PUBLISHED";
 
 interface RecordActivityInput {
   organizationId: string;

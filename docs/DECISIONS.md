@@ -3530,3 +3530,44 @@ previos + `knowledge.spec.ts`, 3 tests: aislamiento de tenancy en lista y
 axe sin violaciones serias)+build limpio. La búsqueda con resultados solo
 se cubre en integración (7c): el E2E no tiene proveedor de embeddings.
 
+## 2026-09-30 — Fase 7d: Trámites (`Procedure`) + permisos de gestión del conocimiento
+
+**Contexto:** cerrada 7e, el usuario pidió continuar con Trámites y fijó que
+**de momento solo un ADMIN puede subir/gestionar** conocimiento.
+
+**Decisiones:**
+
+1. **Solo ADMIN escribe; cualquier miembro lee.** Crear trámites y publicar
+   versiones exige `requireOrganizationAdmin()`; un DELEGATE necesita leer la
+   lista de documentos requeridos pero no ve controles de edición. Para la
+   subida de documentos de Knowledge (ingesta desde UI, aún no construida)
+   rige la misma regla: cuando se construya será ADMIN-only. Sin matriz de
+   permisos (`CLAUDE.md` §8).
+2. **Tablas propias, no chunks RAG.** `procedures` → `procedure_versions`
+   (`version` entero 1,2,3…; estados `CURRENT`/`SUPERSEDED`, índice único
+   parcial: una sola CURRENT) → `procedure_steps` y
+   `procedure_required_documents` (filas, no JSON: UI-10c necesitará
+   apuntar a cada documento requerido por id). Un trámite es estructura
+   para checklist, no texto para recuperar con citas; privado por
+   organización (sin GLOBAL), `organization_id` denormalizado en la versión.
+3. **Sin DRAFT/REPEALED ni fechas de vigencia**: es la regla propia de la
+   organización, no legislación; publicar = la nueva versión pasa a CURRENT
+   y la anterior queda SUPERSEDED, intacta (lo ya tramitado bajo ella no se
+   reescribe). Editar = publicar versión nueva copiando la vigente en el
+   formulario. Número de versión calculado con `SELECT … FOR UPDATE` sobre
+   el trámite para serializar publicaciones concurrentes.
+4. **Fuera de alcance (es de UI-10c):** vincular trámite a Caso/conversación
+   y guardar el estado `required/received` (canal y fecha) por documento;
+   sigue sin guardarse ningún archivo.
+5. UI: `/knowledge/procedures` (lista; "Nuevo trámite" solo ADMIN) y
+   `/knowledge/procedures/[id]` (historial; "Publicar nueva versión" solo
+   ADMIN). Pasos y documentos se introducen uno por línea
+   (`domain.ts::parseLineList`). Actividades `PROCEDURE_CREATED` /
+   `PROCEDURE_VERSION_PUBLISHED` (entidad `procedure`). Migración `0010`.
+
+**Verificación:** lint+typecheck+492/492 unit-integration (485 previos + 3
+unit de `parseLineList` + 4 integración: versión 1, supersesión con una sola
+CURRENT, aislamiento entre organizaciones, listado)+49/49 E2E (48 previos +
+`procedures.spec.ts`: ADMIN crea y publica v2, DELEGATE solo lee; axe sin
+violaciones serias)+build limpio.
+

@@ -36,6 +36,8 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   INVITATION_REVOKED: "Invitación revocada",
   MEMBER_ROLE_CHANGED: "Rol de miembro cambiado",
   ORGANIZATION_RENAMED: "Organización renombrada",
+  PROCEDURE_CREATED: "Trámite creado",
+  PROCEDURE_VERSION_PUBLISHED: "Versión de trámite publicada",
 };
 
 function labelFor(type: string): string {

@@ -4,9 +4,25 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7e (Knowledge — UI) cerrada. Siguiente: Fase 7d (Trámites)
+## Paquete activo: Fase 7d (Trámites) cerrada — Fase 7 completa. Siguiente: UI-10c o Fase 8
 
 Último commit: ver `git log` (este commit incluye el registro).
+
+### Fase 7d — Trámites (2026-09-30)
+
+Hecho: `modules/procedures` (schema, service, actions, domain), migración
+`0010_procedures`, `/knowledge/procedures` y `/knowledge/procedures/[id]`,
+tests (3 unit + 4 integración + E2E). ADMIN-only para escribir (decisión del
+usuario, también para la futura subida de documentos de Knowledge). Detalle
+en `docs/DECISIONS.md` ("Fase 7d"). Verificado: lint+typecheck+492/492+49/49
+E2E+build.
+
+**Pendiente, anotado:** vincular trámite a Caso/conversación y estado
+recibido/falta por documento (UI-10c, que además necesita confirmar plazos de
+medios de Meta y el texto del aviso); subida de documentos desde UI (ADMIN).
+**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**.
+
+---
 
 ### Fase 7e — UI de Knowledge (2026-09-30)
 

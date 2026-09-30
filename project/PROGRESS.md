@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7e cerrada: UI de Knowledge — lista, detalle con versiones y búsqueda con citas).
+Última actualización: 2026-09-30 (Fase 7d cerrada: Trámites versionados por organización, gestión solo ADMIN; Fase 7 completa).
 
 ## Resumen en una línea
 
@@ -171,7 +171,7 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7b** | **Knowledge: ingesta (PDF/web/texto → chunks jerárquicos) + `OpenAIEmbeddingProvider` + script de operador** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7c** | **Knowledge: recuperación híbrida FTS+vector (RRF) con hard filters de tenancy/vigencia/jurisdicción** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 7d | Knowledge: Trámites (desbloquea `UI-10c`) | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
