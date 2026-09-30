@@ -3001,3 +3001,81 @@ en vez de fijar un tercer valor), build limpio, captura visual real de
 **Pendiente de esta fase (no de este tramo):** `@axe-core/playwright` en
 los E2E principales, recorrido manual de teclado/lector de pantalla,
 verificación responsive 320/768/1024/1440 — siguiente paso, aparte.
+
+## 2026-09-30 — UI-8, segundo tramo: axe-core automático + recorrido manual (fase cerrada)
+
+**Contexto:** con el tema oscuro cerrado, quedaban las otras dos piezas
+de `UI-8` (`docs/ui/ROADMAP.md` "Fase 8"): auditoría automática con
+axe-core en los E2E principales, y el recorrido manual (teclado, lector
+de pantalla, 320/768/1024/1440 px) que `ACCESSIBILITY.md`/`RESPONSIVE.md`
+piden por fase.
+
+**Decisión — alcance del gate automático:** `expectNoSeriousAccessibilityViolations`
+(`tests/e2e/axe-helpers.ts`) solo falla el test ante violaciones de
+impacto `serious`/`critical`. `minor`/`moderate` quedan fuera del gate
+automático a propósito — la propia documentación de axe-core avisa de más
+falsos positivos en esos niveles, que necesitan criterio humano; ese
+criterio es el recorrido manual, no un segundo gate automático. Nuevo
+`tests/e2e/accessibility.spec.ts`: Inbox vacío, Inbox con conversaciones,
+conversación abierta (chat + ficha de UI-10a/b + ticks de entrega tras
+una respuesta), y `/organization` — las tres superficies que
+`ROADMAP.md` nombra explícitamente — repetido en claro **y** oscuro (un
+`test.describe` por tema con `test.use({ colorScheme })`), ya que ninguno
+de los dos temas es más proclive que el otro a un fallo serio y repetir
+el chequeo es barato.
+
+**Dos bugs reales encontrados y corregidos, sin relación con el tema
+oscuro** (preexistentes, solo visibles ahora por tener por fin un gate
+automático — exactamente el propósito de esta pieza de la fase):
+
+1. **Contraste del hint del compositor** (`conversation-thread.tsx`):
+   "Intro para enviar · Mayús+Intro salto de línea" usaba
+   `text-foreground-muted` — ese token está diseñado a propósito para
+   quedar *por debajo* de AA (`tests/unit/ui-tokens.test.ts`: "keeps
+   foreground-muted for disabled/decorative text only"), pero este texto
+   es instructivo, no decorativo ni deshabilitado. Cambiado a
+   `text-foreground-lighter` (AA), mismo token que ya usaba la línea de
+   "Ventana de respuesta libre abierta hasta…" un poco más arriba en el
+   mismo archivo.
+2. **Estructura de lista del hilo de mensajes**: `<ul role="log">` con
+   `<li>` dentro. Un rol ARIA explícito (`log`) sustituye el rol
+   implícito del elemento (`list` para un `<ul>`), así que sus `<li>`
+   quedaban sin un ancestro con rol de lista válido — axe lo marca dos
+   veces (`listitem`, "serious": "List item parent element has a role
+   that is not role=list"; y tras un primer intento de arreglo con
+   `role="listitem"` explícito en cada `<li>`, `aria-required-parent`,
+   "critical": ese rol explícito sí exige un ancestro con rol `list`,
+   que seguía sin existir). Solución final: el `role="log"`/`aria-live`
+   se mueve a un `<div>` que envuelve al `<ul>`; el `<ul>`/`<li>` interior
+   se quedan sin rol explícito (implícito `list`/`listitem`, válido) y el
+   `<ul>` lleva `className="contents"` para no añadir una caja extra al
+   `flex` que ya aportaba el `<div>`. `page.getByRole("log", { name:
+   "Mensajes" })`, usado en seis specs E2E existentes, sigue resolviendo
+   igual: el rol `log` es válido en cualquier elemento, no solo en un
+   `<ul>`.
+
+**Decisión — recorrido manual sin lector de pantalla real:** este
+entorno no tiene NVDA/VoiceOver disponibles. Se pilotó un recorrido
+100% por teclado con Playwright (Tab al enlace "Saltar al contenido",
+`Enter` mueve el foco a `#main`, fila de conversación enfocable y
+activable con `Enter`, el foco nunca cae a `<body>` al abrir el panel,
+`F6` recorre las tres zonas — lista → chat → ficha → lista — confirmado
+con 4 pulsaciones consecutivas, `Esc` cierra y quita `?conversation=` de
+la URL) y se inspeccionó el árbol de accesibilidad con
+`page.locator("body").ariaSnapshot()` — exactamente los datos que
+consume un lector de pantalla real (landmarks, roles, nombres
+accesibles) — como sustituto razonado, no como equivalente completo a
+probarlo con software real. Confirmó: landmarks correctos (`banner`,
+`complementary`, `main`, región `live` de notificaciones), un único
+`h1`, controles de formulario con nombre accesible real. Sin scroll
+horizontal a 320 px ni con zoom 200% en `/inbox`; capturas reales a
+320 px de `/inbox`, `/organization` y `/contacts/[id]` (con la sección
+Afiliación de UI-10b) sin truncar ni desbordar.
+
+**Verificación:** 42/42 E2E (2 nuevos en `accessibility.spec.ts`, claro y
+oscuro), 352/352 unit+integration sin cambios (el fix de
+`conversation-thread.tsx` no toca lógica de dominio), lint+typecheck
+limpios, build limpio.
+
+Con esto, `UI-8` (`docs/ui/ROADMAP.md` "Fase 8") queda completa.
+Siguiente fase de UI sin empezar: `UI-9` — Consolidación.

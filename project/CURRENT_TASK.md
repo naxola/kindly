@@ -4,7 +4,60 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: UI-8 (tema oscuro) cerrado — siguiente: resto de UI-8 (axe-core + auditoría manual) o cualquier otro pendiente
+## Paquete activo: UI-8 cerrado por completo — siguiente: UI-9 (Consolidación) o cualquier otro pendiente
+
+Último commit: pendiente de commitear en esta sesión (ver bloque de abajo).
+
+### UI-8, segundo tramo — axe-core + recorrido manual (2026-09-30)
+
+El usuario pidió continuar tras cerrar el tema oscuro. Detalle completo
+en `docs/DECISIONS.md` (entrada "2026-09-30 — UI-8, segundo tramo:
+axe-core automático + recorrido manual (fase cerrada)") y
+`docs/ui/ROADMAP.md` (Fase 8, ahora 🟢 completa).
+
+**Hecho, verificado con lint+typecheck+352/352 unit-integration+42/42
+E2E+build limpio:**
+
+1. **`@axe-core/playwright`** instalado; `tests/e2e/axe-helpers.ts`
+   (`expectNoSeriousAccessibilityViolations`, gate solo en impacto
+   serious/critical — minor/moderate quedan para el criterio humano del
+   recorrido manual) + `tests/e2e/accessibility.spec.ts` nuevo: Inbox
+   vacío, Inbox con conversaciones, conversación abierta (chat + ficha +
+   ticks de entrega), `/organization` — las tres superficies que
+   `ROADMAP.md` nombra, repetido en claro y oscuro.
+2. **Dos bugs reales encontrados y corregidos**, sin relación con el
+   tema oscuro (preexistentes, invisibles hasta tener un gate
+   automático): el hint del compositor
+   (`conversation-thread.tsx`) usaba `text-foreground-muted` (diseñado
+   para quedar bajo AA a propósito, solo texto deshabilitado/decorativo)
+   en vez de `text-foreground-lighter`; el hilo de mensajes
+   (`<ul role="log">`) dejaba sus `<li>` sin ancestro con rol de lista
+   válido (`role="log"` sustituye el rol implícito `list` del `<ul>`) —
+   corregido moviendo `role="log"`/`aria-live` a un `<div>` envolvente,
+   dejando `<ul>`/`<li>` con sus roles implícitos intactos.
+3. **Recorrido manual** (sin lector de pantalla real en este entorno;
+   árbol de accesibilidad vía `ariaSnapshot()` como sustituto razonado,
+   más un piloto de teclado real con Playwright): Tab → "Saltar al
+   contenido" → foco a `#main`; fila de conversación enfocable/activable
+   con `Enter`; el foco nunca cae a `<body>` al abrir el panel; `F6`
+   recorre las tres zonas (lista→chat→ficha→lista, confirmado con 4
+   pulsaciones); `Esc` cierra y quita `?conversation=`; landmarks/roles/
+   nombres accesibles correctos en el árbol de `/inbox`; sin scroll
+   horizontal a 320 px ni con zoom 200%; captura real a 320 px de
+   `/inbox`, `/organization` y `/contacts/[id]` (con Afiliación de
+   UI-10b) sin desbordar ni truncar.
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno — las
+dos piezas que quedaban de `UI-8` (axe-core + recorrido manual) están
+cerradas. `UI-9` (Consolidación) es la siguiente fase de UI sin empezar.
+
+**Próximo paso concreto:** `UI-9` (retirar componentes obsoletos, paleta
+por defecto de Tailwind, exportador DTCG) o cualquier otro paquete
+pendiente — elección del usuario. `UI-10c` sigue bloqueado por Fase 7.
+
+---
+
+## Registro: UI-8, primer tramo — tema oscuro (2026-09-29)
 
 Último commit: `8af3bd9`.
 

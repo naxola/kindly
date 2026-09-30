@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-29 (UI-8, primer tramo: tema oscuro con selector Claro/Oscuro/Sistema).
+Última actualización: 2026-09-30 (UI-8 cerrada: axe-core automático + recorrido manual de accesibilidad/responsive).
 
 ## Resumen en una línea
 
@@ -96,9 +96,27 @@ forma de "pintar en servidor sin parpadeo" en el App Router sin ese
 coste. Detalle completo, paleta y la pregunta al usuario en
 `docs/DECISIONS.md`. Verificado con lint+typecheck+352/352
 unit-integration+40/40 E2E+build limpio+captura visual real (`/login`,
-`/inbox`, `/ui-kit`, `/contacts/[id]`) en oscuro y claro. **Pendiente de
-esta fase**: `@axe-core/playwright`, recorrido manual de teclado/lector
-de pantalla, verificación responsive 320–1440 px.
+`/inbox`, `/ui-kit`, `/contacts/[id]`) en oscuro y claro.
+
+**`UI-8`, segundo tramo (2026-09-30, cerrado): axe-core + recorrido
+manual — fase completa.** `tests/e2e/axe-helpers.ts` +
+`tests/e2e/accessibility.spec.ts` nuevo: sin violaciones serias/críticas
+en Inbox/conversación/Organización, claro y oscuro. Encontró y corrigió
+dos bugs reales preexistentes (sin relación con el tema oscuro): el hint
+del compositor usaba `text-foreground-muted` (por debajo de AA a
+propósito, solo para texto deshabilitado) en vez de
+`text-foreground-lighter`; y el hilo de mensajes (`<ul role="log">`)
+dejaba sus `<li>` sin un ancestro con rol de lista válido — corregido
+moviendo `role="log"` a un `<div>` envolvente. Recorrido manual (sin
+lector de pantalla real disponible en este entorno; árbol de
+accesibilidad inspeccionado como sustituto razonado) confirmó: Tab →
+"Saltar al contenido" → foco a `#main`; fila de conversación enfocable y
+activable con `Enter`; el foco nunca cae a `<body>`; `F6` recorre las
+tres zonas (lista→chat→ficha→lista, 4 pulsaciones); `Esc` cierra;
+landmarks/roles/nombres accesibles correctos; sin scroll horizontal a
+320 px ni con zoom 200%. Detalle completo en `docs/DECISIONS.md`.
+Verificado con lint+typecheck+352/352 unit-integration (sin cambios)
++42/42 E2E+build limpio.
 
 ## Estado por fase / paquete
 
@@ -125,7 +143,7 @@ de pantalla, verificación responsive 320–1440 px.
 | **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
 | **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
-| **UI-8** | **Accesibilidad y responsive** | Código (agente) | 🟡 **En marcha** — tema oscuro completo (2026-09-29); falta axe-core y recorrido manual, ver `docs/ui/ROADMAP.md` |
+| **UI-8** | **Accesibilidad y responsive** | Código (agente) | 🟢 **Completo** (2026-09-30) — tema oscuro + axe-core + recorrido manual |
 | UI-9 | Consolidación | Código (agente) | ⚪ No iniciada — ver `docs/ui/ROADMAP.md` |
 | **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
 | **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |

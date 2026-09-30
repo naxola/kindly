@@ -408,7 +408,7 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   verificación visual real a 900/1280/1920 px (sidebar, `ProductMenu`,
   `ContextNav` móvil, menú de organización del header).
 
-## Fase 8 — Accesibilidad y responsive · 🟡 En marcha (tema oscuro hecho, 2026-09-29)
+## Fase 8 — Accesibilidad y responsive · 🟢 Completa (2026-09-30)
 
 - **Objetivo**: auditar el sistema completo contra `ACCESSIBILITY.md` y
   `RESPONSIVE.md`.
@@ -433,10 +433,53 @@ Leyenda de estado: 🟢 completa · 🔴 en curso · ⚪ no iniciada.
   hay mecanismo de "pintado en servidor sin parpadeo" que preserve
   render estático en el App Router. Detalle completo, paleta oscura y la
   pregunta hecha al usuario en `docs/DECISIONS.md`.
-- **Pendiente de esta fase**: `@axe-core/playwright`, recorrido manual de
-  teclado/lector de pantalla, verificación responsive 320/768/1024/1440.
-- **Criterios de aceptación**: sin violaciones axe serias/críticas;
-  checklist manual documentado aquí.
+- **`@axe-core/playwright`, hecho (2026-09-30)**: `tests/e2e/axe-helpers.ts`
+  (`expectNoSeriousAccessibilityViolations`, filtra a impacto
+  serious/critical — minor/moderate quedan para el criterio humano del
+  checklist manual, por los falsos positivos que documenta axe en esos
+  niveles) + `tests/e2e/accessibility.spec.ts` nuevo, Inbox (vacío y con
+  conversaciones)/conversación abierta (chat+ficha+ticks de entrega)/
+  Organización, en claro **y oscuro**. Encontró y corrigió dos bugs reales
+  preexistentes, sin relación con el tema oscuro: (1) el hint del
+  compositor ("Intro para enviar…") usaba `text-foreground-muted`
+  (diseñado para quedar por debajo de AA a propósito, solo para texto
+  deshabilitado/decorativo) en vez de `text-foreground-lighter`; (2) el
+  hilo de mensajes (`<ul role="log">`) perdía el rol implícito de lista
+  para sus `<li>` al llevar un rol ARIA explícito distinto — corregido
+  moviendo `role="log"` a un `<div>` envolvente y dejando el `<ul>`/`<li>`
+  interior con sus roles implícitos intactos (`aria-required-parent`/
+  `listitem`, ambos "critical"/"serious"). Detalle en `docs/DECISIONS.md`.
+- **Recorrido manual, hecho (2026-09-30)** — checklist de
+  `ACCESSIBILITY.md` §1, verificado con Playwright pilotando teclado real
+  (sin lector de pantalla real disponible en este entorno; el árbol de
+  accesibilidad — `ariaSnapshot()`, lo que un lector de pantalla
+  consumiría — se inspeccionó como sustituto, ver `docs/DECISIONS.md`):
+  - ✅ Todo lo interactivo se alcanza y activa con teclado: primer `Tab`
+    → enlace "Saltar al contenido" → `Enter` mueve el foco a `#main`;
+    fila de conversación (tabindex progresivo, `DataList`) enfocable y
+    `Enter` la abre.
+  - ✅ El foco nunca se pierde: tras abrir la conversación el foco queda
+    dentro del panel, nunca en `<body>`; `Esc` cierra y la URL pierde
+    `?conversation=`.
+  - ✅ `F6` recorre las tres zonas documentadas (lista → chat → ficha →
+    lista…) — confirmado con 4 pulsaciones consecutivas, ciclo completo.
+  - ✅ Contraste: cubierto por los tests de tokens (claro y oscuro) + axe.
+  - ✅ 320 px y zoom 200%: sin scroll horizontal en `/inbox` (`/ui-kit`,
+    `/contacts/[id]` con la sección Afiliación de UI-10b, y
+    `/organization` verificados visualmente a 320 px, capturas reales).
+  - Árbol de accesibilidad de `/inbox`: landmarks correctos (`banner`,
+    `complementary` para la sidebar, `main`, región de notificaciones
+    live), un único `h1`, controles con nombre accesible real
+    (`searchbox`/`combobox` con label, no solo placeholder).
+- **Responsive 320/768/1024/1440, hecho (2026-09-30)**: sin scroll
+  horizontal (`document.documentElement.scrollWidth` vs `clientWidth`)
+  en `/inbox` y `/organization` en las 4 anchuras; captura real a 320 px
+  de `/inbox`, `/organization` y `/contacts/[id]` (con el formulario de
+  Afiliación de UI-10b) — el trabajo responsive de cada fase anterior
+  (`RESPONSIVE.md` §"Reglas": "cada fase verifica 320/768/1024/1440")
+  seguía intacto, ningún fix nuevo hizo falta aquí.
+- **Criterios de aceptación**: sin violaciones axe serias/críticas ✅;
+  checklist manual documentado arriba ✅.
 
 ## Fase 9 — Consolidación · ⚪
 

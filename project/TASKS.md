@@ -611,9 +611,9 @@ Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
       unit+integration, 30/30 E2E. Verificación visual real a
       900/1280/1920 px.
 
-### UI-8 — Accesibilidad y responsive
+### UI-8 — Accesibilidad y responsive — CERRADO 2026-09-30
 
-- [ ] axe en E2E, auditoría manual, 320–1440 px.
+- [x] axe en E2E, auditoría manual, 320–1440 px (cerrado 2026-09-30 — `docs/DECISIONS.md`, `docs/ui/ROADMAP.md`).
 - [x] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26, cerrado 2026-09-29 — `docs/DECISIONS.md`).
 
 ### UI-9 — Consolidación

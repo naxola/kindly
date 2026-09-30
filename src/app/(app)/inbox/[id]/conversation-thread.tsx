@@ -287,47 +287,57 @@ export function ConversationThread({
           verifying a closed service window with several messages). */}
       <div className="relative flex min-h-0 flex-1 flex-col">
         <SheetBody ref={scrollRef} onScroll={handleScroll} className="flex flex-col gap-1">
-          <ul role="log" aria-live={isLive ? "polite" : "off"} aria-label="Mensajes" className="flex flex-col gap-1">
-            {itemCount === 0 && (
-              <li>
-                <EmptyState variant="inline" title="Todavía no hay mensajes." />
-              </li>
-            )}
-            {timeline.flatMap(({ message, separator }) => {
-              const nodes = [
-                <li key={message.id}>
-                  <Bubble
-                    direction={message.direction}
-                    body={message.body}
-                    createdAt={message.createdAt}
-                    status={message.deliveryStatus}
-                    sentFromDevice={message.sentFromDevice}
-                  />
-                </li>,
-              ];
-              if (separator) {
-                nodes.unshift(
-                  <li key={`${message.id}-day`}>
-                    <DaySeparator label={separator} />
+          {/* `role="log"` (a live-region role) can't sit on the `<ul>`
+              itself: it overrides the element's implicit list role, which
+              in turn strips the `<li>` children of their implicit listitem
+              role — axe's "listitem"/"aria-required-parent" rules both
+              catch it (a listitem needs a real list ancestor). The `log`
+              role moves to this wrapping `<div>` instead; the `<ul>` below
+              stays a plain, valid list (`className="contents"` so it adds
+              no extra box to the flex layout the div already provides). */}
+          <div role="log" aria-live={isLive ? "polite" : "off"} aria-label="Mensajes" className="flex flex-col gap-1">
+            <ul className="contents">
+              {itemCount === 0 && (
+                <li>
+                  <EmptyState variant="inline" title="Todavía no hay mensajes." />
+                </li>
+              )}
+              {timeline.flatMap(({ message, separator }) => {
+                const nodes = [
+                  <li key={message.id}>
+                    <Bubble
+                      direction={message.direction}
+                      body={message.body}
+                      createdAt={message.createdAt}
+                      status={message.deliveryStatus}
+                      sentFromDevice={message.sentFromDevice}
+                    />
                   </li>,
-                );
-              }
-              return nodes;
-            })}
-            {pending.map((item) => (
-              <li key={item.tempId}>
-                <Bubble
-                  direction="OUTBOUND"
-                  body={item.body}
-                  createdAt={item.createdAt}
-                  status={item.status}
-                  sentFromDevice={false}
-                  error={item.error}
-                  onRetry={item.status === "FAILED" ? () => retry(item) : undefined}
-                />
-              </li>
-            ))}
-          </ul>
+                ];
+                if (separator) {
+                  nodes.unshift(
+                    <li key={`${message.id}-day`}>
+                      <DaySeparator label={separator} />
+                    </li>,
+                  );
+                }
+                return nodes;
+              })}
+              {pending.map((item) => (
+                <li key={item.tempId}>
+                  <Bubble
+                    direction="OUTBOUND"
+                    body={item.body}
+                    createdAt={item.createdAt}
+                    status={item.status}
+                    sentFromDevice={false}
+                    error={item.error}
+                    onRetry={item.status === "FAILED" ? () => retry(item) : undefined}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
         </SheetBody>
         {hasNewMessages && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
@@ -390,7 +400,7 @@ export function ConversationThread({
               }}
             />
             <div className="flex items-center justify-between gap-2">
-              <p className="type-caption text-foreground-muted">Intro para enviar · Mayús+Intro salto de línea</p>
+              <p className="type-caption text-foreground-lighter">Intro para enviar · Mayús+Intro salto de línea</p>
               <Button type="submit" size="sm" disabled={!text.trim()} icon={<Send className="size-4" />}>
                 Enviar
               </Button>
