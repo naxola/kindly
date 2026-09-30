@@ -4,7 +4,75 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7b (Knowledge — ingesta + pipeline de embeddings) cerrada. Siguiente: Fase 7c (recuperación híbrida + citas) o 7d (Trámites)
+## Paquete activo: Fase 7c (Knowledge — recuperación híbrida) cerrada. Siguiente: Fase 7d (Trámites) o 7e (UI de Knowledge)
+
+Último commit: `aff6cb1` (feat) — este commit de docs registra el hash.
+
+### Fase 7c — Recuperación híbrida (FTS + vector) con hard filters (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 7b, con la opción ya anotada en
+el cierre anterior. Sin decisiones de producto abiertas esta vez (el stack
+y los hard filters ya estaban fijados en `ARCHITECTURE.md` §9 y
+`DATABASE.md` §15); solo decisiones de ingeniería, resueltas directamente
+tras `EnterPlanMode`. Detalle completo en `docs/DECISIONS.md` (entrada
+"2026-09-30 — Fase 7c").
+
+**Hecho, verificado con lint+typecheck+485/485 unit-integration (471
+previos + 14 nuevos)+build limpio:**
+
+1. **`retrieval-fusion.ts::combineRankedResults`**: Reciprocal Rank Fusion
+   **puro** (k=60, el estándar de la literatura y el que usa la guía de
+   búsqueda híbrida de Supabase), combina cualquier número de listas
+   rankeadas sin necesitar que sus scores sean comparables.
+2. **`retrieval.ts::retrieveKnowledge`**: dos queries de Drizzle (una por
+   `ts_rank`/FTS, otra por `cosineDistance`/vector — helper que
+   `drizzle-orm` ya exporta, coincide con el índice HNSW de 7a), cada una
+   con los mismos hard filters aplicados antes del `ORDER BY`, fusionadas
+   con RRF. Dos round-trips en vez de una CTE SQL a mano — sin precedente
+   de `db.execute` en el repo, este patrón sigue el idioma ya usado en
+   `conversations/service.ts`.
+3. **Hard filters**: tenancy reutiliza `knowledgeVisibilityCondition` de 7a
+   sin cambios; vigencia nueva (`versionApplicabilityCondition`,
+   reproduce `domain.ts::selectApplicableVersion` a nivel de fila —
+   `domain.ts` ahora exporta `APPLICABLE_STATUSES` para no duplicar la
+   lista de estados); jurisdicción/territorio/ámbito, filtro exacto
+   opcional. Simplificación conocida y documentada: a diferencia de
+   `selectApplicableVersion`, la query no desempata entre versiones
+   solapadas del mismo documento (dato mal formado) — con datos bien
+   formados el resultado es idéntico.
+4. **Sin relevancia mínima**: la búsqueda vectorial siempre devuelve los
+   vecinos más cercanos entre lo que pasa los hard filters — comportamiento
+   esperado de k-NN, no un defecto; Fase 8 decide si un `score` bajo implica
+   `evidenceLevel: INSUFFICIENT`.
+5. **Requiere `EmbeddingProvider` registrado**, igual que la ingesta —
+   lanza si no hay ninguno, nunca cae en silencio a un modo "solo FTS".
+6. Tests nuevos: `knowledge-retrieval-fusion.test.ts` (8, propiedades de
+   RRF puro), `knowledge-retrieval.test.ts` (6, contra PostgreSQL real con
+   el fake registrado: aislamiento de tenancy, version-aware retrieval a
+   nivel de query —DRAFT/REPEALED excluidos siempre, SUPERSEDED solo dentro
+   de su ventana—, filtro de jurisdicción, forma del resultado con
+   metadatos de citación, límite respetado). Sin E2E (sigue sin haber UI).
+
+**Hallazgo de proceso, no del producto**: una aserción inicial del test de
+jurisdicción usaba valores fijos ("ES"/"FR") y fallaba tras varias
+reejecuciones de depuración — `kindly_test` no se trunca nunca entre
+ejecuciones (`docker/init-test-db.sh` solo crea la base una vez), así que
+los documentos GLOBAL de esa aserción se acumulaban de una ejecución a la
+siguiente. Corregido sufijando el valor de jurisdicción y la query con un
+`randomUUID()` por ejecución, mismo patrón que ya usan los nombres de
+`Organization` en otros tests de integración.
+
+**Pendiente, anotado (no bloquea el cierre):** ninguno. Construir
+`AISuggestion`/`AISource` a partir de `KnowledgeSearchResult` es Fase 8,
+fuera de alcance a propósito.
+
+**Próximo paso concreto:** elección del usuario — **Fase 7d** (Trámites,
+desbloquea `UI-10c`) o **Fase 7e** (UI de Knowledge, ahora que 7a/7b/7c dan
+algo real que mostrar) — ninguna depende de la otra.
+
+---
+
+## Registro: Fase 7b (Knowledge — ingesta + pipeline de embeddings) cerrada (2026-09-30)
 
 Último commit: `d97e18d` (feat) — este commit de docs registra el hash.
 
