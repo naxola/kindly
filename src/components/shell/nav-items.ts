@@ -1,4 +1,4 @@
-import { Briefcase, Building2, Contact, Inbox, ListChecks } from "lucide-react";
+import { BookOpen, Briefcase, Building2, Contact, Inbox, ListChecks } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/contacts", label: "Contactos", icon: Contact },
   { href: "/cases", label: "Casos", icon: Briefcase },
   { href: "/tasks", label: "Tareas", icon: ListChecks },
+  { href: "/knowledge", label: "Conocimiento", icon: BookOpen },
 ];
 
 /**

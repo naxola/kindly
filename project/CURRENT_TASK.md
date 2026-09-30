@@ -4,7 +4,24 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7c (Knowledge — recuperación híbrida) cerrada. Siguiente: Fase 7d (Trámites) o 7e (UI de Knowledge)
+## Paquete activo: Fase 7e (Knowledge — UI) cerrada. Siguiente: Fase 7d (Trámites)
+
+Último commit: ver `git log` (este commit incluye el registro).
+
+### Fase 7e — UI de Knowledge (2026-09-30)
+
+Hecho: `/knowledge` (lista + búsqueda con `CitationCard`), `/knowledge/[id]`
+(versiones, vigencia, fragmentos), `listChunksForVersion`, ítem de sidebar,
+`tests/e2e/knowledge.spec.ts`. Detalle y decisiones en `docs/DECISIONS.md`
+("Fase 7e"). Verificado: lint+typecheck+485/485+48/48 E2E+build.
+
+**Pendiente, anotado:** subida de documentos desde UI (permisos y ejecución
+en segundo plano por decidir); `EvidenceLevel` en citas (Fase 8).
+**Próximo paso concreto:** Fase 7d (Trámites, desbloquea `UI-10c`).
+
+---
+
+## Registro: Fase 7c (Knowledge — recuperación híbrida) cerrada
 
 Último commit: `aff6cb1` (feat) — este commit de docs registra el hash.
 

@@ -3499,3 +3499,34 @@ nuevos: `knowledge-retrieval-fusion.test.ts` — 8, RRF puro;
 `knowledge-retrieval.test.ts` — 6, tenancy/vigencia/jurisdicción/forma del
 resultado/límite contra PostgreSQL real con el fake registrado)+build
 limpio. Sin E2E (sigue sin haber UI, mismo motivo que 7a/7b).
+
+## 2026-09-30 — Fase 7e: UI de Knowledge (solo lectura + búsqueda con citas)
+
+**Contexto:** el usuario eligió 7e (frente a 7d). Con 7a/7b/7c hay datos,
+ingesta y recuperación reales que mostrar.
+
+**Decisiones:**
+
+1. **Alcance de solo lectura.** `/knowledge` (lista de documentos GLOBAL +
+   propios, y búsqueda) y `/knowledge/[id]` (versiones con estado, vigencia,
+   nota de fuente y fragmentos). **Sin subida/edición de documentos desde
+   UI**: la ingesta sigue siendo script de operador; una UI de ingesta
+   necesita decidir permisos (¿solo ADMIN?) y ejecución en segundo plano, y
+   no estaba pedida.
+2. **Citas siempre con procedencia.** `CitationCard` muestra fuente,
+   versión, estado, vigencia y ubicación del fragmento (`CLAUDE.md` §2,
+   principio 3). **`EvidenceLevel` no se muestra**: lo calcula el Copilot
+   (Fase 8), no la recuperación; no se inventa aquí.
+3. **Degradación explícita sin `EmbeddingProvider`** (dev/CI sin
+   `OPENAI_API_KEY`): la búsqueda muestra "La búsqueda no está disponible",
+   nunca un modo solo-FTS silencioso ni un "sin resultados" engañoso.
+4. **Búsqueda por GET (`?q=`)**, renderizada en servidor: enlazable y sin JS.
+5. Nuevo `listChunksForVersion` en `service.ts`, filtrado por visibilidad
+   (columnas denormalizadas del chunk). Ítem "Conocimiento" en el sidebar.
+
+**Verificación:** lint+typecheck+485/485 unit-integration+48/48 E2E (45
+previos + `knowledge.spec.ts`, 3 tests: aislamiento de tenancy en lista y
+404 en detalle ajeno, versiones/fragmentos, degradación de la búsqueda; con
+axe sin violaciones serias)+build limpio. La búsqueda con resultados solo
+se cubre en integración (7c): el E2E no tiene proveedor de embeddings.
+

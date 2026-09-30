@@ -217,3 +217,31 @@ function assertVisibilityInvariant(
     throw new Error("ORGANIZATION knowledge must belong to an organization (organizationId required).");
   }
 }
+
+/**
+ * Chunks of one version in reading order, respecting visibility — empty if
+ * the version's document is neither GLOBAL nor owned by `organizationId`
+ * (the chunk row carries the denormalized tenancy columns, so no join).
+ */
+export async function listChunksForVersion(documentVersionId: string, organizationId: string) {
+  return db
+    .select({
+      id: knowledgeChunks.id,
+      ordinal: knowledgeChunks.ordinal,
+      level: knowledgeChunks.level,
+      label: knowledgeChunks.label,
+      path: knowledgeChunks.path,
+      content: knowledgeChunks.content,
+    })
+    .from(knowledgeChunks)
+    .where(
+      and(
+        eq(knowledgeChunks.documentVersionId, documentVersionId),
+        knowledgeVisibilityCondition(organizationId, {
+          visibility: knowledgeChunks.visibility,
+          organizationId: knowledgeChunks.organizationId,
+        }),
+      ),
+    )
+    .orderBy(asc(knowledgeChunks.ordinal));
+}

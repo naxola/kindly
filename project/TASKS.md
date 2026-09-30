@@ -710,7 +710,7 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 - [x] Pipeline de embeddings (reusando `EmbeddingProvider`; disparado por script de operador, no worker — sin UI hasta 7e). (Fase 7b, cerrado 2026-09-30 — `knowledge/ingestion/pipeline.ts`, `OpenAIEmbeddingProvider`.)
 - [x] PostgreSQL FTS + pgvector, búsqueda híbrida (query de recuperación). (Fase 7c, cerrado 2026-09-30 — `knowledge/retrieval.ts`, RRF en `retrieval-fusion.ts`.)
 - [x] Hard filters de tenancy/vigencia antes de ranking semántico (en la query). (Fase 7c, cerrado 2026-09-30 — tenancy reutiliza 7a, vigencia/jurisdicción nuevas en `retrieval.ts`.)
-- [ ] Citations trazables en UI. (Fase 7e.)
+- [x] Citations trazables en UI. (Fase 7e, cerrado 2026-09-30 — `/knowledge`: búsqueda con `CitationCard` y detalle de documento con versiones/vigencia/fragmentos. Sin subida de documentos desde UI: la ingesta sigue siendo script de operador.)
 
 ## Fase 8 — AI
 

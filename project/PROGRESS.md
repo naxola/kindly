@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7c cerrada: recuperación híbrida FTS+vector con Reciprocal Rank Fusion y hard filters de tenancy/vigencia/jurisdicción).
+Última actualización: 2026-09-30 (Fase 7e cerrada: UI de Knowledge — lista, detalle con versiones y búsqueda con citas).
 
 ## Resumen en una línea
 
@@ -170,7 +170,8 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7a** | **Knowledge: capa de datos (documentos versionados, chunks, pgvector, `EmbeddingProvider`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7b** | **Knowledge: ingesta (PDF/web/texto → chunks jerárquicos) + `OpenAIEmbeddingProvider` + script de operador** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7c** | **Knowledge: recuperación híbrida FTS+vector (RRF) con hard filters de tenancy/vigencia/jurisdicción** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 7 (d-e) | Knowledge: Trámites (7d, desbloquea `UI-10c`), UI (7e) | Código (futuro paquete) | 🔴 En curso (7a/7b/7c hechos) |
+| **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| Fase 7d | Knowledge: Trámites (desbloquea `UI-10c`) | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.

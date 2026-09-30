@@ -54,8 +54,8 @@ menús son cliente.
 ## 3. Sidebar global
 
 - Ítems (en este orden): **Inbox** (con `CountBadge` de no leídas),
-  **Contactos**, **Casos**, **Tareas**; separador; **Organización**.
-  Futuros (Knowledge, Copiloto) aparecen solo cuando existan.
+  **Contactos**, **Casos**, **Tareas**, **Conocimiento** (Fase 7e); separador; **Organización**.
+  Futuros (Copiloto) aparecen solo cuando existan.
 - Estado activo: fondo `state-selected`, texto `foreground`, barra de 2px
   `primary` a la izquierda, `aria-current="page"`. Inactivo:
   `foreground-light`, hover `state-hover`. El activo se calcula por prefijo
