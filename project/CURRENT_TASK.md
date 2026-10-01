@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Paso 1 cerrado; siguiente: paso 2
+## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Pasos 1 y 2 cerrados; siguiente: paso 3 (Copilot API)
 
 Último commit: ver `git log` (el commit del paso 1 incluye este registro).
 
@@ -20,8 +20,15 @@ LLM configurable, cambio a `gpt-5.4-mini` permitido quitando `temperature`.
 `npm run knowledge:reindex` con `OPENAI_API_KEY` — hasta entonces los
 fragmentos existentes son `legacy` y la búsqueda vectorial no los ve (FTS sí).
 
-**Próximo paso concreto:** paso 2 (grounding, abstención, inyección, `catch`,
-consulta con 1-2 mensajes anteriores, `Reranker`, umbral, `temperature`).
+**Paso 2 hecho** (603/603 + build; detalle en `docs/DECISIONS.md`, "Fase 8,
+paso 2"): abstención real (`ABSTAINED` sin borrador), umbral
+`KNOWLEDGE_MIN_SIMILARITY` (0.25), consulta con contexto, `Reranker`
+identidad, prompt como JSON (inyección), `catch` corregido, traza de
+retrieval, sin `temperature`, modelo `gpt-5.4-mini` por defecto.
+**Pendiente tras el paso 2:** prueba real de `gpt-5.4-mini` en staging.
+
+**Próximo paso concreto:** paso 3 (Copilot API: rutas + DTO sin modelo/prompt +
+freno de 1 generación/10 s por conversación).
 
 ### Alcance (definido por el usuario, 2026-10-01)
 

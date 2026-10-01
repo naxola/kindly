@@ -29,10 +29,18 @@ export interface AIContextSnapshot {
   userPrompt: string;
   /** Messages included in the context, newest last. */
   messageIds: string[];
-  /** Knowledge chunks retrieved and offered to the model as citable. */
+  /** Knowledge chunks offered to the model as citable (after the relevance gate and reranker). */
   retrievedChunkIds: string[];
-  /** False when no embedding provider was available: the model got no knowledge. */
-  knowledgeAvailable: boolean;
+  /** OK, NOT_CONFIGURED (no embedding provider) or ERROR (lookup failed). */
+  knowledgeStatus: "OK" | "NOT_CONFIGURED" | "ERROR";
+  /** What retrieval did, for evaluation and debugging. */
+  retrieval: {
+    /** The text actually searched (last inbound message, plus earlier ones when it was short). */
+    query: string;
+    minSimilarity: number;
+    reranker: string;
+    candidates: { chunkId: string; rank: number; ftsMatch: boolean; similarity: number | null; passed: boolean }[];
+  } | null;
 }
 
 export const aiSuggestions = pgTable(

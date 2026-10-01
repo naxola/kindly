@@ -17,23 +17,32 @@ import {
   SUGGESTION_JSON_SCHEMA,
   SUGGESTION_SCHEMA_NAME,
   buildCopilotUserPrompt,
+  buildRetrievalQuery,
+  isRelevantCandidate,
   parseRawSuggestion,
   reconcileSuggestion,
   toAISource,
   type AISuggestion,
   type CopilotContext,
+  type KnowledgeStatus,
 } from "@/modules/ai/domain";
+import { getMinSimilarity } from "@/modules/ai/config";
 import { getLLMProvider } from "@/modules/ai/llm-provider";
 import { recordActivity } from "@/modules/audit/service";
 import { getConversationWithDetails, listMessages } from "@/modules/conversations/service";
 import { listCasesForContact } from "@/modules/cases/service";
 import { listTasksForContact } from "@/modules/tasks/service";
 import { retrieveKnowledge } from "@/modules/knowledge/retrieval";
+import { getReranker } from "@/modules/knowledge/reranker";
+import { EmbeddingProviderNotConfiguredError } from "@/modules/knowledge/embedding-provider";
 import type { VisibilityMember } from "@/modules/contacts/visibility";
 
 /** Explicit retention of the audit snapshot (it contains the prompt: personal data). */
 export const RETENTION_DAYS = 90;
 const CONTEXT_MESSAGE_LIMIT = 20;
+/** Candidates fetched from retrieval, before the relevance gate. */
+const CANDIDATE_LIMIT = 8;
+/** Fragments offered to the model after gate and reranker. */
 const KNOWLEDGE_LIMIT = 5;
 const CLOSED_CASE_STATUSES = ["RESOLVED", "CLOSED"];
 
@@ -84,20 +93,47 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     listTasksForContact(organizationId, member, details.contact.id),
   ]);
 
-  // Knowledge is optional: without an embedding provider the copilot still
-  // works on the conversation alone, and without sources it can only reach
-  // INSUFFICIENT (reconcileSuggestion).
-  let knowledgeAvailable = true;
+  // Knowledge is optional. "Not configured" is an expected state; anything
+  // else is a real failure and is surfaced (status ERROR, logged without
+  // content) instead of being silently treated as "nothing found".
+  let knowledgeStatus: KnowledgeStatus = "OK";
   let knowledge: CopilotContext["knowledge"] = [];
+  let retrieval: AIContextSnapshot["retrieval"] = null;
+  const reranker = getReranker();
+  const retrievalQuery = buildRetrievalQuery(recent);
   try {
+    const minSimilarity = getMinSimilarity();
     const results = await retrieveKnowledge({
       organizationId,
-      query: lastInbound.body,
-      limit: KNOWLEDGE_LIMIT,
+      query: retrievalQuery,
+      limit: CANDIDATE_LIMIT,
     });
-    knowledge = results.map(toAISource);
-  } catch {
-    knowledgeAvailable = false;
+    const gated = results.map((r, i) => ({ r, rank: i + 1, passed: isRelevantCandidate(r, minSimilarity) }));
+    retrieval = {
+      query: retrievalQuery,
+      minSimilarity,
+      reranker: reranker.id,
+      candidates: gated.map(({ r, rank, passed }) => ({
+        chunkId: r.chunkId,
+        rank,
+        ftsMatch: r.ftsMatch,
+        similarity: r.similarity,
+        passed,
+      })),
+    };
+    const ranked = await reranker.rerank(
+      retrievalQuery,
+      gated.filter((g) => g.passed).map((g) => g.r),
+    );
+    knowledge = ranked.slice(0, KNOWLEDGE_LIMIT).map((ranked) => toAISource(ranked.chunk));
+  } catch (error) {
+    if (error instanceof EmbeddingProviderNotConfiguredError) {
+      knowledgeStatus = "NOT_CONFIGURED";
+    } else {
+      knowledgeStatus = "ERROR";
+      // Name only: a database error message can embed the query text (a Contact's message).
+      console.error("[copilot] knowledge retrieval failed:", error instanceof Error ? error.name : "unknown error");
+    }
   }
 
   const context: CopilotContext = {
@@ -118,7 +154,8 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     userPrompt,
     messageIds: recent.map((m) => m.id),
     retrievedChunkIds: knowledge.map((k) => k.chunkId),
-    knowledgeAvailable,
+    knowledgeStatus,
+    retrieval,
   };
 
   const provider = getLLMProvider();
@@ -146,6 +183,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     suggestion = reconcileSuggestion(
       parseRawSuggestion(result.output),
       knowledge,
+      knowledgeStatus,
     );
   } catch (error) {
     await db.insert(aiSuggestions).values({

@@ -1,6 +1,6 @@
 /**
  * Deterministic fake `LLMProvider` for the test suite. It reads the
- * `<fuente id="...">` tags the prompt offers and cites the first one (or none
+ * `conocimiento` ids in the prompt's JSON and cites the first one (or none
  * when there are none), so tests exercise reconciliation without a network
  * call. Never registered outside tests/E2E (`CLAUDE.md` §3, §6).
  */
@@ -11,6 +11,13 @@ export interface FakeLLMOptions {
   override?: (request: LLMStructuredRequest) => unknown;
   /** Make the provider throw. */
   fail?: boolean;
+}
+
+/** Ids of the knowledge fragments the prompt offers (the `conocimiento` array of its JSON data block). */
+export function offeredSourceIds(userPrompt: string): string[] {
+  const json = userPrompt.slice(userPrompt.indexOf("{"));
+  const data = JSON.parse(json) as { conocimiento?: { id: string }[] };
+  return (data.conocimiento ?? []).map((k) => k.id);
 }
 
 export function createFakeLLMProvider(options: FakeLLMOptions = {}): LLMProvider & { calls: LLMStructuredRequest[] } {
@@ -26,17 +33,28 @@ export function createFakeLLMProvider(options: FakeLLMOptions = {}): LLMProvider
       if (options.override) {
         return { output: options.override(request), model: "fake-model" };
       }
-      const firstSource = /<fuente id="([^"]+)"/.exec(request.user)?.[1];
+      const firstSource = offeredSourceIds(request.user)[0];
       return {
         model: "fake-model",
-        output: {
-          issue: "La persona hace una consulta.",
-          suggestedReply: "Hola, gracias por escribir. Lo revisamos y te respondemos enseguida.",
-          evidenceLevel: firstSource ? "PARTIAL" : "INSUFFICIENT",
-          sourceIds: firstSource ? [firstSource] : [],
-          warnings: [],
-          missingInformation: firstSource ? [] : ["No hay documentación recuperada que respalde la respuesta."],
-        },
+        output: firstSource
+          ? {
+              issue: "La persona hace una consulta.",
+              suggestedReply: "Hola, según la documentación, lo revisamos y te confirmamos.",
+              requiresKnowledge: true,
+              evidenceLevel: "PARTIAL",
+              sourceIds: [firstSource],
+              warnings: [],
+              missingInformation: [],
+            }
+          : {
+              issue: "La persona saluda o hace una consulta sin base normativa.",
+              suggestedReply: "Hola, gracias por escribir. Lo revisamos y te respondemos enseguida.",
+              requiresKnowledge: false,
+              evidenceLevel: "INSUFFICIENT",
+              sourceIds: [],
+              warnings: [],
+              missingInformation: [],
+            },
       };
     },
   };

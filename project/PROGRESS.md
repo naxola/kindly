@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-10-01 (Fase 8, paso 1: calidad del retrieval).
+Última actualización: 2026-10-01 (Fase 8, paso 2: abstención, seguridad y trazabilidad).
 
 ## Resumen en una línea
 
@@ -174,7 +174,7 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 8a** | **AI Copilot: backend (`LLMProvider`, contexto, `AISuggestion` reconciliada con fuentes reales, auditoría con retención 90 días)** | Código (agente) | 🟢 **Completo** (2026-10-01) |
-| Fase 8 (alcance 2026-10-01) | Copiloto como tarjeta contextual: paso 1 retrieval 🟢; pasos 2-7 (abstención, seguridad, API, tarjeta, evaluación) pendientes | Código (agente) | 🔴 **Activo** |
+| Fase 8 (alcance 2026-10-01) | Copiloto como tarjeta contextual: pasos 1-2 (retrieval; abstención, seguridad, trazabilidad) 🟢; pasos 3-7 (API, tarjeta, evaluación) pendientes | Código (agente) | 🔴 **Activo** |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 

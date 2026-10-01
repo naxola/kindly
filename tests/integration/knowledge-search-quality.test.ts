@@ -121,6 +121,24 @@ describe("knowledge search quality (Fase 8, paso 1)", () => {
     }
   });
 
+  it("exposes absolute relevance signals: lexical match and cosine similarity (null for another model)", async () => {
+    const j = jurisdiction();
+    const token = `senal${randomUUID().slice(0, 8)}`;
+    await ingest("Con señal", `${token} texto de la señal`, j);
+    const [hit] = await retrieveKnowledge({ organizationId: randomUUID(), query: `${token} texto`, jurisdiction: j });
+    expect(hit.ftsMatch).toBe(true);
+    expect(hit.similarity).toBeGreaterThan(0.3);
+
+    const [far] = await retrieveKnowledge({ organizationId: randomUUID(), query: "zzqxw", jurisdiction: j });
+    expect(far.ftsMatch).toBe(false);
+    expect(far.similarity).toBeLessThan(0.1);
+
+    registerEmbeddingProvider(otherModel);
+    const [ftsOnly] = await retrieveKnowledge({ organizationId: randomUUID(), query: `${token} texto`, jurisdiction: j });
+    expect(ftsOnly.ftsMatch).toBe(true);
+    expect(ftsOnly.similarity).toBeNull();
+  });
+
   it("indexes and embeds the hierarchical context, not just the content", async () => {
     const j = jurisdiction();
     const { version } = await ingest("Estatuto de los Trabajadores", ESTATUTO, j);

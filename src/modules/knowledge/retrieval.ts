@@ -17,7 +17,7 @@
  * with window functions.
  */
 import "server-only";
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, cosineDistance } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, cosineDistance, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   documents,
@@ -64,7 +64,16 @@ export interface KnowledgeSearchResult {
   label: string | null;
   path: string | null;
   content: string;
+  /** RRF score — ordering only, not comparable across queries. */
   score: number;
+  /**
+   * Absolute relevance signals, for deciding whether a candidate is worth
+   * offering at all (Fase 8): the chunk matches at least one lexeme of the
+   * query, and/or its cosine similarity (1 = identical direction) to the
+   * query, or null when the chunk was embedded by another model.
+   */
+  ftsMatch: boolean;
+  similarity: number | null;
 }
 
 /**
@@ -116,7 +125,7 @@ function hardFilters(input: Required<Pick<RetrieveKnowledgeInput, "organizationI
   );
 }
 
-const resultColumns = {
+const baseColumns = {
   chunkId: knowledgeChunks.id,
   documentId: knowledgeChunks.documentId,
   documentVersionId: knowledgeChunks.documentVersionId,
@@ -136,9 +145,9 @@ const resultColumns = {
   content: knowledgeChunks.content,
 };
 
-function baseQuery() {
+function baseQuery(signals: { ftsMatch: SQL<boolean>; similarity: SQL<number | null> }) {
   return db
-    .select(resultColumns)
+    .select({ ...baseColumns, ...signals })
     .from(knowledgeChunks)
     .innerJoin(documentVersions, eq(documentVersions.id, knowledgeChunks.documentVersionId))
     .innerJoin(documents, eq(documents.id, knowledgeChunks.documentId));
@@ -160,16 +169,21 @@ export async function retrieveKnowledge(input: RetrieveKnowledgeInput): Promise<
   const query = normalizeLegalReferences(input.query);
   const tsQuery = naturalLanguageTsQuery(query);
 
-  const ftsResults = await baseQuery()
+  const provider = getEmbeddingProvider();
+  const [queryEmbedding] = await provider.embed([query]);
+
+  const signals = {
+    ftsMatch: sql<boolean>`${knowledgeChunks.contentTsv} @@ ${tsQuery}`,
+    // Only vectors from the active model are comparable with the query vector.
+    similarity: sql<number | null>`case when ${knowledgeChunks.embeddingModel} = ${provider.id} then ${sql`1 - (${cosineDistance(knowledgeChunks.embedding, queryEmbedding)})`} end`,
+  };
+
+  const ftsResults = await baseQuery(signals)
     .where(and(filters, sql`${knowledgeChunks.contentTsv} @@ ${tsQuery}`))
     .orderBy(desc(sql`ts_rank_cd(${knowledgeChunks.contentTsv}, ${tsQuery})`))
     .limit(fetchLimit);
 
-  const provider = getEmbeddingProvider();
-  const [queryEmbedding] = await provider.embed([query]);
-
-  // Only vectors from the active model are comparable with the query vector.
-  const vectorResults = await baseQuery()
+  const vectorResults = await baseQuery(signals)
     .where(and(filters, eq(knowledgeChunks.embeddingModel, provider.id)))
     .orderBy(asc(cosineDistance(knowledgeChunks.embedding, queryEmbedding)))
     .limit(fetchLimit);

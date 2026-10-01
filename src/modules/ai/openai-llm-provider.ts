@@ -13,7 +13,8 @@ export interface OpenAILLMProviderConfig {
   fetchImpl?: typeof fetch;
 }
 
-const DEFAULT_MODEL = "gpt-4.1-mini";
+// No `temperature`: GPT-5.x models can reject it (400) depending on reasoning effort.
+const DEFAULT_MODEL = "gpt-5.4-mini";
 
 interface ChatCompletionsResponse {
   model?: string;
@@ -42,7 +43,6 @@ export class OpenAILLMProvider implements LLMProvider {
       },
       body: JSON.stringify({
         model: this.model,
-        temperature: 0.2,
         messages: [
           { role: "system", content: request.system },
           { role: "user", content: request.user },
