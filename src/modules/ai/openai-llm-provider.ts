@@ -13,8 +13,8 @@ export interface OpenAILLMProviderConfig {
   fetchImpl?: typeof fetch;
 }
 
-// No `temperature`: GPT-5.x models can reject it (400) depending on reasoning effort.
-const DEFAULT_MODEL = "gpt-5.4-mini";
+// No `temperature`: some models reject it (400) depending on reasoning effort.
+const DEFAULT_MODEL = "gpt-4o-mini";
 
 interface ChatCompletionsResponse {
   model?: string;
