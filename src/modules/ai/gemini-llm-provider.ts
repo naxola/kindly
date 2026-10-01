@@ -13,7 +13,7 @@ export interface GeminiLLMProviderConfig {
   fetchImpl?: typeof fetch;
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.8-flash";
 
 interface GenerateContentResponse {
   modelVersion?: string;

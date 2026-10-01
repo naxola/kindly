@@ -17,7 +17,7 @@ describe("GeminiLLMProvider", () => {
 
     expect(result).toEqual({ output: { a: 1 }, model: "gemini-x" });
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent");
     expect(url).not.toContain("g-test");
     expect(init.headers).toMatchObject({ "x-goog-api-key": "g-test" });
     const body = JSON.parse(init.body as string);
