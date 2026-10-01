@@ -721,7 +721,8 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
       Case, tareas, conocimiento relevante).
 - [x] AI Copilot: `AISuggestion` estructurado (Fase 8a — `ai/domain.ts`, fuentes reconstruidas de fragmentos reales) (issue, suggestedReply,
       evidenceLevel, sources, warnings, missingInformation).
-- [ ] UI de Copilot en la vista de conversación (Accept / Edit / Reject).
+- [ ] Fase 8 (alcance 2026-10-01): corregir retrieval (FTS en OR, texto jerárquico, "artículo 34.8", modelo de embeddings por chunk), abstención real, inyección desde documentos, `Reranker` identidad. Plan en `project/CURRENT_TASK.md`.
+- [ ] Tarjeta del Copiloto en la conversación (Usar como borrador / Descartar) vía Copilot API.
 - [x] Auditabilidad de AI (Fase 8a — `ai_suggestions`, retención 90 días) (qué recibió, qué recuperó, qué generó, qué hizo el
       profesional) con política de retención explícita.
 - [x] (backend) Garantía de que ninguna sugerencia se envía sin acción humana.
