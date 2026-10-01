@@ -105,25 +105,33 @@ export function CopilotCard({
   return (
     <section
       aria-label="Copiloto"
-      className="flex max-h-[45dvh] flex-col gap-2 overflow-y-auto border-t border-border bg-background-muted px-4 py-3"
+      className="mx-4 mb-3 flex max-h-[45dvh] shrink-0 flex-col overflow-hidden rounded-card border border-border bg-background shadow-md"
     >
-      <header className="flex items-center justify-between gap-2">
+      <header className={cn("flex items-center gap-2 px-3.5 py-2.5", !collapsed && "border-b border-border")}>
         <button
           type="button"
           onClick={() => setCollapsed((value) => !value)}
           aria-expanded={!collapsed}
-          className="focus-ring flex items-center gap-1.5 rounded-sm type-body font-semibold text-foreground"
+          className="focus-ring flex shrink-0 items-center gap-1.5 rounded-sm type-label font-semibold text-foreground"
         >
           {collapsed ? <ChevronRight aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}
           <Sparkles aria-hidden className="size-4" />
           Copiloto
         </button>
-        {open && !collapsed && <EvidenceBadge suggestion={open} />}
-        {collapsed && open && <span className="type-caption text-foreground-lighter">{summaryLine(open)}</span>}
+        {open && !collapsed && (
+          <span className="flex min-w-0 items-center gap-1.5 truncate type-caption text-foreground-lighter">
+            <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
+            Actualizado · {formatTime(open.createdAt)}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center">
+          {open && !collapsed && <EvidenceBadge suggestion={open} />}
+          {collapsed && open && <span className="type-caption text-foreground-lighter">{summaryLine(open)}</span>}
+        </span>
       </header>
 
       {!collapsed && (
-        <div className="flex flex-col gap-2">
+        <div className="flex min-h-0 flex-col gap-2 overflow-y-auto px-3.5 py-3">
           {query.isPending ? (
             <Skeleton className="h-10 w-full" />
           ) : query.isError ? (
@@ -166,7 +174,7 @@ export function CopilotCard({
             />
           )}
 
-          <p className="type-caption text-foreground-lighter">Nada se envía sin que lo revises tú.</p>
+          {!open && <p className="type-caption text-foreground-lighter">Nada se envía sin que lo revises tú.</p>}
         </div>
       )}
 
@@ -183,6 +191,10 @@ export function CopilotCard({
       />
     </section>
   );
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
 function summaryLine(suggestion: CopilotSuggestionDto): string {
@@ -257,8 +269,9 @@ function OpenSuggestion({
   onRegenerate: () => void;
 }) {
   const abstained = suggestion.outcome === "ABSTAINED";
+  const hasSide = suggestion.sources.length > 0 || suggestion.warnings.length > 0 || (!abstained && suggestion.missingInformation.length > 0);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       {hasNewerMessage && (
         <Alert
           tone="info"
@@ -272,10 +285,10 @@ function OpenSuggestion({
       )}
 
       {suggestion.issue && (
-        <p className="type-body text-foreground-light">
-          <span className="font-semibold text-foreground">Qué plantea: </span>
-          {suggestion.issue}
-        </p>
+        <div>
+          <p className="mb-0.5 type-caption text-foreground-lighter">Qué ha detectado</p>
+          <p className="type-body text-foreground">{suggestion.issue}</p>
+        </div>
       )}
 
       {suggestion.knowledgeStatus === "NOT_CONFIGURED" && (
@@ -294,47 +307,56 @@ function OpenSuggestion({
           </ul>
         </Alert>
       ) : (
-        <>
-          <blockquote className="whitespace-pre-wrap rounded-control border border-border bg-surface-100 px-3 py-2 font-document type-body text-foreground">
+        <div>
+          <p className="mb-0.5 type-caption text-foreground-lighter">Respuesta propuesta</p>
+          <blockquote className="whitespace-pre-wrap rounded-lg bg-background-muted px-3 py-2.5 font-document text-[0.9375rem] leading-relaxed text-foreground">
             {suggestion.suggestedReply}
           </blockquote>
-          {suggestion.missingInformation.length > 0 && (
-            <div className="type-body text-foreground-light">
-              <p className="font-semibold text-foreground">Falta por saber</p>
-              <ul className="list-disc pl-5">
-                {suggestion.missingInformation.map((item) => (
-                  <li key={item}>{item}</li>
+        </div>
+      )}
+
+      {hasSide && (
+        <div className="grid gap-x-5 gap-y-3 md:grid-cols-2">
+          {suggestion.sources.length > 0 && (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="type-caption text-foreground-lighter">En qué se apoya</p>
+              <ul className="flex flex-col gap-1.5">
+                {suggestion.sources.map((source) => (
+                  <li key={source.chunkId}>
+                    <SourceItem source={source} />
+                  </li>
                 ))}
               </ul>
             </div>
           )}
-        </>
-      )}
-
-      {suggestion.warnings.length > 0 && (
-        <Alert tone="warning" title="Avisos">
-          <ul className="list-disc pl-5">
-            {suggestion.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
-        </Alert>
-      )}
-
-      {suggestion.sources.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <p className="type-body font-semibold text-foreground">Fuentes utilizadas</p>
-          <ul className="flex flex-col gap-1">
-            {suggestion.sources.map((source) => (
-              <li key={source.chunkId}>
-                <SourceItem source={source} />
-              </li>
-            ))}
-          </ul>
+          {(suggestion.warnings.length > 0 || (!abstained && suggestion.missingInformation.length > 0)) && (
+            <div className="flex min-w-0 flex-col gap-3">
+              {suggestion.warnings.length > 0 && (
+                <div>
+                  <p className="mb-0.5 type-caption text-foreground-lighter">Avisos</p>
+                  <ul className="list-disc pl-5 type-body text-destructive-soft-foreground">
+                    {suggestion.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {!abstained && suggestion.missingInformation.length > 0 && (
+                <div>
+                  <p className="mb-0.5 type-caption text-foreground-lighter">Falta por saber</p>
+                  <ul className="list-disc pl-5 type-body text-foreground-light">
+                    {suggestion.missingInformation.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="-mx-3.5 -mb-3 flex flex-wrap items-center gap-2 border-t border-border px-3.5 py-2.5">
         {!abstained && (
           <Button
             size="sm"
@@ -346,7 +368,7 @@ function OpenSuggestion({
             Usar como borrador
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={onDiscard} disabled={busy}>
+        <Button size="sm" variant="outline" onClick={onDiscard} disabled={busy}>
           Descartar
         </Button>
         {abstained && (
@@ -354,6 +376,7 @@ function OpenSuggestion({
             Sugerir de nuevo
           </Button>
         )}
+        <span className="ml-auto type-caption text-foreground-lighter">Nada se envía sin que lo revises tú.</span>
       </div>
     </div>
   );
@@ -362,7 +385,7 @@ function OpenSuggestion({
 function SourceItem({ source }: { source: CopilotSourceDto }) {
   const status = source.status as DocumentVersionStatus;
   return (
-    <details className={cn("group rounded-control border border-border bg-surface-100 px-3 py-2")}>
+    <details className={cn("group border-l-2 border-primary pl-2")}>
       <summary className="focus-ring flex cursor-pointer list-none flex-wrap items-center gap-2 rounded-sm type-body">
         <ChevronRight aria-hidden className="size-4 shrink-0 text-foreground-lighter group-open:rotate-90" />
         <span className="font-medium text-foreground">{source.documentTitle}</span>

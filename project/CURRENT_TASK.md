@@ -8,6 +8,20 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### Ajuste visual: copiloto y ficha según mockup UI-10 (2026-10-01)
+
+Pedido del usuario: copiloto y ficha del afiliado del Inbox como en el mockup
+(`Espacio de respuesta`). `copilot-card.tsx`: tarjeta flotante con borde/sombra,
+cabecera con "Actualizado · hh:mm" y evidencia, cuerpo en dos columnas (fuentes
+a la izquierda; avisos y "falta por saber" a la derecha), pie con acciones y la
+nota "Nada se envía…". `contact-ficha.tsx`: cabecera fija "Ficha del afiliado ·
+Solo lectura", secciones con título overline mono, datos en rejilla, casos/
+tareas/conversaciones como tarjetas, afiliación en caja (`MembershipStatus
+boxed`). Sin cambios de textos ni roles. Verificado: lint + typecheck + 438
+unit; los E2E no se pudieron ejecutar aquí (falta el binario de Chromium en el
+entorno), **pendiente de pasarlos** (`copilot`, `conversation-workspace`,
+`membership`). Fuera de alcance (sin dominio aún): trámite en curso y resumen IA.
+
 ### Fase 8 — AI Copilot como tarjeta contextual (2026-10-01)
 
 Alcance definido por el usuario: **no es un chatbot**; una tarjeta de

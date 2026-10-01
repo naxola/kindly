@@ -412,7 +412,7 @@ export function ConversationPanel(props: ConversationPanelProps) {
           aria-label="Ficha del afiliado"
           aria-hidden={fichaCollapsed}
           inert={fichaCollapsed}
-          className="h-full w-workspace-context shrink-0 overflow-y-auto border-l border-border bg-surface-200"
+          className="h-full w-workspace-context shrink-0 overflow-y-auto border-l border-border bg-background-muted"
         >
           {hydrated && conversationId && fichaBody}
         </div>

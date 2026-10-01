@@ -13,15 +13,21 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NativeSelect } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { cn } from "@/lib/cn";
 
-function FichaSection({ title, children }: { title: string; children: ReactNode }) {
+function FichaSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-2 border-t border-border px-4 py-4 first:border-t-0">
-      <h3 className="type-label text-foreground-light">{title}</h3>
+    <section className="flex flex-col gap-2 border-b border-border px-4 py-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-mono type-overline font-normal text-foreground-lighter">{title}</h3>
+        {action}
+      </div>
       {children}
     </section>
   );
 }
+
+const ITEM = "flex items-center gap-2.5 rounded-lg border border-border bg-background px-2.5 py-2";
 
 /**
  * "Ficha del afiliado" (UI-10a, `docs/ui/CONVERSATION_WORKSPACE.md` §3): a
@@ -45,34 +51,40 @@ export function ContactFicha({
   const { contact, ficha } = data;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-full flex-col bg-background-muted">
+      <div className="sticky top-0 z-(--z-sticky) flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-4">
+        <h3 className="type-label font-semibold text-foreground">Ficha del afiliado</h3>
+        <span className="type-caption text-foreground-lighter">Solo lectura</span>
+      </div>
+
       <FichaSection title="Afiliación">
-        <MembershipStatus membership={ficha.membership} />
+        <MembershipStatus membership={ficha.membership} boxed />
       </FichaSection>
 
-      <FichaSection title="Contacto">
-        <dl className="flex flex-col gap-1 type-body text-foreground">
-          <div className="flex justify-between gap-2">
-            <dt className="text-foreground-lighter">Teléfono</dt>
-            <dd>{contact.phoneE164 ?? "—"}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-foreground-lighter">Email</dt>
-            <dd className="truncate">{contact.email ?? "—"}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-foreground-lighter">Canal</dt>
-            <dd>{data.channel}</dd>
-          </div>
-          <div className="flex justify-between gap-2">
-            <dt className="text-foreground-lighter">Delegado</dt>
-            <dd>{data.delegateName}</dd>
-          </div>
-          {contact.notes && <p className="mt-1 type-caption text-foreground-lighter">{contact.notes}</p>}
+      <FichaSection
+        title="Contacto"
+        action={
+          <Link href={`/contacts/${contact.id}`} className="focus-ring rounded-sm type-caption text-primary hover:underline">
+            Editar en la ficha completa
+          </Link>
+        }
+      >
+        <dl className="grid grid-cols-[6rem_1fr] gap-x-2.5 gap-y-1.5 type-label font-normal text-foreground">
+          <dt className="text-foreground-lighter">Teléfono</dt>
+          <dd className="[overflow-wrap:anywhere]">{contact.phoneE164 ?? "—"}</dd>
+          <dt className="text-foreground-lighter">Email</dt>
+          <dd className="[overflow-wrap:anywhere]">{contact.email ?? "—"}</dd>
+          <dt className="text-foreground-lighter">Canal</dt>
+          <dd>{data.channel}</dd>
+          <dt className="text-foreground-lighter">Delegado</dt>
+          <dd>{data.delegateName}</dd>
+          {contact.notes && (
+            <>
+              <dt className="text-foreground-lighter">Notas</dt>
+              <dd>{contact.notes}</dd>
+            </>
+          )}
         </dl>
-        <Link href={`/contacts/${contact.id}`} className="type-caption text-primary hover:underline">
-          Editar en la ficha completa
-        </Link>
       </FichaSection>
 
       {contact.isUnassigned && (
@@ -107,10 +119,10 @@ export function ContactFicha({
         {ficha.cases.length === 0 ? (
           <EmptyState variant="inline" title="Sin casos abiertos" />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {ficha.cases.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-2">
-                <Link href={`/cases/${c.id}`} className="focus-ring truncate rounded-sm type-body text-foreground hover:underline">
+              <li key={c.id} className={cn(ITEM, "justify-between")}>
+                <Link href={`/cases/${c.id}`} className="focus-ring min-w-0 flex-1 truncate rounded-sm type-label font-medium text-foreground hover:underline">
                   {c.title}
                 </Link>
                 <div className="flex shrink-0 items-center gap-1">
@@ -152,10 +164,10 @@ export function ContactFicha({
         {ficha.pendingTasks.length === 0 ? (
           <EmptyState variant="inline" title="Sin tareas pendientes" />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {ficha.pendingTasks.map((task) => (
-              <li key={task.id} className="flex items-center justify-between gap-2">
-                <Link href={`/tasks/${task.id}`} className="focus-ring truncate rounded-sm type-body text-foreground hover:underline">
+              <li key={task.id} className={cn(ITEM, "justify-between")}>
+                <Link href={`/tasks/${task.id}`} className="focus-ring min-w-0 flex-1 truncate rounded-sm type-label font-medium text-foreground hover:underline">
                   {task.title}
                 </Link>
                 <span className="shrink-0 type-caption text-foreground-lighter">
@@ -171,9 +183,9 @@ export function ContactFicha({
         {ficha.otherConversations.length === 0 ? (
           <EmptyState variant="inline" title="No hay otras conversaciones" />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {ficha.otherConversations.map((conversation) => (
-              <li key={conversation.id}>
+              <li key={conversation.id} className={ITEM}>
                 <Link
                   href={`/inbox?conversation=${conversation.id}`}
                   prefetch={false}
@@ -184,7 +196,7 @@ export function ContactFicha({
                     event.preventDefault();
                     onOpenConversation(conversation.id);
                   }}
-                  className="focus-ring flex flex-col rounded-sm type-body text-foreground hover:underline"
+                  className="focus-ring flex min-w-0 flex-1 flex-col rounded-sm type-label text-foreground hover:underline"
                 >
                   <span>
                     {conversation.channel} · {conversation.delegateName}
