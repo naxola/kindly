@@ -62,6 +62,10 @@ export function getEmbeddingProvider(): EmbeddingProvider {
   return provider;
 }
 
+export function hasEmbeddingProvider(): boolean {
+  return globalThis.__kindlyEmbeddingProvider !== undefined;
+}
+
 export function clearEmbeddingProvider(): void {
   globalThis.__kindlyEmbeddingProvider = undefined;
 }
