@@ -85,6 +85,13 @@
       "when": 1790861913324,
       "tag": "0011_ai_suggestions",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790868204497,
+      "tag": "0012_knowledge_search_text",
+      "breakpoints": true
     }
   ]
 }

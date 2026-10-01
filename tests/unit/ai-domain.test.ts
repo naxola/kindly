@@ -92,6 +92,21 @@ describe("buildCopilotUserPrompt", () => {
     expect(prompt).toContain('<fuente id="chunk-1"');
   });
 
+  it("puts each knowledge fragment in the prompt complete (no 1000-char cut)", () => {
+    const content = "x".repeat(1790);
+    const prompt = buildCopilotUserPrompt({
+      contactName: "Marta",
+      contactNotes: null,
+      channel: "whatsapp",
+      messages: [],
+      openCases: [],
+      pendingTasks: [],
+      knowledge: [{ ...source("c"), content }],
+    });
+    expect(prompt).toContain(content);
+    expect(toAISource({ ...source("c"), chunkId: "c", content } as never).content).toBe(content);
+  });
+
   it("states there is no knowledge when none was retrieved", () => {
     const prompt = buildCopilotUserPrompt({
       contactName: "Marta",

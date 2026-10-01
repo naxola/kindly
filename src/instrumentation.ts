@@ -102,7 +102,13 @@ async function registerOpenAIEmbeddingProvider() {
 
   const { registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
   const { OpenAIEmbeddingProvider } = await import("@/modules/knowledge/openai-embedding-provider");
-  registerEmbeddingProvider(new OpenAIEmbeddingProvider({ apiKey }));
+  // `OPENAI_EMBEDDING_MODEL` must produce `EMBEDDING_DIMENSIONS` (1536) vectors —
+  // the text-embedding-3-* family does via the `dimensions` parameter.
+  // Changing it requires `npm run knowledge:reindex` (vectors from different
+  // models are never compared: `knowledge_chunks.embedding_model`).
+  registerEmbeddingProvider(
+    new OpenAIEmbeddingProvider({ apiKey, model: process.env.OPENAI_EMBEDDING_MODEL || undefined }),
+  );
 }
 
 /**

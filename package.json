@@ -17,7 +17,8 @@
     "db:studio": "drizzle-kit studio",
     "auth:reset-password": "tsx scripts/reset-password.ts",
     "tokens:export": "tsx scripts/export-tokens.ts",
-    "knowledge:ingest": "NODE_OPTIONS=--conditions=react-server tsx scripts/ingest-knowledge.ts"
+    "knowledge:ingest": "NODE_OPTIONS=--conditions=react-server tsx scripts/ingest-knowledge.ts",
+    "knowledge:reindex": "NODE_OPTIONS=--conditions=react-server tsx scripts/reindex-knowledge.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.5",

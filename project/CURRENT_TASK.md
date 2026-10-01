@@ -4,9 +4,24 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Plan aprobado pendiente
+## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Paso 1 cerrado; siguiente: paso 2
 
-Último commit: `457e830` (Fase 8a, backend). Este plan aún no tiene código.
+Último commit: ver `git log` (el commit del paso 1 incluye este registro).
+
+**Estado:** paso 1 (retrieval) hecho y verificado — lint + typecheck +
+584/584 + 51/51 E2E + build + `knowledge:reindex` contra la base local.
+Detalle en `docs/DECISIONS.md` ("Fase 8, paso 1"). Decisiones del usuario
+(2026-10-01): abstención sin ningún borrador; umbral de relevancia
+parametrizado y conservador (mejor exceso de candidatos que perder recall);
+`search_text` con jerarquía completa; `Reranker` identidad; un único modelo
+LLM configurable, cambio a `gpt-5.4-mini` permitido quitando `temperature`.
+
+**Para staging tras el pull:** `npm run db:migrate` (0009–0012) y después
+`npm run knowledge:reindex` con `OPENAI_API_KEY` — hasta entonces los
+fragmentos existentes son `legacy` y la búsqueda vectorial no los ve (FTS sí).
+
+**Próximo paso concreto:** paso 2 (grounding, abstención, inyección, `catch`,
+consulta con 1-2 mensajes anteriores, `Reranker`, umbral, `temperature`).
 
 ### Alcance (definido por el usuario, 2026-10-01)
 

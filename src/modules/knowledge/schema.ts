@@ -175,13 +175,21 @@ export const knowledgeChunks = pgTable(
     label: text("label"),
     path: text("path"),
     content: text("content").notNull(),
+    // Lo que se indexa y se embebe (Fase 8): contexto jerárquico completo
+    // (documento, ubicación, artículo, apartados) + `content` entero. Lo
+    // construye `indexing.ts::buildSearchText`; `content` es lo que se cita.
+    searchText: text("search_text").notNull(),
     embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
-    // Columna generada para la búsqueda de texto completo de 7c. 'spanish':
-    // el conocimiento normativo del producto es en español (decisión
-    // registrada en `docs/DECISIONS.md`, Fase 7a).
+    // `EmbeddingProvider.id` que calculó `embedding` (p. ej.
+    // "openai:text-embedding-3-small"). La búsqueda vectorial solo compara
+    // vectores del proveedor activo: dos modelos con la misma dimensión no
+    // son comparables. `knowledge:reindex` re-embebe los de otro modelo.
+    embeddingModel: text("embedding_model").notNull(),
+    // FTS de 7c, generada desde `search_text` (antes desde `content`; el
+    // nombre se conserva). 'spanish': decisión registrada en Fase 7a.
     contentTsv: tsvector("content_tsv")
       .notNull()
-      .generatedAlwaysAs((): SQL => sql`to_tsvector('spanish', content)`),
+      .generatedAlwaysAs((): SQL => sql`to_tsvector('spanish', search_text)`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

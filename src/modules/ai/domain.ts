@@ -26,7 +26,8 @@ export interface AISource {
   /** Article / section label and breadcrumb, when the chunk has them. */
   label: string | null;
   path: string | null;
-  excerpt: string;
+  /** The complete chunk text (≤ the chunker's 1800 chars), never cut. */
+  content: string;
 }
 
 export interface AISuggestion {
@@ -93,8 +94,6 @@ export function parseRawSuggestion(value: unknown): RawModelSuggestion {
   };
 }
 
-const EXCERPT_MAX = 600;
-
 export function toAISource(chunk: {
   chunkId: string;
   documentId: string;
@@ -121,7 +120,7 @@ export function toAISource(chunk: {
     sourceNote: chunk.sourceNote,
     label: chunk.label,
     path: chunk.path,
-    excerpt: chunk.content.length > EXCERPT_MAX ? `${chunk.content.slice(0, EXCERPT_MAX)}…` : chunk.content,
+    content: chunk.content,
   };
 }
 
@@ -184,7 +183,7 @@ export interface CopilotContext {
   openCases: { title: string; status: string; description: string | null }[];
   pendingTasks: { title: string; dueDate: Date | null }[];
   /** Retrieved knowledge, already filtered by tenancy and vigencia. */
-  knowledge: (AISource & { content: string })[];
+  knowledge: AISource[];
 }
 
 const MESSAGE_MAX = 1000;
@@ -245,7 +244,7 @@ export function buildCopilotUserPrompt(context: CopilotContext): string {
         `<fuente id="${k.chunkId}" documento="${k.documentTitle}" versión="${k.version}" ${validity}${
           k.label ? ` apartado="${k.label}"` : ""
         }>`,
-        clip(k.content, MESSAGE_MAX),
+        k.content,
         "</fuente>",
       );
     }

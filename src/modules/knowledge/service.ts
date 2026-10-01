@@ -12,6 +12,7 @@ import {
 } from "@/modules/knowledge/schema";
 import { getEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 import { knowledgeVisibilityCondition } from "@/modules/knowledge/visibility";
+import { buildSearchText } from "@/modules/knowledge/indexing";
 
 /**
  * Knowledge base write/read services (Fase 7a). Enforce two things the rest
@@ -92,22 +93,29 @@ export interface CreateDocumentVersionInput {
 export async function createDocumentVersion(input: CreateDocumentVersionInput) {
   const status = input.status ?? "DRAFT";
 
-  const contents = input.chunks.map((c) => c.content);
-  const embeddings = contents.length > 0 ? await getEmbeddingProvider().embed(contents) : [];
-  if (embeddings.length !== contents.length) {
+  // The document is read first: its title is part of every chunk's indexed
+  // text. Its organization/visibility are immutable, so reading them outside
+  // the transaction is safe.
+  const [document] = await db
+    .select({ organizationId: documents.organizationId, visibility: documents.visibility, title: documents.title })
+    .from(documents)
+    .where(eq(documents.id, input.documentId))
+    .limit(1);
+
+  if (!document) {
+    throw new Error(`Document ${input.documentId} not found.`);
+  }
+
+  const searchTexts = input.chunks.map((c) =>
+    buildSearchText({ documentTitle: document.title, path: c.path ?? null, label: c.label ?? null, content: c.content }),
+  );
+  const provider = searchTexts.length > 0 ? getEmbeddingProvider() : null;
+  const embeddings = provider ? await provider.embed(searchTexts) : [];
+  if (embeddings.length !== searchTexts.length) {
     throw new Error("EmbeddingProvider returned a different number of vectors than inputs.");
   }
 
   return db.transaction(async (tx) => {
-    const [document] = await tx
-      .select({ organizationId: documents.organizationId, visibility: documents.visibility })
-      .from(documents)
-      .where(eq(documents.id, input.documentId))
-      .limit(1);
-
-    if (!document) {
-      throw new Error(`Document ${input.documentId} not found.`);
-    }
 
     // A new CURRENT supersedes the document's previous CURRENT (at most one,
     // by the partial unique index) — same "close the open row" shape as
@@ -148,7 +156,9 @@ export async function createDocumentVersion(input: CreateDocumentVersionInput) {
           label: chunk.label ?? null,
           path: chunk.path ?? null,
           content: chunk.content,
+          searchText: searchTexts[i],
           embedding: embeddings[i],
+          embeddingModel: provider!.id,
         })),
       );
     }

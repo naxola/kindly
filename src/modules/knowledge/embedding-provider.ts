@@ -45,14 +45,19 @@ export function registerEmbeddingProvider(provider: EmbeddingProvider): void {
   globalThis.__kindlyEmbeddingProvider = provider;
 }
 
-/** The active provider, or throw when none is registered (production, for now). */
+/** Thrown when no provider is registered — an expected configuration state, not a failure. */
+export class EmbeddingProviderNotConfiguredError extends Error {
+  constructor() {
+    super("No EmbeddingProvider is registered (OPENAI_API_KEY not set).");
+    this.name = "EmbeddingProviderNotConfiguredError";
+  }
+}
+
+/** The active provider, or throw `EmbeddingProviderNotConfiguredError` when none is registered. */
 export function getEmbeddingProvider(): EmbeddingProvider {
   const provider = globalThis.__kindlyEmbeddingProvider;
   if (!provider) {
-    throw new Error(
-      "No EmbeddingProvider is registered. Knowledge ingestion is not available " +
-        "until a provider is wired in (Fase 7b+).",
-    );
+    throw new EmbeddingProviderNotConfiguredError();
   }
   return provider;
 }

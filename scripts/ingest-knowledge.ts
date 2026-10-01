@@ -73,7 +73,9 @@ async function registerProvider(args: IngestArgs) {
     );
   }
   const { OpenAIEmbeddingProvider } = await import("@/modules/knowledge/openai-embedding-provider");
-  registerEmbeddingProvider(new OpenAIEmbeddingProvider({ apiKey }));
+  registerEmbeddingProvider(
+    new OpenAIEmbeddingProvider({ apiKey, model: process.env.OPENAI_EMBEDDING_MODEL || undefined }),
+  );
 }
 
 async function main() {

@@ -37,9 +37,9 @@ async function seedDocument(organizationId: string | null, title: string) {
     insert into knowledge_document_versions (document_id, version, status, effective_from, source)
     values (${doc.id}, '2024', 'CURRENT', '2024-01-10', 'BOE núm. 5') returning id`;
   await sql`
-    insert into knowledge_chunks (document_version_id, document_id, organization_id, visibility, ordinal, level, label, content, embedding)
+    insert into knowledge_chunks (document_version_id, document_id, organization_id, visibility, ordinal, level, label, content, search_text, embedding, embedding_model)
     values (${version.id}, ${doc.id}, ${organizationId}, ${visibility}, 1, 'ARTICLE', '12', ${`Texto del artículo de ${title}`},
-            array_fill(0, array[1536])::vector)`;
+            ${`Documento: ${title}\n\nTexto del artículo de ${title}`}, array_fill(0, array[1536])::vector, 'legacy')`;
   return doc.id as string;
 }
 

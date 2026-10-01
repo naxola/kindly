@@ -95,7 +95,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       query: lastInbound.body,
       limit: KNOWLEDGE_LIMIT,
     });
-    knowledge = results.map((r) => ({ ...toAISource(r), content: r.content }));
+    knowledge = results.map(toAISource);
   } catch {
     knowledgeAvailable = false;
   }
@@ -145,7 +145,7 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
     model = result.model;
     suggestion = reconcileSuggestion(
       parseRawSuggestion(result.output),
-      knowledge.map((k) => toAISource(k)),
+      knowledge,
     );
   } catch (error) {
     await db.insert(aiSuggestions).values({
