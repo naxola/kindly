@@ -1,5 +1,5 @@
 # Módulo `ai`
 
-Pendiente. Reservado por la estructura del modular monolith
-(`docs/ARCHITECTURE.md` sección 2). No implementado en PKG-001 — ver
-`project/TASKS.md` para el paquete que lo activará.
+AI Copilot (Fase 8a, solo backend): `LLMProvider` (registro + OpenAI), contexto
+acotado, `AISuggestion` con fuentes reales y auditoría en `ai_suggestions`.
+Reglas y decisiones en `docs/DECISIONS.md` ("Fase 8a"). La UI llega en 8b.

@@ -4,9 +4,18 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
+## Paquete activo: Fase 8a (backend del AI Copilot) cerrada. Siguiente: Fase 8b (UI del copiloto, UI-10e)
 
 Último commit: ver `git log` (este commit incluye el registro).
+
+### Fase 8a — Backend del AI Copilot (2026-10-01)
+
+Hecho: `modules/ai` (`llm-provider.ts` + registro, `openai-llm-provider.ts`, `domain.ts` puro, `schema.ts`/`ai_suggestions`, `service.ts`, fake en `testing/`), migración `0011_ai_suggestions`, registro en `instrumentation.ts` (solo con `OPENAI_API_KEY`), actividades `AI_SUGGESTION_*`. Tests: 2 unit (`ai-domain`, `ai-openai-provider`) + `ai-copilot` integración (11). Verificado: lint+typecheck+567/567+build. Detalle en `docs/DECISIONS.md` ("Fase 8a").
+
+**Pendiente, anotado:** UI del copiloto en la conversación (Usar como borrador / Descartar, evidencia, citas con vigencia, E2E de que no envía) = 8b; Server Actions/ruta que expongan `generateSuggestion`/`resolveSuggestion`; programar `purgeExpiredSuggestions`; rate limit/coste; generación en segundo plano; resumen UI-10d; migraciones `0009`–`0011` a aplicar a mano en staging/producción (`npm run db:migrate`).
+**Próximo paso concreto:** Fase 8b.
+
+---
 
 ### Fase 7f — Subida de documentos de Knowledge desde la UI (2026-09-30)
 

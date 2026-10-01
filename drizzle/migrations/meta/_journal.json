@@ -78,6 +78,13 @@
       "when": 1790803452196,
       "tag": "0010_procedures",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790861913324,
+      "tag": "0011_ai_suggestions",
+      "breakpoints": true
     }
   ]
 }

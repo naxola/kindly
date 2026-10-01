@@ -11,7 +11,8 @@ export type ActivityEntityType =
   | "messaging_account"
   | "organization"
   | "procedure"
-  | "knowledge_document";
+  | "knowledge_document"
+  | "ai_suggestion";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -42,6 +43,8 @@ export type ActivityEntityType =
  * (`procedures/service.ts`) — entity `procedure`.
  * Fase 7f adds KNOWLEDGE_DOCUMENT_CREATED/KNOWLEDGE_VERSION_PUBLISHED
  * (`knowledge/upload.ts`) — entity `knowledge_document`.
+ * Fase 8 adds AI_SUGGESTION_GENERATED/USED/DISCARDED (`ai/service.ts`) —
+ * entity `ai_suggestion`.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -73,7 +76,10 @@ export type ActivityType =
   | "PROCEDURE_CREATED"
   | "PROCEDURE_VERSION_PUBLISHED"
   | "KNOWLEDGE_DOCUMENT_CREATED"
-  | "KNOWLEDGE_VERSION_PUBLISHED";
+  | "KNOWLEDGE_VERSION_PUBLISHED"
+  | "AI_SUGGESTION_GENERATED"
+  | "AI_SUGGESTION_USED"
+  | "AI_SUGGESTION_DISCARDED";
 
 interface RecordActivityInput {
   organizationId: string;

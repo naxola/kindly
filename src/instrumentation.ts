@@ -23,6 +23,7 @@ export async function register() {
 
   await registerWhatsAppTestAdapter();
   await registerOpenAIEmbeddingProvider();
+  await registerOpenAILLMProvider();
   await registerFakeEmbeddingProviderForE2E();
 
   if (process.env.E2E_FAKE_MESSAGING_CHANNEL !== "true") {
@@ -129,4 +130,21 @@ async function registerFakeEmbeddingProviderForE2E() {
   }
   const { createFakeEmbeddingProvider } = await import("@/modules/knowledge/testing/fake-embedding-provider");
   registerEmbeddingProvider(createFakeEmbeddingProvider());
+}
+
+/**
+ * Fase 8: the real `LLMProvider` (OpenAI chat completions), registered only
+ * when `OPENAI_API_KEY` is set. Absent everywhere else, `getLLMProvider()`
+ * throws and the copilot is simply unavailable — never a silent fake.
+ * `OPENAI_LLM_MODEL` overrides the default model.
+ */
+async function registerOpenAILLMProvider() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || process.env.NEXT_RUNTIME !== "nodejs") {
+    return;
+  }
+
+  const { registerLLMProvider } = await import("@/modules/ai/llm-provider");
+  const { OpenAILLMProvider } = await import("@/modules/ai/openai-llm-provider");
+  registerLLMProvider(new OpenAILLMProvider({ apiKey, model: process.env.OPENAI_LLM_MODEL || undefined }));
 }

@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7f: subida de documentos de Knowledge desde la UI, solo ADMIN).
+Última actualización: 2026-10-01 (Fase 8a: backend del AI Copilot).
 
 ## Resumen en una línea
 
@@ -173,7 +173,8 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 8a** | **AI Copilot: backend (`LLMProvider`, contexto, `AISuggestion` reconciliada con fuentes reales, auditoría con retención 90 días)** | Código (agente) | 🟢 **Completo** (2026-10-01) |
+| Fase 8b | AI Copilot: UI en la conversación (UI-10e), resumen (UI-10d), job en segundo plano | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 

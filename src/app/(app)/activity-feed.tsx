@@ -40,6 +40,9 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   PROCEDURE_VERSION_PUBLISHED: "Versión de trámite publicada",
   KNOWLEDGE_DOCUMENT_CREATED: "Documento de conocimiento creado",
   KNOWLEDGE_VERSION_PUBLISHED: "Versión de conocimiento publicada",
+  AI_SUGGESTION_GENERATED: "Sugerencia del copiloto generada",
+  AI_SUGGESTION_USED: "Sugerencia del copiloto usada como borrador",
+  AI_SUGGESTION_DISCARDED: "Sugerencia del copiloto descartada",
 };
 
 function labelFor(type: string): string {

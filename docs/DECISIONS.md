@@ -3621,3 +3621,17 @@ integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
 +51/51 E2E (49 previos + 2 de subida: texto+nueva versión+búsqueda con cita,
 PDF real/PDF falso/URL privada, y DELEGATE sin botón).
 
+
+
+## 2026-10-01 — Fase 8a: backend del AI Copilot (`LLMProvider`, contexto, sugerencia estructurada, auditoría)
+
+Alcance: solo servidor (sin UI; el panel del copiloto es 8b/UI-10e).
+
+- **`LLMProvider`** (`ai/llm-provider.ts`): misma forma que `EmbeddingProvider` (registro en `globalThis`, un único proveedor). Contrato **solo salida estructurada**: recibe un JSON Schema y devuelve JSON; el dominio nunca parsea texto libre. `OpenAILLMProvider` (`fetch` crudo, `response_format: json_schema` estricto, modelo por defecto `gpt-4.1-mini`, override `OPENAI_LLM_MODEL`) se registra desde `instrumentation.ts` solo con `OPENAI_API_KEY`; sin clave el copiloto no está disponible, nunca cae a un fake.
+- **El modelo nunca escribe citas** (`CLAUDE.md` §2.3): solo puede devolver `sourceIds` de los fragmentos que le enviamos; `reconcileSuggestion` (`ai/domain.ts`) reconstruye cada `AISource` desde el fragmento real recuperado, descarta ids inventados (con aviso) y fuerza `EvidenceLevel = INSUFFICIENT` si no queda ninguna fuente real. El nivel nunca es un porcentaje.
+- **Contexto acotado**: últimos 20 mensajes no borrados, Contact (nombre, notas), casos no cerrados, tareas pendientes y hasta 5 fragmentos de `retrieveKnowledge` (hard filters de tenancy/vigencia de 7c). Los mensajes se declaran DATO en el prompt de sistema (defensa básica contra inyección desde el Contact). Sin proveedor de embeddings el copiloto funciona solo con la conversación (`knowledgeAvailable=false`, `INSUFFICIENT`).
+- **Visibilidad**: la sugerencia se genera/lee/resuelve con `getConversationWithDetails(member)`: un DELEGATE sin acceso al Contact recibe `NOT_FOUND`, igual que el Inbox.
+- **Nunca autoenvía**: el módulo no tiene camino de escritura a `messages`. Estados `GENERATED → USED_AS_DRAFT | DISCARDED` (solo una resolución), `FAILED` para intentos fallidos (auditables). "Usado como borrador" no implica envío.
+- **Auditoría** (`ai_suggestions`, migración `0011_ai_suggestions`): guarda lo que recibió el modelo (prompts exactos, ids de mensajes, ids de fragmentos), lo que devolvió, quién resolvió y cuándo. **Retención explícita: 90 días** (`RETENTION_DAYS`, `retention_expires_at` por fila; `purgeExpiredSuggestions` borra lo vencido, pensado para un job programado — **pendiente de programar**). Más `AI_SUGGESTION_GENERATED/USED/DISCARDED` en `activities`.
+- **Sin relevancia mínima** (heredado de 7c): k-NN siempre devuelve vecinos, así que pueden ofrecerse fragmentos poco relevantes; el modelo decide si los cita y el nivel de evidencia lo ajusta. Umbral de score: decisión de producto futura.
+- **Fuera de alcance, anotado**: rate limiting/coste de las llamadas al modelo (`CLAUDE.md` §5), ejecución en segundo plano al entrar un mensaje, "Editada" vs "Usada tal cual" (requiere comparar con el mensaje enviado), resumen de situación (UI-10d).

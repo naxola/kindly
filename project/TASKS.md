@@ -716,15 +716,15 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 
 ## Fase 8 — AI
 
-- [ ] Abstracción `LLMProvider` (OpenAI inicial).
-- [ ] Construcción de contexto acotado (mensajes recientes, resumen, Contact,
+- [x] Abstracción `LLMProvider` (OpenAI inicial). (Fase 8a, 2026-10-01 — `ai/llm-provider.ts`, `ai/openai-llm-provider.ts`.)
+- [x] Construcción de contexto acotado (Fase 8a — `ai/service.ts`) (mensajes recientes, resumen, Contact,
       Case, tareas, conocimiento relevante).
-- [ ] AI Copilot: `AISuggestion` estructurado (issue, suggestedReply,
+- [x] AI Copilot: `AISuggestion` estructurado (Fase 8a — `ai/domain.ts`, fuentes reconstruidas de fragmentos reales) (issue, suggestedReply,
       evidenceLevel, sources, warnings, missingInformation).
 - [ ] UI de Copilot en la vista de conversación (Accept / Edit / Reject).
-- [ ] Auditabilidad de AI (qué recibió, qué recuperó, qué generó, qué hizo el
+- [x] Auditabilidad de AI (Fase 8a — `ai_suggestions`, retención 90 días) (qué recibió, qué recuperó, qué generó, qué hizo el
       profesional) con política de retención explícita.
-- [ ] Garantía de que ninguna sugerencia se envía sin acción humana.
+- [x] (backend) Garantía de que ninguna sugerencia se envía sin acción humana.
 
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
