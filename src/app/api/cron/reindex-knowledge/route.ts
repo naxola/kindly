@@ -72,7 +72,8 @@ export async function POST(request: Request) {
 
         write({ status: "done", ...result, at: new Date().toISOString() });
       } catch (err) {
-        write({ status: "error", message: String(err), at: new Date().toISOString() });
+        const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : null;
+        write({ status: "error", message: String(err).slice(0, 300), cause, at: new Date().toISOString() });
       } finally {
         controller.close();
       }
