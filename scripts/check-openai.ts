@@ -42,6 +42,7 @@ const body = {
   },
 };
 
+async function main() {
 try {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -112,3 +113,6 @@ try {
   console.error("    Check your internet connection or proxy settings.");
   process.exit(1);
 }
+}
+
+main();
