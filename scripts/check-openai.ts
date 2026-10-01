@@ -10,7 +10,7 @@
  */
 
 const apiKey = process.env.OPENAI_API_KEY;
-const model = process.env.OPENAI_LLM_MODEL ?? "gpt-4o-mini";
+const model = process.env.OPENAI_LLM_MODEL ?? "gpt-5.4-mini";
 
 if (!apiKey) {
   console.error("❌  OPENAI_API_KEY is not set.");
@@ -55,6 +55,12 @@ try {
 
   const text = await response.text();
 
+  if (!response.ok) {
+    console.error(`OpenAI raw response (HTTP ${response.status}):`);
+    console.error(text);
+    console.error("");
+  }
+
   if (response.status === 401) {
     console.error("❌  401 Unauthorized — the API key is invalid or revoked.");
     console.error("    Check it at https://platform.openai.com/api-keys");
@@ -69,7 +75,7 @@ try {
 
   if (response.status === 404) {
     console.error(`❌  404 — model '${model}' not found or not available on your plan.`);
-    console.error("    Try OPENAI_LLM_MODEL=gpt-4o-mini");
+    console.error("    Check the model name in OPENAI_LLM_MODEL");
     process.exit(1);
   }
 
