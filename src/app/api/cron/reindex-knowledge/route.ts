@@ -17,19 +17,38 @@
  * the caller can tail it with `curl`. Final line is a JSON summary.
  */
 import "server-only";
+import { timingSafeEqual } from "node:crypto";
 import { reindexKnowledgeChunks } from "@/modules/knowledge/reindex";
 import { hasEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 
-function unauthorized() {
+function unauthorized(reason: string) {
+  // Reason and lengths only — never the secret or the received token.
+  console.warn(`[cron/reindex-knowledge] 401: ${reason}`);
   return new Response("Unauthorized", { status: 401 });
 }
 
+// Tolerate whitespace/quotes pasted around the value in the Vercel dashboard.
+function cleanSecret(value: string): string {
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
 export async function POST(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return unauthorized();
+  const rawSecret = process.env.CRON_SECRET;
+  if (!rawSecret) return unauthorized("CRON_SECRET is not set in this deployment's environment (check Preview scope and redeploy)");
+  const cronSecret = cleanSecret(rawSecret);
 
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) return unauthorized();
+  if (!authHeader) return unauthorized("missing Authorization header");
+  const token = cleanSecret(authHeader.replace(/^Bearer\s+/i, ""));
+  if (!safeEqual(token, cronSecret)) {
+    return unauthorized(`token mismatch (received length ${token.length}, expected length ${cronSecret.length})`);
+  }
 
   if (!hasEmbeddingProvider()) {
     return Response.json({ error: "No embedding provider configured." }, { status: 503 });
