@@ -729,6 +729,9 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
       profesional) con política de retención explícita.
 - [x] (backend) Garantía de que ninguna sugerencia se envía sin acción humana.
 
+- [x] Fase 8 paso 6: preparar evaluación (formato de dataset, métricas, `npm run eval:retrieval`). (2026-10-01)
+- [ ] Fase 8, pendiente de staging: probar `gpt-5.4-mini` real; calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset; programar `purgeExpiredSuggestions`.
+
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
 Microservicios, Kubernetes, Elasticsearch/OpenSearch, vector DB externa, apps

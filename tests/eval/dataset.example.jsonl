@@ -1,0 +1,5 @@
+// Ejemplo de formato, NO un dataset real. Una pregunta por línea (JSONL); las líneas que empiezan por // se ignoran.
+{"id":"vac-001","question":"¿Cuántos días de vacaciones me corresponden al año?","jurisdiction":"ES","expected":[{"documentTitle":"Estatuto de los Trabajadores","article":"38"}]}
+{"id":"jor-002","question":"Quiero pedir que me adapten la jornada para cuidar a mis hijos","expected":[{"documentTitle":"Estatuto de los Trabajadores","article":"34","contains":"adaptaciones de la duración y distribución de la jornada"}]}
+{"id":"fut-003","question":"¿Qué tiempo de descanso tengo entre jornadas?","atDate":"2019-06-01","expected":[{"documentTitle":"Estatuto de los Trabajadores","article":"34"}]}
+{"id":"neg-004","question":"¿Cuál es la capital de Francia?","expected":[]}

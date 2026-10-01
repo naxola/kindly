@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-10-01 (Fase 8, pasos 3-4: Copilot API y tarjeta).
+Última actualización: 2026-10-01 (Fase 8 cerrada: Copiloto como tarjeta contextual).
 
 ## Resumen en una línea
 
@@ -174,7 +174,7 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 8a** | **AI Copilot: backend (`LLMProvider`, contexto, `AISuggestion` reconciliada con fuentes reales, auditoría con retención 90 días)** | Código (agente) | 🟢 **Completo** (2026-10-01) |
-| Fase 8 (alcance 2026-10-01) | Copiloto como tarjeta contextual: pasos 1-4 (retrieval; abstención y seguridad; API; tarjeta) 🟢; pasos 6-7 (preparar evaluación, cierre) pendientes | Código (agente) | 🔴 **Activo** |
+| **Fase 8** (alcance 2026-10-01) | **AI Copilot como tarjeta contextual: retrieval, grounding/abstención, seguridad, Copilot API, tarjeta, trazabilidad, evaluación preparada** | Código (agente) | 🟢 **Completo** (2026-10-01) — pendiente validar en staging |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 

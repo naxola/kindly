@@ -4,187 +4,52 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Pasos 1-4 cerrados; siguiente: paso 6 (preparar evaluación) y cierre
+## Paquete activo: Fase 8 (Copiloto) cerrada. Siguiente: elección del usuario (UI-10c o validar en staging)
 
-Último commit: ver `git log` (el commit del paso 1 incluye este registro).
+Último commit: ver `git log` (el commit de cierre incluye este registro).
 
-**Estado:** paso 1 (retrieval) hecho y verificado — lint + typecheck +
-584/584 + 51/51 E2E + build + `knowledge:reindex` contra la base local.
-Detalle en `docs/DECISIONS.md` ("Fase 8, paso 1"). Decisiones del usuario
-(2026-10-01): abstención sin ningún borrador; umbral de relevancia
-parametrizado y conservador (mejor exceso de candidatos que perder recall);
-`search_text` con jerarquía completa; `Reranker` identidad; un único modelo
-LLM configurable, cambio a `gpt-5.4-mini` permitido quitando `temperature`.
+### Fase 8 — AI Copilot como tarjeta contextual (2026-10-01)
 
-**Para staging tras el pull:** `npm run db:migrate` (0009–0012) y después
-`npm run knowledge:reindex` con `OPENAI_API_KEY` — hasta entonces los
-fragmentos existentes son `legacy` y la búsqueda vectorial no los ve (FTS sí).
+Alcance definido por el usuario: **no es un chatbot**; una tarjeta de
+sugerencia en la conversación (`mensaje → contexto → retrieval → generación →
+tarjeta → [Usar como borrador] [Descartar]`), que nunca envía ni modifica el
+mensaje. Hecho, en este orden (detalle y decisiones en `docs/DECISIONS.md`,
+entradas "Fase 8a" y "Fase 8, pasos 1/2/3-4/6"):
 
-**Paso 2 hecho** (603/603 + build; detalle en `docs/DECISIONS.md`, "Fase 8,
-paso 2"): abstención real (`ABSTAINED` sin borrador), umbral
-`KNOWLEDGE_MIN_SIMILARITY` (0.25), consulta con contexto, `Reranker`
-identidad, prompt como JSON (inyección), `catch` corregido, traza de
-retrieval, sin `temperature`, modelo `gpt-5.4-mini` por defecto.
-**Pendiente tras el paso 2:** prueba real de `gpt-5.4-mini` en staging.
+1. **Retrieval**: FTS en OR por lexemas, `search_text` con contexto jerárquico
+   (documento › título › capítulo › artículo › apartado › subapartado) para FTS
+   y embedding, "art. 34.8", `embedding_model` por fragmento (+ `OPENAI_EMBEDDING_MODEL`),
+   `npm run knowledge:reindex`, fragmentos sin truncar.
+2. **Grounding, abstención y seguridad**: `ABSTAINED` sin ningún borrador,
+   umbral `KNOWLEDGE_MIN_SIMILARITY` (0.25), consulta con 1-2 mensajes
+   anteriores, `Reranker` identidad, prompt como JSON (inyección), `catch`
+   tipado, traza de retrieval, sin `temperature`, `gpt-5.4-mini` por defecto.
+3. **Copilot API** (DTO sin modelo/prompt, freno 1 generación/10 s) y
+4. **tarjeta** (`copilot-card.tsx`): a petición, fuentes con vigencia,
+   abstención clara, usar como borrador/descartar, E2E de que no se envía.
+6. **Evaluación preparada**: formato de dataset + `npm run eval:retrieval`.
 
-**Pasos 3-4 hechos** (616/616 + 54/54 E2E + build + captura; detalle en
-`docs/DECISIONS.md`, "Fase 8, pasos 3-4"): Copilot API con DTO sin
-modelo/prompt y freno de 1 generación/10 s por conversación; tarjeta del
-Copiloto a petición (`copilot-card.tsx`) con fuentes, abstención, "Usar como
-borrador"/"Descartar", sin enviar nada; `tests/e2e/copilot.spec.ts`.
+Verificado: lint + typecheck + 623/623 + 54/54 E2E + build.
 
-**Próximo paso concreto:** paso 6 (formato de dataset + `npm run eval:retrieval`)
-y paso 7 (cierre). Pendiente: prueba real de `gpt-5.4-mini` y calibrar
-`KNOWLEDGE_MIN_SIMILARITY` en staging.
+**Para staging tras el `git pull`:** `npm run db:migrate` (0009–0012) →
+`npm run knowledge:reindex` (con `OPENAI_API_KEY`) → configurar
+`OPENAI_API_KEY` (y opcionalmente `OPENAI_LLM_MODEL`,
+`OPENAI_EMBEDDING_MODEL`, `KNOWLEDGE_MIN_SIMILARITY`). Hasta el reindex, los
+documentos ya subidos solo se encuentran por texto.
 
-### Alcance (definido por el usuario, 2026-10-01)
+**Pendiente, anotado (no bloquea el cierre):**
+- Prueba real de `gpt-5.4-mini` con salida estructurada en staging (aquí no hay
+  clave ni acceso a la documentación oficial).
+- Calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset real (50-100 preguntas,
+  `tests/eval/README.md`) — lo aporta el usuario.
+- Programar `purgeExpiredSuggestions` (retención 90 días) — nadie lo llama aún.
+- Límite global de coste por organización (hoy solo 1 generación/10 s por conversación).
+- Generación en segundo plano, resumen de situación (UI-10d), JEV/reranker real,
+  verificador de la respuesta generada: fuera de alcance por decisión del usuario.
+- `UI-10c` (adjuntos + trámites en la ficha) sigue disponible, ya sin bloqueo.
 
-El Copiloto **no es un chatbot**: es una tarjeta contextual de sugerencia en
-la conversación con el afiliado. Flujo único:
-
-`mensaje del afiliado → contexto reciente → retrieval → generación → tarjeta → [Usar como borrador] [Descartar]`
-
-La IA nunca envía ni modifica el mensaje; el módulo `ai` no escribe en
-`messages`. Prioridad: 1) retrieval, 2) grounding/citas, 3) abstención,
-4) seguridad, 5) tarjeta, 6) trazabilidad básica, 7) evaluación (después),
-8) JEV (después, solo la interfaz `Reranker` ahora).
-
-**Fuera de alcance ahora:** JEV real, router entre modelos, memoria
-semántica, generación automática en segundo plano (job), resumen de situación
-(UI-10d), sistema de evaluación completo.
-
-### Paso 1 — Retrieval (puntos 1, 2, 3, 7)
-
-- FTS en lenguaje natural: `websearch_to_tsquery` exige *todos* los términos
-  (AND). Se pasa a OR de los lexemas de la consulta, ordenado por
-  `ts_rank_cd` (más términos coincidentes = más arriba).
-- Texto indexado y embebido con contexto jerárquico: nueva columna
-  `search_text` = título del documento + ruta (Título/Capítulo/Sección) +
-  etiqueta (Artículo N) + contenido. `content_tsv` se genera desde
-  `search_text`; el embedding se calcula sobre `search_text`. `content` sigue
-  siendo lo que se cita/muestra.
-- "artículo 34.8": al indexar, cada apartado numerado ("8.") dentro del
-  Artículo 34 añade el token `34.8`; al consultar, se normalizan "art. 34.8",
-  "artículo 34 apartado 8" → `34.8`.
-- Modelo de embeddings configurable (`OPENAI_EMBEDDING_MODEL`, dimensión
-  fija 1536) y nueva columna `embedding_model` por chunk; la búsqueda vectorial
-  solo compara con chunks del modelo activo. Script `knowledge:reindex` que
-  recalcula `search_text` y re-embebe lo que tenga otro modelo (necesario para
-  los documentos ya subidos en staging).
-- Sin truncado a 1000: los fragmentos van enteros al prompt (≤1800 del chunker).
-
-Archivos: `src/modules/knowledge/schema.ts`, `drizzle/migrations/0012_*.sql`
-(+ `meta/`; backfill SQL de `search_text` y `embedding_model='legacy'`),
-**nuevo** `src/modules/knowledge/indexing.ts` (puro: `buildSearchText`,
-`normalizeLegalReferences`), `src/modules/knowledge/service.ts`,
-`src/modules/knowledge/retrieval.ts`, `src/modules/knowledge/embedding-provider.ts`
-(error tipado "no configurado"), `src/instrumentation.ts`, **nuevo**
-`scripts/reindex-knowledge.ts`, `package.json` (script), `.env.example`,
-`src/modules/ai/domain.ts` (quitar el recorte a 1000). Tests: **nuevo**
-`tests/unit/knowledge-indexing.test.ts`, `tests/integration/knowledge-retrieval.test.ts`
-(consulta en lenguaje natural con términos ausentes, "artículo 34.8",
-exclusión por modelo distinto), `tests/integration/knowledge.test.ts` si cambia
-la forma del insert.
-
-### Paso 2 — Grounding, abstención y seguridad (puntos 4, 5, 6, 8 + Reranker)
-
-- Consulta de retrieval: último mensaje entrante; si es corto (<12 palabras)
-  se le anteponen hasta 2 entrantes anteriores. Función pura.
-- `Reranker` (`rerank(query, candidates) → RankedChunk[]`) con implementación
-  identidad registrada por defecto; el servicio del copiloto lo llama entre
-  retrieval y LLM. Sin JEV.
-- Umbral mínimo de relevancia: un candidato solo se ofrece al modelo si casó
-  por FTS o su similitud coseno ≥ `KNOWLEDGE_MIN_SIMILARITY` (por defecto
-  conservador; se calibra con el dataset de evaluación).
-- Abstención real: el esquema de salida añade `requiresKnowledge`. Si la
-  respuesta necesita normativa/documentación y no queda ninguna fuente real
-  citada → resultado `ABSTAINED`: **sin borrador**, nivel `INSUFFICIENT`,
-  con `missingInformation`. Resultados posibles: `GROUNDED`,
-  `NO_KNOWLEDGE_NEEDED` (p. ej. un saludo o una gestión), `ABSTAINED`.
-- Inyección desde documentos: las fuentes van al prompt como datos JSON
-  serializados (nada de atributos interpolados como en 8a, donde un título con
-  comillas o un `</fuente>` en el contenido rompía la estructura); el prompt
-  de sistema declara documentos y mensajes como datos no fiables; la salida
-  solo admite ids de fuentes ofrecidas (ya en 8a).
-- `catch {}` vacío: se distingue "proveedor no configurado" (esperado) de un
-  error real (se registra en log sin contenido y en el snapshot como
-  `knowledgeStatus: ERROR`; la tarjeta lo muestra).
-- Snapshot de auditoría ampliado con la traza de retrieval (consulta usada,
-  candidatos con rango FTS/vector/similitud, cuáles pasaron el umbral) —
-  trazabilidad y base para evaluar.
-- Proveedor OpenAI: se elimina `temperature` (ver "GPT-5.4 mini" abajo).
-
-Archivos: `src/modules/ai/domain.ts`, `src/modules/ai/service.ts`,
-`src/modules/ai/schema.ts` (tipo del snapshot; jsonb, sin migración),
-`src/modules/ai/openai-llm-provider.ts`, **nuevo** `src/modules/knowledge/reranker.ts`,
-`src/modules/ai/testing/fake-llm-provider.ts`. Tests: `tests/unit/ai-domain.test.ts`,
-`tests/unit/ai-openai-provider.test.ts`, `tests/integration/ai-copilot.test.ts`
-(abstención, documento malicioso, error de embeddings, consulta con contexto).
-
-### Paso 3 — Copilot API (la UI no conoce el modelo)
-
-- `GET /api/conversations/[id]/copilot` (última sugerencia) y `POST` (generar);
-  `POST /api/conversations/[id]/copilot/[suggestionId]` con
-  `USED_AS_DRAFT | DISCARDED`. Autenticación + visibilidad del miembro.
-- DTO sin proveedor, modelo ni prompt. Freno de doble clic/coste: una
-  generación por conversación cada 10 s (429).
-
-Archivos: **nuevos** `src/app/api/conversations/[id]/copilot/route.ts`,
-`src/app/api/conversations/[id]/copilot/[suggestionId]/route.ts`,
-`src/modules/ai/dto.ts`; `src/modules/ai/service.ts` (freno). Tests: **nuevo**
-`tests/unit/ai-dto.test.ts` (no filtra modelo/prompt), integración del freno en
-`tests/integration/ai-copilot.test.ts`.
-
-### Paso 4 — Tarjeta del Copiloto
-
-- Entre el historial y el compositor. Generación **a petición** ("Sugerir
-  respuesta"), no automática. Muestra: problema detectado, borrador, nivel de
-  evidencia, fuentes (documento, versión, vigencia, artículo, extracto, enlace a
-  `/knowledge/[id]`), avisos, información que falta, estado de abstención en
-  claro ("No hay evidencia suficiente para proponer una respuesta"), error con
-  "Reintentar", aviso si entró un mensaje posterior a la sugerencia.
-- "Usar como borrador" solo rellena el compositor (pide confirmación si ya hay
-  texto) y registra `USED_AS_DRAFT`; "Descartar". Nunca un botón de enviar.
-  Nota fija: "Nada se envía sin que lo revises tú".
-- Componentes y tokens existentes de `src/components/` (`docs/ui/`), sin
-  hardcodear estilos.
-
-Archivos: **nuevo** `src/app/(app)/inbox/[id]/copilot-card.tsx`,
-`src/app/(app)/inbox/[id]/conversation-thread.tsx`, `src/instrumentation.ts`
-(fake LLM solo con `E2E_FAKE_LLM=true`), `playwright.config.ts`,
-`docs/ui/CONVERSATION_WORKSPACE.md` §4 (a petición, no job). Tests: **nuevo**
-`tests/e2e/copilot.spec.ts` (generar, ver fuentes, usar como borrador sin que
-se cree ningún mensaje, descartar, abstención visible) + axe en la tarjeta.
-
-### Paso 5 — Trazabilidad básica
-
-Ya cubierta por `ai_suggestions` + actividades (8a) y la traza de retrieval
-del paso 2. Sin archivos nuevos.
-
-### Paso 6 — Preparar evaluación (sin bloquear la fase)
-
-Formato de dataset (JSONL: pregunta, fecha opcional, fuentes esperadas por
-documento + artículo) y script que llama a `retrieveKnowledge` y mide
-recall@k/MRR. Archivos: **nuevos** `scripts/eval-retrieval.ts`,
-`tests/eval/README.md`, `package.json` (script). El dataset real (50-100
-preguntas) lo aporta el usuario después.
-
-### Paso 7 — Cierre
-
-`docs/DECISIONS.md` (entrada nueva que supersede lo necesario de 8a),
-`project/CURRENT_TASK.md`, `project/TASKS.md`, `project/PROGRESS.md`.
-
-### GPT-5.4 mini — verificación
-
-Según el listado de modelos de OpenAI y fuentes secundarias, `gpt-5.4-mini`
-admite Chat Completions y structured outputs con `response_format:
-json_schema`, que es justo lo que usa el proveedor. Riesgo encontrado: los
-GPT-5.x pueden rechazar `temperature` (400) según el esfuerzo de
-razonamiento, y el proveedor de 8a envía `temperature: 0.2` → se elimina en el
-paso 2. No he podido abrir la documentación oficial (bloqueada por la red de
-este entorno) ni llamar a la API (sin clave). El cambio queda en
-`OPENAI_LLM_MODEL=gpt-5.4-mini` + una prueba real en staging; un fallo queda
-registrado como sugerencia `FAILED` con el error.
+**Próximo paso concreto:** elección del usuario — validar Fase 8 en staging
+(migrar, reindexar, probar el modelo real) o `UI-10c`.
 
 ---
 

@@ -3676,3 +3676,12 @@ Supersede de 8a donde se indica. Decisiones del usuario: abstención sin ningún
 - **Nunca envía**: "Usar como borrador" solo llama a `setText` del compositor (sin señal de "escribiendo") y enfoca; pide confirmación si ya hay texto; después registra `USED_AS_DRAFT`. No hay botón de enviar en la tarjeta (E2E lo comprueba) y el E2E verifica contra la base de datos que no se crea ningún mensaje saliente hasta que el profesional pulsa Enviar. Con la ventana de servicio cerrada el botón queda deshabilitado con motivo.
 - **E2E** (`tests/e2e/copilot.spec.ts`, 3 tests + axe): sugerencia con fuentes, usar/enviar por el profesional/descartar, cooldown; abstención; confirmación de reemplazo y aviso de mensaje nuevo. `E2E_FAKE_LLM=true` (solo `playwright.config.ts`, ignorado en Vercel) registra un LLM falso determinista (`createE2EFakeLLMProvider`).
 - Verificado: lint + typecheck + 616/616 + 54/54 E2E + build + captura real de la tarjeta.
+
+
+## 2026-10-01 — Fase 8, paso 6: preparación de la evaluación del retrieval
+
+Sin bloquear la fase (decisión del usuario): solo la arquitectura para medir después con un dataset real de 50-100 preguntas.
+- **Formato** (JSONL, `tests/eval/README.md`, ejemplo en `tests/eval/dataset.example.jsonl`): `id`, `question`, `atDate`/`jurisdiction` opcionales y `expected` (fuentes: `documentTitle` + `article` y/o `contains`); `expected: []` = pregunta que la base no responde (el copiloto debería abstenerse).
+- **Métricas puras** (`knowledge/evaluation.ts`, 7 tests): recall@k, MRR, % de fragmentos relevantes que superan el umbral de relevancia del copiloto, % de preguntas sin respuesta en las que no se ofrece nada y media de candidatos ofrecidos — las dos últimas sirven para calibrar `KNOWLEDGE_MIN_SIMILARITY`.
+- **`npm run eval:retrieval -- --dataset <file> [--organization-id] [--limit] [--verbose]`** (solo lectura): ejecuta `retrieveKnowledge` y el mismo `isRelevantCandidate` que el copiloto. Sin `--organization-id` solo busca conocimiento GLOBAL. No se evalúa todavía la calidad de la respuesta generada (eso necesita juicio humano o un verificador; fuera de alcance).
+- La traza de retrieval guardada en `ai_suggestions` (paso 2) permite analizar después casos reales del uso.
