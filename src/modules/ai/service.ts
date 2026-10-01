@@ -9,9 +9,10 @@
  * in the composer after "Usar como borrador" (`CLAUDE.md` §2.2).
  */
 import "server-only";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import { db } from "@/db/client";
 import { aiSuggestions, type AIContextSnapshot } from "@/modules/ai/schema";
+import { messages } from "@/modules/conversations/schema";
 import {
   COPILOT_SYSTEM_PROMPT,
   SUGGESTION_JSON_SCHEMA,
@@ -27,7 +28,7 @@ import {
   type KnowledgeStatus,
 } from "@/modules/ai/domain";
 import { getMinSimilarity } from "@/modules/ai/config";
-import { getLLMProvider } from "@/modules/ai/llm-provider";
+import { getLLMProvider, hasLLMProvider } from "@/modules/ai/llm-provider";
 import { recordActivity } from "@/modules/audit/service";
 import { getConversationWithDetails, listMessages } from "@/modules/conversations/service";
 import { listCasesForContact } from "@/modules/cases/service";
@@ -44,14 +45,25 @@ const CONTEXT_MESSAGE_LIMIT = 20;
 const CANDIDATE_LIMIT = 8;
 /** Fragments offered to the model after gate and reranker. */
 const KNOWLEDGE_LIMIT = 5;
+/** Minimum time between two generations for the same conversation (cost control; also stops double clicks). */
+export const GENERATION_COOLDOWN_SECONDS = 10;
 const CLOSED_CASE_STATUSES = ["RESOLVED", "CLOSED"];
 
 export type AISuggestionRow = typeof aiSuggestions.$inferSelect;
 
 export class CopilotError extends Error {
   constructor(
-    readonly code: "NOT_FOUND" | "NOTHING_TO_ANSWER" | "GENERATION_FAILED" | "ALREADY_RESOLVED",
+    readonly code:
+      | "NOT_FOUND"
+      | "NOT_AVAILABLE"
+      | "NOTHING_TO_ANSWER"
+      | "NOTHING_TO_USE"
+      | "RATE_LIMITED"
+      | "GENERATION_FAILED"
+      | "ALREADY_RESOLVED",
     message: string,
+    /** For RATE_LIMITED: seconds until the next generation is allowed. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
   }
@@ -65,6 +77,8 @@ export interface GenerateSuggestionInput {
   organizationId: string;
   member: VisibilityMember;
   conversationId: string;
+  /** Override the per-conversation cooldown (tests only; callers never pass it). */
+  cooldownSeconds?: number;
 }
 
 /**
@@ -76,9 +90,29 @@ export interface GenerateSuggestionInput {
 export async function generateSuggestion(input: GenerateSuggestionInput): Promise<AISuggestionRow> {
   const { organizationId, member, conversationId } = input;
 
+  if (!hasLLMProvider()) {
+    throw new CopilotError("NOT_AVAILABLE", "The copilot is not configured in this environment.");
+  }
+
   const details = await getConversationWithDetails(organizationId, member, conversationId);
   if (!details) {
     throw new CopilotError("NOT_FOUND", "Conversation not found.");
+  }
+
+  // Cooldown: any attempt (including a failed one) counts, so a failing
+  // provider cannot be hammered either.
+  const cooldown = input.cooldownSeconds ?? GENERATION_COOLDOWN_SECONDS;
+  const [previous] = await db
+    .select({ createdAt: aiSuggestions.createdAt })
+    .from(aiSuggestions)
+    .where(and(eq(aiSuggestions.organizationId, organizationId), eq(aiSuggestions.conversationId, conversationId)))
+    .orderBy(desc(aiSuggestions.createdAt))
+    .limit(1);
+  if (previous) {
+    const elapsed = (Date.now() - previous.createdAt.getTime()) / 1000;
+    if (elapsed < cooldown) {
+      throw new CopilotError("RATE_LIMITED", "Too many suggestion requests.", Math.ceil(cooldown - elapsed));
+    }
   }
 
   const allMessages = (await listMessages(organizationId, conversationId)).filter((m) => !m.deletedAt);
@@ -237,17 +271,18 @@ export async function getLatestSuggestion(
 export async function resolveSuggestion(input: {
   organizationId: string;
   member: VisibilityMember;
+  conversationId: string;
   suggestionId: string;
   action: "USED_AS_DRAFT" | "DISCARDED";
 }): Promise<AISuggestionRow> {
-  const { organizationId, member, suggestionId, action } = input;
+  const { organizationId, member, conversationId, suggestionId, action } = input;
 
   const [existing] = await db
     .select()
     .from(aiSuggestions)
     .where(and(eq(aiSuggestions.organizationId, organizationId), eq(aiSuggestions.id, suggestionId)))
     .limit(1);
-  if (!existing) {
+  if (!existing || existing.conversationId !== conversationId) {
     throw new CopilotError("NOT_FOUND", "Suggestion not found.");
   }
   const details = await getConversationWithDetails(organizationId, member, existing.conversationId);
@@ -256,6 +291,9 @@ export async function resolveSuggestion(input: {
   }
   if (existing.status !== "GENERATED") {
     throw new CopilotError("ALREADY_RESOLVED", "The suggestion was already resolved or failed.");
+  }
+  if (action === "USED_AS_DRAFT" && !(existing.suggestion as AISuggestion | null)?.suggestedReply) {
+    throw new CopilotError("NOTHING_TO_USE", "This suggestion has no reply to use as a draft.");
   }
 
   const [row] = await db
@@ -291,4 +329,22 @@ export async function purgeExpiredSuggestions(now: Date = new Date()): Promise<n
     .where(lt(aiSuggestions.retentionExpiresAt, now))
     .returning({ id: aiSuggestions.id });
   return deleted.length;
+}
+
+/** Id of the conversation's latest inbound message, for "a newer message arrived" checks. */
+export async function getLatestInboundMessageId(organizationId: string, conversationId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.organizationId, organizationId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.direction, "INBOUND"),
+        isNull(messages.deletedAt),
+      ),
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  return row?.id ?? null;
 }

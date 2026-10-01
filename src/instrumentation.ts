@@ -25,6 +25,7 @@ export async function register() {
   await registerOpenAIEmbeddingProvider();
   await registerOpenAILLMProvider();
   await registerFakeEmbeddingProviderForE2E();
+  await registerFakeLLMProviderForE2E();
 
   if (process.env.E2E_FAKE_MESSAGING_CHANNEL !== "true") {
     return;
@@ -153,4 +154,25 @@ async function registerOpenAILLMProvider() {
   const { registerLLMProvider } = await import("@/modules/ai/llm-provider");
   const { OpenAILLMProvider } = await import("@/modules/ai/openai-llm-provider");
   registerLLMProvider(new OpenAILLMProvider({ apiKey, model: process.env.OPENAI_LLM_MODEL || undefined }));
+}
+
+/**
+ * Fase 8: the deterministic fake `LLMProvider`, only when `E2E_FAKE_LLM=true`
+ * — set exclusively by `playwright.config.ts` — and never on Vercel. The real
+ * provider (registered from `OPENAI_API_KEY`) wins if both are configured.
+ */
+async function registerFakeLLMProviderForE2E() {
+  if (process.env.E2E_FAKE_LLM !== "true" || process.env.NEXT_RUNTIME !== "nodejs") {
+    return;
+  }
+  if (process.env.VERCEL) {
+    console.warn("[ai] E2E_FAKE_LLM is ignored on Vercel.");
+    return;
+  }
+  const { hasLLMProvider, registerLLMProvider } = await import("@/modules/ai/llm-provider");
+  if (hasLLMProvider()) {
+    return;
+  }
+  const { createE2EFakeLLMProvider } = await import("@/modules/ai/testing/fake-llm-provider");
+  registerLLMProvider(createE2EFakeLLMProvider());
 }

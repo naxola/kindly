@@ -11,6 +11,7 @@ import { DeliveryTicks, type DisplayStatus } from "@/app/(app)/inbox/[id]/delive
 import { SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { CopilotCard } from "@/app/(app)/inbox/[id]/copilot-card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/cn";
 
@@ -256,14 +257,31 @@ export function ConversationThread({
     void deliver(again);
   }
 
-  function handleChange(value: string) {
-    setText(value);
+  function resizeComposer() {
     const el = textareaRef.current;
     if (el) {
       el.style.height = "auto";
       const lineHeight = parseFloat(getComputedStyle(el).lineHeight || "20");
       el.style.height = `${Math.min(el.scrollHeight, lineHeight * COMPOSER_MAX_ROWS)}px`;
     }
+  }
+
+  /**
+   * The Copilot's "Usar como borrador": fills the composer and focuses it —
+   * nothing is sent and no typing indicator is signalled (the professional
+   * has not typed anything). They edit and press Send themselves.
+   */
+  function applyCopilotDraft(value: string) {
+    setText(value);
+    requestAnimationFrame(() => {
+      resizeComposer();
+      textareaRef.current?.focus();
+    });
+  }
+
+  function handleChange(value: string) {
+    setText(value);
+    resizeComposer();
     const now = Date.now();
     if (supportsTyping && value.trim() && now - lastTypingSentAt.current > TYPING_INDICATOR_THROTTLE_MS) {
       lastTypingSentAt.current = now;
@@ -276,6 +294,7 @@ export function ConversationThread({
   const todayKey = dayKey(now.toISOString());
   const yesterdayKey = dayKey(new Date(now.getTime() - 86_400_000).toISOString());
   const timeline = buildTimeline(messages, todayKey, yesterdayKey);
+  const latestInboundId = [...messages].reverse().find((m) => m.direction === "INBOUND")?.id ?? null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -353,6 +372,17 @@ export function ConversationThread({
           </div>
         )}
       </div>
+
+      {canReply && (
+        <CopilotCard
+          conversationId={conversationId}
+          latestInboundId={latestInboundId}
+          composerAvailable={serviceWindow.status !== "CLOSED"}
+          composerUnavailableReason="La ventana de respuesta libre está cerrada: no puedes responder en texto libre ahora mismo."
+          hasDraftText={text.trim() !== ""}
+          onUseAsDraft={applyCopilotDraft}
+        />
+      )}
 
       <SheetFooter className="flex-col items-stretch">
         {!canReply ? (

@@ -165,12 +165,12 @@ Implementa el AI Copilot de `docs/PRODUCT.md` §10 y la Fase 8 de
   `CHAT.md` §2), no en la ficha — la sugerencia está donde se escribe.
   Plegable (queda una línea: "Copiloto · Actualizado 10:42 · Evidencia
   parcial"); con altura máxima y scroll propio para no tapar el historial.
-- **Dinámico**: se recalcula en segundo plano (job, `pg-boss`) cuando
-  entra un mensaje del Contact, no en cada tecla; la tarjeta muestra
-  "Actualizado con el mensaje de las HH:MM". Si llega un mensaje nuevo
-  mientras el delegado lee la sugerencia, **no** se sustituye bajo sus
-  ojos: aviso "Hay una sugerencia nueva — Ver" (mismo criterio que la
-  lista, `INBOX.md` §6).
+- **A petición** (decisión 2026-10-01, Fase 8): el delegado pulsa "Sugerir
+  respuesta"; no hay generación en segundo plano (el job de `pg-boss` queda
+  fuera de alcance). Si llega un mensaje nuevo mientras lee la sugerencia,
+  **no** se sustituye bajo sus ojos: aviso "Ha llegado un mensaje nuevo desde
+  esta sugerencia" + "Actualizar sugerencia". Implementada en
+  `src/app/(app)/inbox/[id]/copilot-card.tsx`.
 - **Contenido** (`AISuggestion`, `docs/DATABASE.md`): qué ha detectado
   (`issue`), respuesta propuesta (`suggestedReply`, en `font-document`),
   en qué se apoya (`sources`: documento, versión, artículo, **vigencia**),

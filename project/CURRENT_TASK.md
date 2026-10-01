@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Pasos 1 y 2 cerrados; siguiente: paso 3 (Copilot API)
+## Paquete activo: Fase 8 — Copiloto (alcance redefinido 2026-10-01). Pasos 1-4 cerrados; siguiente: paso 6 (preparar evaluación) y cierre
 
 Último commit: ver `git log` (el commit del paso 1 incluye este registro).
 
@@ -27,8 +27,15 @@ identidad, prompt como JSON (inyección), `catch` corregido, traza de
 retrieval, sin `temperature`, modelo `gpt-5.4-mini` por defecto.
 **Pendiente tras el paso 2:** prueba real de `gpt-5.4-mini` en staging.
 
-**Próximo paso concreto:** paso 3 (Copilot API: rutas + DTO sin modelo/prompt +
-freno de 1 generación/10 s por conversación).
+**Pasos 3-4 hechos** (616/616 + 54/54 E2E + build + captura; detalle en
+`docs/DECISIONS.md`, "Fase 8, pasos 3-4"): Copilot API con DTO sin
+modelo/prompt y freno de 1 generación/10 s por conversación; tarjeta del
+Copiloto a petición (`copilot-card.tsx`) con fuentes, abstención, "Usar como
+borrador"/"Descartar", sin enviar nada; `tests/e2e/copilot.spec.ts`.
+
+**Próximo paso concreto:** paso 6 (formato de dataset + `npm run eval:retrieval`)
+y paso 7 (cierre). Pendiente: prueba real de `gpt-5.4-mini` y calibrar
+`KNOWLEDGE_MIN_SIMILARITY` en staging.
 
 ### Alcance (definido por el usuario, 2026-10-01)
 

@@ -316,6 +316,66 @@ describe("AI Copilot service (integration)", () => {
     expect(row.contextSnapshot.retrievedChunkIds).toEqual([...passed].reverse().slice(0, 5));
   });
 
+  it("limits generation to one per cooldown window per conversation (a failed attempt counts too)", async () => {
+    const s = await setup("cooldown");
+    await addMessage(s, "INBOUND", "hola");
+    await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id });
+    await expect(
+      generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id }),
+    ).rejects.toMatchObject({ code: "RATE_LIMITED", retryAfterSeconds: expect.any(Number) });
+    await db
+      .update(aiSuggestions)
+      .set({ createdAt: new Date(Date.now() - 11_000) })
+      .where(eq(aiSuggestions.conversationId, s.conversation.id));
+    await expect(
+      generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id }),
+    ).resolves.toBeDefined();
+  });
+
+  it("is NOT_AVAILABLE when no LLM provider is configured, and records nothing", async () => {
+    const s = await setup("no-llm");
+    await addMessage(s, "INBOUND", "hola");
+    clearLLMProvider();
+    await expect(
+      generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id }),
+    ).rejects.toMatchObject({ code: "NOT_AVAILABLE" });
+    expect(await getLatestSuggestion(s.org.id, s.member, s.conversation.id)).toBeNull();
+  });
+
+  it("cannot resolve a suggestion through another conversation's id, nor use an abstention as a draft", async () => {
+    const s = await setup("resolve-guards");
+    const other = await setup("resolve-guards-other");
+    await addMessage(s, "INBOUND", "hola");
+    registerLLMProvider(
+      createFakeLLMProvider({
+        override: () => ({
+          issue: "x",
+          suggestedReply: "Tienes 30 días.",
+          requiresKnowledge: true,
+          evidenceLevel: "SUFFICIENT",
+          sourceIds: [],
+          warnings: [],
+          missingInformation: [],
+        }),
+      }),
+    );
+    const row = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id });
+    expect((row.suggestion as AISuggestion).outcome).toBe("ABSTAINED");
+
+    await expect(
+      resolveSuggestion({ organizationId: s.org.id, member: s.member, conversationId: randomUUID(), suggestionId: row.id, action: "DISCARDED" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      resolveSuggestion({ organizationId: other.org.id, member: other.member, conversationId: other.conversation.id, suggestionId: row.id, action: "DISCARDED" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      resolveSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id, suggestionId: row.id, action: "USED_AS_DRAFT" }),
+    ).rejects.toMatchObject({ code: "NOTHING_TO_USE" });
+    // An abstention can still be dismissed.
+    const dismissed = await resolveSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id, suggestionId: row.id, action: "DISCARDED" });
+    expect(dismissed.status).toBe("DISCARDED");
+  });
+
   it("rejects malformed model output as a failure", async () => {
     const s = await setup("malformed");
     await addMessage(s, "INBOUND", "hola");
@@ -349,7 +409,7 @@ describe("AI Copilot service (integration)", () => {
     const row = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id });
     expect(await getLatestSuggestion(s.org.id, outsiderDelegate, s.conversation.id)).toBeNull();
     await expect(
-      resolveSuggestion({ organizationId: s.org.id, member: outsiderDelegate, suggestionId: row.id, action: "DISCARDED" }),
+      resolveSuggestion({ organizationId: s.org.id, member: outsiderDelegate, conversationId: s.conversation.id, suggestionId: row.id, action: "DISCARDED" }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
@@ -361,6 +421,7 @@ describe("AI Copilot service (integration)", () => {
     const used = await resolveSuggestion({
       organizationId: s.org.id,
       member: s.member,
+      conversationId: s.conversation.id,
       suggestionId: row.id,
       action: "USED_AS_DRAFT",
     });
@@ -368,7 +429,7 @@ describe("AI Copilot service (integration)", () => {
     expect(used.resolvedBy).toBe(s.user.id);
 
     await expect(
-      resolveSuggestion({ organizationId: s.org.id, member: s.member, suggestionId: row.id, action: "DISCARDED" }),
+      resolveSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id, suggestionId: row.id, action: "DISCARDED" }),
     ).rejects.toMatchObject({ code: "ALREADY_RESOLVED" });
 
     const activities = await listActivitiesForEntity(s.org.id, "ai_suggestion", row.id);
@@ -378,8 +439,8 @@ describe("AI Copilot service (integration)", () => {
   it("purges only rows past their retention deadline", async () => {
     const s = await setup("purge");
     await addMessage(s, "INBOUND", "hola");
-    const keep = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id });
-    const old = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id });
+    const keep = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id, cooldownSeconds: 0 });
+    const old = await generateSuggestion({ organizationId: s.org.id, member: s.member, conversationId: s.conversation.id, cooldownSeconds: 0 });
     await db
       .update(aiSuggestions)
       .set({ retentionExpiresAt: new Date(Date.now() - 1000) })
