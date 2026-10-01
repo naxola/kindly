@@ -9,7 +9,9 @@ export type ActivityEntityType =
   | "task"
   | "conversation"
   | "messaging_account"
-  | "organization";
+  | "organization"
+  | "procedure"
+  | "knowledge_document";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -23,15 +25,38 @@ export type ActivityEntityType =
  * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
  * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
  * activities whose entity is the Organization itself.
+ * UI-7 adds MEMBER_ROLE_CHANGED (changing a member's role, ORGANIZATION.md
+ * §4) and ORGANIZATION_RENAMED (editing the organization's name). PKG-014
+ * adds CONTACT_DELEGATE_ASSIGNED (a Contact's reference delegate changes,
+ * `contacts/assignments.ts`) — distinct from CONVERSATION_REASSIGNED
+ * (PKG-004), which moves a Conversation to a different Contact.
+ * UI-10b adds MEMBERSHIP_CREATED/MEMBERSHIP_UPDATED/MEMBERSHIP_ENDED
+ * (`memberships/service.ts`) — entity `contact`, like
+ * CONTACT_DELEGATE_ASSIGNED, since a Membership has no page of its own and
+ * shows up in the Contact's activity feed.
+ * Fase 6 adds CASE_CONVERSATION_LINKED/CASE_CONVERSATION_UNLINKED
+ * (`conversations/service.ts::linkConversationToCase`/
+ * `unlinkConversationFromCase`) — entity `case`, the Case is the side with
+ * its own page and activity feed.
+ * Fase 7d adds PROCEDURE_CREATED/PROCEDURE_VERSION_PUBLISHED
+ * (`procedures/service.ts`) — entity `procedure`.
+ * Fase 7f adds KNOWLEDGE_DOCUMENT_CREATED/KNOWLEDGE_VERSION_PUBLISHED
+ * (`knowledge/upload.ts`) — entity `knowledge_document`.
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
   | "CONTACT_CREATED"
   | "CONTACT_UPDATED"
   | "CONTACT_IDENTIFIED"
+  | "CONTACT_DELEGATE_ASSIGNED"
+  | "MEMBERSHIP_CREATED"
+  | "MEMBERSHIP_UPDATED"
+  | "MEMBERSHIP_ENDED"
   | "CASE_CREATED"
   | "CASE_ASSIGNED"
   | "CASE_STATUS_CHANGED"
+  | "CASE_CONVERSATION_LINKED"
+  | "CASE_CONVERSATION_UNLINKED"
   | "TASK_CREATED"
   | "TASK_COMPLETED"
   | "MESSAGE_RECEIVED"
@@ -42,7 +67,13 @@ export type ActivityType =
   | "CHANNEL_DISCONNECTED"
   | "MEMBER_INVITED"
   | "MEMBER_JOINED"
-  | "INVITATION_REVOKED";
+  | "INVITATION_REVOKED"
+  | "MEMBER_ROLE_CHANGED"
+  | "ORGANIZATION_RENAMED"
+  | "PROCEDURE_CREATED"
+  | "PROCEDURE_VERSION_PUBLISHED"
+  | "KNOWLEDGE_DOCUMENT_CREATED"
+  | "KNOWLEDGE_VERSION_PUBLISHED";
 
 interface RecordActivityInput {
   organizationId: string;

@@ -1,0 +1,234 @@
+{
+  "palette": {
+    "white": {
+      "$type": "color",
+      "$value": "#ffffff"
+    },
+    "ink": {
+      "25": {
+        "$type": "color",
+        "$value": "#fafbfc"
+      },
+      "50": {
+        "$type": "color",
+        "$value": "#f5f7f9"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#eef1f5"
+      },
+      "150": {
+        "$type": "color",
+        "$value": "#e6eaf0"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#dde3ea"
+      },
+      "300": {
+        "$type": "color",
+        "$value": "#c5cdd9"
+      },
+      "400": {
+        "$type": "color",
+        "$value": "#9aa5b8"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#6f7c94"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#5b6880"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#46556f"
+      },
+      "800": {
+        "$type": "color",
+        "$value": "#28354d"
+      },
+      "900": {
+        "$type": "color",
+        "$value": "#101c33"
+      },
+      "950": {
+        "$type": "color",
+        "$value": "#0a1222"
+      }
+    },
+    "green": {
+      "50": {
+        "$type": "color",
+        "$value": "#eef6f2"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#e6f0eb"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#c2ddcf"
+      },
+      "500": {
+        "$type": "color",
+        "$value": "#1f7a5a"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#15654a"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#0f5540"
+      },
+      "800": {
+        "$type": "color",
+        "$value": "#0b4031"
+      },
+      "night": {
+        "DEFAULT": {
+          "$type": "color",
+          "$value": "#34a37a"
+        },
+        "hover": {
+          "$type": "color",
+          "$value": "#3bb090"
+        },
+        "soft": {
+          "$type": "color",
+          "$value": "#0f2a20"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#1f6b4e"
+        }
+      }
+    },
+    "red": {
+      "50": {
+        "$type": "color",
+        "$value": "#fdf1f0"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#f9e0de"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#f0c3bf"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#b42318"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#8c2f2f"
+      },
+      "800": {
+        "$type": "color",
+        "$value": "#6e2323"
+      },
+      "night": {
+        "DEFAULT": {
+          "$type": "color",
+          "$value": "#e35d5b"
+        },
+        "hover": {
+          "$type": "color",
+          "$value": "#d6605e"
+        },
+        "soft": {
+          "$type": "color",
+          "$value": "#2b1516"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#7a3838"
+        }
+      }
+    },
+    "amber": {
+      "50": {
+        "$type": "color",
+        "$value": "#fcf6e6"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#f7ebcc"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#ecd7a3"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#8a6314"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#6f4f0f"
+      },
+      "night": {
+        "DEFAULT": {
+          "$type": "color",
+          "$value": "#d99a3d"
+        },
+        "soft": {
+          "$type": "color",
+          "$value": "#2b2010"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#6b4a1a"
+        }
+      }
+    },
+    "blue": {
+      "50": {
+        "$type": "color",
+        "$value": "#eff4fb"
+      },
+      "100": {
+        "$type": "color",
+        "$value": "#dfe8f6"
+      },
+      "200": {
+        "$type": "color",
+        "$value": "#bcd0ec"
+      },
+      "600": {
+        "$type": "color",
+        "$value": "#2f5aa8"
+      },
+      "700": {
+        "$type": "color",
+        "$value": "#244786"
+      },
+      "night": {
+        "DEFAULT": {
+          "$type": "color",
+          "$value": "#5b8fd6"
+        },
+        "soft": {
+          "$type": "color",
+          "$value": "#101d2e"
+        },
+        "border": {
+          "$type": "color",
+          "$value": "#35547e"
+        }
+      }
+    },
+    "slate": {
+      "selected": {
+        "night": {
+          "$type": "color",
+          "$value": "#33415a"
+        }
+      }
+    }
+  }
+}

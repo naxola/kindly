@@ -9,6 +9,7 @@ import * as schema from "@/db/schema";
 import { users } from "@/modules/auth/schema";
 import { organizationMembers, organizations } from "@/modules/organizations/schema";
 import { bootstrapOrganizationForUser } from "@/modules/organizations/bootstrap";
+import { changeMemberRole, getOrganization, renameOrganization } from "@/modules/organizations/service";
 
 /**
  * Regression test for a real incident (2026-09-18): a user who registered
@@ -86,5 +87,81 @@ describe("bootstrapOrganizationForUser (integration, real PostgreSQL)", () => {
       .where(eq(organizationMembers.userId, user.id));
     expect(memberships).toHaveLength(1);
     expect(memberships[0].organizationId).toBe(first!.id);
+  });
+});
+
+/**
+ * UI-7: `changeMemberRole` (ORGANIZATION.md §4, approved 2026-09-26) and
+ * `renameOrganization`. Permission checks (ADMIN-only) live in the Server
+ * Action, not here — these tests are about the invariants the domain layer
+ * itself must never violate regardless of who calls it: never leave an
+ * organization with zero ADMINs, and never touch another organization's row.
+ */
+describe("changeMemberRole / renameOrganization (integration, real PostgreSQL)", () => {
+  async function createOrgWithMember(role: "ADMIN" | "DELEGATE", name: string) {
+    const [org] = await db.insert(organizations).values({ name: `${name}'s org` }).returning();
+    const [user] = await db
+      .insert(users)
+      .values({ id: randomUUID(), name, email: `${randomUUID()}@example.com` })
+      .returning();
+    await db.insert(organizationMembers).values({ organizationId: org.id, userId: user.id, role });
+    return { org, user };
+  }
+
+  async function roleOf(organizationId: string, userId: string) {
+    const [row] = await db
+      .select({ role: organizationMembers.role })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId));
+    return row?.role ?? null;
+  }
+
+  it("promotes a DELEGATE to ADMIN", async () => {
+    const { org } = await createOrgWithMember("ADMIN", "First Admin");
+    const { user: delegate } = await createOrgWithMember("DELEGATE", "A Delegate");
+    // Move the delegate into the same organization (createOrgWithMember always makes a fresh one).
+    await db.update(organizationMembers).set({ organizationId: org.id }).where(eq(organizationMembers.userId, delegate.id));
+
+    const updated = await changeMemberRole(org.id, delegate.id, "ADMIN");
+    expect(updated.role).toBe("ADMIN");
+    expect(await roleOf(org.id, delegate.id)).toBe("ADMIN");
+  });
+
+  it("demotes an ADMIN to DELEGATE when another ADMIN remains", async () => {
+    const { org, user: firstAdmin } = await createOrgWithMember("ADMIN", "Staying Admin");
+    const { user: secondAdmin } = await createOrgWithMember("ADMIN", "Leaving Admin");
+    await db.update(organizationMembers).set({ organizationId: org.id }).where(eq(organizationMembers.userId, secondAdmin.id));
+
+    await changeMemberRole(org.id, secondAdmin.id, "DELEGATE");
+    expect(await roleOf(org.id, secondAdmin.id)).toBe("DELEGATE");
+    expect(await roleOf(org.id, firstAdmin.id)).toBe("ADMIN");
+  });
+
+  it("refuses to demote the organization's only ADMIN, even themselves", async () => {
+    const { org, user: soleAdmin } = await createOrgWithMember("ADMIN", "Sole Admin");
+
+    await expect(changeMemberRole(org.id, soleAdmin.id, "DELEGATE")).rejects.toThrow(/al menos un ADMIN/);
+    expect(await roleOf(org.id, soleAdmin.id)).toBe("ADMIN");
+  });
+
+  it("refuses to change the role of someone outside the organization", async () => {
+    const { org } = await createOrgWithMember("ADMIN", "Owner Admin");
+    const { user: outsider } = await createOrgWithMember("DELEGATE", "Outsider");
+
+    await expect(changeMemberRole(org.id, outsider.id, "ADMIN")).rejects.toThrow(/no pertenece a esta organización/);
+  });
+
+  it("renames an organization", async () => {
+    const { org } = await createOrgWithMember("ADMIN", "Renaming Admin");
+
+    await renameOrganization(org.id, "  New Name  ");
+    expect((await getOrganization(org.id))?.name).toBe("New Name");
+  });
+
+  it("refuses to rename an organization to a blank name", async () => {
+    const { org } = await createOrgWithMember("ADMIN", "Blank Name Admin");
+
+    await expect(renameOrganization(org.id, "   ")).rejects.toThrow(/no puede estar vacío/);
+    expect((await getOrganization(org.id))?.name).toBe("Blank Name Admin's org");
   });
 });

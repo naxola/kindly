@@ -1,0 +1,18 @@
+[
+  {
+    "id": "light",
+    "name": "Light",
+    "selectedTokenSets": {
+      "primitives": "source",
+      "semantic.light": "enabled"
+    }
+  },
+  {
+    "id": "dark",
+    "name": "Dark",
+    "selectedTokenSets": {
+      "primitives": "source",
+      "semantic.dark": "enabled"
+    }
+  }
+]

@@ -18,6 +18,11 @@ Antes de tocar código nuevo, lee (en este orden):
 2. `docs/DECISIONS.md` — restricciones ya validadas, no las repitas ni las
    contradigas sin registrar una nueva decisión.
 3. El doc de `docs/` relevante al módulo que vas a tocar.
+4. Si el cambio toca interfaz (cualquier `.tsx` o CSS de la app):
+   `docs/ui/README.md` y los documentos que indique. Los componentes y
+   tokens de `docs/ui/` son obligatorios: no se hardcodean colores, radios,
+   sombras, alturas ni z-index, y no se crea un componente si ya existe uno
+   equivalente en `src/components/`.
 
 ## 1. Idioma
 

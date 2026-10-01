@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireOrganizationAdmin } from "@/modules/organizations/service";
+import { changeMemberRole, renameOrganization, requireOrganizationAdmin } from "@/modules/organizations/service";
 import { createInvitation, revokeInvitation } from "@/modules/organizations/invitations";
 import { recordActivity } from "@/modules/audit/service";
 import type { OrganizationRole } from "@/modules/organizations/schema";
@@ -34,7 +34,7 @@ export async function inviteMemberAction(formData: FormData) {
     metadata: { invitationId: invitation.id, email: invitation.email, role },
   });
 
-  revalidatePath("/members");
+  revalidatePath("/organization/members");
 }
 
 export async function revokeInvitationAction(invitationId: string) {
@@ -54,5 +54,64 @@ export async function revokeInvitationAction(invitationId: string) {
     });
   }
 
-  revalidatePath("/members");
+  revalidatePath("/organization/members");
+}
+
+/**
+ * Binary in practice — only two roles exist — but takes the target role
+ * explicitly rather than "toggle", so the caller (the row's `NativeSelect`)
+ * stays the single source of truth for what was actually selected.
+ *
+ * Returns `{ error }` instead of throwing: a thrown Server Action error is
+ * redacted to a generic message in a production build (`next build && next
+ * start`, what E2E runs against) — only the digest crosses the wire, not
+ * `error.message` (found via this action's own E2E test, which expected the
+ * "must have at least one ADMIN" message inline and got React's #441 "no
+ * message" placeholder instead). `docs/DECISIONS.md` and Next's own
+ * guidance ("Handling expected errors") say to model this as a return
+ * value; the caller (`ChangeRoleControl`) re-throws it locally so
+ * `ConfirmDialog`'s existing "may throw" contract still works, since that
+ * throw never crosses the server boundary.
+ */
+export async function changeMemberRoleAction(
+  userId: string,
+  role: OrganizationRole,
+): Promise<{ error: string } | undefined> {
+  const member = await requireOrganizationAdmin();
+
+  let updated: { userId: string; role: OrganizationRole };
+  try {
+    updated = await changeMemberRole(member.organizationId, userId, role);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "No se pudo cambiar el rol." };
+  }
+
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "MEMBER_ROLE_CHANGED",
+    actorUserId: member.userId,
+    entityType: "organization",
+    entityId: member.organizationId,
+    metadata: { userId: updated.userId, role: updated.role },
+  });
+
+  revalidatePath("/organization/members");
+  return undefined;
+}
+
+export async function renameOrganizationAction(formData: FormData) {
+  const member = await requireOrganizationAdmin();
+  const name = String(formData.get("name") ?? "");
+  await renameOrganization(member.organizationId, name);
+
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "ORGANIZATION_RENAMED",
+    actorUserId: member.userId,
+    entityType: "organization",
+    entityId: member.organizationId,
+    metadata: { name: name.trim() },
+  });
+
+  revalidatePath("/organization");
 }

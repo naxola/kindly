@@ -221,6 +221,12 @@ privacidad y relevancia.
 
 ## 11. Frontend
 
+> **Diseño de interfaz: la fuente de verdad es `docs/ui/`** (tokens,
+> componentes, shell, Inbox, conversación en Sheet, organización,
+> accesibilidad, roadmap por fases). Esta sección solo resume la estructura
+> funcional. Tokens en `src/styles/tokens.css`, componentes en
+> `src/components/`.
+
 Navegación principal: Inbox, Contacts, Cases, Tasks, Knowledge, AI,
 Analytics, Administration. Pantalla inicial: **Inbox**, porque la
 comunicación es el centro del producto.
@@ -231,6 +237,14 @@ Vista de conversación:
 - Panel lateral: Contact, datos relevantes, Cases, Tasks, historial.
 - AI Copilot: issue, suggested response, sources, evidence level, warnings,
   missing information; con acciones Accept / Edit / Reject antes de enviar.
+
+Datos en cliente: las pantallas de trabajo continuo (hoy, el Inbox) leen
+de una caché cliente **TanStack Query** alimentada por route handlers
+(`/api/...`) y sembrada por el Server Component en la primera carga
+(hidratación). Su estado de UI (filtros, conversación abierta) vive en el
+query string y se cambia con la History API, sin navegación de servidor
+(`docs/ui/CHAT.md` §1, `docs/DECISIONS.md` 2026-09-29). Las páginas de
+formulario/detalle siguen el patrón Server Component + Server Actions.
 
 Principio de UX: minimizar decisiones técnicas innecesarias. Por ejemplo, no
 se pide elegir canal al responder si la conversación ya lo determina — la
@@ -247,6 +261,7 @@ Nunca secretos ni contenido sensible innecesario en logs.
 
 ```
 Next.js, TypeScript, React, Tailwind CSS, shadcn/ui
+TanStack Query (caché cliente de datos del servidor — Inbox, 2026-09-29)
 PostgreSQL, pgvector
 Drizzle ORM
 Better Auth

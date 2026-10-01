@@ -4,11 +4,1259 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: ninguno — PKG-005 a PKG-008 y PKG-010 cerrados el 2026-09-20
+## Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
+
+Último commit: ver `git log` (este commit incluye el registro).
+
+### Fase 7f — Subida de documentos de Knowledge desde la UI (2026-09-30)
+
+Hecho: "Subir documento" en `/knowledge` y "Nueva versión" en
+`/knowledge/[id]` (solo ADMIN; PDF, texto o web; solo conocimiento de la
+organización), `knowledge/upload.ts` + `actions.ts`, validación
+(`ingestion/upload-validation.ts`), guardia SSRF (`ingestion/network-guard.ts`,
+redirecciones re-comprobadas), tests y E2E con embeddings falsos. Detalle en
+`docs/DECISIONS.md` ("Fase 7f").
+
+**Pendiente, anotado:** la subida es síncrona (puede ser lenta con
+documentos grandes; siguiente paso `after()` + estado); el conocimiento
+GLOBAL sigue solo por script de operador (`npm run knowledge:ingest`);
+migraciones `0009`/`0010` a aplicar a mano en staging/producción.
+**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**.
+
+---
+
+### Fase 7d — Trámites (2026-09-30)
+
+Hecho: `modules/procedures` (schema, service, actions, domain), migración
+`0010_procedures`, `/knowledge/procedures` y `/knowledge/procedures/[id]`,
+tests (3 unit + 4 integración + E2E). ADMIN-only para escribir (decisión del
+usuario, también para la futura subida de documentos de Knowledge). Detalle
+en `docs/DECISIONS.md` ("Fase 7d"). Verificado: lint+typecheck+492/492+49/49
+E2E+build.
+
+**Pendiente, anotado:** vincular trámite a Caso/conversación y estado
+recibido/falta por documento (UI-10c, que además necesita confirmar plazos de
+medios de Meta y el texto del aviso); subida de documentos desde UI (ADMIN).
+**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**.
+
+---
+
+### Fase 7e — UI de Knowledge (2026-09-30)
+
+Hecho: `/knowledge` (lista + búsqueda con `CitationCard`), `/knowledge/[id]`
+(versiones, vigencia, fragmentos), `listChunksForVersion`, ítem de sidebar,
+`tests/e2e/knowledge.spec.ts`. Detalle y decisiones en `docs/DECISIONS.md`
+("Fase 7e"). Verificado: lint+typecheck+485/485+48/48 E2E+build.
+
+**Pendiente, anotado:** subida de documentos desde UI (permisos y ejecución
+en segundo plano por decidir); `EvidenceLevel` en citas (Fase 8).
+**Próximo paso concreto:** Fase 7d (Trámites, desbloquea `UI-10c`).
+
+---
+
+## Registro: Fase 7c (Knowledge — recuperación híbrida) cerrada
+
+Último commit: `aff6cb1` (feat) — este commit de docs registra el hash.
+
+### Fase 7c — Recuperación híbrida (FTS + vector) con hard filters (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 7b, con la opción ya anotada en
+el cierre anterior. Sin decisiones de producto abiertas esta vez (el stack
+y los hard filters ya estaban fijados en `ARCHITECTURE.md` §9 y
+`DATABASE.md` §15); solo decisiones de ingeniería, resueltas directamente
+tras `EnterPlanMode`. Detalle completo en `docs/DECISIONS.md` (entrada
+"2026-09-30 — Fase 7c").
+
+**Hecho, verificado con lint+typecheck+485/485 unit-integration (471
+previos + 14 nuevos)+build limpio:**
+
+1. **`retrieval-fusion.ts::combineRankedResults`**: Reciprocal Rank Fusion
+   **puro** (k=60, el estándar de la literatura y el que usa la guía de
+   búsqueda híbrida de Supabase), combina cualquier número de listas
+   rankeadas sin necesitar que sus scores sean comparables.
+2. **`retrieval.ts::retrieveKnowledge`**: dos queries de Drizzle (una por
+   `ts_rank`/FTS, otra por `cosineDistance`/vector — helper que
+   `drizzle-orm` ya exporta, coincide con el índice HNSW de 7a), cada una
+   con los mismos hard filters aplicados antes del `ORDER BY`, fusionadas
+   con RRF. Dos round-trips en vez de una CTE SQL a mano — sin precedente
+   de `db.execute` en el repo, este patrón sigue el idioma ya usado en
+   `conversations/service.ts`.
+3. **Hard filters**: tenancy reutiliza `knowledgeVisibilityCondition` de 7a
+   sin cambios; vigencia nueva (`versionApplicabilityCondition`,
+   reproduce `domain.ts::selectApplicableVersion` a nivel de fila —
+   `domain.ts` ahora exporta `APPLICABLE_STATUSES` para no duplicar la
+   lista de estados); jurisdicción/territorio/ámbito, filtro exacto
+   opcional. Simplificación conocida y documentada: a diferencia de
+   `selectApplicableVersion`, la query no desempata entre versiones
+   solapadas del mismo documento (dato mal formado) — con datos bien
+   formados el resultado es idéntico.
+4. **Sin relevancia mínima**: la búsqueda vectorial siempre devuelve los
+   vecinos más cercanos entre lo que pasa los hard filters — comportamiento
+   esperado de k-NN, no un defecto; Fase 8 decide si un `score` bajo implica
+   `evidenceLevel: INSUFFICIENT`.
+5. **Requiere `EmbeddingProvider` registrado**, igual que la ingesta —
+   lanza si no hay ninguno, nunca cae en silencio a un modo "solo FTS".
+6. Tests nuevos: `knowledge-retrieval-fusion.test.ts` (8, propiedades de
+   RRF puro), `knowledge-retrieval.test.ts` (6, contra PostgreSQL real con
+   el fake registrado: aislamiento de tenancy, version-aware retrieval a
+   nivel de query —DRAFT/REPEALED excluidos siempre, SUPERSEDED solo dentro
+   de su ventana—, filtro de jurisdicción, forma del resultado con
+   metadatos de citación, límite respetado). Sin E2E (sigue sin haber UI).
+
+**Hallazgo de proceso, no del producto**: una aserción inicial del test de
+jurisdicción usaba valores fijos ("ES"/"FR") y fallaba tras varias
+reejecuciones de depuración — `kindly_test` no se trunca nunca entre
+ejecuciones (`docker/init-test-db.sh` solo crea la base una vez), así que
+los documentos GLOBAL de esa aserción se acumulaban de una ejecución a la
+siguiente. Corregido sufijando el valor de jurisdicción y la query con un
+`randomUUID()` por ejecución, mismo patrón que ya usan los nombres de
+`Organization` en otros tests de integración.
+
+**Pendiente, anotado (no bloquea el cierre):** ninguno. Construir
+`AISuggestion`/`AISource` a partir de `KnowledgeSearchResult` es Fase 8,
+fuera de alcance a propósito.
+
+**Próximo paso concreto:** elección del usuario — **Fase 7d** (Trámites,
+desbloquea `UI-10c`) o **Fase 7e** (UI de Knowledge, ahora que 7a/7b/7c dan
+algo real que mostrar) — ninguna depende de la otra.
+
+---
+
+## Registro: Fase 7b (Knowledge — ingesta + pipeline de embeddings) cerrada (2026-09-30)
+
+Último commit: `d97e18d` (feat) — este commit de docs registra el hash.
+
+### Fase 7b — Ingesta (PDF/web → chunks jerárquicos) + pipeline de embeddings (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 7a; siguiente paso natural ya
+anotado en el cierre anterior. Tres decisiones de producto/arquitectura no
+triviales resueltas con `AskUserQuestion` antes de planificar: librería de
+PDF (`unpdf`), proveedor de embeddings real ya (OpenAI, no solo el fake) y
+forma de disparo (script de operador, sin UI/ruta HTTP — la UI es 7e).
+Planificado con `EnterPlanMode`. Detalle completo en `docs/DECISIONS.md`
+(entrada "2026-09-30 — Fase 7b").
+
+**Hecho, verificado con lint+typecheck+471/471 unit-integration (420
+previos + 51 nuevos)+build limpio+smoke test manual del script:**
+
+1. **Extracción** (`src/modules/knowledge/ingestion/`): `extract-pdf.ts`
+   (vía `unpdf`, parseo local sin red) y `extract-web.ts` (`htmlToText`
+   puro por regex — sin cheerio/jsdom en producción — + `fetchWebText` con
+   `fetchImpl` inyectable, rechaza esquemas que no sean `http(s)`, límite de
+   10 MiB).
+2. **`chunking.ts`**: chunker jerárquico **puro** para texto normativo en
+   español. Reconoce `TÍTULO`/`CAPÍTULO`→`CHAPTER`, `SECCIÓN`→`SECTION`,
+   `ARTÍCULO`→`ARTICLE` manteniendo un breadcrumb (`path`); una unidad
+   demasiado larga se divide por párrafo (`PARAGRAPH`) y, si aún así un
+   párrafo es demasiado largo (o el texto no tiene estructura reconocible:
+   una web genérica, un manual), por tamaño fijo (`FRAGMENT`). El texto que
+   sigue a una cabecera en su misma línea siempre va al cuerpo, nunca al
+   `label` (la extracción de PDF suele colapsar un artículo entero en una
+   línea). Documentado como "mejor esfuerzo", no un parser legal completo.
+3. **`pipeline.ts::ingestDocumentVersion`**: orquesta extracción + chunking
+   + `createDocumentVersion` de 7a, **sin modificarlo** — ni el invariante
+   GLOBAL/ORG, ni el superseder de `CURRENT`, ni la denormalización de
+   tenancy se tocan. Punto único que el script y la futura UI (7e)
+   compartirán; ya listo para que un futuro `after()` lo envuelva sin
+   reescritura.
+4. **`OpenAIEmbeddingProvider`** (`knowledge/openai-embedding-provider.ts`):
+   `EmbeddingProvider` real (`text-embedding-3-small`, `fetch` crudo sin
+   SDK, mismo patrón que `ResendEmailSender`), registrado desde
+   `src/instrumentation.ts` solo si `OPENAI_API_KEY` está presente — ausente
+   en todo entorno sin configurar, `getEmbeddingProvider()` sigue lanzando,
+   **nunca** cae en silencio al fake.
+5. **`scripts/ingest-knowledge.ts`** + `scripts/lib/knowledge-ingest-args.ts`
+   (parser puro de flags): operador ejecuta `npm run knowledge:ingest --
+   --title ... --visibility GLOBAL --version ... --effective-from ...
+   --pdf|--url|--text-file ...` (o `--document-id` para añadir una versión a
+   un documento existente). `--provider fake` explícito para dev/testing,
+   con aviso en consola — nunca por defecto.
+6. **Hallazgo de diseño reutilizable**: `service.ts`/`embedding-provider.ts`
+   empiezan con `import "server-only"`, que lanza siempre bajo un `node`/
+   `tsx` normal. En vez de duplicar la lógica de servicio a mano (como
+   `reset-password.ts`), el script de npm se invoca con
+   `NODE_OPTIONS=--conditions=react-server` (confirmado en vivo que `tsx` lo
+   respeta igual que `node`, y que los alias `@/*` se resuelven igual) —
+   reutiliza `createDocument`/`createDocumentVersion`/`ingestDocumentVersion`
+   sin tocarlos. Patrón documentado en `docs/DECISIONS.md` para el próximo
+   script que lo necesite.
+7. **Bug real encontrado y corregido, de proceso**: el script se quedaba
+   colgado minutos después de terminar su trabajo — el pool de PostgreSQL de
+   `db/client.ts` está cacheado en `globalThis` (compartido con toda la app)
+   y el script no es quien debe cerrarlo. Arreglado con `process.exit(0)`/
+   `process.exit(1)` explícito al terminar.
+8. Tests nuevos: `knowledge-chunking.test.ts` (11, chunker puro),
+   `knowledge-extract-web.test.ts` (11, `htmlToText` puro + `fetchWebText`
+   con stub), `knowledge-openai-provider.test.ts` (6, `fetch` mockeado —
+   nunca la API real), `knowledge-ingest-args.test.ts` (18, validación de
+   flags), `tests/integration/knowledge-ingestion.test.ts` (5, pipeline
+   completo PDF/WEB/TEXT contra PostgreSQL real con el fake registrado,
+   fixture PDF mínima válida en `tests/fixtures/knowledge/sample.pdf`). Sin
+   E2E (sigue sin haber UI, mismo motivo que 7a).
+
+**Pendiente, anotado (no bloquea el cierre):** ninguno. Limitación conocida
+del chunker (orden de extracción de un PDF con columnas puede desordenar
+líneas) documentada como "mejor esfuerzo" en `docs/DECISIONS.md`, no un
+defecto de esta sesión.
+
+**Próximo paso concreto:** elección del usuario — **Fase 7c** (recuperación
+híbrida FTS+vector con hard filters de vigencia/jurisdicción y citas
+trazables, usa `selectApplicableVersion` de 7a) o **Fase 7d** (Trámites,
+desbloquea `UI-10c`) — ninguna depende de la otra. La Fase 7e (UI de
+Knowledge) necesita al menos 7c para tener algo que mostrar.
+
+---
+
+## Registro: Fase 7a (Knowledge — capa de datos) cerrada (2026-09-30)
+
+Último commit: `92b72ab` (feat) — este commit de docs registra el hash.
+
+### Fase 7a — Capa de datos del backbone RAG (2026-09-30)
+
+El usuario pidió continuar tras cerrar Fase 6; eligió arrancar **Fase 7 —
+Knowledge** y, dentro de ella, **el backbone RAG primero** (no los Trámites).
+Fase 7 es grande (10 entregables); se parte en sub-paquetes y este es el
+primero. Planificado con `EnterPlanMode` tras verificar pgvector disponible y
+la baseline verde. Detalle completo en `docs/DECISIONS.md` (entrada
+"2026-09-30 — Fase 7a: capa de datos del backbone RAG").
+
+**Hecho, verificado con lint+typecheck+420/420 unit-integration (398
+previos + 22 nuevos)+build limpio:**
+
+1. **Schema** (`src/modules/knowledge/schema.ts`, migración
+   `drizzle/migrations/0009_parallel_leper_queen.sql`, **aplicada en local**
+   — pendiente contra staging/producción): `knowledge_documents`
+   (`organization_id IS NULL` ⟺ `visibility='GLOBAL'` por CHECK),
+   `knowledge_document_versions` (vigencia `effective_from/until`, `status`
+   real, único parcial de una sola CURRENT por documento), `knowledge_chunks`
+   (jerarquía Chapter/…/Fragment, `embedding vector(1536)`, `content_tsv`
+   generado con FTS `'spanish'`, `organization_id`+`visibility`
+   **denormalizados** para el hard filter sin join). Índices GIN y HNSW
+   coseno. `CREATE EXTENSION vector` añadido a mano en la migración.
+2. **`EmbeddingProvider`** (`embedding-provider.ts`): interfaz + registro
+   `globalThis` (patrón de `messaging/registry.ts`), un único proveedor
+   activo. **Fake determinista** en `testing/fake-embedding-provider.ts`
+   (bolsa de palabras hasheada a 1536 dims, normalizada). En producción
+   lanza hasta cablear el real (7b). Dimensión 1536 = OpenAI
+   `text-embedding-3-small`, para cambiar sin migración.
+3. **Lógica pura** `selectApplicableVersion` (`domain.ts`): version-aware,
+   excluye DRAFT/REPEALED, conserva SUPERSEDED/HISTORICAL. **Visibilidad**
+   `knowledgeVisibilityCondition` (`visibility.ts`, calcado de
+   `contacts/visibility.ts`): GLOBAL + propia, nunca la de otra org.
+4. **Servicios** (`service.ts`): `createDocument` (valida el invariante en
+   código), `createDocumentVersion` (transacción: supersede la CURRENT
+   previa, embebe chunks inline, denormaliza org/visibility del documento
+   padre), `listDocumentsForOrganization`, `getDocumentWithVersions`.
+5. Tests nuevos: `tests/unit/knowledge-domain.test.ts` (7),
+   `tests/unit/knowledge-embedding.test.ts` (6),
+   `tests/integration/knowledge.test.ts` (9: invariante GLOBAL⟺org a nivel
+   de código y de CHECK, aislamiento multi-tenant de documentos y chunks,
+   superseder de CURRENT, round-trip del embedding, recuperación por coseno
+   con hard filter de tenancy). Sin E2E (no hay UI en 7a).
+
+**Pendiente, anotado:** migración `0009` **sin aplicar en staging/
+producción** (`npm run db:migrate` a mano; este repo no migra en el deploy,
+ver memoria `project_manual_migrations.md`).
+
+**Próximo paso concreto:** **Fase 7b** — ingesta (parseo PDF + página web →
+chunks jerárquicos) + pipeline de embeddings (worker vía `after()`, reusando
+`EmbeddingProvider`, según la decisión previa de no meter pg-boss/Inngest
+aún). Luego 7c (recuperación híbrida FTS+vector con hard filters de
+vigencia/jurisdicción y citas trazables), 7d (Trámites, desbloquea
+`UI-10c`), 7e (UI de Knowledge). Nada de esto depende de un proveedor de
+embeddings real: el fake cubre 7b/7c; el real se cablea cuando el usuario lo
+decida (clave OpenAI).
+
+---
+
+## Registro: Fase 6 (Cases) cerrada (2026-09-30)
+
+Último commit: `e820da3`.
+
+### Fase 6 — Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation (2026-09-30)
+
+El usuario pidió continuar tras cerrar `UI-9`; eligió `Fase 6` entre las
+opciones ofrecidas (`Fase 6`, `Fase 7`). Planificado con `EnterPlanMode`
+(toca dominio, servicio, dos superficies de UI y tests en varios niveles)
+tras `AskUserQuestion` para las tres decisiones de producto no triviales.
+Detalle completo en `docs/DECISIONS.md` (entrada "2026-09-30 — Fase 6:
+máquina de estados de Case, asignación restringida a DELEGATE, vínculo
+Conversation↔Case en UI").
+
+**Hecho, verificado con lint+typecheck+398/398 unit-integration (365
+previos+33 nuevos)+45/45 E2E (42 previos+3 nuevos)+build limpio:**
+
+1. **Máquina de estados de `Case`** (`src/modules/cases/domain.ts`, puro,
+   sin DB): `OPEN → IN_PROGRESS → WAITING → RESOLVED → CLOSED` hacia
+   adelante, `WAITING → IN_PROGRESS` hacia atrás, `RESOLVED → IN_PROGRESS`
+   reabre, `CLOSED` terminal. Sustituye la decisión de PKG-002 de no
+   restringir nada (superseded, no borrada). `updateCase` valida el salto;
+   `/cases/[id]` solo ofrece las opciones válidas desde el estado actual.
+2. **Asignación restringida a `DELEGATE`**: nueva `isOrganizationDelegate`
+   (`organizations/service.ts`); `createCase`/`updateCase` la usan para
+   `assignedTo` en vez de `isOrganizationMember`. Los `<select>` de
+   "Asignar a" (`/cases`, `/cases/[id]`) solo listan `DELEGATE`.
+3. **Vínculo `Conversation ↔ Case` en UI**, en los dos sitios pedidos:
+   página del Case (sección "Conversaciones vinculadas": vincular una
+   conversación existente del mismo Contact, quitar un vínculo) y acción
+   rápida desde la ficha del Inbox (UI-10a, "Casos abiertos" — vincular la
+   conversación abierta a uno de los casos del Contact). `linkConversationToCase`
+   (`conversations/service.ts`, sin llamador desde PKG-003) gana la
+   validación de que Conversation y Case compartan Contact. Nuevas
+   `listLinkedConversations`/`unlinkConversationFromCase`/
+   `listCaseIdsLinkedToConversation`. Sin `ConfirmDialog` al quitar — a
+   diferencia de dar de baja una Membership, es trivialmente reversible.
+4. **Historial de actividad**: ya existía desde PKG-002; se amplía con
+   `CASE_CONVERSATION_LINKED`/`CASE_CONVERSATION_UNLINKED`
+   (`audit/service.ts`, `activity-feed.tsx`).
+5. Tests nuevos: `tests/unit/cases-domain.test.ts` (22, todas las
+   transiciones válidas/inválidas de la máquina de estados);
+   `tests/integration/crm.test.ts` ampliado (5 nuevos: ciclo de vida
+   completo, rechazo de saltos, terminalidad de `CLOSED`, asignación
+   ADMIN rechazada/DELEGATE aceptada — más 2 tests existentes corregidos
+   para las nuevas reglas, que antes asignaban a un ADMIN y saltaban
+   `OPEN→RESOLVED` directamente); `tests/integration/cases-conversations.test.ts`
+   nuevo (6: vincular/listar/desvincular, idempotencia, rechazo
+   cross-contact y cross-organización, actividad registrada);
+   `tests/e2e/cases.spec.ts` nuevo (3: ciclo de vida completo por UI
+   comprobando las opciones ofrecidas en cada paso, asignación limitada a
+   DELEGATE via invitación real, vincular/quitar una conversación real
+   desde la página del Case sin bypass de SQL — el Contact del webhook
+   fake y el del Case son el mismo).
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno.
+
+**Próximo paso concreto:** elección del usuario — `Fase 7` (Knowledge:
+documentos, trámites, RAG — desbloquea `UI-10c` y toda la `Fase 8`), o
+`UI-10c/d/e/f` si primero se resuelve su bloqueo (Fase 7/8 de producto, o
+validación visual del usuario para `UI-10f`).
+
+---
+
+## Registro: UI-9 cerrado — rediseño UI/UX completo (`UI-0`…`UI-9`) (2026-09-30)
+
+Último commit: `b717458`.
+
+### UI-9 — Consolidación (2026-09-30)
+
+El usuario pidió continuar tras cerrar `UI-8`; eligió `UI-9` entre las
+opciones ofrecidas (`UI-9`, Fase 6 — Cases, Fase 7 — Knowledge). Detalle
+completo en `docs/DECISIONS.md` (entrada "2026-09-30 — UI-9 (Fase 9):
+reset de paleta/radios/sombras por defecto + exportador DTCG") y
+`docs/ui/ROADMAP.md` (Fase 9, ahora 🟢 completa). Planificado con
+`EnterPlanMode` antes de escribir código (toca `tokens.css`, el sistema
+de diseño entero, mismo criterio que UI-8 primer tramo).
+
+**Hecho, verificado con lint+typecheck+365/365 unit-integration (352
+previos+13 nuevos)+42/42 E2E+build limpio:**
+
+1. **Componentes obsoletos**: barrido completo sin coincidencias — nada
+   que borrar (los candidatos de `AUDIT.md`, Fase 0, ya no existían).
+   `docs/ui/COMPONENTS.md`: dos filas desactualizadas corregidas
+   (`ContextNav`, `AppHeader` — ambas tenían consumidor/interactividad
+   real desde UI-7 que el documento no reflejaba).
+2. **Reset de paleta/radios/sombras por defecto** (`src/styles/tokens.css`,
+   `@theme inline`): `--color-*`/`--radius-*`/`--shadow-*: initial`, mismo
+   patrón que ya existía para `--breakpoint-*`. Dos supervivientes
+   explícitos y pixel-idénticos (`--color-white`, `--radius-2xl`) para que
+   `src/app/(public)` (no tokenizado a propósito, nunca sensible al tema
+   oscuro) siguiera renderizando exactamente igual — confirmado
+   comparando el CSS generado antes/después, no solo por el build en
+   verde. `docs/ui/TOKENS.md` actualizado.
+3. **`TOKENISED_DIRECTORIES`**: ya cubría toda la app autenticada salvo
+   `(public)` desde antes de esta fase — revisado, sin cambios.
+4. **Exportador DTCG** (`scripts/export-tokens.ts` +
+   `scripts/lib/tokens-dtcg.ts`, `npm run tokens:export`): parsea
+   `tokens.css` y escribe `tokens/dtcg/{primitives,semantic.light,
+   semantic.dark,$themes}.json` (flujo multi-set de Tokens Studio).
+   `tests/unit/export-tokens.test.ts` (13 tests) cubre primitivas, ambos
+   temas, radios y sombras multi-capa contra los valores reales de
+   `tokens.css`. `docs/ui/TOKENS.md` §3 actualizado (ya no "pendiente").
+
+**Hallazgo de proceso, no del producto**: `lsof -ti:3000 | xargs -r kill
+-9` no liberó de verdad el puerto varias veces seguidas (sin error,
+`lsof` posterior lo reportaba libre) — un `next-server` viejo sin las
+variables de entorno de E2E quedó sirviendo tráfico por detrás y
+`reuseExistingServer` lo reutilizó, dando primero 26 E2E en rojo que
+parecían una regresión real y después un falso "la variable
+`DISABLE_AUTH_RATE_LIMIT` no funciona". `ss -ltnp`/`fuser` sí detectaron
+el proceso que `lsof` no. Memoria del agente actualizada
+(`feedback_stale_e2e_server.md`): preferir `ss`/`fuser` a `lsof` para
+verificar puertos en este entorno.
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno. Con
+esto el rediseño UI/UX completo (`UI-0`…`UI-9`, `docs/ui/ROADMAP.md`)
+queda cerrado.
+
+**Próximo paso concreto:** elección del usuario — `Fase 6` (Cases,
+ciclo de vida/asignación/historial), `Fase 7` (Knowledge: documentos,
+trámites, RAG — desbloquea `UI-10c` y toda la `Fase 8`), o `UI-10c/d/e/f`
+si primero se resuelve su bloqueo (Fase 7/8 de producto, o validación
+visual del usuario para `UI-10f`). Ninguno depende de `UI-9`.
+
+---
+
+## Registro: UI-8 cerrado por completo (2026-09-30)
+
+Último commit: `b101b17`.
+
+### UI-8, segundo tramo — axe-core + recorrido manual (2026-09-30)
+
+El usuario pidió continuar tras cerrar el tema oscuro. Detalle completo
+en `docs/DECISIONS.md` (entrada "2026-09-30 — UI-8, segundo tramo:
+axe-core automático + recorrido manual (fase cerrada)") y
+`docs/ui/ROADMAP.md` (Fase 8, ahora 🟢 completa).
+
+**Hecho, verificado con lint+typecheck+352/352 unit-integration+42/42
+E2E+build limpio:**
+
+1. **`@axe-core/playwright`** instalado; `tests/e2e/axe-helpers.ts`
+   (`expectNoSeriousAccessibilityViolations`, gate solo en impacto
+   serious/critical — minor/moderate quedan para el criterio humano del
+   recorrido manual) + `tests/e2e/accessibility.spec.ts` nuevo: Inbox
+   vacío, Inbox con conversaciones, conversación abierta (chat + ficha +
+   ticks de entrega), `/organization` — las tres superficies que
+   `ROADMAP.md` nombra, repetido en claro y oscuro.
+2. **Dos bugs reales encontrados y corregidos**, sin relación con el
+   tema oscuro (preexistentes, invisibles hasta tener un gate
+   automático): el hint del compositor
+   (`conversation-thread.tsx`) usaba `text-foreground-muted` (diseñado
+   para quedar bajo AA a propósito, solo texto deshabilitado/decorativo)
+   en vez de `text-foreground-lighter`; el hilo de mensajes
+   (`<ul role="log">`) dejaba sus `<li>` sin ancestro con rol de lista
+   válido (`role="log"` sustituye el rol implícito `list` del `<ul>`) —
+   corregido moviendo `role="log"`/`aria-live` a un `<div>` envolvente,
+   dejando `<ul>`/`<li>` con sus roles implícitos intactos.
+3. **Recorrido manual** (sin lector de pantalla real en este entorno;
+   árbol de accesibilidad vía `ariaSnapshot()` como sustituto razonado,
+   más un piloto de teclado real con Playwright): Tab → "Saltar al
+   contenido" → foco a `#main`; fila de conversación enfocable/activable
+   con `Enter`; el foco nunca cae a `<body>` al abrir el panel; `F6`
+   recorre las tres zonas (lista→chat→ficha→lista, confirmado con 4
+   pulsaciones); `Esc` cierra y quita `?conversation=`; landmarks/roles/
+   nombres accesibles correctos en el árbol de `/inbox`; sin scroll
+   horizontal a 320 px ni con zoom 200%; captura real a 320 px de
+   `/inbox`, `/organization` y `/contacts/[id]` (con Afiliación de
+   UI-10b) sin desbordar ni truncar.
+
+**Pendiente, anotado (no bloquea el cierre de la fase):** ninguno — las
+dos piezas que quedaban de `UI-8` (axe-core + recorrido manual) están
+cerradas. `UI-9` (Consolidación) es la siguiente fase de UI sin empezar.
+
+**Próximo paso concreto:** `UI-9` (retirar componentes obsoletos, paleta
+por defecto de Tailwind, exportador DTCG) o cualquier otro paquete
+pendiente — elección del usuario. `UI-10c` sigue bloqueado por Fase 7.
+
+---
+
+## Registro: UI-8, primer tramo — tema oscuro (2026-09-29)
+
+Último commit: `8af3bd9`.
+
+### UI-8, primer tramo — tema oscuro (2026-09-29)
+
+Con `UI-10b` cerrado, el resto de `UI-10` sigue bloqueado (c/d/e por
+Fase 7/8 de producto; f por validación visual del usuario), así que
+`UI-8` (`docs/ui/ROADMAP.md` "Fase 8", aprobado 2026-09-26) era el único
+paquete de UI desbloqueado. Se planificó con `EnterPlanMode` (un Plan
+agent diseñó la capa de tokens y la paleta oscura, verificada a mano
+después) antes de escribir código, dado el alcance (toca el sistema de
+diseño entero). Detalle completo — paleta, arquitectura CSS, y la
+pregunta que se le hizo al usuario sobre el coste de render dinámico —
+en `docs/DECISIONS.md` (entrada "UI-8 (Fase 8), primer tramo: tema
+oscuro") y `docs/ui/TOKENS.md`/`ROADMAP.md`.
+
+**Hecho, verificado con lint+typecheck+352/352 unit-integration+40/40
+E2E+build limpio+captura visual real:**
+
+1. **`src/styles/tokens.css`**: 11 primitivas nuevas "-night"
+   (primary/destructive/warning/info/selected, más `-hover`/`-soft`/
+   `-border`) — los tonos claros no alcanzan 4.5:1 sobre un fondo casi
+   negro. Dos bloques que redefinen la capa semántica completa (mismos
+   nombres que el `:root` claro): `@media (prefers-color-scheme: dark) {
+   :root:not([data-theme="light"]) {…} }` para "Sistema", y
+   `:root[data-theme="dark"] {…}` para una elección explícita. Cero
+   cambios en componentes — la arquitectura de tokens de tres capas ya
+   lo permitía.
+2. **Cookie `kindly_theme`**: `src/components/shell/theme-cookie.ts`
+   (server-only, lectura) + `theme-preference.ts` (cliente, escritura sin
+   Server Action, mismo patrón que `ficha-preference.ts`). `src/app/
+   layout.tsx` pasa a `async`, lee la cookie y fija `data-theme` en
+   `<html>` — **compartido por sitio público y app**, la única forma de
+   pintar sin parpadeo en el App Router (`<html>` solo se declara en el
+   layout raíz).
+3. **Selector Claro/Oscuro/Sistema** en `UserMenu`
+   (`DropdownMenuRadioGroup`/`DropdownMenuRadioItem`, nuevo en
+   `dropdown-menu.tsx` — primer uso de `RadioGroup` de Radix en el
+   repo), valor inicial desde `AppShell` → `AppHeader` (mismo
+   `Promise.all` que ya leía `getSidebarCollapsed`).
+4. **Test de contraste oscuro** (`tests/unit/ui-tokens.test.ts`): nuevo
+   `resolveDarkTokens` + `describe` que corre las mismas 30 parejas
+   contra el bloque `:root[data-theme="dark"]`. `tests/e2e/shell.spec.ts`:
+   nuevo test que confirma que el HTML **servido por el servidor** (no
+   solo el DOM tras hidratar) ya trae el atributo correcto.
+5. **Bug de test encontrado de paso, no relacionado con el tema**:
+   `tests/e2e/membership.spec.ts` (de la sesión anterior, UI-10b) se
+   volvió ambiguo (`getByText("Afiliación dada de baja")` resolvía a 3
+   elementos: badge, historial de actividad y el toast de confirmación)
+   — corregido con `.first()`, patrón ya usado en otros specs del repo.
+
+**Pregunta hecha al usuario, con su respuesta:** leer la cookie en el
+layout raíz hace que las 33 rutas pasen a render dinámico, incluidas las
+8 que eran estáticas desde PKG-010 (`/`, `/login`, `/privacidad`…). Se
+preguntó explícitamente entre aceptar ese coste o mantener estático el
+sitio público (con una arquitectura más compleja y una inconsistencia
+menor). **El usuario eligió aceptar el coste** — implementado tal cual.
+
+**Pendiente, anotado (resto de la fase, no de este tramo):**
+
+- `@axe-core/playwright` en los E2E principales (Inbox, conversación,
+  organización).
+- Recorrido manual de teclado/lector de pantalla (`ACCESSIBILITY.md` §7).
+- Verificación responsive explícita a 320/768/1024/1440 px (`RESPONSIVE.md`).
+- Exportador de tokens a Figma Variables/DTCG — pendiente de Fase 9, no
+  de esta.
+
+**Próximo paso concreto:** seguir con el resto de `UI-8` (arriba) o
+cualquier otro paquete pendiente — elección del usuario. `UI-10c` sigue
+bloqueado por Fase 7 (trámites del knowledge base).
+
+---
+
+## Registro: UI-10b cerrado (2026-09-29)
+
+Último commit: `4a437e3`.
+
+### UI-10b — `Membership`: alta/edición/baja manual (2026-09-29)
+
+El usuario pidió continuar con `UI-10b` tras cerrar `UI-10a`. Detalle
+completo de las decisiones (diseño de la tabla, quién puede editar, y un
+bug real encontrado y corregido) en `docs/DECISIONS.md` (entrada
+"2026-09-29 — UI-10b: `Membership`, alta/edición/baja manual") y
+`docs/ui/CONVERSATION_WORKSPACE.md` (nota al inicio del documento y §3).
+
+**Hecho, verificado con lint+typecheck+319/319 unit-integration+39/39
+E2E+build limpio:**
+
+1. **`memberships`** (`src/modules/memberships/schema.ts`, migración
+   `drizzle/migrations/0008_membership.sql`, **aplicada ya contra la base
+   de datos local** — sigue pendiente contra staging/producción, ver
+   memoria "no auto-migración en el deploy"): una fila por período de
+   afiliación, mismo patrón que `contact_assignments` (PKG-014) —
+   `ended_at is null` como índice único parcial, baja cierra la fila
+   abierta, "volver a afiliarse" inserta una nueva. `status` real de
+   Postgres, "cuota pendiente" derivada (`memberships/domain.ts`), nunca
+   un tercer estado.
+2. **`memberships/service.ts`**: `getCurrentMembership`,
+   `listMembershipHistory`, `createMembership` (alta y reactivación,
+   misma función), `updateMembership`, `endMembership` — todas filtran
+   por `organizationId` explícitamente.
+3. **`memberships/actions.ts`**: quién puede editar = quién puede ver el
+   Contact (`getContactForMember`), no una regla de permisos aparte.
+4. **UI**: `membership-status.tsx` (presentación, solo lectura,
+   compartida) + `membership-section.tsx` (formulario siempre visible en
+   `/contacts/[id]`, sin modo vista/edición separado, "Dar de baja" con
+   `ConfirmDialog`). Ficha del panel de conversación
+   (`contact-ficha.tsx`) sigue de solo lectura, nueva sección
+   "Afiliación" al principio (orden de `CONVERSATION_WORKSPACE.md` §3).
+5. **Bug real encontrado y corregido**: alta + baja + "volver a
+   afiliarse" el mismo día produce dos filas con `started_at` idéntico
+   (el formulario solo pide fecha, no hora) — `getCurrentMembership`
+   podía devolver la fila cerrada por falta de desempate determinista.
+   Corregido ordenando primero por fila abierta. Test de regresión en
+   `tests/integration/memberships.test.ts` y el propio E2E
+   (`membership.spec.ts`) lo reprodujo primero contra el bug real.
+6. `tests/unit/memberships-domain.test.ts` (7 tests, `isFeeOverdue`/
+   `firstUnpaidMonth`, puros, sin DB), `tests/integration/memberships.test.ts`
+   (10 tests: alta/edición/baja/reactivación/aislamiento multi-tenant/el
+   bug de arriba), `tests/e2e/membership.spec.ts` (camino feliz completo).
+
+**Pendiente, anotado (no bloquea el cierre del paquete):**
+
+- ~~Migración sin aplicar en staging/producción~~ — aplicada por el
+  usuario (`npm run db:migrate`) el 2026-09-29, confirmado en esta misma
+  sesión.
+- **Cambiar el rol de un `<input type="date">` a algo que capture también
+  la hora** no se planteó — no hace falta: el desempate en `service.ts`
+  ya resuelve el caso real sin pedirle más precisión al formulario.
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive) o `UI-10c`
+(adjuntos sin almacenar + trámites, bloqueado por Fase 7 — trámites del
+knowledge base) — ninguno depende del otro. Ver
+`docs/ui/CONVERSATION_WORKSPACE.md` §6 para el resto de la fase.
+
+---
+
+## Registro: UI-10a cerrado; Inbox con estado en URL + caché cliente (fixes post-cierre, 4ª-5ª ronda) (2026-09-29)
+
+Último commit: `6680152`.
+
+### Fix post-cierre, 5ª ronda (2026-09-29): panel corrido de lado al abrirse
+
+"Tirón" al abrir y panel terminado sin borde izquierdo con la ficha
+asomando: `scrollIntoView` del hilo desplazaba el `<aside>` (y un
+fotograma la página) durante la apertura. Arreglado (`scrollTo` sobre el
+propio contenedor del hilo + `overflow-clip` en el panel) con test de
+regresión por fotograma. Detalle en `docs/DECISIONS.md`.
+
+### Fix post-cierre, 4ª ronda (2026-09-29): estado en la URL + TanStack Query
+
+El usuario señaló que la 3ª ronda optimizaba en vez de resolver: los
+filtros seguían siendo navegación de servidor y la conversación una ruta.
+Ahora todo el estado del Inbox es query string
+(`/inbox?view&search&channel&delegateId&conversation=<id>`), cambiado con
+History API; `page.tsx` solo se renderiza en la primera carga y siembra la
+caché; lista (por filtros, refresco cada 5 s) y conversación (chat + ficha,
+precarga al hover) son consultas de TanStack Query con reintentos y
+"Reintentar". `/inbox/<id>` redirige a `?conversation=<id>`. Detalle en
+`docs/DECISIONS.md` ("Inbox con estado en la URL y caché cliente"),
+`docs/ui/CHAT.md` §1, `docs/ui/INBOX.md` §6, `docs/ARCHITECTURE.md`
+§11/§13. Verificado: lint+typecheck+299/299+38/38 E2E.
+
+**Pendiente, anotado:** ninguno de este fix. (El sondeo del hilo de
+mensajes sigue siendo su `setInterval` propio, `conversation-thread.tsx` —
+funciona y tiene lógica optimista propia; pasarlo a TanStack Query no era
+necesario para esto.)
+
+**Próximo paso concreto:** `UI-8` o `UI-10b`, elección del usuario.
+
+---
+
+### Fix post-cierre, rondas 1-3 (2026-09-29) — superado por la 4ª ronda (arriba)
+
+El usuario reportó tres veces el mismo síntoma al abrir una conversación
+(la lista "tintineaba", luego "se encoge más rápido que se expande el
+chat", luego "tarda en abrir unos milisegundos; debe ser suave y limpio al
+abrir y al cerrar; plegar la ficha no desplaza el chat; ¿se recarga la
+lista al cerrar?"). Las dos primeras rondas (`d098f1d`, `ff62f78`) fueron
+arreglos de CSS sobre una causa de arquitectura. **Tercera ronda, arreglo
+real**: el panel ya no es una ruta (se eliminaron `@sheet` y la ruta
+interceptada) sino un componente cliente siempre montado junto a la lista
+(`inbox-workspace.tsx` + `[id]/conversation-panel.tsx`); abrir/cambiar/
+cerrar actualizan la URL con `history.pushState`/`replaceState`, sin ir al
+servidor; los datos llegan por `GET /api/conversations/<id>/workspace`,
+precargados al pasar el ratón por la fila. Un único `<aside>` transiciona
+su ancho en los tres casos (abrir, cerrar, plegar), con la lista siguiéndolo.
+Además se quitaron tres fuentes de re-render completo de la página en el
+servidor: la Server Action de la cookie de la ficha (ahora
+`document.cookie`) y los `revalidatePath("/inbox")` de las acciones del
+Inbox (incluido enviar un mensaje). Detalle, mediciones y alternativas en
+`docs/DECISIONS.md` ("Panel de conversación en cliente, sin navegación") y
+`docs/ui/CHAT.md` §1/§3/§4/§5.
+
+Verificado con lint+typecheck+298/298 unit-integration+36/36 E2E (4 tests
+del panel en `tests/e2e/conversation-workspace.spec.ts`: transición real en
+ambos sentidos con lista y panel al unísono, plegar desplaza el chat,
+abrir/cerrar/Atrás/Adelante sin peticiones de ruta al servidor ni remonte
+de la lista) + medición con clics reales (panel en marcha a ~30 ms del
+clic, fin a ~230 ms).
+
+**Pendiente, anotado (no bloquea):** "Error al cargar" del panel (red/500)
+se queda en esqueleto sin "Reintentar" (`docs/ui/CHAT.md` §3). Un cambio
+de filtro con una conversación abierta sigue siendo navegación de servidor
+(como siempre) y remonta lista y panel.
+
+**Próximo paso concreto:** `UI-8` o `UI-10b`, elección del usuario.
+
+---
+
+## Registro: UI-10a cerrado (2026-09-29)
+
+Último commit: `1a3fd7e`.
+
+### UI-10a — Panel de conversación con ficha del afiliado (2026-09-29)
+
+El usuario pidió continuar con UI-10 (fase ya planificada en
+`docs/ui/CONVERSATION_WORKSPACE.md`) y eligió empezar por `UI-10a`, el
+único paquete de esa fase sin dominio nuevo. Detalle completo de las
+decisiones no triviales en `docs/DECISIONS.md` (entrada "2026-09-29 —
+UI-10a: panel de dos columnas (chat + ficha del afiliado)"); resumen del
+diseño en `docs/ui/CONVERSATION_WORKSPACE.md` (nota al inicio del
+documento) y `docs/ui/CHAT.md` §2/§4.
+
+**Hecho, verificado con lint+typecheck+300/300 unit-integration+34/34
+E2E+captura visual real a 1280/1536/1920px y móvil:**
+
+1. **`ConversationSheet` pasa de una columna a dos** en modo anclado
+   (`xl+`): chat con su ancho de siempre + una columna nueva
+   (`--workspace-context-w`, 340px) con la ficha, plegable con un botón en
+   el header cuya preferencia se recuerda en cookie
+   (`src/app/(app)/inbox/ficha-cookie.ts`/`ficha-actions.ts`, mismo patrón
+   que la sidebar). Por debajo de `xl` (modal/pantalla completa), la ficha
+   pasa a ser una pestaña "Ficha" junto a "Chat" (`Tabs`, sin tocar la
+   URL). `F6`/`Ctrl+F6` recorren ahora tres zonas (lista → chat → ficha)
+   cuando la ficha está visible.
+2. **`ContactFicha`** (`src/app/(app)/inbox/[id]/contact-ficha.tsx`, Server
+   Component sin fetch propio): secciones Contacto, Identificación (solo
+   si `isUnassigned`), Delegado de referencia, Casos abiertos, Tareas
+   pendientes, Otras conversaciones — todo de solo lectura, con los datos
+   que ya existían. Afiliación/trámites/resumen IA/copiloto (UI-10b…e) no
+   tienen dominio todavía y no aparecen ni como huecos vacíos.
+3. **Dos piezas extraídas, sin cambiar su lógica**:
+   `identification-section.tsx` (el `Alert` "Contacto no identificado" que
+   vivía sobre el chat) y `reference-delegate-section.tsx` (la sección
+   "Delegado de referencia" de `/contacts/[id]`, que ya llevaba una nota
+   señalando que era provisional hasta que existiera la ficha) —
+   reutilizadas por la ficha y por su sitio original, no reescritas.
+4. **Tres consultas nuevas, sin migración**: `listCasesForContact`,
+   `listTasksForContact` (`contactVisibilityCondition` acotado a un
+   `contactId`) y un filtro `contactId` en `listConversationsWithPreview`
+   (para "otras conversaciones", reutilizando la consulta del Inbox en vez
+   de una nueva).
+5. `tests/integration/contact-assignments.test.ts`: 3 tests nuevos
+   (visibilidad de `listCasesForContact`/`listTasksForContact` y de
+   `listConversationsWithPreview` con `contactId`).
+   `tests/e2e/conversation-workspace.spec.ts` nuevo: ficha visible por
+   defecto y plegable con preferencia persistente en anclado; pestañas
+   Chat/Ficha por debajo de `xl`. `tests/e2e/inbox.spec.ts` y
+   `contact-assignments.spec.ts` pasan sin modificarse (el viewport por
+   defecto de Playwright, 1280px, ya cae en modo anclado).
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive) o seguir la
+fase con `UI-10b` (afiliación/`Membership`) — ninguno depende del otro,
+elección del usuario. Ver `docs/ui/CONVERSATION_WORKSPACE.md` §6 para el
+resto de paquetes de la fase.
+
+---
+
+## Registro: PKG-014 cerrado; fix post-cierre de un bug real en staging (2026-09-28)
+
+Último commit: `f8e0dd9`.
+
+### Fix post-cierre (2026-09-28, reportado por el usuario probando staging)
+
+El usuario desplegó PKG-014 a staging (`git push`) y probó `/inbox` ahí
+mismo. Dos problemas reales, detalle completo en `docs/DECISIONS.md`
+(entrada "Fix: migración pendiente en staging + panel roto..."):
+
+1. **`relation "contact_assignments" does not exist` en staging** — la
+   migración `0007_magical_owl.sql` solo se había aplicado contra la base
+   de datos local del agente, nunca contra la de staging (el proyecto no
+   migra automáticamente en el build). Aplicada a mano contra Neon con la
+   cadena de conexión real de staging, verificada con un conteo de filas
+   antes/después para confirmar que era la base correcta (dos intentos
+   previos del usuario, con sintaxis de bash incompatible con su shell
+   `fish`, no habían llegado a aplicarla — ver el hallazgo en
+   `docs/DECISIONS.md`).
+2. **El panel se rompía al volver a hacer clic en la conversación ya
+   abierta** (bug real, no relacionado con la migración): la lista
+   desaparecía y el panel quedaba solo, pegado al borde izquierdo.
+   Reproducido en local, causa identificada (una fila ya seleccionada
+   segunda navegando a su propia URL, que el router de Next no trata como
+   no-op para esta ruta interceptada/paralela) y corregido en `DataList`
+   (`src/components/ui/data-list.tsx`) — no en Inbox específicamente, así
+   que cubre cualquier lista futura con el mismo patrón. Es, casi
+   seguro, el mismo bug que `docs/ui/CHAT.md` §1 dejó anotado como "panel
+   duplicado, sin reproducir" desde el cierre de UI-6: mismo síntoma raíz,
+   patrón de clic distinto al que se probó entonces.
+
+**Verificado con lint+typecheck+295/295 unit-integration+32/32 E2E**
+(reconstruido desde cero) — nuevo test `tests/e2e/inbox.spec.ts::"re-
+clicking the already-open conversation keeps the list next to the
+panel"`.
+
+**Hallazgo de proceso, dos veces en esta misma sesión**: varios procesos
+`next dev`/`next-server` de intentos de depuración anteriores quedaron
+vivos en paralelo (puertos 3000/3001/3002) interfiriendo entre sí — ver
+memoria guardada sobre verificar siempre con `ps aux | grep next` antes
+de fiarse de un resultado que no cuadra, y sobre que este proyecto no
+migra en el deploy (ambas en
+`~/.claude/projects/-home-nacho-Documentos-kindally/memory/`).
+
+---
+
+### PKG-014 (encargo del 2026-09-28, tras cerrar UI-7)
+
+El usuario pidió continuar con `PKG-014` en vez de `UI-8`. Reglas completas
+en `docs/DECISIONS.md` (entradas "Asignación de afiliados" y "Delegado de
+referencia y acceso temporal", ambas del 2026-09-28) y el desglose en
+`project/TASKS.md`.
+
+**Hecho en esta sesión — dominio y visibilidad en servidor, verificado con
+lint+typecheck+294/294 unit-integration+30/30 E2E:**
+
+1. **`contact_assignments`** (`src/modules/contacts/schema.ts`): log de
+   asignaciones (nunca se actualiza en su sitio — reasignar cierra la fila
+   activa e inserta una nueva), índice único parcial `WHERE ended_at IS
+   NULL`. Migración `drizzle/migrations/0007_magical_owl.sql` — primera
+   migración de este repositorio con *backfill* de datos, no solo esquema
+   (asigna cada Contact existente al delegado de su conversación más
+   reciente).
+2. **`src/modules/contacts/assignments.ts`**: `getActiveAssignment`,
+   `listAssignmentHistory`, `assignContactToDelegate` (ADMIN vía la
+   acción que la envuelva — el propio servicio no comprueba rol, cierra
+   la fila activa + inserta la nueva en una transacción, no-op si ya está
+   asignado a ese delegado, `CONTACT_DELEGATE_ASSIGNED` en Activity). La
+   asignación *inicial* de un Contact no vive aquí — corre dentro de la
+   misma transacción que lo crea, en `contacts/service.ts::createContact`
+   (asignado a quien lo crea) y `conversations/service.ts::
+   findOrCreateConversation` (asignado al delegado dueño de la cuenta que
+   recibió el mensaje) — nunca hay un instante sin asignación.
+3. **`src/modules/contacts/visibility.ts::contactVisibilityCondition`**:
+   un único predicado SQL, autocontenido y reutilizable con cualquier
+   columna `contact_id` (no asume que el llamador ya tiene `contacts`
+   unido). `undefined` para ADMIN; para DELEGATE, referencia activa **o**
+   "acceso temporal" (último mensaje entrante hacia él más reciente que
+   el último mensaje, cualquier dirección, entre el Contact y su
+   delegado de referencia). Verificado con el escenario completo
+   Marta/Ana/Luis de `docs/DECISIONS.md` en
+   `tests/integration/contact-assignments.test.ts` (12 tests nuevos).
+4. **Cableado**: cada módulo gana una variante `...ForMember` junto a la
+   que ya tenía (patrón de `listMessagingAccountsForMember`, PKG-007) —
+   `listContactsForMember`/`getContactForMember`
+   (`contacts/service.ts`), `listCasesForMember`/`getCaseForMember`
+   (`cases/service.ts`), `listTasksForMember`/`getTaskForMember`
+   (`tasks/service.ts`, una Task sin `contactId` es visible para todos),
+   y en `conversations/service.ts`: `listConversationsWithPreview`,
+   `countConversationsByView`, `countUnreadConversations`,
+   `getConversationWithDetails`, `getConversationThreadState` ganan un
+   parámetro `member`. Todas las páginas/rutas que ya llamaban a estas
+   funciones (`/inbox` + `/api/inbox` + `/api/conversations/[id]/thread`,
+   `/contacts`, `/cases`, `/tasks` y sus detalles, los selectores de
+   Contact/Case de los formularios de alta) actualizadas para pasar
+   `member` y usar la variante visible.
+5. **Hallazgo real, no anticipado — hueco de identidad**:
+   `sendOutboundMessage` no comprobaba que quien enviaba fuera el
+   delegado dueño de la cuenta de esa Conversation; con el Inbox
+   compartido de PKG-004 cualquier miembro podía responder por el número
+   de otro delegado. Ahora rechaza el envío si
+   `account.delegateId !== actorUserId`, para cualquier rol (tampoco un
+   ADMIN). La UI para ocultar/deshabilitar el compositor en ese caso
+   queda pendiente (ver abajo).
+6. `tests/integration/inbox.test.ts`/`messaging.test.ts` actualizados a
+   las firmas nuevas; un test cuya premisa PKG-014 volvía falsa ("el
+   Inbox es compartido, no por delegado") se sustituyó por dos que
+   cubren ADMIN (sigue viendo todo) y DELEGATE (ve solo lo suyo) por
+   separado.
+
+**Hecho en la misma sesión — UI, verificado con lint+typecheck+295/295
+unit-integration+31/31 E2E (reconstruido desde cero, ver hallazgo de
+proceso más abajo) + captura visual real:**
+
+1. **`ConversationPreview`/`ConversationDetails` ganan `referenceDelegateId`**
+   (`conversations/service.ts`): un `LEFT JOIN` a `contact_assignments`
+   sobre `ended_at IS NULL`, seguro como join 1:1 por el índice único
+   parcial. La UI decide el resaltado comparando ese id con el visor, sin
+   repetir la lógica de "acceso temporal" en el cliente.
+2. **Fila azul (`bg-info-soft`) + "Ref.: <delegado>"** en `InboxRow`,
+   calculado en `InboxList` a partir de `referenceDelegateId`; también
+   muestra el nombre del delegado dueño del canal (`showDelegate`) cuando
+   la fila no es el propio canal del visor, no solo para un ADMIN como
+   antes.
+3. **Aviso en la conversación** (`ConversationSheet`): `Alert` "Su
+   delegado de referencia es X — redirígele los mensajes" cuando el
+   Contact tiene referencia y no es el visor, en cualquier Conversation
+   suya (incluida la propia — es justo el escenario que describe la
+   regla).
+4. **Compositor oculto en modo solo lectura** (`ConversationThread`, prop
+   `canReply`): calculado comparando el delegado dueño de la propia
+   `MessagingAccount` de la Conversation con el visor — independiente de
+   si es o no el delegado de referencia. Cierra en la UI el guardarraíl
+   de servidor que ya existía en `sendOutboundMessage` desde la parte de
+   dominio.
+5. **"Reasignar" (ADMIN)**: `assignContactToDelegateAction`
+   (`contacts/actions.ts`, devuelve `{ error }` en vez de lanzar, mismo
+   motivo que `changeMemberRoleAction` en UI-7) + `ReassignDelegateControl`
+   (`NativeSelect` + `ConfirmDialog`, mismo patrón que `ChangeRoleControl`)
+   en una sección nueva "Delegado de referencia" de `/contacts/[id]`, con
+   histórico simple debajo.
+6. **Decisión de alcance**: un Contact con varios delegados escribiéndole
+   se ve como varias filas del Inbox (una por Conversation), no como un
+   hilo fusionado con atribución de autor por mensaje — la visibilidad
+   por Contact ya resuelta en la parte de dominio hace que ambas
+   aparezcan; un hilo de verdad fusionado queda para UI-10, donde ya hay
+   que diseñar la ficha de todas formas. Detalle en `docs/DECISIONS.md`.
+7. `tests/e2e/contact-assignments.spec.ts` nuevo: dos delegados reales,
+   Marta escribe primero a Luis (referencia) y luego a Ana (SQL directo
+   para la segunda Conversation, igual que el test de integración) — fila
+   de Ana resaltada, su propia Conversation admite responder, la de Luis
+   es solo lectura, el ADMIN reasigna y el resaltado se mueve.
+8. **Hallazgo real, de proceso**: un `next-server` de una comprobación
+   visual anterior sobrevivió a un `lsof -ti:3000 | xargs kill` no
+   verificado, y `reuseExistingServer: !process.env.CI` de
+   `playwright.config.ts` hizo que **todas** las ejecuciones de
+   `npm run test:e2e` de esta sesión desde entonces (incluida la
+   verificación "30/30" de la parte de dominio) reutilizaran ese proceso
+   viejo en silencio, sin reconstruir — los specs existentes seguían
+   pasando igual contra el build antiguo, dando una falsa sensación de
+   verificación. Detectado solo porque una aserción nueva (que solo podía
+   cumplirse con código de esta sesión) fallaba pese a que la misma
+   lógica, probada de forma aislada, era correcta. Solución: matar el
+   proceso, `rm -rf .next`, reconstruir y repetir toda la suite E2E desde
+   cero — la reconstrucción SÍ pasó 31/31. Detalle y memoria del hallazgo
+   en `docs/DECISIONS.md`.
+
+**Pendiente, fuera de alcance de este paquete a propósito (no bloquea
+nada, anotado para no perderlo):**
+
+- **Historial verdaderamente fusionado con atribución de autor por
+  mensaje** entre las Conversations de varios delegados con el mismo
+  Contact — depende de UI-10 (la ficha del afiliado no existe todavía).
+  Ver punto 6 de arriba.
+
+---
+
+## Registro: rediseño UI/UX — UI-0…UI-7 (cerrado 2026-09-28)
+
+### Rediseño UI/UX (encargo del 2026-09-26)
+
+El usuario pidió rediseñar toda la interfaz con Supabase como referencia de
+calidad y patrones (no de aspecto), por fases y documentado para que otra
+IA pueda seguir. **La fuente de verdad es `docs/ui/`** (empieza por
+`docs/ui/README.md`; fases y estado en `docs/ui/ROADMAP.md`). Decisiones en
+`docs/DECISIONS.md` (entradas del 2026-09-26 y 2026-09-27).
+
+**Hecho en sesiones anteriores (UI-0…UI-3), resumen — detalle en
+`docs/ui/ROADMAP.md`:**
+
+- **UI-0/UI-1**: auditoría, estudio de Supabase, documentación de
+  `docs/ui/`; tokens en tres capas (`src/styles/tokens.css`), componentes
+  base (`src/components/ui/`), catálogo `/ui-kit`.
+- **UI-2**: shell de aplicación (`src/components/shell/`). Sidebar y migas
+  de organización **planas** a propósito hasta que `/organization` exista
+  (UI-7).
+- **UI-3**: Dialog, ConfirmDialog, DiscardChangesDialog + useConfirmOnClose,
+  Tabs, Popover, Toast, Table, DataList, SearchInput, FilterBar,
+  SegmentedControl, RelativeTime. Entorno de test de componentes (jsdom +
+  Testing Library, por archivo). `CommandMenu` y `loading.tsx`/`error.tsx`
+  aplazados con motivo.
+
+**Hecho en sesión anterior (UI-4 — arquitectura de páginas), en 4 commits
+de checkpoint, cada uno con lint+typecheck+tests+E2E+captura visual real
+antes del siguiente:**
+
+1. `PageContainer`/`PageHeader`/`PageSection` (`src/components/patterns/`)
+   + `pageTitle()` (`src/lib/page-title.ts`) + `useCloseAfterAction`
+   (`patterns/use-close-after-action.ts`: cierra un Sheet/Dialog al
+   resolver la Server Action que envuelve). Migradas y **traducidas**
+   Contactos/Casos/Tareas (lista + detalle; sidebar incluida); altas a
+   Sheet (4-5 campos); `crm.spec.ts` con `getByLabel` en vez de
+   `getByPlaceholder` (ya hay `<label>` reales).
+2. Canales + flujo de conexión WhatsApp: texto **sin traducir** (ya
+   revisado en `docs/DECISIONS.md`), solo re-skin; "Desconectar" ahora
+   pide confirmación (`ConfirmDialog`). Aquí apareció el bug real más
+   importante de la fase: `button.tsx` es `"use client"`, así que su
+   `buttonVariants` exportado también se volvía client-only (el límite
+   RSC de Next aplica al archivo entero) — rompía "estilizar un `<Link>`
+   como botón desde un Server Component". Solución: `buttonVariants` vive
+   en `button-variants.ts` sin directiva; los Server Components lo
+   importan de ahí, no de `button.tsx`.
+3. Miembros: invitar → Dialog (2 campos); revocar → `ConfirmDialog` con el
+   email real en la consecuencia. `members.spec.ts`/`channels.spec.ts`: el
+   disparador y el botón de confirmación comparten subcadena ("Invitar",
+   "Revocar"), así que el clic de dentro del diálogo se acota con
+   `getByRole("dialog")`.
+4. Las cuatro pantallas de auth (login, forgot/reset password, invite):
+   diseño visual sin cambios (compacto, placeholder), pero cada campo
+   ganó un `<label>` real (antes no había ninguno) **visualmente oculto**
+   — decisión deliberada: usar `Field` con label visible habría sido más
+   "correcto" en abstracto, pero casi todos los E2E del proyecto rellenan
+   estos campos por `getByPlaceholder`; cambiar esa asociación habría
+   tocado casi toda la suite sin ganancia real adicional.
+
+**Hecho en sesión anterior (UI-5 — Inbox), un solo commit de cierre con
+lint+typecheck+tests+E2E+captura visual real:**
+
+1. **Servidor reescrito** (`src/modules/conversations/service.ts`):
+   `listConversationsWithPreview` pasa de cargar todos los mensajes de
+   todas las conversaciones a un único `LEFT JOIN LATERAL` (último mensaje
+   por conversación). Nuevas `listConversationChannels` (filtro de canal) y
+   `countConversationsByView` (4 conteos en paralelo, uno por vista:
+   `pending`/`unread`/`unassigned`/`all`, cada una una condición SQL de la
+   misma consulta — `inboxViewCondition` —, no un filtro en memoria).
+   `GET /api/inbox` sirve el sondeo del cliente.
+2. **UI de la lista**: `InboxList` (cliente: vistas/búsqueda/filtros en la
+   URL, sondeo cada 5 s que retiene los cambios de orden tras un aviso "Ver"
+   en vez de mover filas bajo el cursor — sustituye a `auto-refresh.tsx`,
+   eliminado), `InboxRow` (fila de dos líneas), `loading.tsx`/`error.tsx`
+   nuevos para la ruta. `page.tsx` reescrito como orquestador de servidor.
+3. **Dos bugs reales corregidos, no eran de esta fase**: `ContextNav`
+   comparaba `pathname` sin el query string, así que ningún `?view=…`
+   marcaba nunca el ítem activo; `NativeSelect` ignoraba el `className` del
+   consumidor para el ancho de su contenedor (siempre `w-full`), partiendo
+   el `FilterBar` de Inbox en columna incluso en escritorio. Detalle
+   completo en `docs/DECISIONS.md` (entrada UI-5) y `docs/ui/COMPONENTS.md`.
+4. **Corrección respecto al diseño original de `INBOX.md`**: fila no leída
+   con punto simple, no `CountBadge` (el dominio no cuenta mensajes no
+   leídos); indicador de ventana de servicio diferido de la fila de lista
+   (se mantiene solo en la conversación abierta).
+5. `tests/e2e/inbox.spec.ts` reescrito para las vistas por `?view=` y el
+   `FilterBar` (antes: pills de canal y `?unread=1`); `tests/unit/
+   ui-tokens.test.ts` cubre los archivos de la lista de Inbox (no
+   `inbox/[id]`, que sigue con la paleta previa hasta UI-6).
+
+**Hecho en esta sesión (UI-6 — Conversación en Sheet), verificado con
+lint+typecheck+tests+E2E+captura visual real en los tres modos:**
+
+1. **Rutas paralelas/interceptadas**: `inbox/layout.tsx` (`{children}+
+   {sheet}` en fila), `@sheet/default.tsx` + `@sheet/page.tsx` (los dos
+   hacen falta — un `<Link>` normal a `/inbox` no cierra el panel solo con
+   `default.tsx`, ver `docs/ui/CHAT.md` §1) + `@sheet/(.)[id]/page.tsx`
+   (navegación suave) + `[id]/page.tsx` reescrito (carga directa: compone
+   lista + panel él mismo, ya que la intercepción no aplica ahí).
+   `inbox-data.ts`/`inbox-href.ts` nuevos, factorizando lo que antes vivía
+   solo en `page.tsx`.
+2. **`ConversationSheet`** (`inbox/[id]/conversation-sheet.tsx`): decide su
+   carcasa por `useMediaQuery` — `<aside>` propio sin Radix en anclado
+   (`xl+`), `Sheet` modal o pantalla completa por debajo. Header
+   (anterior/siguiente, `⋯` con "Ver contacto", cerrar), aviso de contacto
+   no identificado, `ConversationThread` reescrito con separadores por
+   día, aviso "Mensajes nuevos", compositor autoajustable y borrador por
+   conversación en `sessionStorage`. Lógica de PKG-013 intacta.
+3. **Compartido entre slots de rutas paralelas** (que no pueden pasarse
+   props): `inbox-order-context.tsx` (orden de la lista, para anterior/
+   siguiente y `F6`/`Ctrl+F6`) y `shell/sidebar-auto-collapse.ts` (la
+   sidebar se contrae mientras el panel está anclado, vía evento de
+   `window` — nunca persiste esta preferencia temporal).
+4. **Seis bugs reales encontrados y corregidos** (detalle completo en
+   `docs/DECISIONS.md` y `docs/ui/CHAT.md` §1/§5): `buildHref` client-only
+   (misma trampa RSC de `buttonVariants`, UI-4); `@sheet/default.tsx` no
+   cierra el panel en una navegación suave normal; `SheetTitle`/
+   `SheetDescription` lanzan fuera de un `Dialog.Root` (inutilizables en
+   el `<aside>` anclado); el nombre del Contact en `InboxRow` colapsando a
+   0 px en modo anclado a 1280 px (el nombre del delegado se ocultaba por
+   un breakpoint de *viewport*, no de *contenedor* — corregido con
+   `@container`/`@sm:inline` de Tailwind v4); condición de carrera en el
+   borrador de `sessionStorage` bajo Strict Mode; el orden de
+   conversaciones compartido por una `ref` pura nunca se recalculaba en un
+   `useMemo` (corregido con `useSyncExternalStore`).
+5. **Hallazgo de proceso**: `eslint-plugin-react-hooks` 7.x añade reglas
+   nuevas ("React Compiler": `set-state-in-effect`, `purity`,
+   `immutability`, `refs`…) que marcan como error patrones antes
+   habituales (`setState` síncrono en un efecto de montaje, `ref.current`
+   leído durante el render). `useMediaQuery` e `InboxOrderProvider` se
+   reescribieron sobre `useSyncExternalStore`/`useState` respectivamente
+   para cumplirlas sin `eslint-disable`. Probablemente reaparezca en fases
+   futuras.
+6. `tests/e2e/inbox.spec.ts`: nuevo test de carga directa (`page.reload()`
+   sobre una conversación ya abierta, verificando lista + panel).
+
+**Estado final**: `tests/unit/ui-tokens.test.ts` cubre ya todo `inbox/`
+(lista y conversación) además de `src/app/(app)` y las 4 rutas de auth.
+268/268 unit+integration. 27/27 E2E.
+
+**Nota de entorno (no es un bug de producto, ya anotada antes):** con
+`next start` reutilizado entre ejecuciones, los hits del rate limiter de
+Better Auth se acumulan en memoria del mismo proceso; si el E2E falla con
+"Too many requests", matar el proceso `next-server` en el puerto 3000 y
+repetir.
+
+**Nota de entorno nueva (Turbopack en desarrollo, no en producción)**: tras
+añadir rutas nuevas con `next dev` ya corriendo, puede aparecer un error
+transitorio "Invalid interception route: .../(.)(.)(.)…" que se resuelve
+con un reinicio limpio (`rm -rf .next` + reiniciar el dev server). Nunca
+se reprodujo contra `next build && next start` (lo que usa la suite E2E).
+
+**Hecho en esta sesión (2026-09-28 — fix post-cierre de UI-6, reportado por
+el usuario probando staging):** el historial de mensajes se solapaba con
+el footer/compositor (a veces ocultándolo del todo) en conversaciones con
+varios mensajes — causa raíz y modo anclado sin animación de entrada,
+detalle completo en `docs/DECISIONS.md` (entrada 2026-09-28) y
+`docs/ui/CHAT.md` §5. **Pendiente sin reproducir**: un panel duplicado al
+cambiar de vista con una conversación abierta — probado con varios
+patrones de clic sin éxito, ver el mismo apartado de `CHAT.md`.
+
+**Hecho en esta sesión (2026-09-28 — Inbox al estilo Supabase, pedido por
+el usuario):** abrir una conversación ya **no contrae la sidebar** global
+(eliminado `shell/sidebar-auto-collapse.ts`; el panel anclado mide 384 px
+en `xl` y 560 px en `2xl+`), y las vistas de Inbox pasan a un
+`ProductMenu` nuevo (`src/components/shell/product-menu.tsx`) — columna a
+toda altura con cabecera "Inbox", grupo "VISTAS" y línea vertical frente
+al contenido, copiado del `ProductMenuBar` de Supabase Studio tras leer su
+repositorio. Detalle y alternativas en `docs/DECISIONS.md` (entrada
+2026-09-28). Verificado con lint+typecheck+tests+E2E y captura real a 900,
+1280 y 1920 px. El `ProductMenu` es el candidato natural para
+Organización (UI-7).
+
+**Después, en la misma sesión (feedback del usuario):** vistas del
+`ProductMenu` → desplegable "Mostrar" en el `FilterBar` (por defecto
+**Todas**, como una lista de chats de WhatsApp); el módulo pasa a llamarse
+**"Conversaciones"** (URL `/inbox` sin cambios); conversaciones sin
+mensajes al final del orden (antes salían primero por `NULL` en `DESC`,
+test de integración nuevo); el punto verde de no leída se apaga al abrir
+la conversación sin esperar al sondeo (aserción E2E nueva).
+`ProductMenu` queda sin consumidor, reservado para UI-7. Detalle en
+`docs/DECISIONS.md` (segunda entrada del 2026-09-28).
+
+**Planificado en esta sesión (2026-09-28), sin código:** fase **UI-10 —
+Espacio de respuesta** (chat + ficha del afiliado + copiloto dinámico),
+con decisiones del usuario, dominio nuevo necesario, paquetes UI-10a…f,
+dependencias y preguntas abiertas en `docs/ui/CONVERSATION_WORKSPACE.md`.
+Mockup estático con datos ficticios en
+`docs/ui/mockups/conversation-workspace.html` (publicado también como
+artifact privado del usuario, enlace en ese documento). El usuario quiere
+**ver primero el aspecto** antes de programar; UI-10a es lo único que se
+puede empezar sin dominio nuevo. **Segunda ronda de respuestas del
+usuario, ya incorporadas:** afiliación con alta manual (activa al día /
+cuota pendiente / baja), trámites en el knowledge base, **Kindly no guarda
+archivos de afiliados** (descarga por proxy sin almacenar + aviso al
+afiliado), ficha visible solo para delegado y ADMIN. Quedan 2 preguntas
+abiertas en `CONVERSATION_WORKSPACE.md` §7 (cómo se entrega el aviso;
+visibilidad frente a que hoy todos ven todo el Inbox). **Tercera ronda,
+también incorporada:** aviso = el delegado lo inserta y envía (+
+privacidad); **un afiliado tiene un solo delegado a la vez, con
+histórico; DELEGATE ve los suyos, ADMIN ve todos y reasigna** → nuevo
+paquete **PKG-014** en `project/TASKS.md`, previo a UI-10. Cuarta ronda:
+resuelto qué pasa al reasignar y cuando el afiliado escribe a un delegado
+que no es su referencia (acceso temporal resaltado en azul, derivado de los
+mensajes) — reglas completas en `project/TASKS.md` PKG-014. **PKG-014 queda
+listo para empezar**; es el siguiente paso lógico antes de UI-10.
+
+**Pendiente de esta misma conversación, pedido explícitamente por el
+usuario, sin empezar todavía — no confundir con UI-7:**
+
+1. **Imágenes entrantes** (absorbido por UI-10c y **redefinido el
+   2026-09-28: sin almacenar el archivo**, lo de storage de abajo queda
+   obsoleto): hoy el adapter de WhatsApp descarta el
+   contenido multimedia (`whatsapp-test-adapter.ts` lo convierte en un
+   texto de relleno `[Mensaje de tipo "image"...]`, sin guardar el
+   `media_id` ni descargar nada). Implementar requiere: descargar el medio
+   vía la Graph API de Meta (el webhook solo trae un `media_id`, hace
+   falta una llamada autenticada aparte para obtener la URL temporal),
+   guardarlo en storage S3-compatible (ya en el stack, `docs/ARCHITECTURE.md`),
+   un concepto nuevo en el dominio (adjunto del `Message`: tipo, mime,
+   referencia de storage), y en UI: miniatura en la burbuja + diálogo a
+   pantalla completa para verla ampliada. Alcance no trivial — no
+   empezado.
+2. **Rediseño de página con submenú al estilo Supabase** (settings/
+   organización): el usuario compartió capturas de referencia de Supabase
+   Studio y pidió replicar esa división con líneas + secciones, y
+   descargar la tipografía real del repositorio de Supabase. Esto se
+   solapa con `docs/ui/ORGANIZATION.md`/Fase 7 pero es un cambio de
+   sistema de diseño (tipografía) más amplio que una sola página — no
+   empezado, pendiente de decidir alcance con el usuario antes de tocar
+   `TOKENS.md`.
+
+**Hecho en sesión nueva (2026-09-28 — UI-7, Organización), un solo commit de
+cierre con lint+typecheck+unit/integration+E2E+captura visual real a
+900/1280/1920 px:**
+
+1. **Rutas movidas con `git mv`**, no reescritas: `members/` →
+   `organization/members/`, `channels/` (+ `connect/[channel]/{,coexistence}`)
+   → `organization/channels/…`. Mismos componentes; solo imports/`href`
+   internos actualizados (incluidos los `redirect`/`revalidatePath` de
+   `messaging/actions.ts` y `organizations/actions.ts`). Las cuatro rutas
+   antiguas (`/members`, `/channels`, `/channels/connect/[channel]`,
+   `.../coexistence`) quedan como páginas de una línea con
+   `redirect(...)` — la de coexistencia conserva el `?error=`.
+2. **`/organization` (General) nueva**: nombre editable (ADMIN,
+   `renameOrganizationAction`), fecha de creación, tu rol, y un resumen
+   con enlaces (miembros, canales conectados/con incidencias,
+   invitaciones pendientes) que reutiliza la visibilidad ya existente de
+   cada módulo (`listMessagingAccountsForMember` sigue dando solo lo
+   propio a un DELEGATE).
+3. **`ProductMenu`** (reservado sin consumidor desde UI-5) monta por fin
+   en `organization/layout.tsx` (`lg+`); cada una de las tres páginas
+   añade `OrganizationContextNav` (`<lg`, mismos ítems de
+   `shell/organization-nav.ts`) bajo su propio `PageHeader`.
+4. **Sidebar con un único ítem "Organización"** (`ORGANIZATION_NAV_ITEM`,
+   separador antes, en `AppSidebar` y `MobileNav`) sustituyendo a
+   `Canales`/`Miembros`; **miga del header con menú real** (`OrgMenu`,
+   `DropdownMenu`) en vez del texto plano que UI-2 dejó a propósito sin
+   destino. `UserMenu` recupera "Mis canales" (retirado en UI-2 por
+   redundante con el ítem de sidebar que esta fase quita).
+5. **Cambiar rol** (aprobada 2026-09-26): `changeMemberRole`
+   (`organizations/service.ts`) bloquea (`for("update")`) todas las filas
+   ADMIN de la organización antes de contarlas, no solo la del objetivo —
+   nunca deja la organización sin ninguno, ni degradándose el último a sí
+   mismo. `ChangeRoleControl` (`NativeSelect` en la fila + `ConfirmDialog`,
+   tal como pedía `ORGANIZATION.md` §4).
+6. **Hallazgo real, no anticipado**: un `throw` dentro de una Server
+   Action se redacta a un mensaje genérico en `next build && next start`
+   (solo llega el `digest`, nunca `error.message`) — lo encontró el E2E
+   del guardarraíl del último ADMIN. `changeMemberRoleAction` devuelve
+   `{ error }` en vez de lanzar; `ChangeRoleControl` relanza ese mensaje
+   **en el cliente** (nunca cruza el servidor, no se redacta) para que
+   `ConfirmDialog` lo siga mostrando. Detalle completo, y por qué
+   `renameOrganizationAction` se dejó tal cual, en `docs/DECISIONS.md`
+   (entrada UI-7).
+7. `tests/e2e/organization.spec.ts` nuevo (rename + menú del header;
+   cambiar rol ADMIN↔DELEGATE y que un DELEGATE ve el rol como texto;
+   guardarraíl del último ADMIN con mensaje visible y reversión al
+   cancelar); `members.spec.ts`/`channels.spec.ts`/
+   `whatsapp-onboarding.spec.ts`/`inbox.spec.ts`/`auth.spec.ts`
+   actualizados a las URLs nuevas (`auth.spec.ts` necesitó `exact: true`:
+   el nombre accesible del nuevo botón de organización contiene el del
+   usuario como subcadena, `"<nombre>'s organization"`).
+   `tests/integration/organizations.test.ts` ampliado. **281/281
+   unit+integration, 30/30 E2E.**
+8. `tests/unit/ui-tokens.test.ts`: `TOKENISED_DIRECTORIES` cambia
+   `"src/app/(app)/channels"` + `"src/app/(app)/members"` por
+   `"src/app/(app)/organization"` (cubre General/Miembros/Canales de una).
+
+**Próximo paso concreto:** `UI-8` (accesibilidad y responsive —
+`docs/ui/ROADMAP.md` Fase 8, tema oscuro incluido, aprobado 2026-09-26) es
+el siguiente en el orden del roadmap. Alternativa igual de válida:
+`PKG-014` (asignación de afiliados a delegados, listo para empezar desde
+la sesión del 2026-09-28, paso lógico previo a `UI-10`) — ver más abajo,
+sección "Pendiente de esta misma conversación". Ninguno de los dos
+depende del otro; cuál se retoma primero es elección del usuario.
+
+## Paquetes anteriores: PKG-011, PKG-012 y PKG-013 cerrados el 2026-09-25
+
+Último commit de esos paquetes: `3350101`.
+
+### PKG-013 — Conversación en vivo (cerrado 2026-09-25)
+
+Envío optimista con checks (✓, ✓✓, ✓✓ azul), estados de entrega que no
+retroceden, sondeo de la conversación (3 s) y de `/inbox` (5 s), y
+"escribiendo…" hacia el contacto (marca su mensaje como leído, aceptado por
+el usuario). El contacto escribiendo no se puede mostrar: Meta no lo
+notifica. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+**Falta (usuario):** probarlo en staging con el móvil.
+
+**Próximos pasos propuestos:** invitaciones por email (PKG-012, aditivo);
+reconexión de un canal desconectado; seguir con el alta ante Meta para
+PKG-009.
+
+### PKG-011 — WhatsApp Cloud API contra el número de prueba de Meta (cerrado 2026-09-25: prueba real con el móvil superada)
+
+Hecho: `WhatsAppTestAdapter` (canal `whatsapp-test`), `GET` de verificación
+del webhook, registro condicional en `src/instrumentation.ts`, tests unit e
+integración. Decisiones en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+Variables en Vercel (Preview / rama `staging`), ya cargadas por el usuario:
+`WHATSAPP_TEST_ADAPTER_ENABLED`, `WHATSAPP_TEST_PHONE_NUMBER_ID`,
+`WHATSAPP_TEST_WABA_ID`, `WHATSAPP_TEST_ACCESS_TOKEN`,
+`WHATSAPP_TEST_APP_SECRET`, `WHATSAPP_TEST_VERIFY_TOKEN`.
+
+**Falta (usuario, manual):**
+
+1. Deploy de `staging` con este commit (y redeploy si las variables se
+   cargaron después del último build: Vercel solo las lee al construir).
+2. `/channels` → conectar `whatsapp-test` → copiar el `accountId`.
+3. Meta → WhatsApp → Configuración: Callback URL
+   `https://kindly-git-staging-naxolas-projects.vercel.app/api/webhooks/whatsapp-test/<accountId>`
+   (la URL de la rama: `kindly-peach` es un alias del mismo deploy pero
+   está tras Vercel Authentication, Meta no llegaría), el
+   Verify Token, y suscribir el campo `messages`.
+4. Móvil añadido como destinatario en "Probar la API" → escribir al número
+   de prueba → debe aparecer en `/inbox` → responder → debe llegar al móvil.
+5. Si todo va bien, marcar la última casilla de PKG-011 en `TASKS.md`.
+
+Si un envío sale como `FAILED`, el motivo exacto de Meta está en los logs
+de Vercel (`[whatsapp-test] send failed: …`).
+
+### PKG-012 — Email (Resend) y recuperación de contraseña (cerrado 2026-09-25)
+
+Hecho: `/forgot-password` → email con enlace → `/reset-password`, sobre el
+flujo nativo de Better Auth, con Resend detrás de `EmailSender`. Decisiones
+en `docs/DECISIONS.md` (entrada del 2026-09-25).
+
+**Falta (usuario):** en Vercel (Preview, y Production cuando toque),
+`RESEND_API_KEY` y `EMAIL_FROM`; comprobar que `BETTER_AUTH_URL` es la URL
+pública de staging (el enlace del email se construye con ella). Hasta
+verificar dominio en Resend, solo llega al email dueño de la cuenta de
+Resend.
+
+**Siguiente paso de código propuesto:** invitaciones por email (aditivo).
+
+## Contexto previo: alta ante Meta (sigue vigente para PKG-009)
 
 El producto tiene ya el mínimo para que el usuario haga sus propias pruebas.
-Lo que queda **no es código**: es el alta de Kindly ante Meta, y ahora mismo
-es lo único que separa a WhatsApp de funcionar de verdad.
+Lo que queda para WhatsApp real **no es código**: es el alta de Kindly ante
+Meta.
 
 ### Lo que tiene que hacer el usuario, en este orden
 
@@ -228,7 +1476,7 @@ triviales (al menos la de cómo se distingue el origen de un saliente).
 
 ## Sesión 2026-09-19 — Decisión de WhatsApp coexistence (solo documentación)
 
-Último commit: `80a7ebf`.
+Último commit: `a2d77c9`.
 
 Sesión sin código. El usuario señaló que GoHighLevel ya tiene el flujo de
 coexistence en producción y describió su UX completa. Se verificó contra

@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/modules/auth/auth-client";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 /**
  * Sign-up for an invited address (PKG-006). The email is fixed by the
@@ -33,46 +36,55 @@ export function InvitationSignUpForm({ email }: { email: string }) {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/inbox");
     router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <input
-        className="rounded border border-zinc-200 bg-zinc-100 px-3 py-2 text-sm text-zinc-500"
-        type="email"
-        value={email}
-        aria-label="Email"
-        readOnly
-      />
-      <input
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
-        type="text"
-        placeholder="Nombre"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        required
-      />
-      <input
-        className="rounded border border-zinc-300 px-3 py-2 text-sm"
-        type="password"
-        placeholder="Contraseña"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        minLength={8}
-        required
-      />
+      <div>
+        <Label htmlFor="email" className="sr-only">
+          Email
+        </Label>
+        <Input id="email" type="email" value={email} readOnly />
+      </div>
+      <div>
+        <Label htmlFor="name" className="sr-only">
+          Nombre
+        </Label>
+        <Input
+          id="name"
+          type="text"
+          placeholder="Nombre"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Label htmlFor="password" className="sr-only">
+          Contraseña
+        </Label>
+        <Input
+          id="password"
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          minLength={8}
+          required
+        />
+      </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="type-body text-destructive-soft-foreground">
+          {error}
+        </p>
+      )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="rounded bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" variant="primary" loading={isSubmitting}>
         Aceptar invitación
-      </button>
+      </Button>
     </form>
   );
 }

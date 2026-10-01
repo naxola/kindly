@@ -363,24 +363,356 @@ toca Meta de verdad.
 - [ ] Credenciales en almacén seguro vía `credentials_reference` — nunca en
       la fila de la base de datos, el código o los logs (`CLAUDE.md` 5).
 
-## Fase 6 — Cases
+### PKG-011 — WhatsApp Cloud API, número de prueba de Meta (validación de la tubería real) — CERRADO 2026-09-25
 
-- [ ] Ciclo de vida completo de `Case` (transiciones de estado).
-- [ ] Asignación de Case a `DELEGATE`.
-- [ ] Relación Case ↔ Conversation múltiple vía `conversation_cases` en UI.
-- [ ] Historial de actividad ligado a Case.
+- [x] `WhatsAppTestAdapter` (`src/modules/messaging/testing/whatsapp-test-adapter.ts`):
+      envío de texto libre, firma HMAC real, parseo de `messages`/`statuses`,
+      filtrado por `phone_number_id`.
+- [x] `connectAccount` valida credenciales contra Meta y suscribe la WABA
+      (`subscribed_apps`) si hay `WHATSAPP_TEST_WABA_ID`.
+- [x] `verifyWebhookChallenge` opcional en `MessagingAdapter` + `GET` en la
+      ruta del webhook (`verifyWebhookSubscription`).
+- [x] Registro condicional en `src/instrumentation.ts` (flag + todas las
+      credenciales, nunca con `VERCEL_ENV=production`).
+- [x] Tests unit + integración.
+- [x] **Prueba manual real** con el móvil en staging (usuario): recibir y
+      responder funcionan (2026-09-25).
+
+**No bloqueado.** No depende del alta como Tech Provider ni de la
+verificación de negocio — usa el número de prueba gratuito que Meta da al
+crear la app (sin App Review), el mismo que el usuario ya validó a mano con
+`curl` el 2026-09-23. Corre en paralelo a `PKG-009`, no lo sustituye ni lo
+adelanta.
+
+**Objetivo:** probar la tubería `Webhook de Meta → Conversation → Inbox` con
+payloads y firma reales de Meta, en vez del adapter falso. Retira riesgo del
+código (parseo real, verificación de firma real) mientras el trámite largo de
+Meta corre por su cuenta.
+
+**Distinción crítica con `PKG-009`, que no se difumina:**
+
+- Este **no es coexistence**. El número de prueba es un número dedicado de
+  Cloud API sin ningún teléfono físico detrás — no hay `smb_message_echoes`,
+  no hay historial de 180 días, no hay `PARTNER_REMOVED`. `canDisconnect:
+  true` (Cloud API sí tiene Deregister API para un número dedicado, a
+  diferencia de coexistence).
+- **Nunca se ofrece como opción real de conexión a un delegado.** Viola el
+  principio de identidad de `CLAUDE.md` sección 2 punto 1 (un número
+  compartido de pruebas, no el WhatsApp personal del delegado) si se ofreciera
+  así. Es una herramienta de validación de ingeniería, con el mismo espíritu
+  que `FakeMessagingAdapter` pero contra Meta de verdad — nunca en producción.
+- Canal registrado como `"whatsapp-test"`, nunca `"whatsapp"` — ese nombre lo
+  reserva `PKG-009` para el adapter real, para que no puedan colisionar ni
+  confundirse en `messaging_accounts`.
+
+**Scope:**
+
+- **`WhatsAppTestAdapter`** (`src/modules/messaging/testing/` o similar,
+  mismo criterio que `fake-adapter.ts`: vive bajo `src/`, no bajo `tests/`,
+  porque `src/instrumentation.ts` necesita registrarlo condicionalmente).
+  Capacidades: `serviceWindowHours: 24`, `canDisconnect: true`, `onboarding:
+  "DIRECT"`.
+  - `sendMessage`: `POST` real a `https://graph.facebook.com/v25.0/{phone_number_id}/messages`
+    con Bearer token. Solo texto libre dentro de la ventana de 24 h — sin
+    gestión de plantillas (sigue fuera de alcance, igual que en `PKG-005`).
+  - `verifyWebhookSignature`: HMAC-SHA256 real sobre el body crudo con el
+    **App Secret**, comparado contra `X-Hub-Signature-256`. Primera
+    verificación de firma real del proyecto (la del canal falso es un secreto
+    compartido literal).
+  - `parseWebhookEvents`: parsea el JSON real de Meta
+    (`entry[].changes[].value.messages[]` → `MESSAGE`,
+    `entry[].changes[].value.statuses[]` → `DELIVERY_UPDATE`).
+  - `connectAccount`: sin OAuth — usa credenciales ya obtenidas a mano
+    (`WHATSAPP_TEST_PHONE_NUMBER_ID`, `WHATSAPP_TEST_ACCESS_TOKEN`,
+    `WHATSAPP_TEST_APP_SECRET` como variables de entorno), consistente con
+    `onboarding: "DIRECT"` — un clic en `/channels`, sin pantalla de
+    Facebook.
+- **Registro condicional**, mismo patrón que el canal falso
+  (`E2E_FAKE_MESSAGING_CHANNEL`): una variable explícita
+  (`WHATSAPP_TEST_ADAPTER_ENABLED=true`), **además** de que existan las
+  credenciales — nunca solo por la presencia de las credenciales, para que
+  copiar variables de staging a producción por error no baste para
+  activarlo. Se fija únicamente en las variables de entorno de Preview/rama
+  `staging` en Vercel, nunca en Production.
+- **Extensión de la interfaz `MessagingAdapter`**: método opcional
+  `verifyWebhookChallenge(query: URLSearchParams): string | null`, y el
+  route handler (`src/app/api/webhooks/[channel]/[accountId]/route.ts`)
+  gana un `GET` que lo invoca si el adapter lo implementa. Es el *handshake*
+  `hub.mode=subscribe&hub.verify_token=...&hub.challenge=...` que Meta exige
+  antes de aceptar la URL del webhook — ningún canal existente lo necesitaba
+  hasta ahora.
+
+**Non-goals (explícitamente fuera):**
+
+- Gestión de plantillas, reintentos de envío fallido — igual que `PKG-005`.
+- Cualquier UI que ofrezca este canal como opción real de conexión fuera de
+  un entorno de prueba.
+- Tocar `PKG-009`, `WhatsAppAdapter` real, o el registro del canal
+  `"whatsapp"`.
+
+**Prerrequisitos manuales del usuario, antes de programar:**
+
+1. **Token permanente**: System User en Meta Business Settings (el token
+   temporal de `API Setup` caduca en ~24 h).
+2. **App Secret**: Configuración de la app → Básica.
+3. Ambos, más `WHATSAPP_TEST_PHONE_NUMBER_ID`, como variables de entorno en
+   Vercel con scope Preview/rama `staging` — nunca en `.env.example` con
+   valores reales, nunca en Production.
+4. Tras el primer deploy con el adapter conectado (para tener el `accountId`
+   real en la URL), registrar la Callback URL
+   (`https://kindly-peach.vercel.app/api/webhooks/whatsapp-test/<accountId>`)
+   y un Verify Token propio en Meta → WhatsApp → Configuration.
+
+**Tests:** unit (verificación de firma real con un secreto conocido, parseo
+del JSON real de Meta con un payload de ejemplo capturado); integration
+(webhook con firma inválida/válida contra el endpoint genérico, igual que el
+resto de canales); manual, no automatizable (envío/recepción real contra el
+número de prueba de Meta, verificado a ojo en el Inbox).
+
+### PKG-012 — Email (Resend) y recuperación de contraseña — CERRADO 2026-09-25
+
+- [x] `EmailSender` + `ResendEmailSender` (`src/modules/email/`), consola en
+      desarrollo, sin sustituto en producción.
+- [x] `sendResetPassword` en Better Auth: token de 1 h, un solo uso, revoca
+      sesiones.
+- [x] `/forgot-password`, `/reset-password` y enlace desde `/login`.
+- [x] `npm run auth:reset-password` (herramienta de operador).
+- [x] Tests unit, integración (flujo completo con el token real) y E2E.
+- [ ] (Siguiente, aditivo) Enviar también por email las invitaciones de
+      `/members`, manteniendo el enlace copiable como alternativa.
+- [ ] (Usuario) Verificar el dominio propio en Resend y fijar `EMAIL_FROM`.
+
+### PKG-013 — Conversación en vivo — CERRADO 2026-09-25
+
+- [x] Envío optimista con reintento; Intro envía.
+- [x] Checks ✓ / ✓✓ / ✓✓ azul; estados de entrega que nunca retroceden.
+- [x] Sondeo de la conversación abierta (3 s) y de `/inbox` (5 s).
+- [x] "Escribiendo…" hacia el contacto (marca como leído, aceptado); el
+      contacto escribiendo **no** se puede mostrar (Meta no lo notifica).
+- [x] Tests unit, integración y E2E.
+- [ ] (Usuario) Probarlo en staging con el móvil.
+
+## Rediseño UI/UX (paquetes UI-0 … UI-9) — fuente de verdad: `docs/ui/`
+
+Detalle de cada fase (objetivo, alcance, criterios, qué no tocar) en
+`docs/ui/ROADMAP.md`. Aquí solo el seguimiento.
+
+### UI-0 — Auditoría — CERRADO 2026-09-26
+
+- [x] Auditoría del estado actual (`docs/ui/AUDIT.md`).
+- [x] Estudio del repositorio de Supabase (`docs/ui/SUPABASE_REFERENCE.md`).
+- [x] Documentación completa de `docs/ui/` y decisión en `docs/DECISIONS.md`.
+
+### UI-1 — Design system: tokens y componentes base — CERRADO 2026-09-26
+
+- [x] `src/styles/tokens.css` (tres capas) y `globals.css` sobre tokens.
+- [x] `src/lib/cn.ts` y componentes base en `src/components/ui/`.
+- [x] `/ui-kit` como catálogo vivo.
+- [x] Tests de contraste y de "solo tokens" (`tests/unit/ui-tokens.test.ts`).
+
+### UI-2 — Shell de aplicación — CERRADO 2026-09-26
+
+- [x] `AppShell`, `AppHeader` (texto de organización — el menú llega en
+      UI-7, ver `docs/ui/ROADMAP.md`), `AppSidebar` contraíble (cookie),
+      `SkipToContent`, menú móvil (`MobileNav`), `UserMenu`.
+- [x] `radix-ui`: DropdownMenu, Tooltip, Sheet base.
+- [x] Post-login a `/inbox`; `/dashboard` redirige.
+- [x] Contador de no leídas en la sidebar (`countUnreadConversations`).
+- [x] E2E del shell (`tests/e2e/shell.spec.ts`); E2E existentes en verde
+      (8 specs necesitaron `exact: true` en "Canales", ver `docs/ui/ROADMAP.md`).
+
+### UI-3 — Componentes avanzados — CERRADO 2026-09-26
+
+- [x] Dialog, ConfirmDialog, DiscardChangesDialog + useConfirmOnClose,
+      Sheet completo (patrón de formulario sucio), Tabs, Popover, Toaster,
+      Table, DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime.
+- [x] Entorno de tests de componentes (jsdom + Testing Library, activado
+      por archivo con `// @vitest-environment jsdom`); tests de teclado
+      para ConfirmDialog, DataList y Sheet (12 tests nuevos).
+- [x] Corregido un *hydration mismatch* real en `RelativeTime` (formateo
+      de fecha/hora dependiente de ICU del servidor vs. del navegador).
+- [ ] `CommandMenu` (`cmdk`): aplazado, sin página que lo necesite aún.
+- [ ] Patrón `loading.tsx`/`error.tsx`: aplazado a UI-4 (depende de `PageContainer`).
+
+### UI-4 — Arquitectura de páginas — CERRADO 2026-09-27
+
+- [x] PageContainer/PageHeader/PageSection y migración de todas las páginas
+      de `(app)` (Contactos, Casos, Tareas, Canales + flujo WhatsApp,
+      Miembros) y las cuatro de auth (login, forgot/reset password, invite).
+- [x] Altas a Sheet (Contacto, Caso, Tarea) o Dialog (Invitar) según el
+      umbral de campos; confirmaciones (Desconectar, Revocar) a `ConfirmDialog`.
+- [x] Textos en español (Contactos, Casos, Tareas, sidebar) con E2E
+      actualizados; Canales/Miembros/auth mantienen su texto ya revisado.
+- [x] `src/app/(app)` y las 4 rutas de auth añadidas al test de tokens (97 tests).
+- [x] Bug real corregido: `buttonVariants` era client-only por el `"use
+      client"` de `button.tsx` (`button-variants.ts` nuevo, sin directiva).
+- [ ] `loading.tsx`/`error.tsx` por ruta: aplazado, sin carga lo bastante
+      lenta hoy para justificarlo; se retoma si UI-5 lo necesita.
+
+### UI-5 — Inbox — CERRADO 2026-09-27
+
+- [x] Vistas (Pendientes/No leídas/Sin identificar/Todas) con contadores,
+      búsqueda y filtros por URL, fila densa (`InboxRow`), teclado (`DataList`).
+- [x] Consulta de servidor eficiente: `LEFT JOIN LATERAL` para el último
+      mensaje por conversación (antes: cargaba todos los mensajes), 4
+      conteos por vista en paralelo, búsqueda por nombre/teléfono/texto del
+      último mensaje — con tests de integración y aislamiento por
+      `organization_id`.
+- [x] Sondeo cada 5 s sin mover filas bajo el cursor (aviso "N
+      conversaciones nuevas · Ver"); `auto-refresh.tsx` (PKG-013) eliminado.
+- [x] Bugs reales corregidos: `ContextNav` no marcaba activo ningún
+      `?view=…` (comparaba solo `pathname`); `NativeSelect` ignoraba el
+      `className` del consumidor para el ancho de su contenedor.
+- [x] Corrección respecto al diseño original: fila no leída con punto
+      simple (no `CountBadge`, el dominio no cuenta mensajes no leídos);
+      indicador de ventana de servicio diferido de la fila de lista.
+- [x] `tests/e2e/inbox.spec.ts` reescrito para vistas por `?view=` y
+      `FilterBar`; `tests/unit/ui-tokens.test.ts` cubre la lista de Inbox.
+
+### UI-6 — Conversación en Sheet — CERRADO 2026-09-27
+
+- [x] Rutas paralelas/interceptadas (`layout.tsx`, `@sheet/{default,page,
+      (.)[id]/page}.tsx`, `[id]/page.tsx` reescrito), `ConversationSheet`
+      y sus estados (cargando/error/404 diferidos — ver `docs/ui/CHAT.md`).
+- [x] Modo anclado sin velo en `xl+` (`<aside>` propio, sin Radix); modal
+      por debajo; pantalla completa en móvil. Sidebar auto-contraíble
+      mientras el panel está anclado (evento de `window`, nunca persistido).
+- [x] Historial con separadores por día y aviso "Mensajes nuevos";
+      compositor autoajustable con borrador por conversación (`sessionStorage`).
+- [x] Anterior/siguiente (`Alt+↑/↓`) y `F6`/`Ctrl+F6` compartiendo el orden
+      de la lista entre slots de rutas paralelas (`inbox-order-context.tsx`).
+- [x] Bugs reales corregidos: `buildHref` client-only (misma trampa RSC de
+      `buttonVariants`, UI-4); `@sheet/default.tsx` no cierra el panel en
+      una navegación suave normal; nombre del Contact colapsando a 0 px en
+      modo anclado a 1280 px; condición de carrera en el borrador de
+      sessionStorage bajo Strict Mode.
+- [x] `tests/e2e/inbox.spec.ts` con un test de carga directa (`page.reload()`
+      sobre una conversación abierta); 27/27 E2E, 268/268 unit+integration.
+
+### UI-7 — Organización — CERRADO 2026-09-28
+
+- [x] `/organization` (General, Miembros, Canales) con redirecciones y diálogos.
+      `members/`/`channels/` movidos bajo `organization/`; rutas antiguas
+      quedan como `redirect(...)`. `ProductMenu` (`lg+`) + `ContextNav`
+      (`<lg`) para las tres subpáginas; sidebar con un único ítem
+      "Organización"; miga del header con menú de verdad (`OrgMenu`).
+- [x] Acción de dominio "cambiar rol" con reglas en servidor y tests
+      (aprobada 2026-09-26): `changeMemberRole` bloquea las filas ADMIN de
+      la organización antes de contarlas (nunca deja la organización sin
+      ninguno); `ChangeRoleControl` (`NativeSelect` + `ConfirmDialog`).
+- [x] Hallazgo real: los `throw` de una Server Action se redactan en
+      producción (`next build && next start`) — `changeMemberRoleAction`
+      pasa a devolver `{ error }` en vez de lanzar; el cliente relanza
+      localmente para que `ConfirmDialog` siga mostrando el mensaje.
+      Detalle en `docs/DECISIONS.md` (entrada UI-7).
+- [x] `tests/e2e/organization.spec.ts` nuevo; `members.spec.ts`/
+      `channels.spec.ts`/`whatsapp-onboarding.spec.ts`/`inbox.spec.ts`/
+      `auth.spec.ts` actualizados a las URLs nuevas. 281/281
+      unit+integration, 30/30 E2E. Verificación visual real a
+      900/1280/1920 px.
+
+### UI-8 — Accesibilidad y responsive — CERRADO 2026-09-30
+
+- [x] axe en E2E, auditoría manual, 320–1440 px (cerrado 2026-09-30 — `docs/DECISIONS.md`, `docs/ui/ROADMAP.md`).
+- [x] Tema oscuro con selector Claro / Oscuro / Sistema (aprobado 2026-09-26, cerrado 2026-09-29 — `docs/DECISIONS.md`).
+
+### UI-9 — Consolidación — CERRADO 2026-09-30
+
+- [x] Retirar paleta por defecto de Tailwind, componentes obsoletos, exportador de tokens a DTCG/Figma (`docs/ui/ROADMAP.md`, `docs/DECISIONS.md`).
+
+### PKG-014 — Asignación de afiliados a delegados y visibilidad por rol — CERRADO 2026-09-28
+
+Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del afiliado").
+
+- [x] Tabla `contact_assignments` (`organization_id`, `contact_id`, `delegate_id`, `started_at`, `ended_at`, `assigned_by`), con índice único parcial para una sola asignación activa por Contact; migración (`0007_magical_owl.sql`) que asigna cada Contact existente al delegado de su conversación más reciente.
+- [x] Contact nuevo por mensaje entrante (incluido "Sin identificar") → asignado al delegado dueño del `MessagingAccount` que lo recibió (`findOrCreateConversation`); Contact creado a mano → asignado a quien lo crea (`createContact`).
+- [x] Visibilidad en servidor (no solo UI): DELEGATE → solo sus afiliados (Inbox, `/api/inbox`, contactos, casos/tareas ligados); ADMIN → todo. `contacts/visibility.ts::contactVisibilityCondition`, reutilizado en cada módulo vía una variante `...ForMember`. Tests de permisos (`tests/integration/contact-assignments.test.ts`, incluido el escenario completo Marta/Ana/Luis) + E2E con dos delegados en la UI real (`tests/e2e/contact-assignments.spec.ts`). **Ficha y descargas quedan pendientes** — no existen hasta UI-10.
+- [x] Reasignar (solo ADMIN) con registro en actividad: `assignContactToDelegateAction` + `ReassignDelegateControl` en `/contacts/[id]`. Histórico visible ahí mismo (lista simple; el diseño completo de "ficha" llega con UI-10).
+- [x] Reglas de acceso de un DELEGATE, decididas por el usuario (`docs/DECISIONS.md`, entrada "Delegado de referencia y acceso temporal") — dominio y UI cerrados:
+  1. Un afiliado tiene **un único delegado de referencia**, con histórico
+     de los anteriores; el ADMIN lo reasigna. Un afiliado puede escribir
+     por WhatsApp a **uno o varios** delegados.
+  2. El delegado de referencia ve al afiliado siempre, con **todo el
+     historial con cualquier delegado** (lo de otros delegados, en solo
+     lectura: solo se responde desde el número propio). **Cómo se
+     construyó**: cada Conversation con ese Contact aparece como su propia
+     fila del Inbox (una por delegado que le ha escrito) en vez de
+     fusionarse en un único hilo — la de otro delegado se abre en modo
+     "Solo lectura" (compositor oculto, `sendOutboundMessage` lo rechaza
+     también en el servidor). Un hilo verdaderamente fusionado con
+     atribución de autor por mensaje queda para UI-10, donde encaja mejor
+     junto a la ficha completa — ver `docs/DECISIONS.md`.
+  3. Si el afiliado escribe a un delegado que **no es su referencia**
+     (Ana), Ana lo ve en su lista **resaltado en azul** ("Su delegado de
+     referencia es Luis — redirígele los mensajes"), ve todo el historial
+     con cualquier delegado y **puede contestar** desde Kindly o desde su
+     móvil (siempre desde su propio número; le indica al afiliado que le
+     contesta Ana).
+  4. En cuanto hay un mensaje entre el afiliado y su delegado de referencia
+     **en cualquier dirección** (Marta escribe a Luis, o Luis escribe a
+     Marta, desde Kindly o desde su móvil), Ana **deja de verlo** en su
+     lista automáticamente; Luis ve también los
+     mensajes que el afiliado cruzó con Ana.
+  5. El ADMIN ve todo.
+- [x] Acceso temporal **derivado, sin tabla nueva**: un DELEGATE no-referencia ve al afiliado mientras el último mensaje *entrante* del afiliado a alguna de sus cuentas sea más reciente que el último mensaje **en cualquier dirección** (entrante, saliente o eco desde el móvil) en las conversaciones del delegado de referencia con ese afiliado.
+- [x] UI: fila azul (`info-soft`) + etiqueta "Ref.: <delegado>" en la lista (`InboxRow`); aviso en la conversación (`ConversationSheet`); conversación de otro delegado en solo lectura con su nombre (`ConversationThread`). La "atribución de autor en cada tramo de un historial fusionado" específicamente queda para UI-10 (ver punto 2 arriba).
+
+### UI-10 — Espacio de respuesta (planificada 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md`)
+
+- [x] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (cerrado 2026-09-29).
+- [x] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente (cerrado 2026-09-29).
+- [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
+- [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
+- [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
+- [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
+
+## Fase 6 — Cases (cerrada 2026-09-30)
+
+- [x] Ciclo de vida completo de `Case` (transiciones de estado) — máquina de
+      estados con reapertura, `src/modules/cases/domain.ts`.
+- [x] Asignación de Case a `DELEGATE` — restringido por rol, ya no cualquier miembro.
+- [x] Relación Case ↔ Conversation múltiple vía `conversation_cases` en UI —
+      página del Case + acción rápida desde la ficha del Inbox.
+- [x] Historial de actividad ligado a Case — ya existía desde PKG-002
+      (`ActivityFeed` en `/cases/[id]`), ampliado con
+      `CASE_CONVERSATION_LINKED`/`UNLINKED`.
 
 ## Fase 7 — Knowledge
 
-- [ ] `Document`, `DocumentVersion` con campos de vigencia/jurisdicción.
-- [ ] Separación estricta GLOBAL vs. ORGANIZATION knowledge.
-- [ ] `KnowledgeChunk` con jerarquía (Chapter/Section/Article/Paragraph).
-- [ ] Pipeline de embeddings (worker, `EmbeddingProvider`).
-- [ ] PostgreSQL FTS + pgvector, búsqueda híbrida.
-- [ ] Hard filters de tenancy/vigencia antes de ranking semántico.
-- [ ] Version-aware retrieval (selección por fecha relevante, no solo
-      `is_current`).
-- [ ] Citations trazables en UI.
+Partida en sub-paquetes. **7a cerrado (2026-09-30)**: capa de datos del
+backbone RAG. Resto pendiente: 7b (ingesta + pipeline), 7c (recuperación
+híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
+
+### Fase 7a — Capa de datos (backend, sin UI) — CERRADO 2026-09-30
+
+- [x] `Document`, `DocumentVersion` con campos de vigencia/jurisdicción
+      (`knowledge_documents`/`knowledge_document_versions`,
+      `src/modules/knowledge/schema.ts`; migración `0009`).
+- [x] Separación estricta GLOBAL vs. ORGANIZATION knowledge — CHECK
+      `knowledge_documents_global_null_org` + `knowledge/visibility.ts`.
+- [x] `KnowledgeChunk` con jerarquía (Chapter/Section/Article/Paragraph/
+      Fragment) — `knowledge_chunks`, con `embedding vector(1536)` y
+      `content_tsv` generado para FTS.
+- [x] Abstracción `EmbeddingProvider` (`embedding-provider.ts`, registro
+      `globalThis`) + fake determinista para tests. **Proveedor real
+      (OpenAI) y worker/pipeline pendientes de 7b.**
+- [x] Version-aware retrieval — lógica pura `selectApplicableVersion`
+      (`knowledge/domain.ts`), selección por fecha relevante, no solo
+      `is_current`. (La *query* de recuperación que la usa es 7c.)
+- [x] Base de PostgreSQL FTS + pgvector: extensión `vector` habilitada,
+      índices GIN (tsvector) y HNSW (coseno) creados. **La búsqueda híbrida
+      en sí es 7c.**
+
+### Fase 7b… — pendiente
+
+- [x] **Trámites** (`Procedure`, por Organization, versionados): pasos y documentos requeridos (pedido 2026-09-28, `docs/ui/CONVERSATION_WORKSPACE.md` §5.2). (Fase 7d, cerrado 2026-09-30 — `modules/procedures`, `/knowledge/procedures`; desbloquea `UI-10c`. **Vincular a Caso/conversación y el estado recibido/falta por documento son de UI-10c**, no de 7d.)
+- [x] Ingesta de páginas web además de PDFs (pedido 2026-09-28). Es indexación para recuperación con citas (RAG), no entrenamiento de un modelo. (Fase 7b, cerrado 2026-09-30 — `knowledge/ingestion/extract-web.ts` + `extract-pdf.ts`.)
+- [x] Pipeline de embeddings (reusando `EmbeddingProvider`; disparado por script de operador, no worker — sin UI hasta 7e). (Fase 7b, cerrado 2026-09-30 — `knowledge/ingestion/pipeline.ts`, `OpenAIEmbeddingProvider`.)
+- [x] PostgreSQL FTS + pgvector, búsqueda híbrida (query de recuperación). (Fase 7c, cerrado 2026-09-30 — `knowledge/retrieval.ts`, RRF en `retrieval-fusion.ts`.)
+- [x] Hard filters de tenancy/vigencia antes de ranking semántico (en la query). (Fase 7c, cerrado 2026-09-30 — tenancy reutiliza 7a, vigencia/jurisdicción nuevas en `retrieval.ts`.)
+- [x] Citations trazables en UI. (Fase 7e, cerrado 2026-09-30 — `/knowledge`: búsqueda con `CitationCard` y detalle de documento con versiones/vigencia/fragmentos. La subida desde UI llegó en 7f.)
+
+- [x] Subida de documentos desde la UI, sin script de operador (PDF, texto, página web; solo ADMIN; solo conocimiento de la organización). (Fase 7f, cerrado 2026-09-30 — `knowledge/upload.ts`, `knowledge/actions.ts`, `/knowledge` "Subir documento" y "Nueva versión".)
 
 ## Fase 8 — AI
 

@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { receiveWebhook } from "@/modules/messaging/webhook-service";
+import { receiveWebhook, verifyWebhookSubscription } from "@/modules/messaging/webhook-service";
 
 /**
  * Generic inbound webhook endpoint for every messaging channel — no
@@ -33,4 +33,21 @@ export async function POST(
   // this uses `after()` instead of a pg-boss/Inngest job for now.
   after(outcome.process);
   return new Response(null, { status: 200 });
+}
+
+/**
+ * Subscription handshake for providers that run one before accepting the
+ * URL (Meta's `hub.challenge`, PKG-011). 404 for channels without one.
+ */
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ channel: string; accountId: string }> },
+) {
+  const { channel, accountId } = await params;
+  const outcome = await verifyWebhookSubscription(channel, accountId, new URL(request.url).searchParams);
+
+  if (outcome.status !== 200) {
+    return new Response(null, { status: outcome.status });
+  }
+  return new Response(outcome.body, { status: 200, headers: { "Content-Type": "text/plain" } });
 }

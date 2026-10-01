@@ -2,8 +2,10 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { cases, caseStatus } from "@/modules/cases/schema";
+import { isValidCaseStatusTransition } from "@/modules/cases/domain";
 import { getContact } from "@/modules/contacts/service";
-import { isOrganizationMember } from "@/modules/organizations/service";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
+import { isOrganizationDelegate } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
 
 export async function listCases(organizationId: string) {
@@ -21,6 +23,51 @@ export async function getCase(organizationId: string, caseId: string) {
     .where(and(eq(cases.organizationId, organizationId), eq(cases.id, caseId)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Visibility-scoped variants (PKG-014) — a Case is always for exactly one
+ * Contact (`contactId` is `NOT NULL`), so it is visible exactly when that
+ * Contact is (`contacts/visibility.ts`). `listCases`/`getCase` above stay
+ * unscoped for internal FK-integrity checks (e.g. `createTask` validating a
+ * `caseId` belongs to the organization).
+ */
+export async function listCasesForMember(organizationId: string, member: VisibilityMember) {
+  return db
+    .select()
+    .from(cases)
+    .where(and(eq(cases.organizationId, organizationId), contactVisibilityCondition(organizationId, member, cases.contactId)))
+    .orderBy(desc(cases.createdAt));
+}
+
+export async function getCaseForMember(organizationId: string, member: VisibilityMember, caseId: string) {
+  const [row] = await db
+    .select()
+    .from(cases)
+    .where(
+      and(
+        eq(cases.organizationId, organizationId),
+        eq(cases.id, caseId),
+        contactVisibilityCondition(organizationId, member, cases.contactId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** A single Contact's Cases, for the conversation ficha (UI-10a) — same visibility rule as `listCasesForMember`, scoped to one Contact. */
+export async function listCasesForContact(organizationId: string, member: VisibilityMember, contactId: string) {
+  return db
+    .select()
+    .from(cases)
+    .where(
+      and(
+        eq(cases.organizationId, organizationId),
+        eq(cases.contactId, contactId),
+        contactVisibilityCondition(organizationId, member, cases.contactId),
+      ),
+    )
+    .orderBy(desc(cases.createdAt));
 }
 
 export interface CreateCaseInput {
@@ -43,8 +90,8 @@ export async function createCase(input: CreateCaseInput) {
     throw new Error("Contact not found in this organization.");
   }
 
-  if (input.assignedTo && !(await isOrganizationMember(input.organizationId, input.assignedTo))) {
-    throw new Error("Cannot assign a case to a user outside the organization.");
+  if (input.assignedTo && !(await isOrganizationDelegate(input.organizationId, input.assignedTo))) {
+    throw new Error("Cases can only be assigned to a DELEGATE.");
   }
 
   const [createdCase] = await db
@@ -98,8 +145,12 @@ export async function updateCase(input: UpdateCaseInput) {
     return null;
   }
 
-  if (input.assignedTo && !(await isOrganizationMember(input.organizationId, input.assignedTo))) {
-    throw new Error("Cannot assign a case to a user outside the organization.");
+  if (input.assignedTo && !(await isOrganizationDelegate(input.organizationId, input.assignedTo))) {
+    throw new Error("Cases can only be assigned to a DELEGATE.");
+  }
+
+  if (!isValidCaseStatusTransition(existing.status, input.status)) {
+    throw new Error("Invalid case status transition.");
   }
 
   const statusChanged = existing.status !== input.status;

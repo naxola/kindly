@@ -1,98 +1,59 @@
-import Link from "next/link";
-import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { listConversationsWithPreview } from "@/modules/conversations/service";
+import type { Metadata } from "next";
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
+import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
+import { getInboxList, getInboxStaticData } from "@/app/(app)/inbox/inbox-data";
+import { getConversationWorkspace } from "@/app/(app)/inbox/conversation-workspace-data";
+import { parseConversationId, parseInboxFilters } from "@/app/(app)/inbox/inbox-filters";
+import { inboxKeys } from "@/app/(app)/inbox/inbox-queries";
+import { getFichaCollapsed } from "@/app/(app)/inbox/ficha-cookie";
+import { InboxWorkspace } from "@/app/(app)/inbox/inbox-workspace";
+import { pageTitle } from "@/lib/page-title";
 
-export default async function InboxPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ channel?: string; unread?: string }>;
-}) {
-  const { channel, unread } = await searchParams;
+export async function generateMetadata(): Promise<Metadata> {
   const member = await requireCurrentOrganizationMember();
+  return { title: pageTitle("Conversaciones", member.organizationName) };
+}
 
-  const [conversations, members] = await Promise.all([
-    listConversationsWithPreview(member.organizationId, {
-      channel: channel || undefined,
-      unreadOnly: unread === "1",
-    }),
-    listOrganizationMembers(member.organizationId),
+type SearchParams = Record<string, string | string[] | undefined>;
+
+/**
+ * The Inbox's only server render (docs/ui/CHAT.md §1): the first load (or a
+ * refresh) of `/inbox`, with whatever filters and open conversation its
+ * query string carries. It seeds the client cache with exactly that, so the
+ * first paint is complete; from then on filtering, opening, switching and
+ * closing conversations only change the query string client-side and read
+ * from/refresh that cache — this page never renders again for them.
+ */
+export default async function InboxPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const raw = await searchParams;
+  const params = { get: (name: string) => (typeof raw[name] === "string" ? (raw[name] as string) : null) };
+  const filters = parseInboxFilters(params);
+  const conversationId = parseConversationId(params);
+
+  const member = await requireCurrentOrganizationMember();
+  const [list, staticData, conversation, fichaCollapsed] = await Promise.all([
+    getInboxList(member, filters),
+    getInboxStaticData(member),
+    // Opening it here is a real open (direct link or refresh), so it marks it read.
+    conversationId ? getConversationWorkspace(member, conversationId, { markRead: true }) : null,
+    getFichaCollapsed(),
   ]);
 
-  const delegateNameById = new Map(members.map((m) => [m.userId, m.name]));
-  const allChannels = [...new Set(conversations.map((c) => c.channel))];
-
-  const filterHref = (next: { channel?: string; unread?: boolean }) => {
-    const params = new URLSearchParams();
-    const nextChannel = next.channel !== undefined ? next.channel : channel;
-    const nextUnread = next.unread !== undefined ? next.unread : unread === "1";
-    if (nextChannel) params.set("channel", nextChannel);
-    if (nextUnread) params.set("unread", "1");
-    const query = params.toString();
-    return query ? `/inbox?${query}` : "/inbox";
-  };
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(inboxKeys.list(filters), list);
+  if (conversationId && conversation) {
+    queryClient.setQueryData(inboxKeys.conversation(conversationId), conversation);
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold">Inbox</h1>
-        <p className="text-sm text-zinc-500">
-          Conversaciones de todos los canales conectados. El sistema decide el canal al responder.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Link
-          href={filterHref({ channel: "" })}
-          className={`rounded border px-2 py-1 ${!channel ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 text-zinc-600"}`}
-        >
-          Todos los canales
-        </Link>
-        {allChannels.map((ch) => (
-          <Link
-            key={ch}
-            href={filterHref({ channel: ch })}
-            className={`rounded border px-2 py-1 ${channel === ch ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 text-zinc-600"}`}
-          >
-            {ch}
-          </Link>
-        ))}
-        <span className="mx-1 text-zinc-300">|</span>
-        <Link
-          href={filterHref({ unread: unread !== "1" })}
-          className={`rounded border px-2 py-1 ${unread === "1" ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 text-zinc-600"}`}
-        >
-          Solo no leídos
-        </Link>
-      </div>
-
-      <ul className="flex flex-col gap-1 text-sm">
-        {conversations.map((conversation) => (
-          <li key={conversation.id} className="border-b border-zinc-100 py-2">
-            <Link href={`/inbox/${conversation.id}`} className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {conversation.unread && <span className="h-2 w-2 rounded-full bg-zinc-900" aria-label="No leído" />}
-                <span className={conversation.unread ? "font-semibold" : ""}>{conversation.contactName}</span>
-                {conversation.contactIsUnassigned && (
-                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">Sin identificar</span>
-                )}
-                <span className="text-zinc-400">· {conversation.channel}</span>
-                <span className="text-zinc-400">· {delegateNameById.get(conversation.delegateId) ?? "—"}</span>
-              </div>
-              <div className="flex items-center gap-3 text-zinc-500">
-                <span className="max-w-xs truncate">{conversation.lastMessage?.body ?? "Sin mensajes"}</span>
-                {conversation.lastMessage && (
-                  <span className="whitespace-nowrap text-zinc-400">
-                    {conversation.lastMessage.createdAt.toLocaleString("es-ES")}
-                  </span>
-                )}
-              </div>
-            </Link>
-          </li>
-        ))}
-        {conversations.length === 0 && (
-          <li className="py-4 text-center text-zinc-400">Todavía no hay conversaciones.</li>
-        )}
-      </ul>
-    </div>
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <InboxWorkspace
+        members={staticData.members}
+        availableChannels={staticData.availableChannels}
+        viewerId={member.userId}
+        isAdmin={member.role === "ADMIN"}
+        initialFichaCollapsed={fichaCollapsed}
+      />
+    </HydrationBoundary>
   );
 }

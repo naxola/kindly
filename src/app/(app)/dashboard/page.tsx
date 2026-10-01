@@ -1,18 +1,13 @@
-import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
+import { redirect } from "next/navigation";
 
-export default async function DashboardPage() {
-  const member = await requireCurrentOrganizationMember();
-
-  return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-xl font-semibold">Hola, {member.userName}</h1>
-      <p className="text-sm text-zinc-600">
-        {member.userEmail} — {member.organizationName} ({member.role})
-      </p>
-      <p className="mt-4 text-sm text-zinc-400">
-        El Inbox real llega en un paquete posterior (ver project/TASKS.md).
-        Mientras tanto: Contacts, Cases y Tasks en la barra de arriba.
-      </p>
-    </div>
-  );
+/**
+ * `/dashboard` is no longer the landing page (UI-2,
+ * docs/ui/LAYOUT_NAVIGATION.md §7): Inbox is — communication is the
+ * product's center (docs/ARCHITECTURE.md §11). Kept as a redirect so old
+ * links and bookmarks still land somewhere real. Auth is enforced by the
+ * `(app)` layout before this ever renders, so an unauthenticated request
+ * never reaches this redirect.
+ */
+export default function DashboardPage() {
+  redirect("/inbox");
 }

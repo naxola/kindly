@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/modules/auth/auth-client";
+import { AuthShell } from "@/components/patterns/auth-shell";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 /**
- * Minimal login/register page for PKG-001. No design system yet (that's a
- * future UI package) — this only has to prove that email+password
- * registration, login and session creation work end-to-end.
+ * Login/register (PKG-001). Placeholders double as the visible design —
+ * kept exactly as before — but each field now has a real (visually hidden)
+ * `<label>` too: previously there was none at all, just a placeholder
+ * standing in for it (docs/ui/AUDIT.md, the exact anti-pattern `Field`
+ * exists to avoid elsewhere). Kept as plain `Label`+`Input`, not `Field`:
+ * this form has one shared error message, not a per-field one.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -35,69 +43,84 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/inbox");
     router.refresh();
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center gap-6 px-6">
-      <div>
-        <h1 className="text-xl font-semibold">Kindly</h1>
-        <p className="text-sm text-zinc-500">
-          {mode === "sign-in" ? "Inicia sesión" : "Crea una cuenta"}
-        </p>
-      </div>
-
+    <AuthShell subtitle={mode === "sign-in" ? "Inicia sesión" : "Crea una cuenta"}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {mode === "sign-up" && (
-          <input
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            type="text"
-            placeholder="Nombre"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+          <div>
+            <Label htmlFor="name" className="sr-only">
+              Nombre
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Nombre"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </div>
+        )}
+        <div>
+          <Label htmlFor="email" className="sr-only">
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             required
           />
+        </div>
+        <div>
+          <Label htmlFor="password" className="sr-only">
+            Contraseña
+          </Label>
+          <Input
+            id="password"
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={8}
+            required
+          />
+        </div>
+
+        {mode === "sign-in" && (
+          <Link href="/forgot-password" className="self-end type-caption text-foreground-lighter underline focus-ring rounded-sm">
+            ¿Has olvidado tu contraseña?
+          </Link>
         )}
-        <input
-          className="rounded border border-zinc-300 px-3 py-2 text-sm"
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          required
-        />
-        <input
-          className="rounded border border-zinc-300 px-3 py-2 text-sm"
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          minLength={8}
-          required
-        />
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && (
+          <p role="alert" className="type-body text-destructive-soft-foreground">
+            {error}
+          </p>
+        )}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
+        <Button type="submit" variant="primary" loading={isSubmitting}>
           {mode === "sign-in" ? "Entrar" : "Crear cuenta"}
-        </button>
+        </Button>
       </form>
 
-      <button
+      <Button
         type="button"
-        className="text-sm text-zinc-500 underline"
+        variant="link"
+        className="w-fit"
         onClick={() => {
           setError(null);
           setMode(mode === "sign-in" ? "sign-up" : "sign-in");
         }}
       >
         {mode === "sign-in" ? "¿No tienes cuenta? Regístrate" : "¿Ya tienes cuenta? Inicia sesión"}
-      </button>
-    </main>
+      </Button>
+    </AuthShell>
   );
 }

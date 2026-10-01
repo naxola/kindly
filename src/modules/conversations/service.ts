@@ -1,10 +1,16 @@
 import "server-only";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, gt, ilike, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { isPostgresUniqueViolation } from "@/db/errors";
-import { conversationCases, conversations, messages } from "@/modules/conversations/schema";
-import { getServiceWindowState, isConversationUnread, type ServiceWindowState } from "@/modules/conversations/domain";
-import { contacts } from "@/modules/contacts/schema";
+import { conversationCases, conversations, messages, type MessageDeliveryStatus } from "@/modules/conversations/schema";
+import {
+  getServiceWindowState,
+  isConversationUnread,
+  shouldApplyDeliveryStatus,
+  type ServiceWindowState,
+} from "@/modules/conversations/domain";
+import { contactAssignments, contacts } from "@/modules/contacts/schema";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { messagingAccounts } from "@/modules/messaging/schema";
 import { getCase } from "@/modules/cases/service";
 import { getMessagingAccount } from "@/modules/messaging/service";
@@ -14,6 +20,55 @@ import type { MessagingAccountRecord } from "@/modules/messaging/adapter";
 
 export async function listConversations(organizationId: string) {
   return db.select().from(conversations).where(eq(conversations.organizationId, organizationId));
+}
+
+/**
+ * Distinct channels with at least one Conversation, for the Inbox's channel
+ * filter (UI-5). Deliberately independent of the current view/search/
+ * delegate filters — narrowing it to "channels visible in the current
+ * view" would make the dropdown shrink as you filter, hiding the very
+ * option that would show the rest again.
+ */
+export async function listConversationChannels(organizationId: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ channel: conversations.channel })
+    .from(conversations)
+    .where(eq(conversations.organizationId, organizationId))
+    .orderBy(asc(conversations.channel));
+  return rows.map((row) => row.channel);
+}
+
+/**
+ * Unread count for the sidebar badge (UI-2, docs/ui/LAYOUT_NAVIGATION.md
+ * §3). Through PKG-004 this was organization-wide, matching a shared Inbox;
+ * PKG-014 gives a DELEGATE their own restricted Inbox, so this now takes
+ * the same `member` scoping (an ADMIN still sees everyone's, unchanged).
+ * Counts conversations rather than messages, and does the "unread" check
+ * in SQL with the same rule as `isConversationUnread` instead of loading
+ * every message, since this runs on every authenticated page render.
+ */
+export async function countUnreadConversations(organizationId: string, member: VisibilityMember): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(conversations)
+    .where(
+      and(
+        eq(conversations.organizationId, organizationId),
+        contactVisibilityCondition(organizationId, member, conversations.contactId),
+        exists(
+          db
+            .select({ one: messages.id })
+            .from(messages)
+            .where(
+              and(
+                eq(messages.conversationId, conversations.id),
+                or(isNull(conversations.lastReadAt), gt(messages.createdAt, conversations.lastReadAt)),
+              ),
+            ),
+        ),
+      ),
+    );
+  return row?.value ?? 0;
 }
 
 export async function getConversation(organizationId: string, conversationId: string) {
@@ -42,8 +97,45 @@ export async function linkConversationToCase(organizationId: string, conversatio
   if (!relatedCase) {
     throw new Error("Case not found in this organization.");
   }
+  // A Case always belongs to exactly one Contact (`cases.contactId NOT
+  // NULL`) — linking a Conversation from a different Contact has no product
+  // meaning (Fase 6, docs/PRODUCT.md sección 7) and nothing else checks it.
+  if (relatedCase.contactId !== conversation.contactId) {
+    throw new Error("Cannot link a Conversation to a Case of a different Contact.");
+  }
 
   await db.insert(conversationCases).values({ conversationId, caseId }).onConflictDoNothing();
+}
+
+/** Conversations linked to a Case (Fase 6), most recently linked first. */
+export async function listLinkedConversations(organizationId: string, caseId: string) {
+  return db
+    .select({ conversation: conversations, linkedAt: conversationCases.createdAt })
+    .from(conversationCases)
+    .innerJoin(conversations, eq(conversations.id, conversationCases.conversationId))
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversationCases.caseId, caseId)))
+    .orderBy(desc(conversationCases.createdAt));
+}
+
+/** Case ids a Conversation is linked to (Fase 6) — used by the Inbox ficha to mark cases already linked. */
+export async function listCaseIdsLinkedToConversation(organizationId: string, conversationId: string): Promise<string[]> {
+  const rows = await db
+    .select({ caseId: conversationCases.caseId })
+    .from(conversationCases)
+    .innerJoin(conversations, eq(conversations.id, conversationCases.conversationId))
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversationCases.conversationId, conversationId)));
+  return rows.map((row) => row.caseId);
+}
+
+export async function unlinkConversationFromCase(organizationId: string, conversationId: string, caseId: string) {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    throw new Error("Conversation not found in this organization.");
+  }
+
+  await db
+    .delete(conversationCases)
+    .where(and(eq(conversationCases.conversationId, conversationId), eq(conversationCases.caseId, caseId)));
 }
 
 interface InboundContactInfo {
@@ -103,6 +195,18 @@ export async function findOrCreateConversation(
           externalConversationId,
         })
         .returning();
+
+      // PKG-014: a Contact created from an inbound message starts out
+      // assigned to whichever delegate's account received it — the person
+      // who is, right now, the only one who has ever heard from them.
+      // `assignedBy: null`, same reasoning as MESSAGE_RECEIVED's
+      // `actorUserId`: no human made this call.
+      await tx.insert(contactAssignments).values({
+        organizationId,
+        contactId: insertedContact.id,
+        delegateId: account.delegateId,
+        assignedBy: null,
+      });
 
       return insertedConversation;
     });
@@ -225,12 +329,13 @@ export async function applyDeliveryUpdate(
   externalMessageId: string,
   deliveryStatus: "SENT" | "DELIVERED" | "READ" | "FAILED",
 ) {
-  await db
-    .update(messages)
-    .set({ deliveryStatus, updatedAt: new Date() })
-    .where(
-      and(eq(messages.messagingAccountId, messagingAccountId), eq(messages.externalMessageId, externalMessageId)),
-    );
+  const where = and(eq(messages.messagingAccountId, messagingAccountId), eq(messages.externalMessageId, externalMessageId));
+  const [current] = await db.select({ deliveryStatus: messages.deliveryStatus }).from(messages).where(where).limit(1);
+  // Out-of-order callbacks must not move a status backwards (PKG-013).
+  if (!current || !shouldApplyDeliveryStatus(current.deliveryStatus, deliveryStatus)) {
+    return;
+  }
+  await db.update(messages).set({ deliveryStatus, updatedAt: new Date() }).where(where);
 }
 
 /**
@@ -359,6 +464,18 @@ export async function sendOutboundMessage(input: SendOutboundMessageInput) {
     throw new Error("MessagingAccount not found in this organization.");
   }
 
+  // PKG-014: a reply always goes out through the Conversation's own
+  // MessagingAccount, i.e. through whichever delegate's WhatsApp/Telegram
+  // it is connected to — never a shared org identity. Before this, nothing
+  // stopped a different member from opening that account's Conversation
+  // and sending as if they were its delegate. "Ana ve el historial de
+  // Luis en solo lectura; si contesta, es siempre desde su propio número"
+  // (docs/DECISIONS.md) only holds if this is enforced here, not just left
+  // to the UI hiding the composer.
+  if (account.delegateId !== input.actorUserId) {
+    throw new Error("Solo el delegado dueño de este canal puede responder desde Kindly.");
+  }
+
   const adapter = getMessagingAdapter(conversation.channel);
   if (!adapter) {
     throw new Error(`No MessagingAdapter registered for channel "${conversation.channel}".`);
@@ -432,91 +549,239 @@ export interface ConversationPreview {
   contactIsUnassigned: boolean;
   channel: string;
   delegateId: string;
-  lastMessage: { body: string; direction: "INBOUND" | "OUTBOUND"; createdAt: Date } | null;
+  /**
+   * The Contact's *current* reference delegate (PKG-014) — not necessarily
+   * this Conversation's own `delegateId`: a Contact with more than one
+   * delegate writing to them has one Conversation per delegate, and every
+   * one of them carries the same `referenceDelegateId`. `null` only for a
+   * pre-PKG-014 Contact that was never assigned (no Conversation at
+   * migration time) and still has none.
+   */
+  referenceDelegateId: string | null;
+  lastMessage: {
+    body: string;
+    direction: "INBOUND" | "OUTBOUND";
+    createdAt: Date;
+    deliveryStatus: MessageDeliveryStatus;
+    sentFromDevice: boolean;
+  } | null;
   unread: boolean;
 }
 
+/**
+ * The Inbox's four views (docs/ui/INBOX.md §2), in "who needs attention"
+ * order. `pending`: the Contact spoke last (docs/ui/INBOX.md §1, the
+ * primary "needs attention" signal) — it is not `unread`, since a
+ * conversation can be read but still awaiting a reply.
+ */
+export type InboxView = "pending" | "unread" | "unassigned" | "all";
+
 export interface ListConversationsFilters {
   channel?: string;
-  unreadOnly?: boolean;
+  delegateId?: string;
+  view?: InboxView;
+  /** Matches contact name, contact phone, or the last message's text. */
+  search?: string;
+  /** Restricts to one Contact's Conversations — the ficha's "Otras conversaciones" (UI-10a). */
+  contactId?: string;
 }
 
 /**
- * Inbox listing (PKG-004): every Conversation of the organization with its
- * Contact, channel, delegate and last message, newest activity first — a
- * Conversation's own `updatedAt` never changes when a Message arrives, so
- * ordering by the last message's `createdAt` (not the Conversation row) is
- * what actually reflects "most recently active".
+ * One `last_message` per Conversation via `LEFT JOIN LATERAL` — a fresh
+ * `.as()` per call, since the same aliased subquery cannot be joined more
+ * than once across the independent queries below (the list, and each of
+ * the four view counts).
+ */
+function lastMessageLateralQuery() {
+  return db
+    .select({
+      id: messages.id,
+      body: messages.body,
+      direction: messages.direction,
+      createdAt: messages.createdAt,
+      deliveryStatus: messages.deliveryStatus,
+      sentFromDevice: messages.sentFromDevice,
+    })
+    .from(messages)
+    .where(eq(messages.conversationId, conversations.id))
+    .orderBy(desc(messages.createdAt))
+    .limit(1)
+    .as("last_message");
+}
+
+/**
+ * The condition that defines each view. `unread` additionally requires a
+ * real last message (`isNotNull(lastMessage.id)`): without it, a
+ * message-less Conversation with no `lastReadAt` would otherwise read as
+ * "unread" by the bare "never read" rule.
+ */
+function inboxViewCondition(view: InboxView, lastMessage: ReturnType<typeof lastMessageLateralQuery>) {
+  switch (view) {
+    case "pending":
+      return eq(lastMessage.direction, "INBOUND");
+    case "unread":
+      return and(
+        isNotNull(lastMessage.id),
+        or(isNull(conversations.lastReadAt), gt(lastMessage.createdAt, conversations.lastReadAt)),
+      );
+    case "unassigned":
+      return eq(contacts.isUnassigned, true);
+    case "all":
+      return undefined;
+  }
+}
+
+function inboxFilterConditions(
+  organizationId: string,
+  member: VisibilityMember,
+  filters: Pick<ListConversationsFilters, "channel" | "delegateId" | "search" | "contactId">,
+  lastMessage: ReturnType<typeof lastMessageLateralQuery>,
+) {
+  return and(
+    eq(conversations.organizationId, organizationId),
+    // PKG-014: a DELEGATE only sees a Conversation whose Contact they are
+    // the reference delegate for, or currently have "acceso temporal" to —
+    // an ADMIN gets `undefined` (no filter), same as everywhere else this
+    // condition is used.
+    contactVisibilityCondition(organizationId, member, conversations.contactId),
+    filters.channel ? eq(conversations.channel, filters.channel) : undefined,
+    filters.delegateId ? eq(messagingAccounts.delegateId, filters.delegateId) : undefined,
+    filters.contactId ? eq(conversations.contactId, filters.contactId) : undefined,
+    filters.search
+      ? or(
+          ilike(contacts.name, `%${filters.search}%`),
+          ilike(contacts.phoneE164, `%${filters.search}%`),
+          ilike(lastMessage.body, `%${filters.search}%`),
+        )
+      : undefined,
+  );
+}
+
+/**
+ * Inbox listing (PKG-004, rebuilt in UI-5 on a `LATERAL` join): every
+ * Conversation of the organization with its Contact, channel, delegate and
+ * last message, newest activity first. Replaces the original "load every
+ * message of every conversation to find the newest one" query
+ * (docs/ui/INBOX.md §1) — this fetches exactly one message row per
+ * conversation, in the database, and does the view/search filtering and
+ * the ordering in SQL instead of in JS.
  */
 export async function listConversationsWithPreview(
   organizationId: string,
+  member: VisibilityMember,
   filters: ListConversationsFilters = {},
 ): Promise<ConversationPreview[]> {
+  const lastMessage = lastMessageLateralQuery();
   const rows = await db
     .select({
       conversation: conversations,
       contactName: contacts.name,
       contactIsUnassigned: contacts.isUnassigned,
       delegateId: messagingAccounts.delegateId,
+      // The active assignment row, if any — `LEFT JOIN`, not inner: a
+      // pre-PKG-014 Contact that was never assigned has none, and this must
+      // not drop its Conversation from the list. Safe as a plain one-to-one
+      // join (not a LATERAL) because the partial unique index guarantees at
+      // most one row per Contact with `ended_at IS NULL`.
+      referenceDelegateId: contactAssignments.delegateId,
+      // Individual columns, not the whole `lastMessage` subquery as one
+      // field: Drizzle only allows embedding a joined subquery as-is when
+      // it selects exactly one column (its "scalar subquery" shape).
+      lastMessageId: lastMessage.id,
+      lastMessageBody: lastMessage.body,
+      lastMessageDirection: lastMessage.direction,
+      lastMessageCreatedAt: lastMessage.createdAt,
+      lastMessageDeliveryStatus: lastMessage.deliveryStatus,
+      lastMessageSentFromDevice: lastMessage.sentFromDevice,
     })
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+    .leftJoin(contactAssignments, and(eq(contactAssignments.contactId, contacts.id), isNull(contactAssignments.endedAt)))
+    .leftJoinLateral(lastMessage, sql`true`)
     .where(
       and(
-        eq(conversations.organizationId, organizationId),
-        filters.channel ? eq(conversations.channel, filters.channel) : undefined,
+        inboxFilterConditions(organizationId, member, filters, lastMessage),
+        inboxViewCondition(filters.view ?? "all", lastMessage),
       ),
-    );
+    )
+    // Newest activity first, inbound or outbound — a reply moves its
+    // conversation to the top, same as a WhatsApp chat list. `coalesce`
+    // with the conversation's own creation time: a bare `DESC` sorts NULLs
+    // first in PostgreSQL, which would pin every message-less conversation
+    // above all real activity.
+    .orderBy(desc(sql`coalesce(${lastMessage.createdAt}, ${conversations.createdAt})`));
 
-  const conversationIds = rows.map((row) => row.conversation.id);
-  const lastMessagesByConversation = new Map<string, (typeof messages.$inferSelect)>();
-  if (conversationIds.length > 0) {
-    const recentMessages = await db
-      .select()
-      .from(messages)
-      .where(inArray(messages.conversationId, conversationIds))
-      .orderBy(desc(messages.createdAt));
-    for (const message of recentMessages) {
-      if (!lastMessagesByConversation.has(message.conversationId)) {
-        lastMessagesByConversation.set(message.conversationId, message);
-      }
-    }
-  }
+  return rows.map((row): ConversationPreview => ({
+    id: row.conversation.id,
+    contactId: row.conversation.contactId,
+    contactName: row.contactName,
+    contactIsUnassigned: row.contactIsUnassigned,
+    channel: row.conversation.channel,
+    delegateId: row.delegateId,
+    referenceDelegateId: row.referenceDelegateId,
+    lastMessage: row.lastMessageId
+      ? {
+          body: row.lastMessageBody!,
+          direction: row.lastMessageDirection!,
+          createdAt: row.lastMessageCreatedAt!,
+          deliveryStatus: row.lastMessageDeliveryStatus!,
+          sentFromDevice: row.lastMessageSentFromDevice!,
+        }
+      : null,
+    unread: isConversationUnread(row.lastMessageCreatedAt, row.conversation.lastReadAt),
+  }));
+}
 
-  const previews = rows.map((row): ConversationPreview => {
-    const lastMessage = lastMessagesByConversation.get(row.conversation.id) ?? null;
-    return {
-      id: row.conversation.id,
-      contactId: row.conversation.contactId,
-      contactName: row.contactName,
-      contactIsUnassigned: row.contactIsUnassigned,
-      channel: row.conversation.channel,
-      delegateId: row.delegateId,
-      lastMessage: lastMessage
-        ? { body: lastMessage.body, direction: lastMessage.direction, createdAt: lastMessage.createdAt }
-        : null,
-      unread: isConversationUnread(lastMessage?.createdAt ?? null, row.conversation.lastReadAt),
-    };
-  });
+export type InboxViewCounts = Record<InboxView, number>;
 
-  const filtered = filters.unreadOnly ? previews.filter((preview) => preview.unread) : previews;
-  return filtered.sort((a, b) => {
-    const aTime = a.lastMessage?.createdAt.getTime() ?? 0;
-    const bTime = b.lastMessage?.createdAt.getTime() ?? 0;
-    return bTime - aTime;
-  });
+/**
+ * Counts for the Inbox's `ContextNav` badges (docs/ui/INBOX.md §2).
+ * Answers "how many, ignoring the search box" — `channel`/`delegateId`
+ * narrow which mailbox you're counting, same as the list; free-text
+ * `search` does not, the same way Gmail's folder counts do not react to
+ * whatever is currently typed in its search bar.
+ */
+export async function countConversationsByView(
+  organizationId: string,
+  member: VisibilityMember,
+  filters: Pick<ListConversationsFilters, "channel" | "delegateId"> = {},
+): Promise<InboxViewCounts> {
+  const views: InboxView[] = ["pending", "unread", "unassigned", "all"];
+  const entries = await Promise.all(
+    views.map(async (view) => {
+      const lastMessage = lastMessageLateralQuery();
+      const [row] = await db
+        .select({ value: count() })
+        .from(conversations)
+        .innerJoin(contacts, eq(contacts.id, conversations.contactId))
+        .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
+        .leftJoinLateral(lastMessage, sql`true`)
+        .where(and(inboxFilterConditions(organizationId, member, filters, lastMessage), inboxViewCondition(view, lastMessage)));
+      return [view, row?.value ?? 0] as const;
+    }),
+  );
+  return Object.fromEntries(entries) as InboxViewCounts;
 }
 
 export interface ConversationDetails {
   conversation: typeof conversations.$inferSelect;
   contact: typeof contacts.$inferSelect;
   delegateId: string;
+  /** The Contact's current reference delegate (PKG-014) — see `ConversationPreview.referenceDelegateId`. */
+  referenceDelegateId: string | null;
 }
 
-/** Conversation detail view (PKG-004): the Conversation plus its Contact and owning delegate, scoped to `organizationId`. */
+/**
+ * Conversation detail view (PKG-004): the Conversation plus its Contact and
+ * owning delegate, scoped to `organizationId` and, since PKG-014, to
+ * `member`'s visibility — a DELEGATE gets `null` (same as "not found") for
+ * a Conversation they are not the reference delegate for and have no
+ * temporary access to, which `/inbox/[id]` already turns into `notFound()`.
+ */
 export async function getConversationWithDetails(
   organizationId: string,
+  member: VisibilityMember,
   conversationId: string,
 ): Promise<ConversationDetails | null> {
   const [row] = await db
@@ -524,11 +789,19 @@ export async function getConversationWithDetails(
       conversation: conversations,
       contact: contacts,
       delegateId: messagingAccounts.delegateId,
+      referenceDelegateId: contactAssignments.delegateId,
     })
     .from(conversations)
     .innerJoin(contacts, eq(contacts.id, conversations.contactId))
     .innerJoin(messagingAccounts, eq(messagingAccounts.id, conversations.messagingAccountId))
-    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .leftJoin(contactAssignments, and(eq(contactAssignments.contactId, contacts.id), isNull(contactAssignments.endedAt)))
+    .where(
+      and(
+        eq(conversations.organizationId, organizationId),
+        eq(conversations.id, conversationId),
+        contactVisibilityCondition(organizationId, member, conversations.contactId),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }
@@ -593,3 +866,121 @@ export async function reassignConversationContact(
 
   return updated ?? null;
 }
+
+/**
+ * What the conversation screen needs of a message, serializable so the
+ * same shape serves the first render and every poll (PKG-013).
+ */
+export interface ThreadMessage {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  body: string;
+  deliveryStatus: "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+  sentFromDevice: boolean;
+  createdAt: string;
+}
+
+export function toThreadMessage(message: typeof messages.$inferSelect): ThreadMessage {
+  return {
+    id: message.id,
+    direction: message.direction,
+    body: message.body,
+    deliveryStatus: message.deliveryStatus,
+    sentFromDevice: message.sentFromDevice,
+    createdAt: message.createdAt.toISOString(),
+  };
+}
+
+export interface ConversationThreadState {
+  messages: ThreadMessage[];
+  serviceWindow: { status: ServiceWindowState["status"]; expiresAt: string | null };
+}
+
+/**
+ * The live part of a conversation — its messages and whether the reply
+ * window is open — for the first render and for the screen's polling
+ * (PKG-013). Having it open is what "read" means (PKG-004), so every poll
+ * that sees new inbound messages keeps the conversation read.
+ *
+ * Visibility-checked (PKG-014), not just organization-scoped: this backs
+ * the poll endpoint the open conversation screen hits every few seconds
+ * independently of the page load that first checked access, so it has to
+ * re-check on every call rather than trust that a visible page got here.
+ */
+export async function getConversationThreadState(
+  organizationId: string,
+  member: VisibilityMember,
+  conversationId: string,
+  // `false` for a prefetch (the Inbox loads a conversation on hover so it
+  // opens instantly) — hovering a row must not mark it read.
+  { markRead = true }: { markRead?: boolean } = {},
+): Promise<ConversationThreadState | null> {
+  const details = await getConversationWithDetails(organizationId, member, conversationId);
+  if (!details) {
+    return null;
+  }
+  const conversation = details.conversation;
+  if (markRead) {
+    await markConversationRead(organizationId, conversationId);
+  }
+  const [rows, serviceWindow] = await Promise.all([
+    listMessages(organizationId, conversationId),
+    getConversationServiceWindow(organizationId, conversationId, conversation.channel),
+  ]);
+  return {
+    messages: rows.map(toThreadMessage),
+    serviceWindow: { status: serviceWindow.status, expiresAt: serviceWindow.expiresAt?.toISOString() ?? null },
+  };
+}
+
+/** Whether the conversation's channel can show "typing…" to the Contact (PKG-013). */
+export function channelSupportsTypingIndicator(channel: string): boolean {
+  return typeof getMessagingAdapter(channel)?.sendTypingIndicator === "function";
+}
+
+/**
+ * Shows "typing…" to the Contact while a member composes a reply
+ * (PKG-013). On WhatsApp the same call marks the Contact's latest message
+ * as read — they see the blue double tick — which the user accepted
+ * explicitly (docs/DECISIONS.md, 2026-09-25). Best effort: a failure here
+ * must never get in the way of writing the reply, so it is logged, not
+ * thrown.
+ */
+export async function signalTyping(organizationId: string, conversationId: string): Promise<void> {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) {
+    throw new Error("Conversation not found in this organization.");
+  }
+  const adapter = getMessagingAdapter(conversation.channel);
+  if (!adapter?.sendTypingIndicator) {
+    return;
+  }
+  // Outside the window the provider would reject it, and there is no reply
+  // on its way anyway: the composer is hidden.
+  const serviceWindow = await getConversationServiceWindow(organizationId, conversationId, conversation.channel);
+  if (serviceWindow.status === "CLOSED") {
+    return;
+  }
+  const account = await getMessagingAccount(organizationId, conversation.messagingAccountId);
+  const [lastInbound] = await db
+    .select({ externalMessageId: messages.externalMessageId })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.organizationId, organizationId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.direction, "INBOUND"),
+      ),
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(1);
+  if (!account || !lastInbound) {
+    return;
+  }
+  try {
+    await adapter.sendTypingIndicator(account, conversation, lastInbound.externalMessageId);
+  } catch (error) {
+    console.warn(`[typing] ${conversation.channel}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+

@@ -32,6 +32,9 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       E2E_FAKE_MESSAGING_CHANNEL: "true",
+      // Deterministic fake embeddings so uploads/search work without an OpenAI key.
+      E2E_FAKE_EMBEDDINGS: "true",
+      OPENAI_API_KEY: "",
       // Better Auth's default rate limiter is only active in production —
       // exactly the mode `next build && next start` runs — and a full E2E
       // suite registering several distinct users within a few seconds trips

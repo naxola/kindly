@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { createCase, updateCase } from "@/modules/cases/service";
 import { caseStatus, type CaseStatus } from "@/modules/cases/schema";
+import { linkConversationToCase, unlinkConversationFromCase } from "@/modules/conversations/service";
+import { recordActivity } from "@/modules/audit/service";
 
 function isValidStatus(value: string): value is CaseStatus {
   return (caseStatus.enumValues as readonly string[]).includes(value);
@@ -55,4 +57,70 @@ export async function updateCaseAction(caseId: string, formData: FormData) {
 
   revalidatePath("/cases");
   revalidatePath(`/cases/${caseId}`);
+}
+
+/** Case detail page (Fase 6): link one of the Contact's conversations to this Case. */
+export async function linkConversationToCaseAction(caseId: string, formData: FormData) {
+  const member = await requireCurrentOrganizationMember();
+  const conversationId = String(formData.get("conversationId") ?? "").trim();
+  if (!conversationId) {
+    throw new Error("Conversation is required.");
+  }
+
+  await linkConversationToCase(member.organizationId, conversationId, caseId);
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "CASE_CONVERSATION_LINKED",
+    actorUserId: member.userId,
+    entityType: "case",
+    entityId: caseId,
+    metadata: { conversationId },
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+/** Case detail page (Fase 6): remove a Conversation ↔ Case link. */
+export async function unlinkConversationFromCaseAction(caseId: string, formData: FormData) {
+  const member = await requireCurrentOrganizationMember();
+  const conversationId = String(formData.get("conversationId") ?? "").trim();
+  if (!conversationId) {
+    throw new Error("Conversation is required.");
+  }
+
+  await unlinkConversationFromCase(member.organizationId, conversationId, caseId);
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "CASE_CONVERSATION_UNLINKED",
+    actorUserId: member.userId,
+    entityType: "case",
+    entityId: caseId,
+    metadata: { conversationId },
+  });
+
+  revalidatePath(`/cases/${caseId}`);
+}
+
+/**
+ * Inbox ficha quick action (Fase 6, UI-10a's "Casos abiertos" section): link
+ * the conversation currently open in the panel to one of the Contact's
+ * existing cases. No `revalidatePath` — the ficha reloads its own data via
+ * `onMutated()`, same as `markContactIdentifiedAction`.
+ */
+export async function linkCurrentConversationToCaseAction(conversationId: string, formData: FormData) {
+  const member = await requireCurrentOrganizationMember();
+  const caseId = String(formData.get("caseId") ?? "").trim();
+  if (!caseId) {
+    throw new Error("Case is required.");
+  }
+
+  await linkConversationToCase(member.organizationId, conversationId, caseId);
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "CASE_CONVERSATION_LINKED",
+    actorUserId: member.userId,
+    entityType: "case",
+    entityId: caseId,
+    metadata: { conversationId },
+  });
 }

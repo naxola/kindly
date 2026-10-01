@@ -1,11 +1,31 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
-import { getCase } from "@/modules/cases/service";
-import { caseStatus } from "@/modules/cases/schema";
+import Link from "next/link";
+import { getCaseForMember } from "@/modules/cases/service";
+import { CASE_STATUS_TRANSITIONS } from "@/modules/cases/domain";
 import { getContact } from "@/modules/contacts/service";
-import { updateCaseAction } from "@/modules/cases/actions";
+import { updateCaseAction, linkConversationToCaseAction, unlinkConversationFromCaseAction } from "@/modules/cases/actions";
+import { listConversationsWithPreview, listLinkedConversations } from "@/modules/conversations/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { ActivityFeed } from "@/app/(app)/activity-feed";
+import { CASE_STATUS_LABELS } from "@/app/(app)/cases/status-labels";
+import { PageContainer } from "@/components/patterns/page-container";
+import { PageHeader } from "@/components/patterns/page-header";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { RelativeTime } from "@/components/ui/relative-time";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { pageTitle } from "@/lib/page-title";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const member = await requireCurrentOrganizationMember();
+  const caseRecord = await getCaseForMember(member.organizationId, member, id);
+  return { title: pageTitle(caseRecord?.title, "Casos", member.organizationName) };
+}
 
 export default async function CaseDetailPage({
   params,
@@ -14,86 +34,127 @@ export default async function CaseDetailPage({
 }) {
   const { id } = await params;
   const member = await requireCurrentOrganizationMember();
-  const caseRecord = await getCase(member.organizationId, id);
+  const caseRecord = await getCaseForMember(member.organizationId, member, id);
 
   if (!caseRecord) {
     notFound();
   }
 
-  const [contact, members, activities] = await Promise.all([
+  const [contact, members, activities, linkedConversations, contactConversations] = await Promise.all([
     getContact(member.organizationId, caseRecord.contactId),
     listOrganizationMembers(member.organizationId),
     listActivitiesForEntity(member.organizationId, "case", caseRecord.id),
+    listLinkedConversations(member.organizationId, caseRecord.id),
+    listConversationsWithPreview(member.organizationId, member, { contactId: caseRecord.contactId }),
   ]);
 
   const updateThisCase = updateCaseAction.bind(null, caseRecord.id);
+  const linkConversationToThisCase = linkConversationToCaseAction.bind(null, caseRecord.id);
+  const unlinkConversationFromThisCase = unlinkConversationFromCaseAction.bind(null, caseRecord.id);
+  const availableStatuses = [caseRecord.status, ...CASE_STATUS_TRANSITIONS[caseRecord.status]];
+  const delegates = members.filter((m) => m.role === "DELEGATE");
+  const linkedConversationIds = new Set(linkedConversations.map((lc) => lc.conversation.id));
+  const linkableConversations = contactConversations.filter((c) => !linkedConversationIds.has(c.id));
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold">{caseRecord.title}</h1>
-        <p className="text-sm text-zinc-500">Contact: {contact?.name ?? "—"}</p>
-      </div>
+    <PageContainer>
+      <PageHeader title={caseRecord.title} description={`Contacto: ${contact?.name ?? "—"}`} />
 
-      <form action={updateThisCase} className="flex flex-col gap-2 rounded border border-zinc-200 p-4">
-        <h2 className="text-sm font-medium">Editar</h2>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <input
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            type="text"
-            name="title"
-            defaultValue={caseRecord.title}
-            required
-          />
-          <select
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            name="status"
-            aria-label="Estado"
-            defaultValue={caseRecord.status}
-            required
-          >
-            {caseStatus.enumValues.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <input
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            type="text"
-            name="priority"
-            defaultValue={caseRecord.priority ?? ""}
-            placeholder="Prioridad (texto libre)"
-          />
-          <select
-            className="rounded border border-zinc-300 px-3 py-2 text-sm"
-            name="assignedTo"
-            aria-label="Asignar a"
-            defaultValue={caseRecord.assignedTo ?? ""}
-          >
-            <option value="">Sin asignar</option>
-            {members.map((m) => (
-              <option key={m.userId} value={m.userId}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-          <textarea
-            className="rounded border border-zinc-300 px-3 py-2 text-sm sm:col-span-2"
-            name="description"
-            defaultValue={caseRecord.description ?? ""}
-            rows={3}
-          />
-        </div>
-        <button
-          type="submit"
-          className="mt-1 w-fit rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-        >
-          Guardar
-        </button>
-      </form>
+      <Card className="max-w-page-sm">
+        <form action={updateThisCase} className="contents">
+          <CardHeader>
+            <CardTitle>Editar</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Field label="Título">
+              <Input type="text" name="title" defaultValue={caseRecord.title} required />
+            </Field>
+            <Field label="Estado">
+              <NativeSelect name="status" defaultValue={caseRecord.status} required>
+                {availableStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {CASE_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Prioridad" optional description="Texto libre.">
+              <Input type="text" name="priority" defaultValue={caseRecord.priority ?? ""} />
+            </Field>
+            <Field label="Asignar a" optional description="Solo delegados.">
+              <NativeSelect name="assignedTo" defaultValue={caseRecord.assignedTo ?? ""}>
+                <option value="">Sin asignar</option>
+                {delegates.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field label="Descripción" optional>
+              <Textarea name="description" defaultValue={caseRecord.description ?? ""} rows={3} />
+            </Field>
+          </CardContent>
+          <CardFooter>
+            <SubmitButton>Guardar</SubmitButton>
+          </CardFooter>
+        </form>
+      </Card>
+
+      <Card className="max-w-page-sm">
+        <CardHeader>
+          <CardTitle>Conversaciones vinculadas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {linkedConversations.length === 0 ? (
+            <EmptyState variant="inline" title="Sin conversaciones vinculadas" />
+          ) : (
+            <ul className="flex flex-col">
+              {linkedConversations.map(({ conversation, linkedAt }) => (
+                <li
+                  key={conversation.id}
+                  className="flex items-center justify-between gap-2 border-b border-border py-2 last:border-0"
+                >
+                  <Link
+                    href={`/inbox?conversation=${conversation.id}`}
+                    className="focus-ring flex flex-col rounded-sm type-body text-foreground hover:underline"
+                  >
+                    <span>{conversation.channel}</span>
+                    <RelativeTime date={linkedAt} className="type-caption text-foreground-lighter" />
+                  </Link>
+                  <form action={unlinkConversationFromThisCase}>
+                    <input type="hidden" name="conversationId" value={conversation.id} />
+                    <SubmitButton variant="ghost" size="sm">
+                      Quitar
+                    </SubmitButton>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+        {linkableConversations.length > 0 && (
+          <CardFooter>
+            <form action={linkConversationToThisCase} className="flex w-full items-center gap-2">
+              <NativeSelect name="conversationId" aria-label="Conversación a vincular" required defaultValue="" className="w-auto">
+                <option value="" disabled>
+                  Elige una conversación
+                </option>
+                {linkableConversations.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.channel}
+                  </option>
+                ))}
+              </NativeSelect>
+              <SubmitButton variant="outline" size="sm">
+                Vincular
+              </SubmitButton>
+            </form>
+          </CardFooter>
+        )}
+      </Card>
 
       <ActivityFeed activities={activities} />
-    </div>
+    </PageContainer>
   );
 }

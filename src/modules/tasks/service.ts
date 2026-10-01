@@ -1,8 +1,9 @@
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { tasks } from "@/modules/tasks/schema";
 import { getContact } from "@/modules/contacts/service";
+import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { getCase } from "@/modules/cases/service";
 import { isOrganizationMember } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
@@ -33,6 +34,68 @@ export async function getTask(organizationId: string, taskId: string) {
     .where(and(eq(tasks.organizationId, organizationId), eq(tasks.id, taskId)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * `tasks.contactId` is nullable (a general task with no afiliado attached),
+ * unlike `cases.contactId` — so a Task is visible when it has no Contact at
+ * all, *or* when the one it has is visible. `undefined` for an ADMIN (no
+ * filter): folding `contactVisibilityCondition`'s own `undefined` into an
+ * `or(isNull(...), undefined)` would silently collapse to "only contactless
+ * tasks", hiding every other Task from an ADMIN — this checks that case
+ * explicitly instead.
+ */
+function taskVisibilityCondition(organizationId: string, member: VisibilityMember): SQL | undefined {
+  const contactCondition = contactVisibilityCondition(organizationId, member, tasks.contactId);
+  if (!contactCondition) {
+    return undefined;
+  }
+  return or(isNull(tasks.contactId), contactCondition);
+}
+
+/**
+ * Visibility-scoped variants (PKG-014). `listTasks`/`getTask` above stay
+ * unscoped for internal FK-integrity checks; `listPendingTasks` has no
+ * caller yet (pre-existing, reserved for a future dashboard) so it gets no
+ * member-scoped twin until something needs one.
+ */
+export async function listTasksForMember(organizationId: string, member: VisibilityMember) {
+  return db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.organizationId, organizationId), taskVisibilityCondition(organizationId, member)))
+    .orderBy(desc(tasks.createdAt));
+}
+
+export async function getTaskForMember(organizationId: string, member: VisibilityMember, taskId: string) {
+  const [row] = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(eq(tasks.organizationId, organizationId), eq(tasks.id, taskId), taskVisibilityCondition(organizationId, member)),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * A single Contact's Tasks, for the conversation ficha (UI-10a). Unlike
+ * `taskVisibilityCondition` (which also admits `contactId IS NULL` general
+ * tasks), a specific `contactId` is already given, so only
+ * `contactVisibilityCondition` applies.
+ */
+export async function listTasksForContact(organizationId: string, member: VisibilityMember, contactId: string) {
+  return db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.organizationId, organizationId),
+        eq(tasks.contactId, contactId),
+        contactVisibilityCondition(organizationId, member, tasks.contactId),
+      ),
+    )
+    .orderBy(desc(tasks.createdAt));
 }
 
 async function assertRelatedEntitiesBelongToOrganization(

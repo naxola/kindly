@@ -4,6 +4,9 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/db/client";
 import { authSchema } from "@/modules/auth/schema";
 import { ensureOrganizationForUser } from "@/modules/organizations/bootstrap";
+import { sendEmail } from "@/modules/email/sender";
+import { authBaseOrigin, vercelTrustedOrigins } from "@/modules/auth/trusted-origins";
+import { buildPasswordResetEmail, PASSWORD_RESET_TOKEN_TTL_SECONDS } from "@/modules/auth/password-reset-email";
 
 const secret = process.env.BETTER_AUTH_SECRET;
 
@@ -17,7 +20,8 @@ if (!secret) {
 /**
  * Better Auth instance for Kindly.
  *
- * Scope for PKG-001: email + password only. No social/OAuth providers, no
+ * Scope for PKG-001: email + password only (plus password reset by email
+ * since PKG-012). No social/OAuth providers, no
  * organization plugin (see docs/DECISIONS.md for why Organization/
  * OrganizationMember are hand-rolled instead of using Better Auth's
  * `organization` plugin), no magic links, no 2FA — all out of scope until a
@@ -29,7 +33,8 @@ if (!secret) {
  */
 export const auth = betterAuth({
   secret,
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: authBaseOrigin(),
+  trustedOrigins: vercelTrustedOrigins(),
   // Better Auth's default rate limiting (3 requests per 10s per IP on
   // /sign-up, /sign-in, ...) is disabled outside production — which is
   // exactly why it never showed up in `next dev` during PKG-001/002/003,
@@ -49,6 +54,16 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    // PKG-012. Better Auth answers `/request-password-reset` identically
+    // whether or not the email exists (no account enumeration) and
+    // rate-limits it to 3 per minute per IP by default. A failed send is
+    // logged by Better Auth, never surfaced to the requester.
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail(buildPasswordResetEmail({ to: user.email, name: user.name, url }));
+    },
+    resetPasswordTokenExpiresIn: PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    // Whoever reset the password may be locking out someone who had it.
+    revokeSessionsOnPasswordReset: true,
   },
   databaseHooks: {
     user: {

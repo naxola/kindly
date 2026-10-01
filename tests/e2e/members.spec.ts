@@ -12,6 +12,15 @@ import postgres from "postgres";
  * The invitation link is read from the database rather than scraped off
  * the page: its token is generated server-side, and the page shows it as
  * plain text for the ADMIN to copy (Kindly does not send email yet).
+ *
+ * UI-4: invite/revoke moved into a Dialog/ConfirmDialog. The trigger and
+ * the confirming button inside the dialog share a substring ("Invitar",
+ * "Revocar"), so the in-dialog click is scoped to `getByRole("dialog")`
+ * to stay unambiguous.
+ *
+ * UI-7: the sidebar's "Miembros" item moved under a single "Organización"
+ * item, so reaching `/organization/members` for test setup goes straight
+ * there instead of clicking through a link that no longer exists.
  */
 
 const sql = postgres(process.env.DATABASE_URL!, { max: 1 });
@@ -27,7 +36,7 @@ async function register(page: import("@playwright/test").Page, name: string, ema
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
 }
 
 test("an ADMIN invites a DELEGATE, who accepts and joins the same organization", async ({ browser }) => {
@@ -37,11 +46,12 @@ test("an ADMIN invites a DELEGATE, who accepts and joins the same organization",
   await register(adminPage, adminName, `${randomUUID()}@example.com`);
 
   const inviteeEmail = `${randomUUID()}@example.com`;
-  await adminPage.getByRole("link", { name: "Miembros" }).click();
-  await expect(adminPage).toHaveURL(/\/members$/);
-  await adminPage.getByLabel("Email").fill(inviteeEmail);
-  await adminPage.getByLabel("Rol").selectOption("DELEGATE");
+  await adminPage.goto("/organization/members");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
+  const inviteDialog = adminPage.getByRole("dialog");
+  await inviteDialog.getByLabel("Email").fill(inviteeEmail);
+  await inviteDialog.getByLabel("Rol").selectOption("DELEGATE");
+  await inviteDialog.getByRole("button", { name: "Invitar" }).click();
   await expect(adminPage.getByText(inviteeEmail)).toBeVisible();
 
   const [invitation] = await sql`
@@ -58,12 +68,12 @@ test("an ADMIN invites a DELEGATE, who accepts and joins the same organization",
   await inviteePage.getByPlaceholder("Nombre").fill(inviteeName);
   await inviteePage.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await inviteePage.getByRole("button", { name: "Aceptar invitación" }).click();
-  await expect(inviteePage).toHaveURL(/\/dashboard$/);
+  await expect(inviteePage).toHaveURL(/\/inbox$/);
 
   // They are inside the ADMIN's organization, seeing the ADMIN as a peer.
   // Scoped to the members table: the org is named after the ADMIN, so their
   // name also appears in the layout header.
-  await inviteePage.getByRole("link", { name: "Miembros" }).click();
+  await inviteePage.goto("/organization/members");
   const membersTable = inviteePage.getByRole("table");
   await expect(membersTable.getByText(adminName)).toBeVisible();
   await expect(membersTable.getByText(inviteeName)).toBeVisible();
@@ -85,9 +95,11 @@ test("a revoked invitation explains itself instead of registering anyone", async
   await register(adminPage, `Admin ${randomUUID().slice(0, 8)}`, `${randomUUID()}@example.com`);
 
   const inviteeEmail = `${randomUUID()}@example.com`;
-  await adminPage.getByRole("link", { name: "Miembros" }).click();
-  await adminPage.getByLabel("Email").fill(inviteeEmail);
+  await adminPage.goto("/organization/members");
   await adminPage.getByRole("button", { name: "Invitar" }).click();
+  const inviteDialog = adminPage.getByRole("dialog");
+  await inviteDialog.getByLabel("Email").fill(inviteeEmail);
+  await inviteDialog.getByRole("button", { name: "Invitar" }).click();
   await expect(adminPage.getByText(inviteeEmail)).toBeVisible();
 
   const [invitation] = await sql`
@@ -95,6 +107,7 @@ test("a revoked invitation explains itself instead of registering anyone", async
   `;
 
   await adminPage.getByRole("button", { name: "Revocar" }).click();
+  await adminPage.getByRole("dialog").getByRole("button", { name: "Revocar invitación" }).click();
   await expect(adminPage.getByText("No hay invitaciones pendientes.")).toBeVisible();
 
   const inviteeContext = await browser.newContext();

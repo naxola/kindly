@@ -70,6 +70,30 @@ export async function receiveWebhook(
   };
 }
 
+/**
+ * The `GET` side of the webhook route: a provider's subscription handshake
+ * (PKG-011). Nothing is persisted — it is not an event, just proof that
+ * whoever registered the URL knows the verify token.
+ */
+export async function verifyWebhookSubscription(
+  channel: string,
+  accountId: string,
+  query: URLSearchParams,
+): Promise<{ status: 404 } | { status: 403 } | { status: 200; body: string }> {
+  const adapter = getMessagingAdapter(channel);
+  if (!adapter?.verifyWebhookChallenge) {
+    return { status: 404 };
+  }
+
+  const account = await getMessagingAccountByChannelAndId(channel, accountId);
+  if (!account) {
+    return { status: 404 };
+  }
+
+  const body = adapter.verifyWebhookChallenge(query);
+  return body === null ? { status: 403 } : { status: 200, body };
+}
+
 async function processWebhookEvent(
   webhookEventId: string,
   adapter: MessagingAdapter,

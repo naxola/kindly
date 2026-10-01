@@ -1,64 +1,30 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 
 /**
- * Kindly's visual language.
- *
- * The palette is ink on cool paper: a genuinely blue near-black, the colour
- * of pen on an official document, over a grey-cool white that is explicitly
- * not cream. The one accent is a deep verification green, borrowed from the
- * "vigente" stamp on a regulation — the product's whole promise is that an
- * answer can be traced to a source that is still in force.
- *
- * The evidence colours are not decoration: SUFFICIENT / PARTIAL /
- * INSUFFICIENT are a real value in the domain (docs/PRODUCT.md sección 10),
- * so they get real, muted, documentary colours rather than a traffic light.
+ * Global base styles. Every colour, radius, shadow and dimension comes from
+ * src/styles/tokens.css (docs/ui/TOKENS.md); this file only wires them to
+ * the document and keeps the public site's document typography (PKG-010).
  */
-:root {
-  --background: #ffffff;
-  --foreground: #101c33;
 
-  --ink: #101c33;
-  --ink-soft: #46556f;
-  --ink-faint: #7a879e;
-  --paper: #f5f7f9;
-  --line: #dde3ea;
-  --stamp: #15654a;
-  --stamp-soft: #e6f0eb;
+@layer base {
+  /* A bare `border` uses the default border token, not currentColor. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
 
-  --evidence-sufficient: #15654a;
-  --evidence-partial: #8a6314;
-  --evidence-insufficient: #8c2f2f;
-  /* Risk flagged on a suggestion. Same hue as INSUFFICIENT evidence but a
-     separate token: they are different things and must stay free to diverge. */
-  --alert: #8c2f2f;
-}
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), system-ui, sans-serif;
+  }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-ink: var(--ink);
-  --color-ink-soft: var(--ink-soft);
-  --color-ink-faint: var(--ink-faint);
-  --color-paper: var(--paper);
-  --color-line: var(--line);
-  --color-stamp: var(--stamp);
-  --color-stamp-soft: var(--stamp-soft);
-  --color-evidence-sufficient: var(--evidence-sufficient);
-  --color-evidence-partial: var(--evidence-partial);
-  --color-evidence-insufficient: var(--evidence-insufficient);
-  --color-alert: var(--alert);
-
-  /* Sans is the voice that sells; serif is the voice of the documents the
-     product produces. See the public layout for how the two are used. */
-  --font-sans: var(--font-inter);
-  --font-document: var(--font-literata);
-  --font-mono: var(--font-geist-mono);
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--foreground);
+  }
 }
 
 /* Headlines are set tight and heavy; the type does the work, not a colour

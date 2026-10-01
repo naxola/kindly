@@ -5,7 +5,7 @@ import postgres from "postgres";
 
 /**
  * PKG-004 happy path (project/CURRENT_TASK.md): connect the fake channel
- * from /channels (only reachable because playwright.config.ts starts the
+ * from /organization/channels (only reachable because playwright.config.ts starts the
  * server with `E2E_FAKE_MESSAGING_CHANNEL=true`, see src/instrumentation.ts)
  * → simulate a real inbound webhook → see it in /inbox with the "Sin
  * identificar" badge and unread → open it → mark it identified → reply →
@@ -26,8 +26,8 @@ test.afterAll(async () => {
 });
 
 /**
- * Walks the coexistence onboarding (PKG-008) from /channels to a connected
- * account: choose the coexistence path, acknowledge every preflight check,
+ * Walks the coexistence onboarding (PKG-008) from /organization/channels to
+ * a connected account: choose the coexistence path, acknowledge every preflight check,
  * and submit.
  */
 async function connectCoexistenceChannel(page: import("@playwright/test").Page) {
@@ -41,10 +41,10 @@ async function connectCoexistenceChannel(page: import("@playwright/test").Page) 
     await checks.nth(index).check();
   }
   await page.getByRole("button", { name: "Continuar con Facebook" }).click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await expect(page).toHaveURL(/\/organization\/channels$/);
 }
 
-async function registerAndReachDashboard(page: import("@playwright/test").Page, name: string) {
+async function registerAndReachInbox(page: import("@playwright/test").Page, name: string) {
   const email = `${randomUUID()}@example.com`;
   await page.goto("/login");
   await page.getByText("¿No tienes cuenta? Regístrate").click();
@@ -52,17 +52,16 @@ async function registerAndReachDashboard(page: import("@playwright/test").Page, 
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Contraseña").fill("correcthorsebattery");
   await page.getByRole("button", { name: "Crear cuenta" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/inbox$/);
   return email;
 }
 
 test("connect the fake channel, receive a message, identify it, and reply", async ({ page, request }) => {
   const delegateName = `Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
   // Connect the fake channel to this newly registered delegate.
-  await page.getByRole("link", { name: "Canales" }).click();
-  await expect(page).toHaveURL(/\/channels$/);
+  await page.goto("/organization/channels");
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
@@ -95,28 +94,72 @@ test("connect the fake channel, receive a message, identify it, and reply", asyn
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
-  await expect(page.getByText("Sin identificar")).toBeVisible();
+  // "Sin identificar" also names an option of the "Mostrar" filter — scope
+  // to the list so the badge is unambiguous.
+  const conversationList = page.getByRole("list", { name: "Conversaciones" });
+  await expect(conversationList.getByText("Sin identificar", { exact: true })).toBeVisible();
 
   await page.getByText(contactName).click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
-  await expect(page.getByText("Necesito ayuda con mi caso")).toBeVisible();
-  await expect(page.getByText("Contact no identificado")).toBeVisible();
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
+  // The list stays visible next to (or behind) the open conversation
+  // (docs/ui/CHAT.md) — scope to its message log so a row's own preview
+  // text (which can read the same words) is never an ambiguous match.
+  const thread = page.getByRole("log", { name: "Mensajes" });
+  await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
+  await expect(page.getByText("Contacto no identificado")).toBeVisible();
+  // Opening it clears its unread state in the list at once, not only on the
+  // list's next 5 s poll (the short timeout is what tells the two apart).
+  await expect(conversationList.getByText(contactName)).not.toHaveClass(/font-semibold/, { timeout: 1_000 });
+
+  // A direct load of the same URL (`?conversation=<id>`, docs/ui/CHAT.md §1)
+  // must render the exact same list-next-to-conversation view.
+  await page.reload();
+  await expect(thread.getByText("Necesito ayuda con mi caso")).toBeVisible();
+  await expect(conversationList.getByText(contactName)).toBeVisible();
 
   await page.getByRole("button", { name: "Marcar como identificado" }).click();
-  await expect(page.getByText("Contact no identificado")).toHaveCount(0);
+  await expect(page.getByText("Contacto no identificado")).toHaveCount(0);
 
   // Back in the list, the unread dot and the badge are both gone.
-  await page.getByRole("link", { name: "Inbox", exact: true }).click();
+  await page.getByRole("link", { name: "Conversaciones", exact: true }).click();
   await expect(page).toHaveURL(/\/inbox$/);
-  await expect(page.getByText("Sin identificar")).toHaveCount(0);
-  await expect(page.getByText(contactName)).not.toHaveClass(/font-semibold/);
+  await expect(page.getByRole("list", { name: "Conversaciones" }).getByText("Sin identificar", { exact: true })).toHaveCount(0);
+  await expect(conversationList.getByText(contactName)).not.toHaveClass(/font-semibold/);
 
   // Reply from the conversation.
-  await page.getByText(contactName).click();
+  await conversationList.getByText(contactName).click();
   await page.getByPlaceholder("Escribe una respuesta...").fill("Claro, cuéntame más");
   await page.getByRole("button", { name: "Enviar" }).click();
-  await expect(page.getByText("Claro, cuéntame más")).toBeVisible();
-  await expect(page.getByText("SENT")).toBeVisible();
+  // PKG-013: shown at once, composer emptied, then confirmed with one tick.
+  await expect(thread.getByText("Claro, cuéntame más")).toBeVisible();
+  await expect(page.getByPlaceholder("Escribe una respuesta...")).toHaveValue("");
+  await expect(thread.getByRole("img", { name: "Enviado" })).toBeVisible();
+
+  // PKG-013: the open conversation picks up the delivery receipt and a new
+  // inbound message by itself — no reload.
+  const [sent] = await sql`
+    select external_message_id from messages
+    where messaging_account_id = ${account.id} and direction = 'OUTBOUND'
+    order by created_at desc limit 1
+  `;
+  const [conversationRow] = await sql`
+    select external_conversation_id from conversations where messaging_account_id = ${account.id} limit 1
+  `;
+  const receipts = await request.post(`/api/webhooks/fake/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify([
+      { kind: "DELIVERY_UPDATE", externalMessageId: sent.external_message_id, deliveryStatus: "DELIVERED" },
+      {
+        externalConversationId: conversationRow.external_conversation_id,
+        externalMessageId: `msg-${randomUUID()}`,
+        externalContactId: `provider-${randomUUID()}`,
+        text: "Gracias, te escribo los detalles",
+      },
+    ]),
+  });
+  expect(receipts.status()).toBe(200);
+  await expect(thread.getByText("Gracias, te escribo los detalles")).toBeVisible({ timeout: 15_000 });
+  await expect(thread.getByRole("img", { name: "Entregado" })).toBeVisible({ timeout: 15_000 });
 });
 
 /**
@@ -130,9 +173,9 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   request,
 }) => {
   const delegateName = `Echo Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales" }).click();
+  await page.goto("/organization/channels");
   await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
 
@@ -159,15 +202,19 @@ test("a message the delegate wrote on their phone shows up in the Inbox as sent 
   });
   expect(echoResponse.status()).toBe(200);
 
+  // The last message is OUTBOUND (echoed from the phone), so there is
+  // nothing "pending" from the Contact — but the default view is "Todas"
+  // (docs/ui/INBOX.md §2), every conversation, like a WhatsApp chat list.
   await expect(async () => {
     await page.goto("/inbox");
     await expect(page.getByText(contactName)).toBeVisible();
   }).toPass({ timeout: 15_000 });
 
   await page.getByText(contactName).click();
-  await expect(page).toHaveURL(/\/inbox\/.+/);
-  await expect(page.getByText("Te confirmo la cita mañana")).toBeVisible();
-  await expect(page.getByText("desde el móvil")).toBeVisible();
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
+  const thread = page.getByRole("log", { name: "Mensajes" });
+  await expect(thread.getByText("Te confirmo la cita mañana")).toBeVisible();
+  await expect(thread.getByText("desde el móvil")).toBeVisible();
 });
 
 /**
@@ -181,9 +228,9 @@ test("a conversation outside the provider window explains itself instead of offe
   request,
 }) => {
   const delegateName = `Window Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(page, delegateName);
+  await registerAndReachInbox(page, delegateName);
 
-  await page.getByRole("link", { name: "Canales" }).click();
+  await page.goto("/organization/channels");
   // fake-coex declares the WhatsApp coexistence onboarding, so connecting
   // it means walking the flow rather than pressing one button (PKG-008).
   await connectCoexistenceChannel(page);
@@ -233,22 +280,79 @@ test("a second organization sees none of the first organization's inbox", async 
   const contextA = await browser.newContext();
   const pageA = await contextA.newPage();
   const delegateName = `Isolated Delegate ${randomUUID().slice(0, 8)}`;
-  await registerAndReachDashboard(pageA, delegateName);
+  await registerAndReachInbox(pageA, delegateName);
 
-  await pageA.getByRole("link", { name: "Canales" }).click();
+  await pageA.goto("/organization/channels");
   await pageA.getByRole("button", { name: "Conectar fake", exact: true }).click();
   await expect(pageA.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
   await contextA.close();
 
   const contextB = await browser.newContext();
   const pageB = await contextB.newPage();
-  await registerAndReachDashboard(pageB, "Org B User");
+  await registerAndReachInbox(pageB, "Org B User");
 
-  await pageB.getByRole("link", { name: "Canales" }).click();
+  await pageB.goto("/organization/channels");
   await expect(pageB.getByText("Todavía no has conectado ningún canal.")).toBeVisible();
   await expect(pageB.getByText(delegateName)).toHaveCount(0);
 
-  await pageB.getByRole("link", { name: "Inbox" }).click();
+  await pageB.getByRole("link", { name: "Conversaciones", exact: true }).click();
   await expect(pageB.getByText("Todavía no hay conversaciones.")).toBeVisible();
   await contextB.close();
+});
+
+/**
+ * Real bug, found live in staging, not by any existing test: re-clicking a
+ * conversation row that is already open used to navigate to the exact URL
+ * the browser was already at, and the (then route-based) panel dropped the
+ * list entirely. `DataList` never acts on a click on the already-selected
+ * row; kept as a regression test now that the panel is client-driven.
+ */
+test("re-clicking the already-open conversation keeps the list next to the panel", async ({ page, request }) => {
+  const delegateName = `Reclick Delegate ${randomUUID().slice(0, 8)}`;
+  await registerAndReachInbox(page, delegateName);
+
+  await page.goto("/organization/channels");
+  await page.getByRole("button", { name: "Conectar fake", exact: true }).click();
+  await expect(page.getByText("Los mensajes se sincronizan con normalidad.")).toBeVisible();
+
+  const [account] = await sql`
+    select id from messaging_accounts
+    where channel = 'fake' and delegate_id = (select id from users where name = ${delegateName})
+    order by created_at desc limit 1
+  `;
+  const contactName = `Reclick Contact ${randomUUID().slice(0, 8)}`;
+  const webhookResponse = await request.post(`/api/webhooks/fake/${account.id}`, {
+    headers: { "x-fake-signature": "fake-shared-secret" },
+    data: JSON.stringify({
+      externalConversationId: `chat-${randomUUID()}`,
+      externalMessageId: `msg-${randomUUID()}`,
+      externalContactId: `provider-${randomUUID()}`,
+      contactDisplayName: contactName,
+      text: "Hola",
+    }),
+  });
+  expect(webhookResponse.status()).toBe(200);
+
+  await expect(async () => {
+    await page.goto("/inbox");
+    await expect(page.getByText(contactName)).toBeVisible();
+  }).toPass({ timeout: 15_000 });
+
+  const conversationList = page.getByRole("list", { name: "Conversaciones" });
+  const row = conversationList.getByText(contactName);
+  const thread = page.getByRole("log", { name: "Mensajes" });
+
+  await row.click();
+  await expect(page).toHaveURL(/\/inbox\?(.*&)?conversation=/);
+  await expect(thread.getByText("Hola")).toBeVisible();
+
+  // Click the same row again, twice — the list must stay put next to the
+  // panel both times, not disappear.
+  await row.click();
+  await expect(conversationList).toBeVisible();
+  await expect(thread.getByText("Hola")).toBeVisible();
+
+  await row.click();
+  await expect(conversationList).toBeVisible();
+  await expect(thread.getByText("Hola")).toBeVisible();
 });

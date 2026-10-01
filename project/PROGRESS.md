@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-20.
+Última actualización: 2026-09-30 (Fase 7f: subida de documentos de Knowledge desde la UI, solo ADMIN).
 
 ## Resumen en una línea
 
@@ -25,7 +25,112 @@ faltan los datos legales reales, la revisión jurídica y el despliegue. La PoC 
 Telegram/WhatsApp sigue aparte, tarea manual, sin fecha, y sigue sin bloquear
 nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 **El riesgo crítico de identidad de comunicación en WhatsApp quedó cerrado el
-2026-09-19: se adopta coexistence** (ver `docs/DECISIONS.md`).
+2026-09-19: se adopta coexistence** (ver `docs/DECISIONS.md`). **`PKG-011`**
+(2026-09-25) conecta por primera vez con Meta de verdad, contra el número de
+prueba y solo en staging, para validar la tubería real mientras `PKG-009`
+sigue bloqueado. **`PKG-012`** (2026-09-25) añade el primer envío de email
+(Resend) para recuperar la contraseña.
+**Rediseño UI/UX** (2026-09-26/27): arranca por fases `UI-0`…`UI-9` con
+`docs/ui/` como fuente de verdad. `UI-0` (auditoría + estudio de Supabase +
+documentación), `UI-1` (tokens en tres capas + componentes base +
+`/ui-kit`), `UI-2` (shell: header, sidebar contraíble, menú móvil,
+organización/usuario en el header), `UI-3` (Dialog, ConfirmDialog,
+DiscardChangesDialog, Sheet completo, Tabs, Popover, Toast, Table,
+DataList, SearchInput, FilterBar, SegmentedControl, RelativeTime), `UI-4`
+(todas las páginas de `(app)` y las cuatro de auth migradas al sistema;
+Contactos/Casos/Tareas traducidas; altas a Sheet/Dialog; confirmaciones a
+`ConfirmDialog`), `UI-5` (Inbox: vistas con contadores, búsqueda y
+filtros por URL, fila densa, teclado; servidor reescrito con
+`LEFT JOIN LATERAL` para el último mensaje por conversación en vez de
+cargar todos los mensajes), `UI-6` (conversación en `ConversationSheet`:
+rutas paralelas/interceptadas, tres modos responsive — anclado sin velo,
+modal, pantalla completa —, historial con separadores por día y borrador
+persistente, anterior/siguiente) y `UI-7` (Organización: `/organization`
+General/Miembros/Canales con `ProductMenu`/`ContextNav`, `members/` y
+`channels/` movidos ahí con redirecciones desde las rutas antiguas, sidebar
+con un único ítem "Organización", miga del header con menú real, y la
+acción de dominio "cambiar rol" con su guardarraíl de "nunca sin ADMIN")
+completos. **`PKG-014`** (2026-09-28, cerrado por completo): tabla
+`contact_assignments` (log de asignaciones, migración con *backfill*),
+un único predicado SQL de visibilidad reutilizado en Inbox/Contactos/
+Casos/Tareas (`contacts/visibility.ts`), el guardarraíl de identidad que
+faltaba en `sendOutboundMessage` (ya no se puede responder por el número
+de otro delegado), y la UI completa: fila resaltada + "Ref.: <delegado>"
+en el Inbox, aviso de redirección en la conversación, compositor oculto
+en modo solo lectura, y "Reasignar" (ADMIN) desde `/contacts/[id]`.
+Siguiente: `UI-8` (accesibilidad y responsive) o seguir hacia `UI-10`
+(que ya no está bloqueada). **`UI-10a`** (2026-09-29, cerrado): el panel de
+conversación pasa de una sola columna a dos — chat y **ficha del afiliado**
+de solo lectura (contacto, identificación, delegado de referencia, casos
+abiertos, tareas pendientes, otras conversaciones), plegable con preferencia
+recordada en `xl`, como pestañas "Chat"/"Ficha" por debajo de ese ancho.
+Sin dominio nuevo: tres consultas `...ForContact` añadidas a
+`cases`/`tasks`/`conversations` reutilizando `contactVisibilityCondition`.
+**`UI-10b`** (2026-09-29, cerrado): entidad `Membership` (un período de
+afiliación por fila, histórico si hay baja y vuelta, índice único parcial
+sobre `ended_at is null`), alta/edición/baja manual en `/contacts/[id]`
+(quién puede editar = mismo criterio de visibilidad que la ficha,
+`getContactForMember`), y sección "Afiliación" de solo lectura en la
+ficha del panel con los dos avisos ámbar (cuota pendiente, buen momento
+para proponer la afiliación) como reglas fijas, nunca inferencia de la
+IA. Bug real encontrado y corregido antes de cerrar: un alta y una
+"vuelta a afiliarse" el mismo día generan dos filas con el mismo
+`started_at` (el formulario solo pide fecha, no hora) — `ORDER BY
+started_at DESC` sin desempate podía devolver la fila cerrada; corregido
+ordenando primero por fila abierta. `UI-10c/d/e` siguen bloqueados (Fase
+7/8 de producto), y `UI-10f` espera validación visual del usuario — el
+único paquete de UI desbloqueado era `UI-8`.
+
+**`UI-8`, primer tramo (2026-09-29, cerrado): tema oscuro.** Selector
+Claro/Oscuro/Sistema en `UserMenu` (por defecto Sistema), capa semántica
+en `tokens.css` bajo `[data-theme="dark"]` (cero cambios de componentes:
+la arquitectura de tokens de tres capas ya lo permitía), cookie
+`kindly_theme` leída en `src/app/layout.tsx` para pintar sin parpadeo,
+paleta con 5 acentos nuevos "-night" (los tonos claros no llegan a 4.5:1
+sobre un fondo casi negro) verificados contra las 30 parejas de
+`tests/unit/ui-tokens.test.ts`. **Coste aceptado por el usuario tras
+preguntarle**: leer la cookie en el layout raíz (compartido por sitio
+público y app) hace que las 33 rutas pasen a render dinámico, incluidas
+las 8 que eran estáticas desde PKG-010 (`/`, `/login`, legal…) — no hay
+forma de "pintar en servidor sin parpadeo" en el App Router sin ese
+coste. Detalle completo, paleta y la pregunta al usuario en
+`docs/DECISIONS.md`. Verificado con lint+typecheck+352/352
+unit-integration+40/40 E2E+build limpio+captura visual real (`/login`,
+`/inbox`, `/ui-kit`, `/contacts/[id]`) en oscuro y claro.
+
+**`UI-8`, segundo tramo (2026-09-30, cerrado): axe-core + recorrido
+manual — fase completa.** `tests/e2e/axe-helpers.ts` +
+`tests/e2e/accessibility.spec.ts` nuevo: sin violaciones serias/críticas
+en Inbox/conversación/Organización, claro y oscuro. Encontró y corrigió
+dos bugs reales preexistentes (sin relación con el tema oscuro): el hint
+del compositor usaba `text-foreground-muted` (por debajo de AA a
+propósito, solo para texto deshabilitado) en vez de
+`text-foreground-lighter`; y el hilo de mensajes (`<ul role="log">`)
+dejaba sus `<li>` sin un ancestro con rol de lista válido — corregido
+moviendo `role="log"` a un `<div>` envolvente. Recorrido manual (sin
+lector de pantalla real disponible en este entorno; árbol de
+accesibilidad inspeccionado como sustituto razonado) confirmó: Tab →
+"Saltar al contenido" → foco a `#main`; fila de conversación enfocable y
+activable con `Enter`; el foco nunca cae a `<body>`; `F6` recorre las
+tres zonas (lista→chat→ficha→lista, 4 pulsaciones); `Esc` cierra;
+landmarks/roles/nombres accesibles correctos; sin scroll horizontal a
+320 px ni con zoom 200%. Detalle completo en `docs/DECISIONS.md`.
+Verificado con lint+typecheck+352/352 unit-integration (sin cambios)
++42/42 E2E+build limpio.
+
+**`UI-9` (2026-09-30, cerrado): Consolidación — última fase del rediseño
+UI/UX.** Reset de la paleta/radios/sombras por defecto de Tailwind
+(`--color-*`/`--radius-*`/`--shadow-*: initial` en `@theme inline`, mismo
+patrón que ya existía para `--breakpoint-*`), con dos supervivientes
+explícitos y pixel-idénticos (`--color-white`, `--radius-2xl`) solo para
+que `src/app/(public)` (no tokenizado a propósito) siguiera renderizando
+exactamente igual — confirmado comparando el CSS generado antes/después.
+Ningún componente obsoleto encontrado (barrido completo); dos filas
+desactualizadas de `COMPONENTS.md` corregidas (`ContextNav`, `AppHeader`).
+Exportador de tokens a DTCG (`npm run tokens:export` →
+`tokens/dtcg/*.json`, flujo multi-set de Tokens Studio), con test de
+parseo propio. Verificado con lint+typecheck+365/365 unit-integration
+(+13 nuevos)+42/42 E2E+build limpio.
 
 ## Estado por fase / paquete
 
@@ -41,11 +146,33 @@ nada de esto (Fase 0 solo bloquea `WhatsAppAdapter`/`TelegramAdapter` reales).
 | **PKG-007** | **Ajustes del delegado y estado del canal** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-008** | **Alta de WhatsApp: elección y comprobaciones previas** | Código (agente) | 🟢 **Completo** (2026-09-20) |
 | **PKG-010** | **Sitio público y documentos legales** | Código (agente) | 🟢 **Completo** (2026-09-20) — falta rellenar datos legales, revisión jurídica y despliegue |
+| **PKG-011** | **WhatsApp Cloud API contra el número de prueba de Meta** | Código (agente) + prueba manual (usuario) | 🟢 **Completo** (2026-09-25) — recibir y responder validados con el móvil |
+| **PKG-013** | **Conversación en vivo (optimista, checks, sondeo, escribiendo)** | Código (agente) | 🟢 **Completo** (2026-09-25) |
+| **PKG-012** | **Email (Resend) y recuperación de contraseña** | Código (agente) | 🟢 **Completo** (2026-09-25) — falta `RESEND_API_KEY` en Vercel y dominio verificado |
+| **UI-0** | **Rediseño UI/UX: auditoría y documentación (`docs/ui/`)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| **UI-1** | **Design system: tokens y componentes base** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| **UI-2** | **Shell de aplicación (header, sidebar, menú móvil)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| **UI-3** | **Componentes avanzados (Dialog, ConfirmDialog, Table, DataList…)** | Código (agente) | 🟢 **Completo** (2026-09-26) |
+| **UI-4** | **Arquitectura de páginas (todas las páginas de `(app)` y auth)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
+| **UI-5** | **Inbox (vistas, búsqueda, filtros, fila densa, servidor eficiente)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
+| **UI-6** | **Conversación en Sheet (anclado/modal/pantalla completa)** | Código (agente) | 🟢 **Completo** (2026-09-27) |
+| **UI-7** | **Organización (`/organization`: General, Miembros, Canales; cambiar rol)** | Código (agente) | 🟢 **Completo** (2026-09-28) |
+| **UI-8** | **Accesibilidad y responsive** | Código (agente) | 🟢 **Completo** (2026-09-30) — tema oscuro + axe-core + recorrido manual |
+| **UI-9** | **Consolidación** | Código (agente) | 🟢 **Completo** (2026-09-30) — rediseño UI/UX (`UI-0`…`UI-9`) cerrado por completo |
+| **PKG-014** | **Asignación de afiliados a delegados y visibilidad por rol** | Código (agente) | 🟢 **Completo** (2026-09-28) |
+| **UI-10a** | **Panel de dos columnas + ficha del afiliado de solo lectura** | Código (agente) | 🟢 **Completo** (2026-09-29) |
+| **UI-10b** | **`Membership`: alta/edición/baja manual en `/contacts/[id]` + sección en la ficha** | Código (agente) | 🟢 **Completo** (2026-09-29) |
+| UI-10c…f | Trámites, resumen IA, copiloto, ficha editable | Código (agente) | ⚪ No iniciadas — `docs/ui/CONVERSATION_WORKSPACE.md` §6 |
 | PKG-009 | Embedded Signup real | Código (agente) | ⚪ Bloqueado: Tech Provider + decisión del BM |
 | Fase 4 | Telegram | Código (futuro paquete) | ⚪ No iniciada |
 | Fase 5 | WhatsApp coexistence | Código (futuro paquete, bloqueado por el alta como Tech Provider de Meta, no por la decisión) | ⚪ No iniciada |
-| Fase 6 | Cases (lifecycle avanzado) | Código (futuro paquete) | ⚪ No iniciada |
-| Fase 7 | Knowledge | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 6** | **Cases: máquina de estados, asignación a DELEGATE, vínculo con Conversation** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7a** | **Knowledge: capa de datos (documentos versionados, chunks, pgvector, `EmbeddingProvider`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7b** | **Knowledge: ingesta (PDF/web/texto → chunks jerárquicos) + `OpenAIEmbeddingProvider` + script de operador** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7c** | **Knowledge: recuperación híbrida FTS+vector (RRF) con hard filters de tenancy/vigencia/jurisdicción** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
+| **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
