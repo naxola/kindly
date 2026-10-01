@@ -4,11 +4,33 @@ import { GeminiEmbeddingProvider } from "@/modules/knowledge/gemini-embedding-pr
 import { EMBEDDING_DIMENSIONS } from "@/modules/knowledge/schema";
 
 const request = { system: "s", user: "u", schemaName: "x", jsonSchema: { type: "object" } };
-const llm = (fetchImpl: unknown) => new GeminiLLMProvider({ apiKey: "g-test", fetchImpl: fetchImpl as typeof fetch });
+const llm = (fetchImpl: unknown) => new GeminiLLMProvider({ apiKey: "g-test", retryDelayMs: 0, fetchImpl: fetchImpl as typeof fetch });
 const embedder = (fetchImpl: unknown) =>
   new GeminiEmbeddingProvider({ apiKey: "g-test", fetchImpl: fetchImpl as typeof fetch });
 
 describe("GeminiLLMProvider", () => {
+  it("retries a transient 503 and succeeds", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ error: { message: "high demand" } }, { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ candidates: [{ content: { parts: [{ text: '{"a":1}' }] } }] }));
+    const result = await llm(fetchImpl).generateStructured(request);
+    expect(result.output).toEqual({ a: 1 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after 3 attempts on a persistent 503", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ error: { message: "high demand" } }, { status: 503 }));
+    await expect(llm(fetchImpl).generateStructured(request)).rejects.toThrow("503");
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a 404", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ error: { message: "gone" } }, { status: 404 }));
+    await expect(llm(fetchImpl).generateStructured(request)).rejects.toThrow("404");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("sends a JSON-schema request with the key in a header and parses the text", async () => {
     const fetchImpl = vi.fn(async () =>
       Response.json({ modelVersion: "gemini-x", candidates: [{ content: { parts: [{ text: '{"a":1}' }] } }] }),

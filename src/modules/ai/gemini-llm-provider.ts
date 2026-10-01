@@ -11,7 +11,13 @@ export interface GeminiLLMProviderConfig {
   apiKey: string;
   model?: string;
   fetchImpl?: typeof fetch;
+  /** Base wait between retries of a transient failure (tests pass 0). */
+  retryDelayMs?: number;
 }
+
+/** Google answers 503 under demand spikes; these are worth a short retry. */
+const RETRYABLE_STATUSES = new Set([500, 503, 504]);
+const MAX_ATTEMPTS = 3;
 
 const DEFAULT_MODEL = "gemini-3.8-flash";
 
@@ -28,29 +34,36 @@ export class GeminiLLMProvider implements LLMProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly retryDelayMs: number;
 
   constructor(config: GeminiLLMProviderConfig) {
     this.apiKey = config.apiKey;
     this.model = config.model ?? DEFAULT_MODEL;
     this.fetchImpl = config.fetchImpl ?? fetch;
+    this.retryDelayMs = config.retryDelayMs ?? 800;
   }
 
   async generateStructured(request: LLMStructuredRequest): Promise<LLMStructuredResult> {
-    const response = await this.fetchImpl(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
-      {
-        method: "POST",
-        headers: { "x-goog-api-key": this.apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: request.system }] },
-          contents: [{ role: "user", parts: [{ text: request.user }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseJsonSchema: request.jsonSchema,
-          },
-        }),
-      },
-    );
+    let response: Response;
+    for (let attempt = 1; ; attempt++) {
+      response = await this.fetchImpl(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
+        {
+          method: "POST",
+          headers: { "x-goog-api-key": this.apiKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: request.system }] },
+            contents: [{ role: "user", parts: [{ text: request.user }] }],
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseJsonSchema: request.jsonSchema,
+            },
+          }),
+        },
+      );
+      if (response.ok || !RETRYABLE_STATUSES.has(response.status) || attempt >= MAX_ATTEMPTS) break;
+      await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * attempt));
+    }
 
     if (!response.ok) {
       // Gemini's message only — never the request, it carries the API key.
