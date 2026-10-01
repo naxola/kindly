@@ -21,6 +21,7 @@ export async function register() {
     return;
   }
 
+  console.info(`[ai] active provider: ${activeAIProvider() ?? "none"}`);
   await registerWhatsAppTestAdapter();
   await registerOpenAIEmbeddingProvider();
   await registerOpenAILLMProvider();

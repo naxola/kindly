@@ -220,6 +220,11 @@ export async function generateSuggestion(input: GenerateSuggestionInput): Promis
       knowledgeStatus,
     );
   } catch (error) {
+    // Provider status/message only (the providers never put keys or prompts in them).
+    console.error(
+      `[copilot] generation failed (provider=${provider.id}):`,
+      error instanceof Error ? error.message.slice(0, 300) : "unknown error",
+    );
     await db.insert(aiSuggestions).values({
       ...base,
       status: "FAILED",
