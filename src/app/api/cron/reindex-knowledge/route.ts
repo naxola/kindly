@@ -32,6 +32,15 @@ function cleanSecret(value: string): string {
   return value.trim().replace(/^["']|["']$/g, "");
 }
 
+// Host only (no user/password) so an operator can see which database this deployment uses.
+function databaseHost(): string | null {
+  try {
+    return new URL(process.env.DATABASE_URL ?? "").host;
+  } catch {
+    return null;
+  }
+}
+
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -66,7 +75,7 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(JSON.stringify(line) + "\n"));
 
       try {
-        write({ status: "started", force, documentId: documentId ?? null, at: new Date().toISOString() });
+        write({ status: "started", force, documentId: documentId ?? null, dbHost: databaseHost(), at: new Date().toISOString() });
 
         const result = await reindexKnowledgeChunks({ force, documentId });
 
