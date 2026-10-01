@@ -24,6 +24,7 @@ export async function register() {
   await registerWhatsAppTestAdapter();
   await registerOpenAIEmbeddingProvider();
   await registerOpenAILLMProvider();
+  await registerGeminiProviders();
   await registerFakeEmbeddingProviderForE2E();
   await registerFakeLLMProviderForE2E();
 
@@ -97,7 +98,7 @@ async function registerWhatsAppTestAdapter() {
  */
 async function registerOpenAIEmbeddingProvider() {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || activeAIProvider() !== "openai") {
     return;
   }
 
@@ -147,7 +148,7 @@ async function registerFakeEmbeddingProviderForE2E() {
  */
 async function registerOpenAILLMProvider() {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey || process.env.NEXT_RUNTIME !== "nodejs") {
+  if (!apiKey || process.env.NEXT_RUNTIME !== "nodejs" || activeAIProvider() !== "openai") {
     return;
   }
 
@@ -175,4 +176,43 @@ async function registerFakeLLMProviderForE2E() {
   }
   const { createE2EFakeLLMProvider } = await import("@/modules/ai/testing/fake-llm-provider");
   registerLLMProvider(createE2EFakeLLMProvider());
+}
+
+/**
+ * Which real AI backend serves the copilot and the embeddings: `AI_PROVIDER`
+ * (`openai` | `gemini`) when set, else OpenAI if `OPENAI_API_KEY` exists, else
+ * Gemini if `GEMINI_API_KEY` exists. One backend at a time — the embedding
+ * column holds one provider's vectors (`knowledge_chunks.embedding_model`).
+ */
+function activeAIProvider(): "openai" | "gemini" | null {
+  const explicit = process.env.AI_PROVIDER?.trim().toLowerCase();
+  if (explicit === "openai" || explicit === "gemini") {
+    return explicit;
+  }
+  if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  return null;
+}
+
+/**
+ * Gemini as the AI backend (`LLMProvider` + `EmbeddingProvider`), only when it
+ * is the active provider and `GEMINI_API_KEY` is set. `GEMINI_LLM_MODEL` and
+ * `GEMINI_EMBEDDING_MODEL` override the defaults; changing the embedding
+ * model (or switching provider) needs `npm run knowledge:reindex`.
+ */
+async function registerGeminiProviders() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || process.env.NEXT_RUNTIME !== "nodejs" || activeAIProvider() !== "gemini") {
+    return;
+  }
+
+  const { registerLLMProvider } = await import("@/modules/ai/llm-provider");
+  const { GeminiLLMProvider } = await import("@/modules/ai/gemini-llm-provider");
+  registerLLMProvider(new GeminiLLMProvider({ apiKey, model: process.env.GEMINI_LLM_MODEL || undefined }));
+
+  const { registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
+  const { GeminiEmbeddingProvider } = await import("@/modules/knowledge/gemini-embedding-provider");
+  registerEmbeddingProvider(
+    new GeminiEmbeddingProvider({ apiKey, model: process.env.GEMINI_EMBEDDING_MODEL || undefined }),
+  );
 }
