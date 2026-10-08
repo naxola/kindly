@@ -139,3 +139,35 @@ export async function fetchWebPage(
   const { body } = await fetchGuarded(url, options);
   return { title: extractTitle(body), text: htmlToText(body) };
 }
+
+function metaContent(html: string, key: string): string | null {
+  for (const [tag] of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const name = tag.match(/\b(?:property|name)=["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    if (name !== key) continue;
+    const content = tag.match(/\bcontent=["']([^"']*)["']/i)?.[1];
+    if (content) return decodeEntities(content).trim() || null;
+  }
+  return null;
+}
+
+/**
+ * What identifies a site at a glance: its name and a preview image, read from
+ * the page itself (`og:image`/`twitter:image`). No screenshot service: that
+ * would send the address to a third party or need a headless browser
+ * (`CLAUDE.md` §2). The image is only ever shown in an `<img>`, so only an
+ * http(s) address is kept.
+ */
+export function extractPageMeta(html: string, baseUrl: string): { title: string | null; imageUrl: string | null } {
+  const title = metaContent(html, "og:site_name") ?? extractTitle(html);
+  const image = metaContent(html, "og:image") ?? metaContent(html, "twitter:image");
+  let imageUrl: string | null = null;
+  if (image) {
+    try {
+      const resolved = new URL(image, baseUrl);
+      imageUrl = resolved.protocol === "http:" || resolved.protocol === "https:" ? resolved.href : null;
+    } catch {
+      imageUrl = null;
+    }
+  }
+  return { title, imageUrl };
+}

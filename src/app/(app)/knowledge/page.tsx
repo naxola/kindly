@@ -4,7 +4,7 @@ import { requireCurrentOrganizationMember } from "@/modules/organizations/servic
 import { listKnowledgeSources } from "@/modules/knowledge/service";
 import { getEmbeddingProvider, hasEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 import { reindexKnowledgeSourceAction } from "@/modules/knowledge/actions";
-import { listRecentImportBatches } from "@/modules/knowledge/site-import";
+import { getWebsite, listWebsites } from "@/modules/knowledge/websites";
 import {
   deriveIndexStatus,
   filterSources,
@@ -12,7 +12,8 @@ import {
   summarizeUsage,
 } from "@/modules/knowledge/source-status";
 import { retrieveKnowledge, type KnowledgeSearchResult } from "@/modules/knowledge/retrieval";
-import { UploadDocumentSheet } from "@/app/(app)/knowledge/upload-document-sheet";
+import { AddKnowledge } from "@/app/(app)/knowledge/add-knowledge";
+import { WebsiteSheet, type WebsiteTab } from "@/app/(app)/knowledge/website-sheet";
 import { CitationCard } from "@/app/(app)/knowledge/citation-card";
 import {
   formatDay,
@@ -57,6 +58,9 @@ async function search(organizationId: string, query: string): Promise<SearchOutc
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const WEBSITE_TABS: WebsiteTab[] = ["informacion", "paginas", "configuracion"];
+
 const TYPE_FILTER_OPTIONS = [
   { value: "", label: "Todos los tipos" },
   { value: "PDF", label: "PDF" },
@@ -67,9 +71,9 @@ const TYPE_FILTER_OPTIONS = [
 export default async function KnowledgePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; fuente?: string; tipo?: string }>;
+  searchParams: Promise<{ q?: string; fuente?: string; tipo?: string; sitio?: string; tab?: string }>;
 }) {
-  const { q, fuente, tipo } = await searchParams;
+  const { q, fuente, tipo, sitio, tab } = await searchParams;
   const query = q?.trim() ?? "";
   const sourceText = fuente?.trim() ?? "";
   const sourceType = TYPE_FILTER_OPTIONS.some((option) => option.value === tipo) ? (tipo ?? "") : "";
@@ -77,10 +81,11 @@ export default async function KnowledgePage({
   // Without a registered provider (dev/CI without a key) staleness cannot be told.
   const activeModel = hasEmbeddingProvider() ? getEmbeddingProvider().id : null;
   const isAdmin = member.role === "ADMIN";
-  const [sources, outcome, imports] = await Promise.all([
+  const openWebsite = isAdmin && sitio && UUID.test(sitio) ? await getWebsite(member.organizationId, sitio) : null;
+  const [sources, outcome, websites] = await Promise.all([
     listKnowledgeSources(member.organizationId, activeModel),
     query ? search(member.organizationId, query) : Promise.resolve(null),
-    isAdmin ? listRecentImportBatches(member.organizationId) : Promise.resolve([]),
+    isAdmin ? listWebsites(member.organizationId) : Promise.resolve([]),
   ]);
   const usage = summarizeUsage(sources);
   const visibleSources = filterSources(sources, { text: sourceText, type: sourceType });
@@ -95,7 +100,7 @@ export default async function KnowledgePage({
             <Link href="/knowledge/procedures" className="focus-ring type-body rounded-sm text-foreground-lighter underline">
               Trámites
             </Link>
-            {isAdmin && <UploadDocumentSheet />}
+            {isAdmin && <AddKnowledge />}
           </>
         }
       />
@@ -234,35 +239,71 @@ export default async function KnowledgePage({
         </Table>
       </PageSection>
 
-      {imports.length > 0 && (
-        <PageSection title="Importaciones recientes" description="Páginas añadidas desde un sitio web">
+      {isAdmin && websites.length > 0 && (
+        <PageSection title="Sitios web" description="Sitios cuyas páginas eliges indexar">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Sitio</TableHead>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Resultado</TableHead>
+                <TableHead>Páginas</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Añadido</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {imports.map((batch) => (
-                <TableRow key={batch.batchId}>
+              {websites.map((site) => (
+                <TableRow key={site.id}>
                   <TableCell className="font-medium text-foreground">
-                    <Link href={`/knowledge/sitio/${batch.batchId}`} className="focus-ring rounded-sm">
-                      {new URL(batch.siteUrl).host}
+                    <Link href={`/knowledge?sitio=${site.id}`} scroll={false} className="focus-ring rounded-sm">
+                      {site.title ?? new URL(site.url).host}
                     </Link>
+                    <div className="type-body font-normal text-foreground-lighter">{new URL(site.url).host}</div>
                   </TableCell>
-                  <TableCell className="text-foreground-lighter">{formatDay(String(batch.createdAt).slice(0, 10))}</TableCell>
                   <TableCell className="text-foreground-lighter">
-                    {batch.indexed} de {batch.total} indexadas
-                    {batch.failed > 0 && ` · ${batch.failed} con error`}
-                    {batch.open > 0 && ` · ${batch.open} pendientes`}
+                    {site.indexed} de {site.total} indexadas
                   </TableCell>
+                  <TableCell>
+                    {site.open > 0 ? (
+                      <Badge tone="info">Indexando</Badge>
+                    ) : site.failed > 0 ? (
+                      <Badge tone="destructive">{site.failed} con error</Badge>
+                    ) : site.indexed > 0 ? (
+                      <Badge tone="success">Indexado</Badge>
+                    ) : (
+                      <Badge tone="neutral">Sin indexar</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">{formatDay(site.createdAt.toISOString().slice(0, 10))}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </PageSection>
+      )}
+
+      {openWebsite && (
+        <WebsiteSheet
+          website={{
+            id: openWebsite.website.id,
+            url: openWebsite.website.url,
+            title: openWebsite.website.title,
+            imageUrl: openWebsite.website.imageUrl,
+            discoverySource: openWebsite.website.discoverySource,
+            discoveredAt: openWebsite.website.discoveredAt?.toISOString() ?? null,
+            createdAt: openWebsite.website.createdAt.toISOString(),
+            options: openWebsite.website.options,
+            pages: openWebsite.pages.map((page) => ({
+              id: page.id,
+              url: page.url,
+              title: page.title,
+              lastModified: page.lastModified,
+              status: page.status,
+              error: page.error,
+              documentId: page.documentId,
+            })),
+          }}
+          initialTab={WEBSITE_TABS.find((t) => t === tab) ?? "informacion"}
+        />
       )}
     </PageContainer>
   );

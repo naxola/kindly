@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveIndexStatus, filterSources, formatCharacterCount, summarizeImport, summarizeUsage } from "@/modules/knowledge/source-status";
+import { deriveIndexStatus, filterSources, formatCharacterCount, paginate, summarizeUsage, summarizeWebsite } from "@/modules/knowledge/source-status";
 
 describe("deriveIndexStatus", () => {
   it("is EMPTY without chunks, whatever the provider", () => {
@@ -67,17 +67,35 @@ describe("filterSources", () => {
   });
 });
 
-describe("summarizeImport", () => {
-  it("counts each state and is done only when nothing is waiting or indexing", () => {
-    const summary = summarizeImport([
+describe("summarizeWebsite", () => {
+  it("counts each state and is done only when nothing is queued or being indexed", () => {
+    const summary = summarizeWebsite([
+      { status: "DISCOVERED" },
       { status: "INDEXED" },
       { status: "FAILED" },
-      { status: "SKIPPED" },
       { status: "PENDING" },
       { status: "INDEXING" },
     ]);
-    expect(summary).toEqual({ total: 5, pending: 1, indexing: 1, indexed: 1, failed: 1, skipped: 1, done: false });
-    expect(summarizeImport([{ status: "INDEXED" }, { status: "FAILED" }]).done).toBe(true);
-    expect(summarizeImport([]).done).toBe(true);
+    expect(summary).toEqual({ total: 5, discovered: 1, pending: 1, indexing: 1, indexed: 1, failed: 1, waiting: 2, done: false });
+    expect(summarizeWebsite([{ status: "INDEXED" }, { status: "FAILED" }, { status: "DISCOVERED" }]).done).toBe(true);
+    expect(summarizeWebsite([]).done).toBe(true);
+  });
+});
+
+describe("paginate", () => {
+  const items = Array.from({ length: 23 }, (_, i) => i + 1);
+
+  it("returns one table page with its range and the page count", () => {
+    expect(paginate(items, 0, 10)).toEqual({ rows: items.slice(0, 10), page: 0, pageCount: 3, from: 1, to: 10 });
+    expect(paginate(items, 2, 10)).toEqual({ rows: [21, 22, 23], page: 2, pageCount: 3, from: 21, to: 23 });
+  });
+
+  it("clamps an out-of-range page, e.g. after a filter shrinks the list", () => {
+    expect(paginate(items, 9, 10).page).toBe(2);
+    expect(paginate(items, -3, 10).page).toBe(0);
+  });
+
+  it("handles an empty list", () => {
+    expect(paginate([], 0, 10)).toEqual({ rows: [], page: 0, pageCount: 1, from: 0, to: 0 });
   });
 });

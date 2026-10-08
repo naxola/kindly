@@ -208,17 +208,17 @@ export const knowledgeChunks = pgTable(
   ],
 );
 
-export const importPageStatus = pgEnum("knowledge_import_page_status", [
+export const websitePageStatus = pgEnum("knowledge_website_page_status", [
+  "DISCOVERED",
   "PENDING",
   "INDEXING",
   "INDEXED",
   "FAILED",
-  "SKIPPED",
 ]);
-export type ImportPageStatus = (typeof importPageStatus.enumValues)[number];
+export type WebsitePageStatus = (typeof websitePageStatus.enumValues)[number];
 
-/** What every page of one import batch is published with (the ADMIN fills it once). */
-export interface ImportPageOptions {
+/** How the pages of a website are published as documents (set once, editable in the website's settings). */
+export interface WebsiteOptions {
   version: string;
   status: "CURRENT" | "DRAFT";
   effectiveFrom: string;
@@ -229,40 +229,70 @@ export interface ImportPageOptions {
   scope: string | null;
 }
 
+export type WebsiteDiscoverySource = "sitemap" | "feed" | "none";
+
 /**
- * One page an ADMIN chose to index from a website ("Añadir varias páginas",
- * knowledge step 2), with its own state so a long import can run in
- * background slices and be followed (and retried) page by page. Rows of one
- * import share `batch_id`. A page becomes a normal ORGANIZATION document
- * (`document_id`) once indexed; the row stays as the import's history.
- * Always scoped to one organization — never GLOBAL.
+ * A website an ADMIN added as a knowledge source ("Añadir conocimiento" →
+ * Sitio web). The site is the unit the ADMIN manages; each page the ADMIN
+ * chooses to index becomes a normal ORGANIZATION document
+ * (`knowledge_website_pages.document_id`). Always scoped to one
+ * organization — never GLOBAL.
  */
-export const knowledgeImportPages = pgTable(
-  "knowledge_import_pages",
+export const knowledgeWebsites = pgTable(
+  "knowledge_websites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    batchId: uuid("batch_id").notNull(),
-    siteUrl: text("site_url").notNull(),
+    // The address the ADMIN gave (a site root or one of its sections), normalized.
     url: text("url").notNull(),
-    // Known from a feed at selection time, else read from the page when it is indexed.
+    // `<title>` and `og:image` of that address: the card's name and thumbnail.
     title: text("title"),
-    status: importPageStatus("status").notNull().default("PENDING"),
+    imageUrl: text("image_url"),
+    discoverySource: text("discovery_source").$type<WebsiteDiscoverySource>().notNull().default("none"),
+    discoveredAt: timestamp("discovered_at", { withTimezone: true }),
+    options: jsonb("options").$type<WebsiteOptions>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("knowledge_websites_org_url_unique").on(table.organizationId, table.url)],
+);
+
+/**
+ * One page of a website, with its own state so a long import can run in
+ * background slices and be followed (and retried) page by page.
+ * `organization_id` is denormalized so every query filters by tenant without
+ * a join. `DISCOVERED` = known but not chosen; the others follow indexing.
+ */
+export const knowledgeWebsitePages = pgTable(
+  "knowledge_website_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    websiteId: uuid("website_id")
+      .notNull()
+      .references(() => knowledgeWebsites.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    // Known from a feed at discovery time, else read from the page when it is indexed.
+    title: text("title"),
+    lastModified: text("last_modified"),
+    status: websitePageStatus("status").notNull().default("DISCOVERED"),
     // User-facing reason (Spanish), never a stack trace or provider detail.
     error: text("error"),
     documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
-    options: jsonb("options").$type<ImportPageOptions>().notNull(),
-    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
     // Claim time of the current attempt: an INDEXING row older than the lease is taken over.
     startedAt: timestamp("started_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("knowledge_import_pages_org_batch_idx").on(table.organizationId, table.batchId),
-    index("knowledge_import_pages_batch_status_idx").on(table.batchId, table.status),
+    uniqueIndex("knowledge_website_pages_website_url_unique").on(table.websiteId, table.url),
+    index("knowledge_website_pages_org_website_idx").on(table.organizationId, table.websiteId),
+    index("knowledge_website_pages_website_status_idx").on(table.websiteId, table.status),
   ],
 );
 

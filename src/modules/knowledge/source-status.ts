@@ -55,30 +55,41 @@ export function filterSources<T extends { title: string; sourceType: string }>(s
   );
 }
 
-export type ImportPageState = "PENDING" | "INDEXING" | "INDEXED" | "FAILED" | "SKIPPED";
+export type WebsitePageState = "DISCOVERED" | "PENDING" | "INDEXING" | "INDEXED" | "FAILED";
 
-/** Progress of one import batch. `done` once no page is waiting or being indexed. */
-export function summarizeImport(pages: { status: ImportPageState }[]): {
+/** How many pages of a website are in each state. `waiting` = queued or being indexed; `done` once none is. */
+export function summarizeWebsite(pages: { status: WebsitePageState }[]): {
   total: number;
+  discovered: number;
   pending: number;
   indexing: number;
   indexed: number;
   failed: number;
-  skipped: number;
+  waiting: number;
   done: boolean;
 } {
-  const count = (status: ImportPageState) => pages.filter((page) => page.status === status).length;
+  const count = (status: WebsitePageState) => pages.filter((page) => page.status === status).length;
   const pending = count("PENDING");
   const indexing = count("INDEXING");
   return {
     total: pages.length,
+    discovered: count("DISCOVERED"),
     pending,
     indexing,
     indexed: count("INDEXED"),
     failed: count("FAILED"),
-    skipped: count("SKIPPED"),
+    waiting: pending + indexing,
     done: pending + indexing === 0,
   };
+}
+
+/** Pages of one table page: `page` is 0-based and clamped, so a shrinking list never shows an empty page. */
+export function paginate<T>(items: T[], page: number, pageSize: number): { rows: T[]; page: number; pageCount: number; from: number; to: number } {
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const current = Math.min(Math.max(0, page), pageCount - 1);
+  const start = current * pageSize;
+  const rows = items.slice(start, start + pageSize);
+  return { rows, page: current, pageCount, from: rows.length === 0 ? 0 : start + 1, to: start + rows.length };
 }
 
 /** Pages of a website that can be imported in one go (bounds the embedding bill of a single action). */

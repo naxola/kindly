@@ -8,19 +8,22 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
-### Conocimiento al estilo Aidbase — paso 2 hecho: varias páginas de un sitio (2026-10-08)
+### Conocimiento al estilo Aidbase — sitio web con su panel (2026-10-08)
 
-Último commit: ver `git log` (el commit de cierre incluye este registro). "Añadir conocimiento" →
-"Varias páginas de un sitio web" → `/knowledge/sitio` (buscar por sitemap/RSS, elegir hasta 30, datos de
-publicación) → `/knowledge/sitio/[batchId]` (estado por página, reintentar fallidas). Nueva tabla
-`knowledge_import_pages` (**migración 0013: aplicar a mano en staging y en Production** con `npm run db:migrate`
-contra cada base). Detalle y límites en `docs/DECISIONS.md` ("Conocimiento, paso 2…"). Verificado: lint +
-typecheck + 674 unit/integración + 6 E2E de `knowledge`. No probado contra un sitio real desde aquí.
+Último commit: ver `git log` (el commit de cierre incluye este registro). Rediseño pedido por el usuario:
+"Añadir conocimiento" → diálogo de tipo (Sitio web / Documento) → panel derecho. El sitio web es una fuente
+con panel de tres pestañas (Información con vista previa, Páginas con buscador/paginación 10-25-50 y selección,
+Configuración con datos de publicación, mantenimiento y zona de peligro). Tablas `knowledge_websites` y
+`knowledge_website_pages` (**migraciones 0014 y 0015: aplicar a mano en staging y en Production** con
+`npm run db:migrate` contra cada base; la 0014 elimina `knowledge_import_pages` del intento anterior, sin tocar
+documentos). Detalle y límites en `docs/DECISIONS.md` ("el sitio web como fuente con su propio panel").
+Verificado: lint + typecheck + unit/integración + E2E de `knowledge` y `copilot`. No probado contra un sitio real
+desde aquí. La vista previa es la `og:image` de la portada, no una captura real.
 
-**Pendiente:** probar en staging con un sitio real con sitemap (tras migrar); las importaciones se terminan
-mientras la pantalla de progreso está abierta (no hay cron que las retome); re-sincronizar un sitio ya
-importado; sin límite global de coste por organización.
-**Próximo paso concreto:** elección del usuario — probar el paso 2 en staging, programar `purgeExpiredSuggestions`,
+**Pendiente:** probar en staging con un sitio real con sitemap (tras migrar); la indexación continúa mientras el
+panel está abierto (no hay cron que la retome); re-sincronizar contenido cambiado de páginas ya indexadas; sin
+límite global de coste por organización.
+**Próximo paso concreto:** elección del usuario — probar el panel en staging, programar `purgeExpiredSuggestions`,
 calibrar `KNOWLEDGE_MIN_SIMILARITY` o UI-10c.
 
 ### Conocimiento al estilo Aidbase — paso 1 hecho (2026-10-08)

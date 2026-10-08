@@ -4,7 +4,7 @@ import type {
   KnowledgeDocumentSourceType,
   KnowledgeVisibility,
 } from "@/modules/knowledge/schema";
-import type { ImportPageState, IndexStatus } from "@/modules/knowledge/source-status";
+import type { IndexStatus, WebsitePageState } from "@/modules/knowledge/source-status";
 import type { BadgeProps } from "@/components/ui/badge";
 
 /** Display-only Spanish labels; the enum values stay identifiers (`CLAUDE.md` §1). */
@@ -49,21 +49,27 @@ export const INDEX_STATUS_TONES: Record<IndexStatus, NonNullable<BadgeProps["ton
   UNKNOWN: "neutral",
 };
 
-export const IMPORT_STATUS_LABELS: Record<ImportPageState, string> = {
+export const WEBSITE_PAGE_STATUS_LABELS: Record<WebsitePageState, string> = {
+  DISCOVERED: "Sin indexar",
   PENDING: "En cola",
   INDEXING: "Indexando",
   INDEXED: "Indexada",
   FAILED: "Error",
-  SKIPPED: "Omitida",
 };
 
-export const IMPORT_STATUS_TONES: Record<ImportPageState, NonNullable<BadgeProps["tone"]>> = {
+export const WEBSITE_PAGE_STATUS_TONES: Record<WebsitePageState, NonNullable<BadgeProps["tone"]>> = {
+  DISCOVERED: "neutral",
   PENDING: "neutral",
   INDEXING: "info",
   INDEXED: "success",
   FAILED: "destructive",
-  SKIPPED: "neutral",
 };
+
+export const DISCOVERY_SOURCE_LABELS = {
+  sitemap: "Sitemap del sitio",
+  feed: "Feed RSS del sitio",
+  none: "Solo la dirección indicada (el sitio no publica sitemap ni feed)",
+} as const;
 
 export const CHUNK_LEVEL_LABELS: Record<KnowledgeChunkLevel, string> = {
   CHAPTER: "Capítulo",

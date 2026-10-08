@@ -31,7 +31,10 @@ async function register(page: Page, name: string) {
 async function uploadKnowledge(page: Page, title: string, text: string) {
   await page.goto("/knowledge");
   await page.getByRole("button", { name: "Añadir conocimiento" }).click();
-  const dialog = page.getByRole("dialog");
+  const picker = page.getByRole("dialog", { name: "Añadir conocimiento" });
+  await picker.getByLabel("Tipo de conocimiento").selectOption("DOCUMENT");
+  await picker.getByRole("button", { name: "Continuar" }).click();
+  const dialog = page.getByRole("dialog", { name: "Añadir documento" });
   await dialog.getByLabel("Título").fill(title);
   await dialog.getByLabel("Jurisdicción").fill("ES");
   await dialog.getByLabel("Origen").selectOption("TEXT");

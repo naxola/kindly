@@ -715,7 +715,7 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 - [x] Subida de documentos desde la UI, sin script de operador (PDF, texto, página web; solo ADMIN; solo conocimiento de la organización). (Fase 7f, cerrado 2026-09-30 — `knowledge/upload.ts`, `knowledge/actions.ts`, `/knowledge` "Subir documento" y "Nueva versión".)
 
 - [x] Lista de fuentes de conocimiento con estado de indexado, contador de uso y "Añadir conocimiento" al estilo Aidbase (paso 1; sin Vídeo). (2026-10-08 — `knowledge/source-status.ts`, `listKnowledgeSources`, `reindexKnowledgeSourceAction`, `/knowledge`.)
-- [x] Añadir varias páginas de un sitio: descubrir por `sitemap.xml`/RSS, listar para elegir y indexar solo las marcadas, con ingesta en segundo plano y estado por página (En cola/Indexando/Indexada/Error/Omitida). Paso 2 de la misma mejora. (2026-10-08 — `ingestion/site-discovery.ts`, `site-import.ts`, migración 0013, `/knowledge/sitio`.)
+- [x] Sitio web como fuente de conocimiento: diálogo de tipo → panel con Información/Páginas/Configuración; descubrir por `sitemap.xml`/RSS, elegir páginas (buscador, paginación), indexar en segundo plano con estado por página, datos de publicación, reindexar y eliminar. (2026-10-08 — `ingestion/site-discovery.ts`, `websites.ts`, migraciones 0013-0015, `/knowledge?sitio=`.)
 - [ ] Re-sincronizar un sitio importado (detectar páginas nuevas o cambiadas) y terminar importaciones abandonadas desde el cron semanal.
 
 ## Fase 8 — AI
