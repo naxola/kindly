@@ -8,6 +8,26 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### Fase 8 validada en staging con Gemini (2026-10-08)
+
+El copiloto genera sugerencias en staging con **Gemini** (`AI_PROVIDER=gemini`,
+`gemini-3.8-flash`; `gemini-2.5-flash` devolvía 404 para cuentas nuevas). Hecho
+para llegar ahí: migraciones 0011/0012 aplicadas a la base de staging (el
+despliegue Preview usa un host Neon distinto del de Production, que ya las
+tenía), reindexado con `POST /api/cron/reindex-knowledge?force=true`
+(`CRON_SECRET`, comparación en tiempo constante, error con `cause` y `dbHost`),
+reintentos ante 503/429 en LLM y embeddings, logs `[ai] active provider` y
+`[copilot] generation failed`. Lecciones: Production y Preview tienen bases
+distintas (migrar ambas a mano); cambiar de proveedor exige reindexar.
+
+**Pendiente:** aplicar `db:migrate` a la base de Production antes de promover;
+rotar las credenciales de Neon y `CRON_SECRET` que se compartieron en el chat;
+Gemini gratuito puede usar los prompts para mejorar el producto: no usarlo con
+datos reales de clientes (CLAUDE.md §5); calibrar `KNOWLEDGE_MIN_SIMILARITY`;
+programar `purgeExpiredSuggestions`; pasar los E2E de `copilot`,
+`conversation-workspace` y `membership`.
+**Próximo paso concreto:** elección del usuario — UI-10c o cerrar pendientes de Fase 8.
+
 ### Ajuste visual: copiloto y ficha según mockup UI-10 (2026-10-01)
 
 Pedido del usuario: copiloto y ficha del afiliado del Inbox como en el mockup

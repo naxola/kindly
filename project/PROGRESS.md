@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-10-01 (Fase 8 cerrada: Copiloto como tarjeta contextual).
+Última actualización: 2026-10-08 (Fase 8 validada en staging con Gemini).
 
 ## Resumen en una línea
 
