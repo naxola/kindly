@@ -96,7 +96,7 @@ test("another organization's private document is a 404", async ({ page }) => {
 
 async function openUploadSheet(page: import("@playwright/test").Page) {
   await page.goto("/knowledge");
-  await page.getByRole("button", { name: "Subir documento" }).click();
+  await page.getByRole("button", { name: "Añadir conocimiento" }).click();
   return page.getByRole("dialog");
 }
 
@@ -152,6 +152,22 @@ test("an ADMIN uploads a text file and a new version, and the content becomes se
   await expect(ours.getByText("Versión 2025")).toBeVisible();
   await expect(ours.getByText("Vigente", { exact: true })).toBeVisible();
   await expect(ours.getByText("BOE núm. 5")).toBeVisible();
+
+  // The sources list shows it as indexed, counts the indexed text, and filters by title and type.
+  await page.goto("/knowledge");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row.getByText("Indexado", { exact: true })).toBeVisible();
+  await expect(page.getByText("Caracteres indexados")).toBeVisible();
+
+  await page.getByLabel("Filtrar por título").fill(title);
+  await page.getByLabel("Tipo de fuente").selectOption("MANUAL");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(1);
+
+  await page.getByLabel("Tipo de fuente").selectOption("PDF");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(0);
+  await expect(page.getByText("Ninguna fuente coincide")).toBeVisible();
 });
 
 test("uploading a PDF works; a fake PDF, a private URL and a bad date are refused with a message", async ({ page }) => {
@@ -210,6 +226,6 @@ test("a DELEGATE is offered no way to upload", async ({ page, browser }) => {
 
   await delegate.goto("/knowledge");
   await expect(delegate.getByRole("heading", { name: "Conocimiento", level: 1 })).toBeVisible();
-  await expect(delegate.getByRole("button", { name: "Subir documento" })).toHaveCount(0);
+  await expect(delegate.getByRole("button", { name: "Añadir conocimiento" })).toHaveCount(0);
   await context.close();
 });

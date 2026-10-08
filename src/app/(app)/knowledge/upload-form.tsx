@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 type Origin = "PDF" | "TEXT" | "WEB";
 
 /**
- * Shared by "Subir documento" (new document: also asks for title/ámbito) and
+ * Shared by "Añadir conocimiento" (new document: also asks for title/ámbito) and
  * "Nueva versión" (existing document). The server action owns validation and
  * returns what is wrong, shown inline — no throw (`actions.ts`).
  */
@@ -35,6 +35,14 @@ export function UploadForm({
         </Alert>
       )}
 
+      <Field label="Origen" description="Qué quieres que la IA pueda citar.">
+        <NativeSelect name="origin" value={origin} onChange={(event) => setOrigin(event.target.value as Origin)}>
+          <option value="PDF">Archivo PDF</option>
+          <option value="TEXT">Archivo de texto (.txt, .md)</option>
+          <option value="WEB">Página web</option>
+        </NativeSelect>
+      </Field>
+
       {withDocumentFields && (
         <>
           <Field label="Título">
@@ -51,14 +59,6 @@ export function UploadForm({
           </Field>
         </>
       )}
-
-      <Field label="Origen">
-        <NativeSelect name="origin" value={origin} onChange={(event) => setOrigin(event.target.value as Origin)}>
-          <option value="PDF">Archivo PDF</option>
-          <option value="TEXT">Archivo de texto (.txt, .md)</option>
-          <option value="WEB">Página web</option>
-        </NativeSelect>
-      </Field>
 
       {origin === "WEB" ? (
         <Field label="Dirección web" description="Solo se guarda el texto, no la página.">

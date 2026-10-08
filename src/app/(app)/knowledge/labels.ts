@@ -4,6 +4,7 @@ import type {
   KnowledgeDocumentSourceType,
   KnowledgeVisibility,
 } from "@/modules/knowledge/schema";
+import type { IndexStatus } from "@/modules/knowledge/source-status";
 import type { BadgeProps } from "@/components/ui/badge";
 
 /** Display-only Spanish labels; the enum values stay identifiers (`CLAUDE.md` §1). */
@@ -32,6 +33,20 @@ export const SOURCE_TYPE_LABELS: Record<KnowledgeDocumentSourceType, string> = {
   MANUAL: "Manual",
   PDF: "PDF",
   WEB: "Web",
+};
+
+export const INDEX_STATUS_LABELS: Record<IndexStatus, string> = {
+  INDEXED: "Indexado",
+  OUTDATED: "Pendiente de reindexar",
+  EMPTY: "Sin contenido",
+  UNKNOWN: "Sin comprobar",
+};
+
+export const INDEX_STATUS_TONES: Record<IndexStatus, NonNullable<BadgeProps["tone"]>> = {
+  INDEXED: "success",
+  OUTDATED: "warning",
+  EMPTY: "neutral",
+  UNKNOWN: "neutral",
 };
 
 export const CHUNK_LEVEL_LABELS: Record<KnowledgeChunkLevel, string> = {

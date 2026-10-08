@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   documents,
@@ -175,6 +175,52 @@ export async function listDocumentsForOrganization(organizationId: string) {
   return db
     .select()
     .from(documents)
+    .where(
+      knowledgeVisibilityCondition(organizationId, {
+        visibility: documents.visibility,
+        organizationId: documents.organizationId,
+      }),
+    )
+    .orderBy(desc(documents.createdAt));
+}
+
+/**
+ * Documents visible to the organization with what their chunks cost to index:
+ * chunk and character counts, and how many chunks were embedded by a model
+ * other than `activeEmbeddingModel` (all zero when it is null: no provider
+ * registered, so staleness cannot be told). Same visibility rule on the chunk
+ * aggregate as on the document (defense in depth).
+ */
+export async function listKnowledgeSources(organizationId: string, activeEmbeddingModel: string | null) {
+  const stats = db
+    .select({
+      documentId: knowledgeChunks.documentId,
+      chunkCount: sql<number>`count(*)::int`.as("chunk_count"),
+      characterCount: sql<number>`coalesce(sum(length(${knowledgeChunks.content})), 0)::int`.as("character_count"),
+      staleChunkCount: (activeEmbeddingModel === null
+        ? sql<number>`0`
+        : sql<number>`(count(*) filter (where ${knowledgeChunks.embeddingModel} <> ${activeEmbeddingModel}))::int`
+      ).as("stale_chunk_count"),
+    })
+    .from(knowledgeChunks)
+    .where(
+      knowledgeVisibilityCondition(organizationId, {
+        visibility: knowledgeChunks.visibility,
+        organizationId: knowledgeChunks.organizationId,
+      }),
+    )
+    .groupBy(knowledgeChunks.documentId)
+    .as("chunk_stats");
+
+  return db
+    .select({
+      ...getTableColumns(documents),
+      chunkCount: sql<number>`coalesce(${stats.chunkCount}, 0)::int`,
+      characterCount: sql<number>`coalesce(${stats.characterCount}, 0)::int`,
+      staleChunkCount: sql<number>`coalesce(${stats.staleChunkCount}, 0)::int`,
+    })
+    .from(documents)
+    .leftJoin(stats, eq(stats.documentId, documents.id))
     .where(
       knowledgeVisibilityCondition(organizationId, {
         visibility: documents.visibility,

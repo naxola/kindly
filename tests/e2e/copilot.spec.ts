@@ -30,7 +30,7 @@ async function register(page: Page, name: string) {
 
 async function uploadKnowledge(page: Page, title: string, text: string) {
   await page.goto("/knowledge");
-  await page.getByRole("button", { name: "Subir documento" }).click();
+  await page.getByRole("button", { name: "Añadir conocimiento" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Título").fill(title);
   await dialog.getByLabel("Jurisdicción").fill("ES");

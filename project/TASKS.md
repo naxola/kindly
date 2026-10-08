@@ -714,6 +714,9 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 
 - [x] Subida de documentos desde la UI, sin script de operador (PDF, texto, página web; solo ADMIN; solo conocimiento de la organización). (Fase 7f, cerrado 2026-09-30 — `knowledge/upload.ts`, `knowledge/actions.ts`, `/knowledge` "Subir documento" y "Nueva versión".)
 
+- [x] Lista de fuentes de conocimiento con estado de indexado, contador de uso y "Añadir conocimiento" al estilo Aidbase (paso 1; sin Vídeo). (2026-10-08 — `knowledge/source-status.ts`, `listKnowledgeSources`, `reindexKnowledgeSourceAction`, `/knowledge`.)
+- [ ] Añadir varias páginas de un sitio: descubrir por `sitemap.xml`/RSS, listar para elegir y indexar solo las marcadas, con ingesta en segundo plano y estado por página (Indexando/Error). Paso 2 de la misma mejora.
+
 ## Fase 8 — AI
 
 - [x] Abstracción `LLMProvider` (OpenAI inicial). (Fase 8a, 2026-10-01 — `ai/llm-provider.ts`, `ai/openai-llm-provider.ts`.)

@@ -1,11 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
-import { listDocumentsForOrganization } from "@/modules/knowledge/service";
+import { listKnowledgeSources } from "@/modules/knowledge/service";
+import { getEmbeddingProvider, hasEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
+import { reindexKnowledgeSourceAction } from "@/modules/knowledge/actions";
+import {
+  deriveIndexStatus,
+  filterSources,
+  formatCharacterCount,
+  summarizeUsage,
+} from "@/modules/knowledge/source-status";
 import { retrieveKnowledge, type KnowledgeSearchResult } from "@/modules/knowledge/retrieval";
 import { UploadDocumentSheet } from "@/app/(app)/knowledge/upload-document-sheet";
 import { CitationCard } from "@/app/(app)/knowledge/citation-card";
-import { SOURCE_TYPE_LABELS, VISIBILITY_LABELS } from "@/app/(app)/knowledge/labels";
+import {
+  formatDay,
+  INDEX_STATUS_LABELS,
+  INDEX_STATUS_TONES,
+  SOURCE_TYPE_LABELS,
+  VISIBILITY_LABELS,
+} from "@/app/(app)/knowledge/labels";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
 import { PageSection } from "@/components/patterns/page-section";
@@ -13,7 +27,9 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { Input, NativeSelect } from "@/components/ui/input";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { pageTitle } from "@/lib/page-title";
 
@@ -40,14 +56,32 @@ async function search(organizationId: string, query: string): Promise<SearchOutc
   }
 }
 
-export default async function KnowledgePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams;
+const TYPE_FILTER_OPTIONS = [
+  { value: "", label: "Todos los tipos" },
+  { value: "PDF", label: "PDF" },
+  { value: "MANUAL", label: "Texto" },
+  { value: "WEB", label: "Web" },
+] as const;
+
+export default async function KnowledgePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; fuente?: string; tipo?: string }>;
+}) {
+  const { q, fuente, tipo } = await searchParams;
   const query = q?.trim() ?? "";
+  const sourceText = fuente?.trim() ?? "";
+  const sourceType = TYPE_FILTER_OPTIONS.some((option) => option.value === tipo) ? (tipo ?? "") : "";
   const member = await requireCurrentOrganizationMember();
-  const [documents, outcome] = await Promise.all([
-    listDocumentsForOrganization(member.organizationId),
+  // Without a registered provider (dev/CI without a key) staleness cannot be told.
+  const activeModel = hasEmbeddingProvider() ? getEmbeddingProvider().id : null;
+  const [sources, outcome] = await Promise.all([
+    listKnowledgeSources(member.organizationId, activeModel),
     query ? search(member.organizationId, query) : Promise.resolve(null),
   ]);
+  const usage = summarizeUsage(sources);
+  const visibleSources = filterSources(sources, { text: sourceText, type: sourceType });
+  const isAdmin = member.role === "ADMIN";
 
   return (
     <PageContainer>
@@ -59,7 +93,7 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
             <Link href="/knowledge/procedures" className="focus-ring type-body rounded-sm text-foreground-lighter underline">
               Trámites
             </Link>
-            {member.role === "ADMIN" && <UploadDocumentSheet />}
+            {isAdmin && <UploadDocumentSheet />}
           </>
         }
       />
@@ -89,38 +123,109 @@ export default async function KnowledgePage({ searchParams }: { searchParams: Pr
           ))}
       </PageSection>
 
-      <PageSection title="Documentos">
+      <PageSection
+        title="Fuentes de conocimiento"
+        description="Lo que la IA puede citar. Solo se guarda el texto extraído, no los archivos"
+      >
+        <dl className="type-body flex flex-wrap gap-x-8 gap-y-2" aria-label="Texto indexado de tu organización">
+          <div>
+            <dt className="text-foreground-lighter">Fuentes propias</dt>
+            <dd className="font-medium text-foreground">{formatCharacterCount(usage.sourceCount)}</dd>
+          </div>
+          <div>
+            <dt className="text-foreground-lighter">Fragmentos indexados</dt>
+            <dd className="font-medium text-foreground">{formatCharacterCount(usage.chunkCount)}</dd>
+          </div>
+          <div>
+            <dt className="text-foreground-lighter">Caracteres indexados</dt>
+            <dd className="font-medium text-foreground">{formatCharacterCount(usage.characterCount)}</dd>
+          </div>
+        </dl>
+
+        <form method="get" role="search" aria-label="Filtrar fuentes">
+          {query && <input type="hidden" name="q" value={query} />}
+          <FilterBar
+            search={<Input type="search" name="fuente" defaultValue={sourceText} placeholder="Filtrar por título" aria-label="Filtrar por título" />}
+            filters={
+              <NativeSelect name="tipo" defaultValue={sourceType} aria-label="Tipo de fuente" className="w-auto">
+                {TYPE_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            }
+            actions={<Button type="submit">Filtrar</Button>}
+          />
+        </form>
+
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Título</TableHead>
-              <TableHead>Origen</TableHead>
+              <TableHead>Conocimiento</TableHead>
               <TableHead>Ámbito</TableHead>
               <TableHead>Visibilidad</TableHead>
+              <TableHead>Añadido</TableHead>
+              <TableHead>Estado</TableHead>
+              {isAdmin && <TableHead>Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {documents.map((doc) => (
-              <TableRow key={doc.id}>
-                <TableCell className="font-medium text-foreground">
-                  <Link href={`/knowledge/${doc.id}`} className="focus-ring rounded-sm">
-                    {doc.title}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-foreground-lighter">{SOURCE_TYPE_LABELS[doc.sourceType]}</TableCell>
-                <TableCell className="text-foreground-lighter">
-                  {[doc.jurisdiction, doc.territory, doc.scope].filter(Boolean).join(" · ") || "—"}
-                </TableCell>
-                <TableCell>
-                  <Badge tone={doc.visibility === "GLOBAL" ? "info" : "neutral"}>{VISIBILITY_LABELS[doc.visibility]}</Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-            {documents.length === 0 && (
+            {visibleSources.map((doc) => {
+              const status = deriveIndexStatus({
+                chunkCount: doc.chunkCount,
+                staleChunkCount: doc.staleChunkCount,
+                providerKnown: activeModel !== null,
+              });
+              const canReindex = isAdmin && status === "OUTDATED" && doc.organizationId === member.organizationId;
+              return (
+                <TableRow key={doc.id}>
+                  <TableCell className="font-medium text-foreground">
+                    <Link href={`/knowledge/${doc.id}`} className="focus-ring rounded-sm">
+                      {doc.title}
+                    </Link>
+                    <div className="mt-1">
+                      <Badge tone="outline">{SOURCE_TYPE_LABELS[doc.sourceType]}</Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">
+                    {[doc.jurisdiction, doc.territory, doc.scope].filter(Boolean).join(" · ") || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge tone={doc.visibility === "GLOBAL" ? "info" : "neutral"}>{VISIBILITY_LABELS[doc.visibility]}</Badge>
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">{formatDay(doc.createdAt.toISOString().slice(0, 10))}</TableCell>
+                  <TableCell>
+                    <Badge tone={INDEX_STATUS_TONES[status]}>{INDEX_STATUS_LABELS[status]}</Badge>
+                    <div className="type-body mt-1 text-foreground-lighter">
+                      {formatCharacterCount(doc.chunkCount)} fragmentos · {formatCharacterCount(doc.characterCount)} caracteres
+                    </div>
+                  </TableCell>
+                  {isAdmin && (
+                    <TableCell>
+                      {canReindex && (
+                        <form action={reindexKnowledgeSourceAction.bind(null, doc.id)}>
+                          <SubmitButton variant="outline" size="sm">
+                            Reindexar
+                          </SubmitButton>
+                        </form>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+            {visibleSources.length === 0 && (
               <TableEmpty
-                colSpan={4}
-                title="Todavía no hay documentos"
-                description={member.role === "ADMIN" ? "Sube el primero con «Subir documento»." : "Un administrador puede subirlos."}
+                colSpan={isAdmin ? 6 : 5}
+                title={sources.length === 0 ? "Todavía no hay conocimiento" : "Ninguna fuente coincide"}
+                description={
+                  sources.length === 0
+                    ? isAdmin
+                      ? "Añade el primero con «Añadir conocimiento»."
+                      : "Un administrador puede añadirlo."
+                    : "Prueba con otro título o tipo."
+                }
               />
             )}
           </TableBody>

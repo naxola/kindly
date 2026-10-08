@@ -13,6 +13,7 @@ import {
   createDocumentVersion,
   getDocumentWithVersions,
   listDocumentsForOrganization,
+  listKnowledgeSources,
 } from "@/modules/knowledge/service";
 import { knowledgeVisibilityCondition } from "@/modules/knowledge/visibility";
 import {
@@ -292,6 +293,47 @@ describe("Knowledge data layer (integration, real PostgreSQL + pgvector)", () =>
           ),
         );
       expect(visibleToA.every((r) => r.documentId === docA.id)).toBe(true);
+    });
+  });
+  describe("listKnowledgeSources", () => {
+    it("counts chunks and characters, flags other-model chunks as stale, and keeps tenancy", async () => {
+      const orgA = await createOrg("sources-a");
+      const orgB = await createOrg("sources-b");
+      const own = await createDocument({ organizationId: orgA.id, visibility: "ORGANIZATION", title: "Propio" });
+      const empty = await createDocument({ organizationId: orgA.id, visibility: "ORGANIZATION", title: "Sin versión" });
+      const foreign = await createDocument({ organizationId: orgB.id, visibility: "ORGANIZATION", title: "Ajeno" });
+      const version = await createDocumentVersion({
+        documentId: own.id,
+        version: "1",
+        status: "CURRENT",
+        effectiveFrom: "2024-01-01",
+        chunks: [
+          { ordinal: 0, level: "ARTICLE", label: "Art. 1", content: "12345" },
+          { ordinal: 1, level: "ARTICLE", label: "Art. 2", content: "1234567" },
+        ],
+      });
+      await createDocumentVersion({
+        documentId: foreign.id,
+        version: "1",
+        status: "CURRENT",
+        effectiveFrom: "2024-01-01",
+        chunks: [{ ordinal: 0, level: "ARTICLE", label: "Art. 1", content: "secreto de la otra organización" }],
+      });
+
+      const current = await listKnowledgeSources(orgA.id, provider.id);
+      const ownRow = current.find((row) => row.id === own.id)!;
+      expect(ownRow).toMatchObject({ chunkCount: 2, characterCount: 12, staleChunkCount: 0 });
+      expect(current.find((row) => row.id === empty.id)).toMatchObject({ chunkCount: 0, characterCount: 0, staleChunkCount: 0 });
+      expect(current.map((row) => row.id)).not.toContain(foreign.id);
+
+      await db.update(knowledgeChunks).set({ embeddingModel: "legacy" }).where(
+        and(eq(knowledgeChunks.documentVersionId, version.id), eq(knowledgeChunks.ordinal, 0)),
+      );
+      const afterSwitch = await listKnowledgeSources(orgA.id, provider.id);
+      expect(afterSwitch.find((row) => row.id === own.id)).toMatchObject({ chunkCount: 2, staleChunkCount: 1 });
+
+      const noProvider = await listKnowledgeSources(orgA.id, null);
+      expect(noProvider.find((row) => row.id === own.id)).toMatchObject({ chunkCount: 2, staleChunkCount: 0 });
     });
   });
 });

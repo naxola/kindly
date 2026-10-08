@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrganizationAdmin } from "@/modules/organizations/service";
+import { getDocumentWithVersions } from "@/modules/knowledge/service";
+import { reindexKnowledgeChunks } from "@/modules/knowledge/reindex";
 import { uploadKnowledgeDocument, uploadKnowledgeVersion, UploadError } from "@/modules/knowledge/upload";
 import {
   parseDocumentFields,
@@ -88,4 +90,21 @@ export async function uploadKnowledgeVersionAction(
     });
     return updated.id;
   });
+}
+
+/**
+ * ADMIN-only. Re-embeds one of the organization's own documents with the
+ * active provider (after a provider switch). Public GLOBAL knowledge is
+ * operator-managed, so an organization admin can never reindex it here.
+ * Synchronous: one document is bounded, unlike the whole-table cron job.
+ */
+export async function reindexKnowledgeSourceAction(documentId: string): Promise<void> {
+  const member = await requireOrganizationAdmin();
+  const found = await getDocumentWithVersions(documentId, member.organizationId);
+  if (!found || found.document.organizationId !== member.organizationId) {
+    throw new Error("Documento no encontrado.");
+  }
+  await reindexKnowledgeChunks({ documentId });
+  revalidatePath("/knowledge");
+  revalidatePath(`/knowledge/${documentId}`);
 }
