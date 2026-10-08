@@ -44,15 +44,13 @@ export function WebsiteInfoTab({ website }: { website: WebsiteView }) {
             {summary.failed > 0 && <Badge tone="destructive">{summary.failed} con error</Badge>}
           </dd>
         </div>
-        <div className="flex gap-8">
-          <div>
-            <dt className="text-foreground-lighter">Añadido</dt>
-            <dd className="text-foreground">{day(website.createdAt)}</dd>
-          </div>
-          <div>
-            <dt className="text-foreground-lighter">Última búsqueda de páginas</dt>
-            <dd className="text-foreground">{day(website.discoveredAt)}</dd>
-          </div>
+        <div>
+          <dt className="text-foreground-lighter">Añadido</dt>
+          <dd className="text-foreground">{day(website.createdAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-foreground-lighter">Última búsqueda de páginas</dt>
+          <dd className="text-foreground">{day(website.discoveredAt)}</dd>
         </div>
       </dl>
 
