@@ -8,6 +8,21 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### Conocimiento al estilo Aidbase — paso 2 hecho: varias páginas de un sitio (2026-10-08)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). "Añadir conocimiento" →
+"Varias páginas de un sitio web" → `/knowledge/sitio` (buscar por sitemap/RSS, elegir hasta 30, datos de
+publicación) → `/knowledge/sitio/[batchId]` (estado por página, reintentar fallidas). Nueva tabla
+`knowledge_import_pages` (**migración 0013: aplicar a mano en staging y en Production** con `npm run db:migrate`
+contra cada base). Detalle y límites en `docs/DECISIONS.md` ("Conocimiento, paso 2…"). Verificado: lint +
+typecheck + 674 unit/integración + 6 E2E de `knowledge`. No probado contra un sitio real desde aquí.
+
+**Pendiente:** probar en staging con un sitio real con sitemap (tras migrar); las importaciones se terminan
+mientras la pantalla de progreso está abierta (no hay cron que las retome); re-sincronizar un sitio ya
+importado; sin límite global de coste por organización.
+**Próximo paso concreto:** elección del usuario — probar el paso 2 en staging, programar `purgeExpiredSuggestions`,
+calibrar `KNOWLEDGE_MIN_SIMILARITY` o UI-10c.
+
 ### Conocimiento al estilo Aidbase — paso 1 hecho (2026-10-08)
 
 Último commit: `c895053`. `/knowledge` ahora tiene "Añadir conocimiento" (origen primero), tabla

@@ -203,6 +203,71 @@ test("uploading a PDF works; a fake PDF, a private URL and a bad date are refuse
   await expectNoSeriousAccessibilityViolations(page, "/knowledge/[id] con formulario de versión");
 });
 
+test("an ADMIN follows a bulk web import and is refused a private site", async ({ page }) => {
+  const suffix = randomUUID().slice(0, 8);
+  await register(page, `Import ${suffix}`);
+  const [org] = await sql`
+    select o.id from organizations o
+    join organization_members m on m.organization_id = o.id
+    join users u on u.id = m.user_id
+    where u.name = ${`Import ${suffix}`} limit 1`;
+
+  // A finished batch seeded in SQL: one indexed page, one failed, one skipped.
+  const batchId = randomUUID();
+  const documentId = await seedDocument(org.id, `Página indexada ${suffix}`);
+  const options = sql.json({
+    version: "2024",
+    status: "CURRENT",
+    effectiveFrom: "2024-01-10",
+    effectiveUntil: null,
+    sourceNote: null,
+    jurisdiction: "ES",
+    territory: null,
+    scope: null,
+  });
+  const site = `https://ejemplo-${suffix}.org/`;
+  await sql`
+    insert into knowledge_import_pages (organization_id, batch_id, site_url, url, title, status, error, document_id, options)
+    values
+      (${org.id}, ${batchId}, ${site}, ${`${site}buena`}, ${`Página indexada ${suffix}`}, 'INDEXED', null, ${documentId}, ${options}),
+      (${org.id}, ${batchId}, ${site}, ${`${site}rota`}, null, 'FAILED', 'No se pudo descargar la página. Comprueba que es pública y accesible.', null, ${options}),
+      (${org.id}, ${batchId}, ${site}, ${`${site}vieja`}, null, 'SKIPPED', 'Ya estaba añadida.', null, ${options})`;
+
+  await page.goto("/knowledge");
+  const history = page.getByRole("link", { name: `ejemplo-${suffix}.org` });
+  await expect(history).toBeVisible();
+  await expect(page.getByText("1 de 3 indexadas · 1 con error")).toBeVisible();
+
+  await history.click();
+  await expect(page.getByRole("heading", { name: "Importación de páginas", level: 1 })).toBeVisible();
+  await expect(page.getByText("Importación terminada.")).toBeVisible();
+  await expect(page.getByText("Indexada", { exact: true })).toBeVisible();
+  await expect(page.getByText("Error", { exact: true })).toBeVisible();
+  await expect(page.getByText("Omitida", { exact: true })).toBeVisible();
+  await expect(page.getByText("No se pudo descargar la página. Comprueba que es pública y accesible.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reintentar 1 página con error" })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Página indexada ${suffix}` })).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page, "/knowledge/sitio/[batchId]");
+
+  // Another organization's batch is a 404.
+  const [other] = await sql`insert into organizations (name) values (${`Otra import ${suffix}`}) returning id`;
+  const foreignBatch = randomUUID();
+  await sql`
+    insert into knowledge_import_pages (organization_id, batch_id, site_url, url, status, options)
+    values (${other.id}, ${foreignBatch}, ${site}, ${`${site}ajena`}, 'PENDING', ${options})`;
+  const foreign = await page.goto(`/knowledge/sitio/${foreignBatch}`);
+  expect(foreign?.status()).toBe(404);
+
+  // "Varias páginas de un sitio web" refuses an address that is not public.
+  const dialog = await openUploadSheet(page);
+  await dialog.getByLabel("Qué quieres añadir").selectOption("SITE");
+  await dialog.getByLabel("Dirección del sitio").fill("http://127.0.0.1:3000/");
+  await dialog.getByRole("button", { name: "Buscar páginas" }).click();
+  await expect(page).toHaveURL(/\/knowledge\/sitio\?url=/);
+  await expect(page.getByText("La dirección no es pública o no se puede resolver.")).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page, "/knowledge/sitio");
+});
+
 test("a DELEGATE is offered no way to upload", async ({ page, browser }) => {
   const suffix = randomUUID().slice(0, 8);
   await register(page, `AdminUp ${suffix}`);
@@ -227,5 +292,7 @@ test("a DELEGATE is offered no way to upload", async ({ page, browser }) => {
   await delegate.goto("/knowledge");
   await expect(delegate.getByRole("heading", { name: "Conocimiento", level: 1 })).toBeVisible();
   await expect(delegate.getByRole("button", { name: "Añadir conocimiento" })).toHaveCount(0);
+  const siteImport = await delegate.goto("/knowledge/sitio");
+  expect(siteImport?.status()).toBe(404);
   await context.close();
 });

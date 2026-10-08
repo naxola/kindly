@@ -44,6 +44,7 @@ import {
   customType,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -53,6 +54,7 @@ import {
   vector,
   date,
 } from "drizzle-orm/pg-core";
+import { users } from "@/modules/auth/schema";
 import { organizations } from "@/modules/organizations/schema";
 
 /** Dimensión del vector de embeddings — ver cabecera. Una sola fuente de verdad. */
@@ -203,6 +205,64 @@ export const knowledgeChunks = pgTable(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
     ),
+  ],
+);
+
+export const importPageStatus = pgEnum("knowledge_import_page_status", [
+  "PENDING",
+  "INDEXING",
+  "INDEXED",
+  "FAILED",
+  "SKIPPED",
+]);
+export type ImportPageStatus = (typeof importPageStatus.enumValues)[number];
+
+/** What every page of one import batch is published with (the ADMIN fills it once). */
+export interface ImportPageOptions {
+  version: string;
+  status: "CURRENT" | "DRAFT";
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  sourceNote: string | null;
+  jurisdiction: string | null;
+  territory: string | null;
+  scope: string | null;
+}
+
+/**
+ * One page an ADMIN chose to index from a website ("Añadir varias páginas",
+ * knowledge step 2), with its own state so a long import can run in
+ * background slices and be followed (and retried) page by page. Rows of one
+ * import share `batch_id`. A page becomes a normal ORGANIZATION document
+ * (`document_id`) once indexed; the row stays as the import's history.
+ * Always scoped to one organization — never GLOBAL.
+ */
+export const knowledgeImportPages = pgTable(
+  "knowledge_import_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    batchId: uuid("batch_id").notNull(),
+    siteUrl: text("site_url").notNull(),
+    url: text("url").notNull(),
+    // Known from a feed at selection time, else read from the page when it is indexed.
+    title: text("title"),
+    status: importPageStatus("status").notNull().default("PENDING"),
+    // User-facing reason (Spanish), never a stack trace or provider detail.
+    error: text("error"),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    options: jsonb("options").$type<ImportPageOptions>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    // Claim time of the current attempt: an INDEXING row older than the lease is taken over.
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("knowledge_import_pages_org_batch_idx").on(table.organizationId, table.batchId),
+    index("knowledge_import_pages_batch_status_idx").on(table.batchId, table.status),
   ],
 );
 

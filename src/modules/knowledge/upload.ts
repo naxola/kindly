@@ -40,7 +40,7 @@ async function extractText(source: UploadedSource): Promise<string> {
       case "TEXT":
         return source.text;
       case "WEB":
-        return await fetchWebText(source.url);
+        return source.text ?? (await fetchWebText(source.url));
     }
   } catch (error) {
     console.error("Knowledge extraction failed", error);
@@ -91,7 +91,8 @@ function versionInput(documentId: string, fields: VersionFields, chunks: Awaited
 
 interface UploadContext {
   organizationId: string;
-  actorUserId: string;
+  /** Null when the person who started a bulk import was deleted meanwhile. */
+  actorUserId: string | null;
   fields: VersionFields;
   source: UploadedSource;
 }

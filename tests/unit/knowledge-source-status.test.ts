@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveIndexStatus, filterSources, formatCharacterCount, summarizeUsage } from "@/modules/knowledge/source-status";
+import { deriveIndexStatus, filterSources, formatCharacterCount, summarizeImport, summarizeUsage } from "@/modules/knowledge/source-status";
 
 describe("deriveIndexStatus", () => {
   it("is EMPTY without chunks, whatever the provider", () => {
@@ -64,5 +64,20 @@ describe("filterSources", () => {
   it("filters by exact type and combines with text", () => {
     expect(filterSources(sources, { type: "WEB" })).toHaveLength(1);
     expect(filterSources(sources, { type: "WEB", text: "notas" })).toHaveLength(0);
+  });
+});
+
+describe("summarizeImport", () => {
+  it("counts each state and is done only when nothing is waiting or indexing", () => {
+    const summary = summarizeImport([
+      { status: "INDEXED" },
+      { status: "FAILED" },
+      { status: "SKIPPED" },
+      { status: "PENDING" },
+      { status: "INDEXING" },
+    ]);
+    expect(summary).toEqual({ total: 5, pending: 1, indexing: 1, indexed: 1, failed: 1, skipped: 1, done: false });
+    expect(summarizeImport([{ status: "INDEXED" }, { status: "FAILED" }]).done).toBe(true);
+    expect(summarizeImport([]).done).toBe(true);
   });
 });

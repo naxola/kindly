@@ -54,3 +54,32 @@ export function filterSources<T extends { title: string; sourceType: string }>(s
       (!filters.type || source.sourceType === filters.type) && (!text || normalize(source.title).includes(text)),
   );
 }
+
+export type ImportPageState = "PENDING" | "INDEXING" | "INDEXED" | "FAILED" | "SKIPPED";
+
+/** Progress of one import batch. `done` once no page is waiting or being indexed. */
+export function summarizeImport(pages: { status: ImportPageState }[]): {
+  total: number;
+  pending: number;
+  indexing: number;
+  indexed: number;
+  failed: number;
+  skipped: number;
+  done: boolean;
+} {
+  const count = (status: ImportPageState) => pages.filter((page) => page.status === status).length;
+  const pending = count("PENDING");
+  const indexing = count("INDEXING");
+  return {
+    total: pages.length,
+    pending,
+    indexing,
+    indexed: count("INDEXED"),
+    failed: count("FAILED"),
+    skipped: count("SKIPPED"),
+    done: pending + indexing === 0,
+  };
+}
+
+/** Pages of a website that can be imported in one go (bounds the embedding bill of a single action). */
+export const MAX_IMPORT_PAGES = 30;

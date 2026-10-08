@@ -4,6 +4,7 @@ import { requireCurrentOrganizationMember } from "@/modules/organizations/servic
 import { listKnowledgeSources } from "@/modules/knowledge/service";
 import { getEmbeddingProvider, hasEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 import { reindexKnowledgeSourceAction } from "@/modules/knowledge/actions";
+import { listRecentImportBatches } from "@/modules/knowledge/site-import";
 import {
   deriveIndexStatus,
   filterSources,
@@ -75,13 +76,14 @@ export default async function KnowledgePage({
   const member = await requireCurrentOrganizationMember();
   // Without a registered provider (dev/CI without a key) staleness cannot be told.
   const activeModel = hasEmbeddingProvider() ? getEmbeddingProvider().id : null;
-  const [sources, outcome] = await Promise.all([
+  const isAdmin = member.role === "ADMIN";
+  const [sources, outcome, imports] = await Promise.all([
     listKnowledgeSources(member.organizationId, activeModel),
     query ? search(member.organizationId, query) : Promise.resolve(null),
+    isAdmin ? listRecentImportBatches(member.organizationId) : Promise.resolve([]),
   ]);
   const usage = summarizeUsage(sources);
   const visibleSources = filterSources(sources, { text: sourceText, type: sourceType });
-  const isAdmin = member.role === "ADMIN";
 
   return (
     <PageContainer>
@@ -231,6 +233,37 @@ export default async function KnowledgePage({
           </TableBody>
         </Table>
       </PageSection>
+
+      {imports.length > 0 && (
+        <PageSection title="Importaciones recientes" description="Páginas añadidas desde un sitio web">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sitio</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Resultado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {imports.map((batch) => (
+                <TableRow key={batch.batchId}>
+                  <TableCell className="font-medium text-foreground">
+                    <Link href={`/knowledge/sitio/${batch.batchId}`} className="focus-ring rounded-sm">
+                      {new URL(batch.siteUrl).host}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">{formatDay(String(batch.createdAt).slice(0, 10))}</TableCell>
+                  <TableCell className="text-foreground-lighter">
+                    {batch.indexed} de {batch.total} indexadas
+                    {batch.failed > 0 && ` · ${batch.failed} con error`}
+                    {batch.open > 0 && ` · ${batch.open} pendientes`}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </PageSection>
+      )}
     </PageContainer>
   );
 }

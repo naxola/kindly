@@ -92,6 +92,13 @@
       "when": 1790868204497,
       "tag": "0012_knowledge_search_text",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791482033318,
+      "tag": "0013_knowledge_import_pages",
+      "breakpoints": true
     }
   ]
 }

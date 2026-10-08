@@ -2,14 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireOrganizationAdmin } from "@/modules/organizations/service";
 import { getDocumentWithVersions } from "@/modules/knowledge/service";
 import { reindexKnowledgeChunks } from "@/modules/knowledge/reindex";
+import { createImportBatch, processImportBatch, retryFailedImportPages } from "@/modules/knowledge/site-import";
 import { uploadKnowledgeDocument, uploadKnowledgeVersion, UploadError } from "@/modules/knowledge/upload";
 import {
   parseDocumentFields,
   parseVersionFields,
   resolveUploadedSource,
+  validateWebUrl,
 } from "@/modules/knowledge/ingestion/upload-validation";
 
 export interface UploadFormState {
@@ -107,4 +110,90 @@ export async function reindexKnowledgeSourceAction(documentId: string): Promise<
   await reindexKnowledgeChunks({ documentId });
   revalidatePath("/knowledge");
   revalidatePath(`/knowledge/${documentId}`);
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const optionalText = (data: FormData, key: string) => String(data.get(key) ?? "").trim() || null;
+
+/**
+ * ADMIN-only. Queues the pages chosen on the discovery screen and starts
+ * indexing them after the response (`after`), then goes to the progress page,
+ * which keeps indexing in slices while pages remain. Always ORGANIZATION
+ * knowledge, one document per page.
+ */
+export async function startSiteImportAction(_previous: UploadFormState, formData: FormData): Promise<UploadFormState> {
+  const member = await requireOrganizationAdmin();
+
+  const site = validateWebUrl(String(formData.get("siteUrl") ?? ""));
+  if (!site.ok) return { error: site.error, values: echo(formData) };
+  const fields = parseVersionFields(formData);
+  if (!fields.ok) return { error: fields.error, values: echo(formData) };
+
+  const pages = formData.getAll("page").flatMap((value) =>
+    typeof value === "string" && value
+      ? [{ url: value, title: optionalText(formData, `title:${value}`) }]
+      : [],
+  );
+
+  let batchId: string;
+  try {
+    ({ batchId } = await createImportBatch({
+      organizationId: member.organizationId,
+      actorUserId: member.userId,
+      siteUrl: site.value,
+      pages,
+      options: {
+        version: fields.value.version,
+        status: fields.value.status,
+        effectiveFrom: fields.value.effectiveFrom,
+        effectiveUntil: fields.value.effectiveUntil,
+        sourceNote: fields.value.sourceNote,
+        jurisdiction: optionalText(formData, "jurisdiction"),
+        territory: optionalText(formData, "territory"),
+        scope: optionalText(formData, "scope"),
+      },
+    }));
+  } catch (error) {
+    if (error instanceof UploadError) return { error: error.message, values: echo(formData) };
+    console.error("Site import could not be queued", error);
+    return { error: "No se pudo preparar la importación. Inténtalo de nuevo.", values: echo(formData) };
+  }
+
+  after(async () => {
+    try {
+      await processImportBatch(member.organizationId, batchId);
+    } catch (error) {
+      console.error("Site import slice failed:", error instanceof Error ? error.name : "unknown error");
+    }
+  });
+  revalidatePath("/knowledge");
+  redirect(`/knowledge/sitio/${batchId}`);
+}
+
+export interface ImportSliceResult {
+  remaining: number;
+  error: string | null;
+}
+
+/** ADMIN-only. One more time-boxed slice of a batch; the progress page calls it while pages remain. */
+export async function continueSiteImportAction(batchId: string): Promise<ImportSliceResult> {
+  const member = await requireOrganizationAdmin();
+  if (!UUID.test(batchId)) return { remaining: 0, error: "Importación no encontrada." };
+  try {
+    const { remaining } = await processImportBatch(member.organizationId, batchId);
+    return { remaining, error: null };
+  } catch (error) {
+    if (error instanceof UploadError) return { remaining: 0, error: error.message };
+    console.error("Site import slice failed:", error instanceof Error ? error.name : "unknown error");
+    return { remaining: 0, error: "No se pudo continuar la importación." };
+  }
+}
+
+/** ADMIN-only. Puts the failed pages of a batch back in the queue. */
+export async function retryFailedImportAction(batchId: string): Promise<void> {
+  const member = await requireOrganizationAdmin();
+  if (!UUID.test(batchId)) return;
+  await retryFailedImportPages(member.organizationId, batchId);
+  revalidatePath(`/knowledge/sitio/${batchId}`);
 }

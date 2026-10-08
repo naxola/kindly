@@ -20,7 +20,8 @@ export type UploadOrigin = "PDF" | "TEXT" | "WEB";
 export type UploadedSource =
   | { type: "PDF"; data: Uint8Array }
   | { type: "TEXT"; text: string }
-  | { type: "WEB"; url: string };
+  /** `text`: the page was already downloaded (bulk import); otherwise it is fetched from `url`. */
+  | { type: "WEB"; url: string; text?: string };
 
 export type Validation<T> = { ok: true; value: T } | { ok: false; error: string };
 

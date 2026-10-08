@@ -4,7 +4,7 @@ import type {
   KnowledgeDocumentSourceType,
   KnowledgeVisibility,
 } from "@/modules/knowledge/schema";
-import type { IndexStatus } from "@/modules/knowledge/source-status";
+import type { ImportPageState, IndexStatus } from "@/modules/knowledge/source-status";
 import type { BadgeProps } from "@/components/ui/badge";
 
 /** Display-only Spanish labels; the enum values stay identifiers (`CLAUDE.md` §1). */
@@ -47,6 +47,22 @@ export const INDEX_STATUS_TONES: Record<IndexStatus, NonNullable<BadgeProps["ton
   OUTDATED: "warning",
   EMPTY: "neutral",
   UNKNOWN: "neutral",
+};
+
+export const IMPORT_STATUS_LABELS: Record<ImportPageState, string> = {
+  PENDING: "En cola",
+  INDEXING: "Indexando",
+  INDEXED: "Indexada",
+  FAILED: "Error",
+  SKIPPED: "Omitida",
+};
+
+export const IMPORT_STATUS_TONES: Record<ImportPageState, NonNullable<BadgeProps["tone"]>> = {
+  PENDING: "neutral",
+  INDEXING: "info",
+  INDEXED: "success",
+  FAILED: "destructive",
+  SKIPPED: "neutral",
 };
 
 export const CHUNK_LEVEL_LABELS: Record<KnowledgeChunkLevel, string> = {
