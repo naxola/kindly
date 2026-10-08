@@ -96,4 +96,25 @@ describe("GeminiEmbeddingProvider", () => {
       embedder(vi.fn(async () => Response.json({ embeddings: [{ values: [1, 2] }] }))).embed(["a"]),
     ).rejects.toThrow(/2-dimension/);
   });
+  it("retries a 503 overload and succeeds, and gives up after the last retry", async () => {
+    const overloaded = () => Response.json({ error: { message: "high demand" } }, { status: 503 });
+    const ok = () => Response.json({ embeddings: [vector(1)] });
+    const recovering = vi.fn().mockResolvedValueOnce(overloaded()).mockResolvedValueOnce(ok());
+    const retrying = new GeminiEmbeddingProvider({
+      apiKey: "g-test",
+      fetchImpl: recovering as unknown as typeof fetch,
+      retryDelaysMs: [0, 0],
+    });
+    await expect(retrying.embed(["a"])).resolves.toHaveLength(1);
+    expect(recovering).toHaveBeenCalledTimes(2);
+
+    const down = vi.fn(async () => overloaded());
+    const failing = new GeminiEmbeddingProvider({
+      apiKey: "g-test",
+      fetchImpl: down as unknown as typeof fetch,
+      retryDelaysMs: [0, 0],
+    });
+    await expect(failing.embed(["a"])).rejects.toThrow(/503/);
+    expect(down).toHaveBeenCalledTimes(3);
+  });
 });

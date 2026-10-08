@@ -6,6 +6,7 @@
  * Its `id` ("gemini:<model>") isolates its vectors from OpenAI's in search.
  */
 import "server-only";
+import { fetchWithRetry } from "@/lib/fetch-retry";
 import { EMBEDDING_DIMENSIONS } from "@/modules/knowledge/schema";
 import type { EmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 
@@ -13,6 +14,7 @@ export interface GeminiEmbeddingProviderConfig {
   apiKey: string;
   model?: string;
   fetchImpl?: typeof fetch;
+  retryDelaysMs?: readonly number[];
 }
 
 const DEFAULT_MODEL = "gemini-embedding-001";
@@ -36,11 +38,13 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
   private readonly apiKey: string;
   private readonly model: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly retryDelaysMs?: readonly number[];
 
   constructor(config: GeminiEmbeddingProviderConfig) {
     this.apiKey = config.apiKey;
     this.model = config.model ?? DEFAULT_MODEL;
     this.fetchImpl = config.fetchImpl ?? fetch;
+    this.retryDelaysMs = config.retryDelaysMs;
     this.id = `gemini:${this.model}`;
   }
 
@@ -53,7 +57,8 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
   }
 
   private async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await this.fetchImpl(
+    const response = await fetchWithRetry(
+      this.fetchImpl,
       `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:batchEmbedContents`,
       {
         method: "POST",
@@ -66,6 +71,7 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
           })),
         }),
       },
+      this.retryDelaysMs,
     );
 
     const payload = (await response.json().catch(() => ({}))) as BatchEmbedResponse;
