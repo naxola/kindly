@@ -8,6 +8,21 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### Conocimiento al estilo Aidbase — paso 1 hecho (2026-10-08)
+
+Último commit: `c895053`. `/knowledge` ahora tiene "Añadir conocimiento" (origen primero), tabla
+"Fuentes de conocimiento" con estado de indexado derivado (Indexado / Pendiente de reindexar / Sin
+contenido / Sin comprobar), contador de caracteres y fragmentos indexados, filtro por título y tipo y
+"Reindexar" por documento (ADMIN). Sin Vídeo (decisión del usuario). Detalle en `docs/DECISIONS.md`
+("Conocimiento: lista de fuentes con estado…"). Verificado: lint + typecheck + 459 unit/integración +
+8 E2E (`knowledge`, `copilot`). Nota de entorno: Playwright 1.63 pide un Chromium más nuevo que el
+instalado (1194); se ejecutó con un config temporal con `executablePath` (no commiteado).
+
+**Paso 2 (siguiente):** añadir varias páginas de un sitio — descubrir por `sitemap.xml`/RSS, listar
+para elegir, indexar solo las marcadas, ingesta en segundo plano con estado por página
+(Indexando/Error). Requiere decidir dónde guardar ese estado (tabla nueva, migración) y cómo ejecutar
+en segundo plano en Vercel (`after()`).
+
 ### Fase 8 validada en staging con Gemini (2026-10-08)
 
 El copiloto genera sugerencias en staging con **Gemini** (`AI_PROVIDER=gemini`,
