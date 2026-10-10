@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireOrganizationAdmin } from "@/modules/organizations/service";
 import { getDocumentWithVersions } from "@/modules/knowledge/service";
+import { isSchemaBehindError } from "@/modules/knowledge/schema-behind";
 import { reindexKnowledgeChunks } from "@/modules/knowledge/reindex";
 import {
   addWebsite,
@@ -132,6 +133,9 @@ async function guarded<T extends object>(work: () => Promise<T>): Promise<T | { 
     return await work();
   } catch (error) {
     if (error instanceof UploadError) return { error: error.message };
+    if (isSchemaBehindError(error)) {
+      return { error: "Faltan migraciones en la base de datos. Aplica «npm run db:migrate» y vuelve a intentarlo." };
+    }
     console.error("Website action failed:", error instanceof Error ? error.name : "unknown error");
     return { error: "No se pudo completar la acción. Inténtalo de nuevo." };
   }

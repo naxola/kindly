@@ -4,6 +4,7 @@ import { requireCurrentOrganizationMember } from "@/modules/organizations/servic
 import { listKnowledgeSources } from "@/modules/knowledge/service";
 import { getEmbeddingProvider, hasEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 import { reindexKnowledgeSourceAction } from "@/modules/knowledge/actions";
+import { isSchemaBehindError } from "@/modules/knowledge/schema-behind";
 import { getWebsite, listWebsites } from "@/modules/knowledge/websites";
 import {
   deriveIndexStatus,
@@ -58,6 +59,45 @@ async function search(organizationId: string, query: string): Promise<SearchOutc
   }
 }
 
+async function loadData(input: {
+  organizationId: string;
+  isAdmin: boolean;
+  activeModel: string | null;
+  sitio: string | undefined;
+  query: string;
+}) {
+  const { organizationId, isAdmin, activeModel, sitio, query } = input;
+  const openWebsite = isAdmin && sitio && UUID.test(sitio) ? await getWebsite(organizationId, sitio) : null;
+  const [sources, outcome, websites] = await Promise.all([
+    listKnowledgeSources(organizationId, activeModel),
+    query ? search(organizationId, query) : Promise.resolve(null),
+    isAdmin ? listWebsites(organizationId) : Promise.resolve([]),
+  ]);
+  return { openWebsite, sources, outcome, websites };
+}
+
+/** This deploy needs migrations the database does not have yet (they are applied by hand, not on deploy). */
+function DatabaseBehind({ isAdmin }: { isAdmin: boolean }) {
+  return (
+    <PageContainer>
+      <PageHeader title="Conocimiento" description="Normativa y documentación con fuente, versión y vigencia verificables" />
+      <Alert tone="warning" title="La base de datos necesita una actualización">
+        <p>
+          {isAdmin ? (
+            <>
+              Esta versión de la aplicación necesita migraciones que aún no se han aplicado a esta base de datos. Ejecuta{" "}
+              <code className="font-mono">npm run db:migrate</code> contra ella (con la dirección directa, sin «-pooler») y
+              recarga la página.
+            </>
+          ) : (
+            "Conocimiento no está disponible ahora mismo. Avisa a un administrador de tu organización."
+          )}
+        </p>
+      </Alert>
+    </PageContainer>
+  );
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const WEBSITE_TABS: WebsiteTab[] = ["informacion", "paginas", "configuracion"];
 
@@ -81,12 +121,15 @@ export default async function KnowledgePage({
   // Without a registered provider (dev/CI without a key) staleness cannot be told.
   const activeModel = hasEmbeddingProvider() ? getEmbeddingProvider().id : null;
   const isAdmin = member.role === "ADMIN";
-  const openWebsite = isAdmin && sitio && UUID.test(sitio) ? await getWebsite(member.organizationId, sitio) : null;
-  const [sources, outcome, websites] = await Promise.all([
-    listKnowledgeSources(member.organizationId, activeModel),
-    query ? search(member.organizationId, query) : Promise.resolve(null),
-    isAdmin ? listWebsites(member.organizationId) : Promise.resolve([]),
-  ]);
+  let data: Awaited<ReturnType<typeof loadData>>;
+  try {
+    data = await loadData({ organizationId: member.organizationId, isAdmin, activeModel, sitio, query });
+  } catch (error) {
+    if (!isSchemaBehindError(error)) throw error;
+    console.error("[knowledge] the database is behind the code:", error instanceof Error ? error.name : "unknown error");
+    return <DatabaseBehind isAdmin={isAdmin} />;
+  }
+  const { openWebsite, sources, outcome, websites } = data;
   const usage = summarizeUsage(sources);
   const visibleSources = filterSources(sources, { text: sourceText, type: sourceType });
 
@@ -129,6 +172,48 @@ export default async function KnowledgePage({
             </ul>
           ))}
       </PageSection>
+
+      {isAdmin && websites.length > 0 && (
+        <PageSection title="Sitios web" description="Sitios cuyas páginas eliges indexar">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Sitio</TableHead>
+                <TableHead>Páginas</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Añadido</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {websites.map((site) => (
+                <TableRow key={site.id}>
+                  <TableCell className="font-medium text-foreground">
+                    <Link href={`/knowledge?sitio=${site.id}`} scroll={false} className="focus-ring rounded-sm">
+                      {site.title ?? new URL(site.url).host}
+                    </Link>
+                    <div className="type-body font-normal text-foreground-lighter">{new URL(site.url).host}</div>
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">
+                    {site.indexed} de {site.total} indexadas
+                  </TableCell>
+                  <TableCell>
+                    {site.open > 0 ? (
+                      <Badge tone="info">Indexando</Badge>
+                    ) : site.failed > 0 ? (
+                      <Badge tone="destructive">{site.failed} con error</Badge>
+                    ) : site.indexed > 0 ? (
+                      <Badge tone="success">Indexado</Badge>
+                    ) : (
+                      <Badge tone="neutral">Sin indexar</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-foreground-lighter">{formatDay(site.createdAt.toISOString().slice(0, 10))}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </PageSection>
+      )}
 
       <PageSection
         title="Fuentes de conocimiento"
@@ -238,48 +323,6 @@ export default async function KnowledgePage({
           </TableBody>
         </Table>
       </PageSection>
-
-      {isAdmin && websites.length > 0 && (
-        <PageSection title="Sitios web" description="Sitios cuyas páginas eliges indexar">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Sitio</TableHead>
-                <TableHead>Páginas</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Añadido</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {websites.map((site) => (
-                <TableRow key={site.id}>
-                  <TableCell className="font-medium text-foreground">
-                    <Link href={`/knowledge?sitio=${site.id}`} scroll={false} className="focus-ring rounded-sm">
-                      {site.title ?? new URL(site.url).host}
-                    </Link>
-                    <div className="type-body font-normal text-foreground-lighter">{new URL(site.url).host}</div>
-                  </TableCell>
-                  <TableCell className="text-foreground-lighter">
-                    {site.indexed} de {site.total} indexadas
-                  </TableCell>
-                  <TableCell>
-                    {site.open > 0 ? (
-                      <Badge tone="info">Indexando</Badge>
-                    ) : site.failed > 0 ? (
-                      <Badge tone="destructive">{site.failed} con error</Badge>
-                    ) : site.indexed > 0 ? (
-                      <Badge tone="success">Indexado</Badge>
-                    ) : (
-                      <Badge tone="neutral">Sin indexar</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-foreground-lighter">{formatDay(site.createdAt.toISOString().slice(0, 10))}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </PageSection>
-      )}
 
       {openWebsite && (
         <WebsiteSheet
