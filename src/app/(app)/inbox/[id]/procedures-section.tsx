@@ -165,7 +165,7 @@ export function ProceduresSection({
         procedures.applications.length === 0 && (
           <p className="type-caption text-foreground-lighter">
             No hay trámites publicados.{" "}
-            <Link href="/knowledge/procedures" className="focus-ring rounded-sm text-primary hover:underline">
+            <Link href="/knowledge/procedures" className="focus-ring rounded-sm text-primary underline">
               Defínelos en Conocimiento
             </Link>
             .

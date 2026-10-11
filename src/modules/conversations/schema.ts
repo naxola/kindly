@@ -14,11 +14,12 @@
  * reference at all. See docs/DECISIONS.md.
  */
 import { relations } from "drizzle-orm";
-import { boolean, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { organizations } from "@/modules/organizations/schema";
 import { contacts } from "@/modules/contacts/schema";
 import { cases } from "@/modules/cases/schema";
 import { messagingAccounts, webhookEvents } from "@/modules/messaging/schema";
+import type { MessageAttachment } from "@/modules/messaging/attachments";
 
 export const conversations = pgTable(
   "conversations",
@@ -96,6 +97,9 @@ export const messages = pgTable(
     // Kindly. See docs/DECISIONS.md, entrada PKG-005.
     sentFromDevice: boolean("sent_from_device").notNull().default(false),
     body: text("body").notNull(),
+    // UI-10c: what kind of file the message carries and the provider's handle
+    // to it — never the file itself (`messaging/attachments.ts`).
+    attachment: jsonb("attachment").$type<MessageAttachment>(),
     deliveryStatus: messageDeliveryStatus("delivery_status").notNull().default("PENDING"),
     // Nullable: only inbound messages come from a webhook. Outbound messages
     // (created by sendOutboundMessage) have nothing to reference here.

@@ -8,6 +8,31 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### UI-10c cerrada: trámites en la ficha y archivos en la conversación (2026-10-11)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). Dos incrementos:
+1. **"Trámite y documentación"** en la ficha: iniciar un trámite de la organización para la persona (con la versión
+   vigente en ese momento), marcar cada documento requerido como recibido (canal y fecha) o deshacerlo, terminar o
+   cancelar. Solo se guarda el estado. Migración 0016.
+2. **Archivos**: el mensaje guarda un descriptor (tipo, nombre, `media_id`), la burbuja muestra "Archivo no guardado en
+   Kindly · Descargar" y la descarga es un proxy en streaming (sin escribir nada; 403/404/410/413/429, auditado),
+   más el botón "Insertar aviso de documentos" en el compositor. Migración 0017.
+Detalle y límites en `docs/DECISIONS.md` (entradas del 2026-10-11). Verificado: lint + typecheck + 729 unit/integración +
+E2E de `procedure-documents`, `message-attachments`, `conversation-workspace`, `contact-assignments`, `copilot`, `knowledge`.
+
+**Antes de producción (no los resuelve el código):**
+- **Migraciones 0014, 0015, 0016 y 0017** a mano en staging y en Production (`npm run db:migrate` contra cada base).
+- **Revisión jurídica del aviso** y su reflejo en la política de privacidad (`src/app/(public)/privacidad`, sin tocar).
+- **Probar un archivo real** con el número de prueba de Meta: los plazos (7 días / URL de 5 min) y los campos del webhook
+  se confirmaron en su documentación, no contra la API; audio, vídeo y sticker no se pudieron confirmar en la página.
+- El adaptador real de coexistence (PKG-009) tendrá que implementar `downloadMedia` y declarar `inboundMediaDays`.
+
+**Pendiente, anotado:** marcar un documento como recibido desde la burbuja del archivo (hoy se marca en la ficha);
+que el copiloto *proponga* qué documento llegó (siempre confirmándolo el delegado); archivos del historial importado y
+ecos de archivos enviados desde el móvil del delegado; resumen de situación (UI-10d).
+**Próximo paso concreto:** elección del usuario — probar en staging (migrar + un archivo real), UI-10d, calibrar
+`KNOWLEDGE_MIN_SIMILARITY` o programar `purgeExpiredSuggestions`.
+
 ### Conocimiento al estilo Aidbase — sitio web con su panel (2026-10-08)
 
 Último commit: ver `git log` (el commit de cierre incluye este registro). Rediseño pedido por el usuario:

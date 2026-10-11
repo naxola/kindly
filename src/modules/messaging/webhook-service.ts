@@ -121,6 +121,7 @@ async function processWebhookEvent(
           account,
           externalMessageId: normalized.externalMessageId,
           body: normalized.text,
+          attachment: normalized.attachment ?? null,
           sourceWebhookEventId: webhookEventId,
           occurredAt: normalized.occurredAt,
         });

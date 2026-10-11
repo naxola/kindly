@@ -662,6 +662,7 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 - [x] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (cerrado 2026-09-29).
 - [x] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente (cerrado 2026-09-29).
 - [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
+- [x] UI-10c — Trámite y documentación en la ficha, metadatos de adjunto, descarga por proxy sin almacenar y aviso al afiliado. (2026-10-11 — `procedures/applications.ts`, `messaging/attachments.ts`, `/api/conversations/[id]/messages/[messageId]/media`, migraciones 0016-0017.) Pendiente antes de producción: revisión jurídica del aviso y de la política de privacidad; probar un archivo real con Meta.
 - [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
 - [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.

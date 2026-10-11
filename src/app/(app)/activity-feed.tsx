@@ -28,6 +28,7 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   MESSAGE_RECEIVED: "Mensaje recibido",
   MESSAGE_SENT: "Mensaje enviado",
   MESSAGE_SENT_FROM_DEVICE: "Mensaje enviado desde el móvil",
+  MESSAGE_MEDIA_DOWNLOADED: "Archivo de un mensaje descargado",
   CONVERSATION_REASSIGNED: "Conversación reasignada",
   CHANNEL_CONNECTED: "Canal conectado",
   CHANNEL_DISCONNECTED: "Canal desconectado",

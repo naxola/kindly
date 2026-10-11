@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db/client";
 import { activities } from "@/modules/audit/schema";
 
@@ -24,6 +24,8 @@ export type ActivityEntityType =
  * PKG-005 adds MESSAGE_SENT_FROM_DEVICE: on a channel with coexistence an
  * outbound message may have been written on the delegate's own phone, with
  * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
+ * UI-10c adds MESSAGE_MEDIA_DOWNLOADED (`conversations/service.ts`, the download proxy) —
+ * entity `conversation`; it is also what the proxy counts to rate-limit a member.
  * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
  * activities whose entity is the Organization itself.
  * UI-7 adds MEMBER_ROLE_CHANGED (changing a member's role, ORGANIZATION.md
@@ -67,6 +69,7 @@ export type ActivityType =
   | "MESSAGE_RECEIVED"
   | "MESSAGE_SENT"
   | "MESSAGE_SENT_FROM_DEVICE"
+  | "MESSAGE_MEDIA_DOWNLOADED"
   | "CONVERSATION_REASSIGNED"
   | "CHANNEL_CONNECTED"
   | "CHANNEL_DISCONNECTED"
@@ -126,4 +129,25 @@ export async function listActivitiesForEntity(
       ),
     )
     .orderBy(desc(activities.createdAt));
+}
+
+/** How many activities of one type a member produced in the last `windowMs` — the basis of a database-backed rate limit (no shared memory in serverless). */
+export async function countRecentActivities(
+  organizationId: string,
+  actorUserId: string,
+  type: ActivityType,
+  windowMs: number,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.organizationId, organizationId),
+        eq(activities.actorUserId, actorUserId),
+        eq(activities.type, type),
+        gt(activities.createdAt, new Date(Date.now() - windowMs)),
+      ),
+    );
+  return row?.total ?? 0;
 }
