@@ -43,6 +43,8 @@ export type ActivityEntityType =
  * (`procedures/service.ts`) — entity `procedure`.
  * Fase 7f adds KNOWLEDGE_DOCUMENT_CREATED/KNOWLEDGE_VERSION_PUBLISHED
  * (`knowledge/upload.ts`) — entity `knowledge_document`.
+ * UI-10c adds PROCEDURE_STARTED/DOCUMENT_RECEIVED/DOCUMENT_UNMARKED/COMPLETED/
+ * CANCELLED (`procedures/applications.ts`) — entity `contact`, whose feed shows them.
  * Fase 8 adds AI_SUGGESTION_GENERATED/USED/DISCARDED (`ai/service.ts`) —
  * entity `ai_suggestion`.
  * The docs call that list "mínimos", not closed.
@@ -75,6 +77,11 @@ export type ActivityType =
   | "ORGANIZATION_RENAMED"
   | "PROCEDURE_CREATED"
   | "PROCEDURE_VERSION_PUBLISHED"
+  | "PROCEDURE_STARTED"
+  | "PROCEDURE_DOCUMENT_RECEIVED"
+  | "PROCEDURE_DOCUMENT_UNMARKED"
+  | "PROCEDURE_COMPLETED"
+  | "PROCEDURE_CANCELLED"
   | "KNOWLEDGE_DOCUMENT_CREATED"
   | "KNOWLEDGE_VERSION_PUBLISHED"
   | "AI_SUGGESTION_GENERATED"

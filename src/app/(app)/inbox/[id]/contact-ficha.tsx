@@ -1,11 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import Link from "next/link";
 import { markContactIdentifiedAction, reassignConversationContactAction } from "@/modules/conversations/actions";
 import { linkCurrentConversationToCaseAction } from "@/modules/cases/actions";
 import type { ConversationWorkspaceData } from "@/app/(app)/inbox/conversation-workspace-types";
 import { IdentificationSection } from "@/app/(app)/inbox/[id]/identification-section";
+import { ProceduresSection } from "@/app/(app)/inbox/[id]/procedures-section";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
 import { MembershipStatus } from "@/app/(app)/contacts/membership-status";
 import { CASE_STATUS_LABELS, CASE_STATUS_TONES } from "@/app/(app)/cases/status-labels";
@@ -16,10 +17,11 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/cn";
 
 function FichaSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+  const headingId = useId();
   return (
-    <section className="flex flex-col gap-2 border-b border-border px-4 py-3.5">
+    <section aria-labelledby={headingId} className="flex flex-col gap-2 border-b border-border px-4 py-3.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-mono type-overline font-normal text-foreground-lighter">{title}</h3>
+        <h3 id={headingId} className="font-mono type-overline font-normal text-foreground-lighter">{title}</h3>
         {action}
       </div>
       {children}
@@ -36,8 +38,8 @@ const ITEM = "flex items-center gap-2.5 rounded-lg border border-border bg-backg
  * its own; after a mutation it asks the panel to reload (`onMutated`),
  * since the panel owns that data rather than a server route.
  *
- * Afiliación (UI-10b), trámites/documentación (UI-10c) and the AI summary
- * (UI-10d) have no domain yet and are deliberately absent, not stubbed.
+ * Afiliación (UI-10b) and trámites/documentación (UI-10c) are here; the AI
+ * summary (UI-10d) has no domain yet and is deliberately absent, not stubbed.
  */
 export function ContactFicha({
   data,
@@ -52,9 +54,8 @@ export function ContactFicha({
 
   return (
     <div className="flex min-h-full flex-col bg-background-muted">
-      <div className="sticky top-0 z-(--z-sticky) flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-background px-4">
+      <div className="sticky top-0 z-(--z-sticky) flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
         <h3 className="type-label font-semibold text-foreground">Ficha del afiliado</h3>
-        <span className="type-caption text-foreground-lighter">Solo lectura</span>
       </div>
 
       <FichaSection title="Afiliación">
@@ -112,6 +113,15 @@ export function ContactFicha({
           history={ficha.assignmentHistory}
           delegates={ficha.delegates}
           onReassigned={onMutated}
+        />
+      </FichaSection>
+
+      <FichaSection title="Trámite y documentación">
+        <ProceduresSection
+          contactId={contact.id}
+          conversationId={data.conversationId}
+          procedures={ficha.procedures}
+          onMutated={onMutated}
         />
       </FichaSection>
 
