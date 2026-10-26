@@ -17,3 +17,4 @@ export * from "@/modules/audit/schema";
 export * from "@/modules/knowledge/schema";
 export * from "@/modules/procedures/schema";
 export * from "@/modules/ai/schema";
+export * from "@/modules/affiliates/schema";

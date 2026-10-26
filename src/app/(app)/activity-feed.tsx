@@ -49,6 +49,12 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   AI_SUGGESTION_GENERATED: "Sugerencia del copiloto generada",
   AI_SUGGESTION_USED: "Sugerencia del copiloto usada como borrador",
   AI_SUGGESTION_DISCARDED: "Sugerencia del copiloto descartada",
+  AFFILIATE_REQUEST_RECEIVED: "Alta recibida por el webhook",
+  AFFILIATE_REQUEST_CONFIRMED: "Alta confirmada y asignada",
+  AFFILIATE_REQUEST_DISCARDED: "Alta descartada",
+  AFFILIATE_REQUEST_APPLIED: "Datos de la alta aplicados al afiliado",
+  INTEGRATION_KEY_CREATED: "Clave de integración creada",
+  INTEGRATION_KEY_REVOKED: "Clave de integración revocada",
 };
 
 function labelFor(type: string): string {

@@ -8,6 +8,20 @@
 
 Último commit: ver `git log` (el commit de cierre incluye este registro).
 
+### Altas de afiliados por webhook (2026-10-26)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). Una automatización de n8n envía las altas a
+`POST /api/integrations/affiliate-requests` (clave Bearer creada en Organización → Integraciones); Kindly crea el
+contacto con su perfil de afiliado **sin asignar** y propone al delegado con menos carga; el ADMIN lo ve en "Altas"
+(contador en el menú + aviso), elige delegado con la tabla de cargas y confirma. Duplicados por DNI: decide el ADMIN.
+Contrato en `docs/INTEGRATIONS.md` §7; decisiones y la desviación (clave Bearer en vez de HMAC) en `docs/DECISIONS.md`.
+Migración 0018. Verificado: lint + typecheck + unit/integración (13 nuevos) + E2E `affiliate-intake`.
+**Antes de usarlo:** aplicar la migración 0018 a mano en staging y Production; crear la clave y ponerla en el nodo HTTP de n8n.
+**Nota:** `knowledge-retrieval.test.ts` (2 tests) falla también sin estos cambios en la base local actual (datos acumulados
+de ejecuciones E2E anteriores, ver su comentario sobre GLOBAL); no tiene relación con las altas.
+**Pendiente, anotado:** mostrar los datos de afiliado (DNI, domicilio, afiliación) en la ficha del contacto; histórico de altas
+resueltas.
+
 ### UI-10c cerrada: trámites en la ficha y archivos en la conversación (2026-10-11)
 
 Último commit: ver `git log` (el commit de cierre incluye este registro). Dos incrementos:

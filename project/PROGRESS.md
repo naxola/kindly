@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-10-08 (Fase 8 validada en staging con Gemini).
+Última actualización: 2026-10-26 (Fase 8 validada en staging con Gemini).
 
 ## Resumen en una línea
 

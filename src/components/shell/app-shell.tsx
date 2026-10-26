@@ -6,6 +6,8 @@ import { getSidebarCollapsed } from "@/components/shell/sidebar-cookie";
 import { getThemePreference } from "@/components/shell/theme-cookie";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toast";
+import { AffiliateRequestsNotifier } from "@/components/shell/affiliate-requests-notifier";
+import { countOpenRequests } from "@/modules/affiliates/requests";
 import { countUnreadConversations } from "@/modules/conversations/service";
 import type { CurrentOrganizationMember } from "@/modules/organizations/service";
 
@@ -22,9 +24,11 @@ export async function AppShell({
   member: CurrentOrganizationMember;
   children: ReactNode;
 }) {
-  const [collapsed, unreadCount, theme] = await Promise.all([
+  const isAdmin = member.role === "ADMIN";
+  const [collapsed, unreadCount, pendingAffiliates, theme] = await Promise.all([
     getSidebarCollapsed(),
     countUnreadConversations(member.organizationId, member),
+    isAdmin ? countOpenRequests(member.organizationId) : Promise.resolve(0),
     getThemePreference(),
   ]);
 
@@ -32,9 +36,9 @@ export async function AppShell({
     <TooltipProvider delayDuration={300}>
       <div className="grid h-dvh grid-rows-[auto_1fr]">
         <SkipToContent />
-        <AppHeader member={member} unreadCount={unreadCount} theme={theme} />
+        <AppHeader member={member} unreadCount={unreadCount} pendingAffiliates={pendingAffiliates} theme={theme} />
         <div className="grid grid-cols-[auto_1fr] overflow-hidden">
-          <AppSidebar initialCollapsed={collapsed} unreadCount={unreadCount} />
+          <AppSidebar initialCollapsed={collapsed} unreadCount={unreadCount} isAdmin={isAdmin} pendingAffiliates={pendingAffiliates} />
           {/* Width, gutter and vertical rhythm are each page's own
               `PageContainer` (docs/ui/LAYOUT_NAVIGATION.md §5) — this is
               purely the scroll container. */}
@@ -44,6 +48,7 @@ export async function AppShell({
         </div>
       </div>
       <Toaster />
+      {isAdmin && <AffiliateRequestsNotifier initialCount={pendingAffiliates} />}
     </TooltipProvider>
   );
 }

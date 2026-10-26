@@ -127,6 +127,13 @@
       "when": 1791744852625,
       "tag": "0017_message_attachment",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793043714639,
+      "tag": "0018_affiliate_intake",
+      "breakpoints": true
     }
   ]
 }

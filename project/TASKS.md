@@ -736,6 +736,15 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 - [x] Fase 8 paso 6: preparar evaluación (formato de dataset, métricas, `npm run eval:retrieval`). (2026-10-01)
 - [ ] Fase 8, pendiente de staging: probar `gpt-5.4-mini` real; calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset; programar `purgeExpiredSuggestions`.
 
+## Altas de afiliados por webhook (2026-10-26)
+
+- [x] Tablas `affiliate_profiles`, `affiliate_requests`, `integration_keys` (migración 0018).
+- [x] Endpoint `POST /api/integrations/affiliate-requests` (clave Bearer por organización, 202 con resultado por alta).
+- [x] Propuesta de delegado por carga y confirmación/descarte/duplicados por el ADMIN.
+- [x] UI: "Altas" con contador y aviso, panel de asignación con carga por delegado, Organización → Integraciones.
+- [ ] Pendiente (no es código): aplicar la migración 0018 en staging/Production y configurar el nodo HTTP de n8n.
+- [ ] Anotado: ver los datos de afiliado en la ficha del contacto; histórico de altas resueltas.
+
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
 Microservicios, Kubernetes, Elasticsearch/OpenSearch, vector DB externa, apps

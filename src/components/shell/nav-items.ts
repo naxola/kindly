@@ -1,9 +1,11 @@
-import { BookOpen, Briefcase, Building2, Contact, Inbox, ListChecks } from "lucide-react";
+import { BookOpen, Briefcase, Building2, Contact, Inbox, ListChecks, UserPlus } from "lucide-react";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Hidden for a DELEGATE. */
+  adminOnly?: boolean;
 }
 
 /**
@@ -19,7 +21,14 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/cases", label: "Casos", icon: Briefcase },
   { href: "/tasks", label: "Tareas", icon: ListChecks },
   { href: "/knowledge", label: "Conocimiento", icon: BookOpen },
+  { href: "/affiliate-requests", label: "Altas", icon: UserPlus, adminOnly: true },
 ];
+
+/** What each count badge in the nav means (read by screen readers). */
+export const NAV_COUNT_LABELS: Record<string, string> = {
+  "/inbox": "conversaciones sin leer",
+  "/affiliate-requests": "altas pendientes",
+};
 
 /**
  * Canales/Miembros no longer have their own sidebar item (UI-7): both moved

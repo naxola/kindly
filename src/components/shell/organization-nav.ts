@@ -12,3 +12,10 @@ export const ORGANIZATION_NAV_ITEMS: ContextNavItem[] = [
   { href: "/organization/members", label: "Miembros" },
   { href: "/organization/channels", label: "Canales" },
 ];
+
+/** Integraciones only exists for an ADMIN (it holds the keys that write into the organization). */
+const ADMIN_ONLY_ITEM: ContextNavItem = { href: "/organization/integrations", label: "Integraciones" };
+
+export function organizationNavItems(isAdmin: boolean): ContextNavItem[] {
+  return isAdmin ? [...ORGANIZATION_NAV_ITEMS, ADMIN_ONLY_ITEM] : ORGANIZATION_NAV_ITEMS;
+}

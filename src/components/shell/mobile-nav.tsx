@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
-import { NAV_ITEMS, ORGANIZATION_NAV_ITEM, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
+import { NAV_COUNT_LABELS, NAV_ITEMS, ORGANIZATION_NAV_ITEM, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
 import { Button } from "@/components/ui/button";
 import { CountBadge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/primitives";
@@ -15,7 +15,15 @@ import { cn } from "@/lib/cn";
  * Sidebar's `< md` stand-in (docs/ui/LAYOUT_NAVIGATION.md §3): the same
  * items in a left Sheet, opened from the header. Closes itself on navigate.
  */
-export function MobileNav({ unreadCount }: { unreadCount: number }) {
+export function MobileNav({
+  unreadCount,
+  isAdmin,
+  pendingAffiliates,
+}: {
+  unreadCount: number;
+  isAdmin: boolean;
+  pendingAffiliates: number;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -32,9 +40,11 @@ export function MobileNav({ unreadCount }: { unreadCount: number }) {
           <SheetDescription className="sr-only">Navegación principal</SheetDescription>
         </SheetHeader>
         <nav aria-label="Principal" className="flex flex-col gap-0.5 overflow-y-auto p-2">
-          {NAV_ITEMS.map((item) => (
+          {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
             <MobileNavLink key={item.href} item={item} active={isNavItemActive(pathname, item.href)} onNavigate={() => setOpen(false)}>
-              {item.href === "/inbox" && <CountBadge count={unreadCount} label="conversaciones sin leer" />}
+              {(item.href === "/inbox" || item.href === "/affiliate-requests") && (
+                <CountBadge count={item.href === "/inbox" ? unreadCount : pendingAffiliates} label={NAV_COUNT_LABELS[item.href]} />
+              )}
             </MobileNavLink>
           ))}
           <Separator className="my-2" />

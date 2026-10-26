@@ -12,7 +12,8 @@ export type ActivityEntityType =
   | "organization"
   | "procedure"
   | "knowledge_document"
-  | "ai_suggestion";
+  | "ai_suggestion"
+  | "affiliate_request";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -49,6 +50,10 @@ export type ActivityEntityType =
  * CANCELLED (`procedures/applications.ts`) — entity `contact`, whose feed shows them.
  * Fase 8 adds AI_SUGGESTION_GENERATED/USED/DISCARDED (`ai/service.ts`) —
  * entity `ai_suggestion`.
+ * Altas por webhook add AFFILIATE_REQUEST_RECEIVED/CONFIRMED/DISCARDED/APPLIED
+ * (`affiliates/requests.ts`, entity `affiliate_request`; the Contact also gets
+ * CONTACT_CREATED / CONTACT_DELEGATE_ASSIGNED) and INTEGRATION_KEY_CREATED/
+ * REVOKED (entity `organization`).
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -89,7 +94,13 @@ export type ActivityType =
   | "KNOWLEDGE_VERSION_PUBLISHED"
   | "AI_SUGGESTION_GENERATED"
   | "AI_SUGGESTION_USED"
-  | "AI_SUGGESTION_DISCARDED";
+  | "AI_SUGGESTION_DISCARDED"
+  | "AFFILIATE_REQUEST_RECEIVED"
+  | "AFFILIATE_REQUEST_CONFIRMED"
+  | "AFFILIATE_REQUEST_DISCARDED"
+  | "AFFILIATE_REQUEST_APPLIED"
+  | "INTEGRATION_KEY_CREATED"
+  | "INTEGRATION_KEY_REVOKED";
 
 interface RecordActivityInput {
   organizationId: string;
