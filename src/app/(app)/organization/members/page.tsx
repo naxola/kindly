@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
+import { authBaseOrigin } from "@/modules/auth/trusted-origins";
 import { listInvitations } from "@/modules/organizations/invitations";
 import { ChangeRoleControl } from "@/app/(app)/organization/members/change-role-control";
 import { NewMemberDialog } from "@/app/(app)/organization/members/new-member-dialog";
@@ -35,7 +36,7 @@ export default async function MembersPage() {
   ]);
 
   const pending = invitations.filter((invitation) => invitation.status === "PENDING");
-  const baseUrl = process.env.BETTER_AUTH_URL ?? "";
+  const baseUrl = authBaseOrigin() ?? "";
 
   return (
     <PageContainer>

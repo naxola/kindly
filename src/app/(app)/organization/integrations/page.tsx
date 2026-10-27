@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
+import { authBaseOrigin } from "@/modules/auth/trusted-origins";
 import { listIntegrationKeys } from "@/modules/affiliates/integration-keys";
 import { IntegrationKeys } from "@/app/(app)/organization/integrations/integration-keys";
 import { OrganizationContextNav } from "@/app/(app)/organization/organization-context-nav";
@@ -23,7 +24,8 @@ export default async function IntegrationsPage() {
   if (member.role !== "ADMIN") notFound();
 
   const keys = await listIntegrationKeys(member.organizationId);
-  const baseUrl = (process.env.BETTER_AUTH_URL ?? "").replace(/\/$/, "");
+  // Origin only: BETTER_AUTH_URL may carry a pasted path such as /login.
+  const baseUrl = authBaseOrigin() ?? "";
 
   return (
     <PageContainer size="sm">
