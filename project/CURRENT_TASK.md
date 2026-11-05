@@ -4,9 +4,159 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Onboarding de delegados (invitación por email, teléfono, bienvenida) cerrado. Siguiente: UI-10c o Fase 8
+## Paquete activo: Fase 8 (Copiloto) cerrada. Siguiente: elección del usuario (UI-10c o validar en staging)
 
-Último commit: ver `git log` (este commit incluye el registro).
+Último commit: ver `git log` (el commit de cierre incluye este registro).
+
+### Altas de afiliados por webhook (2026-10-26)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). Una automatización de n8n envía las altas a
+`POST /api/integrations/affiliate-requests` (clave Bearer creada en Organización → Integraciones); Kindly crea el
+contacto con su perfil de afiliado **sin asignar** y propone al delegado con menos carga; el ADMIN lo ve en "Altas"
+(contador en el menú + aviso), elige delegado con la tabla de cargas y confirma. Duplicados por DNI: decide el ADMIN.
+Contrato en `docs/INTEGRATIONS.md` §7; decisiones y la desviación (clave Bearer en vez de HMAC) en `docs/DECISIONS.md`.
+Migración 0018. Verificado: lint + typecheck + unit/integración (13 nuevos) + E2E `affiliate-intake`.
+**Antes de usarlo:** aplicar la migración 0018 a mano en staging y Production; crear la clave y ponerla en el nodo HTTP de n8n.
+**Nota:** `knowledge-retrieval.test.ts` (2 tests) falla también sin estos cambios en la base local actual (datos acumulados
+de ejecuciones E2E anteriores, ver su comentario sobre GLOBAL); no tiene relación con las altas.
+**Pendiente, anotado:** mostrar los datos de afiliado (DNI, domicilio, afiliación) en la ficha del contacto; histórico de altas
+resueltas.
+
+### UI-10c cerrada: trámites en la ficha y archivos en la conversación (2026-10-11)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). Dos incrementos:
+1. **"Trámite y documentación"** en la ficha: iniciar un trámite de la organización para la persona (con la versión
+   vigente en ese momento), marcar cada documento requerido como recibido (canal y fecha) o deshacerlo, terminar o
+   cancelar. Solo se guarda el estado. Migración 0016.
+2. **Archivos**: el mensaje guarda un descriptor (tipo, nombre, `media_id`), la burbuja muestra "Archivo no guardado en
+   Kindly · Descargar" y la descarga es un proxy en streaming (sin escribir nada; 403/404/410/413/429, auditado),
+   más el botón "Insertar aviso de documentos" en el compositor. Migración 0017.
+Detalle y límites en `docs/DECISIONS.md` (entradas del 2026-10-11). Verificado: lint + typecheck + 729 unit/integración +
+E2E de `procedure-documents`, `message-attachments`, `conversation-workspace`, `contact-assignments`, `copilot`, `knowledge`.
+
+**Antes de producción (no los resuelve el código):**
+- **Migraciones 0014, 0015, 0016 y 0017** a mano en staging y en Production (`npm run db:migrate` contra cada base).
+- **Revisión jurídica del aviso** y su reflejo en la política de privacidad (`src/app/(public)/privacidad`, sin tocar).
+- **Probar un archivo real** con el número de prueba de Meta: los plazos (7 días / URL de 5 min) y los campos del webhook
+  se confirmaron en su documentación, no contra la API; audio, vídeo y sticker no se pudieron confirmar en la página.
+- El adaptador real de coexistence (PKG-009) tendrá que implementar `downloadMedia` y declarar `inboundMediaDays`.
+
+**Pendiente, anotado:** marcar un documento como recibido desde la burbuja del archivo (hoy se marca en la ficha);
+que el copiloto *proponga* qué documento llegó (siempre confirmándolo el delegado); archivos del historial importado y
+ecos de archivos enviados desde el móvil del delegado; resumen de situación (UI-10d).
+**Próximo paso concreto:** elección del usuario — probar en staging (migrar + un archivo real), UI-10d, calibrar
+`KNOWLEDGE_MIN_SIMILARITY` o programar `purgeExpiredSuggestions`.
+
+### Conocimiento al estilo Aidbase — sitio web con su panel (2026-10-08)
+
+Último commit: ver `git log` (el commit de cierre incluye este registro). Rediseño pedido por el usuario:
+"Añadir conocimiento" → diálogo de tipo (Sitio web / Documento) → panel derecho. El sitio web es una fuente
+con panel de tres pestañas (Información con vista previa, Páginas con buscador/paginación 10-25-50 y selección,
+Configuración con datos de publicación, mantenimiento y zona de peligro). Tablas `knowledge_websites` y
+`knowledge_website_pages` (**migraciones 0014 y 0015: aplicar a mano en staging y en Production** con
+`npm run db:migrate` contra cada base; la 0014 elimina `knowledge_import_pages` del intento anterior, sin tocar
+documentos). Detalle y límites en `docs/DECISIONS.md` ("el sitio web como fuente con su propio panel").
+Verificado: lint + typecheck + unit/integración + E2E de `knowledge` y `copilot`. No probado contra un sitio real
+desde aquí. La vista previa es la `og:image` de la portada, no una captura real.
+
+**Pendiente:** probar en staging con un sitio real con sitemap (tras migrar); la indexación continúa mientras el
+panel está abierto (no hay cron que la retome); re-sincronizar contenido cambiado de páginas ya indexadas; sin
+límite global de coste por organización.
+**Próximo paso concreto:** elección del usuario — probar el panel en staging, programar `purgeExpiredSuggestions`,
+calibrar `KNOWLEDGE_MIN_SIMILARITY` o UI-10c.
+
+### Conocimiento al estilo Aidbase — paso 1 hecho (2026-10-08)
+
+Último commit: `c895053`. `/knowledge` ahora tiene "Añadir conocimiento" (origen primero), tabla
+"Fuentes de conocimiento" con estado de indexado derivado (Indexado / Pendiente de reindexar / Sin
+contenido / Sin comprobar), contador de caracteres y fragmentos indexados, filtro por título y tipo y
+"Reindexar" por documento (ADMIN). Sin Vídeo (decisión del usuario). Detalle en `docs/DECISIONS.md`
+("Conocimiento: lista de fuentes con estado…"). Verificado: lint + typecheck + 459 unit/integración +
+8 E2E (`knowledge`, `copilot`). Nota de entorno: Playwright 1.63 pide un Chromium más nuevo que el
+instalado (1194); se ejecutó con un config temporal con `executablePath` (no commiteado).
+
+**Paso 2 (siguiente):** añadir varias páginas de un sitio — descubrir por `sitemap.xml`/RSS, listar
+para elegir, indexar solo las marcadas, ingesta en segundo plano con estado por página
+(Indexando/Error). Requiere decidir dónde guardar ese estado (tabla nueva, migración) y cómo ejecutar
+en segundo plano en Vercel (`after()`).
+
+### Fase 8 validada en staging con Gemini (2026-10-08)
+
+El copiloto genera sugerencias en staging con **Gemini** (`AI_PROVIDER=gemini`,
+`gemini-3.8-flash`; `gemini-2.5-flash` devolvía 404 para cuentas nuevas). Hecho
+para llegar ahí: migraciones 0011/0012 aplicadas a la base de staging (el
+despliegue Preview usa un host Neon distinto del de Production, que ya las
+tenía), reindexado con `POST /api/cron/reindex-knowledge?force=true`
+(`CRON_SECRET`, comparación en tiempo constante, error con `cause` y `dbHost`),
+reintentos ante 503/429 en LLM y embeddings, logs `[ai] active provider` y
+`[copilot] generation failed`. Lecciones: Production y Preview tienen bases
+distintas (migrar ambas a mano); cambiar de proveedor exige reindexar.
+
+**Pendiente:** aplicar `db:migrate` a la base de Production antes de promover;
+rotar las credenciales de Neon y `CRON_SECRET` que se compartieron en el chat;
+Gemini gratuito puede usar los prompts para mejorar el producto: no usarlo con
+datos reales de clientes (CLAUDE.md §5); calibrar `KNOWLEDGE_MIN_SIMILARITY`;
+programar `purgeExpiredSuggestions`; pasar los E2E de `copilot`,
+`conversation-workspace` y `membership`.
+**Próximo paso concreto:** elección del usuario — UI-10c o cerrar pendientes de Fase 8.
+
+### Ajuste visual: copiloto y ficha según mockup UI-10 (2026-10-01)
+
+Pedido del usuario: copiloto y ficha del afiliado del Inbox como en el mockup
+(`Espacio de respuesta`). `copilot-card.tsx`: tarjeta flotante con borde/sombra,
+cabecera con "Actualizado · hh:mm" y evidencia, cuerpo en dos columnas (fuentes
+a la izquierda; avisos y "falta por saber" a la derecha), pie con acciones y la
+nota "Nada se envía…". `contact-ficha.tsx`: cabecera fija "Ficha del afiliado ·
+Solo lectura", secciones con título overline mono, datos en rejilla, casos/
+tareas/conversaciones como tarjetas, afiliación en caja (`MembershipStatus
+boxed`). Sin cambios de textos ni roles. Verificado: lint + typecheck + 438
+unit; los E2E no se pudieron ejecutar aquí (falta el binario de Chromium en el
+entorno), **pendiente de pasarlos** (`copilot`, `conversation-workspace`,
+`membership`). Fuera de alcance (sin dominio aún): trámite en curso y resumen IA.
+
+### Fase 8 — AI Copilot como tarjeta contextual (2026-10-01)
+
+Alcance definido por el usuario: **no es un chatbot**; una tarjeta de
+sugerencia en la conversación (`mensaje → contexto → retrieval → generación →
+tarjeta → [Usar como borrador] [Descartar]`), que nunca envía ni modifica el
+mensaje. Hecho, en este orden (detalle y decisiones en `docs/DECISIONS.md`,
+entradas "Fase 8a" y "Fase 8, pasos 1/2/3-4/6"):
+
+1. **Retrieval**: FTS en OR por lexemas, `search_text` con contexto jerárquico
+   (documento › título › capítulo › artículo › apartado › subapartado) para FTS
+   y embedding, "art. 34.8", `embedding_model` por fragmento (+ `OPENAI_EMBEDDING_MODEL`),
+   `npm run knowledge:reindex`, fragmentos sin truncar.
+2. **Grounding, abstención y seguridad**: `ABSTAINED` sin ningún borrador,
+   umbral `KNOWLEDGE_MIN_SIMILARITY` (0.25), consulta con 1-2 mensajes
+   anteriores, `Reranker` identidad, prompt como JSON (inyección), `catch`
+   tipado, traza de retrieval, sin `temperature`, `gpt-5.4-mini` por defecto.
+3. **Copilot API** (DTO sin modelo/prompt, freno 1 generación/10 s) y
+4. **tarjeta** (`copilot-card.tsx`): a petición, fuentes con vigencia,
+   abstención clara, usar como borrador/descartar, E2E de que no se envía.
+6. **Evaluación preparada**: formato de dataset + `npm run eval:retrieval`.
+
+Verificado: lint + typecheck + 623/623 + 54/54 E2E + build.
+
+**Para staging tras el `git pull`:** `npm run db:migrate` (0009–0012) →
+`npm run knowledge:reindex` (con `OPENAI_API_KEY`) → configurar
+`OPENAI_API_KEY` (y opcionalmente `OPENAI_LLM_MODEL`,
+`OPENAI_EMBEDDING_MODEL`, `KNOWLEDGE_MIN_SIMILARITY`). Hasta el reindex, los
+documentos ya subidos solo se encuentran por texto.
+
+**Pendiente, anotado (no bloquea el cierre):**
+- Prueba real de `gpt-5.4-mini` con salida estructurada en staging (aquí no hay
+  clave ni acceso a la documentación oficial).
+- Calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset real (50-100 preguntas,
+  `tests/eval/README.md`) — lo aporta el usuario.
+- Programar `purgeExpiredSuggestions` (retención 90 días) — nadie lo llama aún.
+- Límite global de coste por organización (hoy solo 1 generación/10 s por conversación).
+- Generación en segundo plano, resumen de situación (UI-10d), JEV/reranker real,
+  verificador de la respuesta generada: fuera de alcance por decisión del usuario.
+- `UI-10c` (adjuntos + trámites en la ficha) sigue disponible, ya sin bloqueo.
+
+**Próximo paso concreto:** elección del usuario — validar Fase 8 en staging
+(migrar, reindexar, probar el modelo real) o `UI-10c`.
+
 
 ### Onboarding de delegados (2026-11-05)
 
@@ -21,18 +171,22 @@ opcional al reasignar. Detalle en `docs/DECISIONS.md` ("Onboarding de
 delegados"). Verificado: lint+typecheck+566 tests+52/52 E2E.
 
 **Pendiente, anotado:** sin dominio verificado en Resend los correos solo
-llegan al dueño de la cuenta (la UI avisa del fallo); migración `0011` a
+llegan al dueño de la cuenta (la UI avisa del fallo); migración `0019` a
 aplicar a mano en staging/producción; la ficha del panel de Inbox no muestra el
 estado de la bienvenida (solo `/contacts/[id]`); no hay E2E del envío exitoso
 (cubierto en integración con `EmailSender` falso).
-**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**;
-y verificar un dominio en Resend para que los correos lleguen a todos.
+**Próximo paso concreto:** verificar un dominio en Resend para que los correos lleguen a todos.
 
 ---
 
-### (anterior) Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
+### Fase 8a — Backend del AI Copilot (2026-10-01)
 
-Último commit: ver `git log` (este commit incluye el registro).
+Hecho: `modules/ai` (`llm-provider.ts` + registro, `openai-llm-provider.ts`, `domain.ts` puro, `schema.ts`/`ai_suggestions`, `service.ts`, fake en `testing/`), migración `0011_ai_suggestions`, registro en `instrumentation.ts` (solo con `OPENAI_API_KEY`), actividades `AI_SUGGESTION_*`. Tests: 2 unit (`ai-domain`, `ai-openai-provider`) + `ai-copilot` integración (11). Verificado: lint+typecheck+567/567+build. Detalle en `docs/DECISIONS.md` ("Fase 8a").
+
+**Pendiente, anotado:** UI del copiloto en la conversación (Usar como borrador / Descartar, evidencia, citas con vigencia, E2E de que no envía) = 8b; Server Actions/ruta que expongan `generateSuggestion`/`resolveSuggestion`; programar `purgeExpiredSuggestions`; rate limit/coste; generación en segundo plano; resumen UI-10d; migraciones `0009`–`0011` a aplicar a mano en staging/producción (`npm run db:migrate`).
+**Próximo paso concreto:** Fase 8b.
+
+---
 
 ### Fase 7f — Subida de documentos de Knowledge desde la UI (2026-09-30)
 

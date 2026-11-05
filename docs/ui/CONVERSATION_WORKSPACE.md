@@ -165,12 +165,12 @@ Implementa el AI Copilot de `docs/PRODUCT.md` §10 y la Fase 8 de
   `CHAT.md` §2), no en la ficha — la sugerencia está donde se escribe.
   Plegable (queda una línea: "Copiloto · Actualizado 10:42 · Evidencia
   parcial"); con altura máxima y scroll propio para no tapar el historial.
-- **Dinámico**: se recalcula en segundo plano (job, `pg-boss`) cuando
-  entra un mensaje del Contact, no en cada tecla; la tarjeta muestra
-  "Actualizado con el mensaje de las HH:MM". Si llega un mensaje nuevo
-  mientras el delegado lee la sugerencia, **no** se sustituye bajo sus
-  ojos: aviso "Hay una sugerencia nueva — Ver" (mismo criterio que la
-  lista, `INBOX.md` §6).
+- **A petición** (decisión 2026-10-01, Fase 8): el delegado pulsa "Sugerir
+  respuesta"; no hay generación en segundo plano (el job de `pg-boss` queda
+  fuera de alcance). Si llega un mensaje nuevo mientras lee la sugerencia,
+  **no** se sustituye bajo sus ojos: aviso "Ha llegado un mensaje nuevo desde
+  esta sugerencia" + "Actualizar sugerencia". Implementada en
+  `src/app/(app)/inbox/[id]/copilot-card.tsx`.
 - **Contenido** (`AISuggestion`, `docs/DATABASE.md`): qué ha detectado
   (`issue`), respuesta propuesta (`suggestedReply`, en `font-document`),
   en qué se apoya (`sources`: documento, versión, artículo, **vigencia**),
@@ -278,7 +278,7 @@ pero **sin citar** — y con `EvidenceLevel` acorde.
 | **PKG-014** (previo) | Un delegado actual por afiliado + histórico; visibilidad por rol en Inbox, Contactos, ficha y descargas; reasignación por ADMIN | Decisión pendiente sobre las conversaciones al reasignar |
 | **UI-10a** ✅ | Panel de dos columnas + ficha de solo lectura con los datos que ya existen (contacto, identificación movida del `Alert`, notas, casos, tareas, otras conversaciones); plegar ficha con preferencia recordada; pestañas por debajo de `xl`; tokens nuevos; E2E camino feliz | Nada — cerrado 2026-09-29 |
 | **UI-10b** ✅ | `Membership` (dominio, migración, servicio, tests) + alta/edición manual en `/contacts/[id]` + sección Afiliación con avisos de baja y de cuota pendiente | Nada — cerrado 2026-09-29 |
-| **UI-10c** | Metadatos de adjunto en `Message` + descarga por proxy en streaming sin almacenar + aviso al afiliado + sección "Trámite y documentación" | Trámites (`Procedure`, Fase 7) para la lista de requeridos; confirmar plazos de medios de Meta; texto del aviso revisado |
+| **UI-10c** ✅ | Metadatos de adjunto en `Message` + descarga por proxy en streaming sin almacenar + aviso al afiliado + sección "Trámite y documentación" | Cerrado 2026-10-11 (plazos de Meta confirmados en su documentación; **pendiente antes de producción:** revisión jurídica del aviso y de la política de privacidad, y probar un archivo real en staging) |
 | **UI-10d** | Resumen de situación | Fase 8 (`LLMProvider`) |
 | **UI-10e** | Copiloto dinámico en la conversación | Fases 7 y 8 |
 | **UI-10f** | Ficha editable (notas, crear tarea/caso desde la conversación) | Validación visual de UI-10a por el usuario |

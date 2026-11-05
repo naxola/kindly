@@ -37,9 +37,9 @@ async function seedDocument(organizationId: string | null, title: string) {
     insert into knowledge_document_versions (document_id, version, status, effective_from, source)
     values (${doc.id}, '2024', 'CURRENT', '2024-01-10', 'BOE núm. 5') returning id`;
   await sql`
-    insert into knowledge_chunks (document_version_id, document_id, organization_id, visibility, ordinal, level, label, content, embedding)
+    insert into knowledge_chunks (document_version_id, document_id, organization_id, visibility, ordinal, level, label, content, search_text, embedding, embedding_model)
     values (${version.id}, ${doc.id}, ${organizationId}, ${visibility}, 1, 'ARTICLE', '12', ${`Texto del artículo de ${title}`},
-            array_fill(0, array[1536])::vector)`;
+            ${`Documento: ${title}\n\nTexto del artículo de ${title}`}, array_fill(0, array[1536])::vector, 'legacy')`;
   return doc.id as string;
 }
 
@@ -96,8 +96,11 @@ test("another organization's private document is a 404", async ({ page }) => {
 
 async function openUploadSheet(page: import("@playwright/test").Page) {
   await page.goto("/knowledge");
-  await page.getByRole("button", { name: "Subir documento" }).click();
-  return page.getByRole("dialog");
+  await page.getByRole("button", { name: "Añadir conocimiento" }).click();
+  const picker = page.getByRole("dialog", { name: "Añadir conocimiento" });
+  await picker.getByLabel("Tipo de conocimiento").selectOption("DOCUMENT");
+  await picker.getByRole("button", { name: "Continuar" }).click();
+  return page.getByRole("dialog", { name: "Añadir documento" });
 }
 
 async function fillVersion(dialog: import("@playwright/test").Locator, version = "2024") {
@@ -152,9 +155,25 @@ test("an ADMIN uploads a text file and a new version, and the content becomes se
   await expect(ours.getByText("Versión 2025")).toBeVisible();
   await expect(ours.getByText("Vigente", { exact: true })).toBeVisible();
   await expect(ours.getByText("BOE núm. 5")).toBeVisible();
+
+  // The sources list shows it as indexed, counts the indexed text, and filters by title and type.
+  await page.goto("/knowledge");
+  const row = page.getByRole("row").filter({ hasText: title });
+  await expect(row.getByText("Indexado", { exact: true })).toBeVisible();
+  await expect(page.getByText("Caracteres indexados")).toBeVisible();
+
+  await page.getByLabel("Filtrar por título").fill(title);
+  await page.getByLabel("Tipo de fuente").selectOption("MANUAL");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(1);
+
+  await page.getByLabel("Tipo de fuente").selectOption("PDF");
+  await page.getByRole("button", { name: "Filtrar" }).click();
+  await expect(page.getByRole("row").filter({ hasText: title })).toHaveCount(0);
+  await expect(page.getByText("Ninguna fuente coincide")).toBeVisible();
 });
 
-test("uploading a PDF works; a fake PDF, a private URL and a bad date are refused with a message", async ({ page }) => {
+test("uploading a PDF works; a fake PDF is refused with a message", async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   await register(page, `UploadPdf ${suffix}`);
 
@@ -165,12 +184,6 @@ test("uploading a PDF works; a fake PDF, a private URL and a bad date are refuse
   await fillVersion(dialog);
   await dialog.getByRole("button", { name: "Subir documento" }).click();
   await expect(dialog.getByText("El archivo no es un PDF válido.")).toBeVisible();
-
-  // A URL pointing at the server's own network is refused (SSRF).
-  await dialog.getByLabel("Origen").selectOption("WEB");
-  await dialog.getByLabel("Dirección web").fill("http://127.0.0.1:3000/login");
-  await dialog.getByRole("button", { name: "Subir documento" }).click();
-  await expect(dialog.getByText("No se pudo descargar la página.")).toBeVisible();
 
   // Nothing half-created was left behind.
   await page.goto("/knowledge");
@@ -185,6 +198,137 @@ test("uploading a PDF works; a fake PDF, a private URL and a bad date are refuse
   await expect(page.getByRole("heading", { name: `Real ${suffix}`, level: 1 })).toBeVisible();
   await expect(page.getByText("Contenido de prueba.")).toBeVisible();
   await expectNoSeriousAccessibilityViolations(page, "/knowledge/[id] con formulario de versión");
+});
+
+test("an ADMIN manages a website source from its panel", async ({ page }) => {
+  const suffix = randomUUID().slice(0, 8);
+  await register(page, `Site ${suffix}`);
+  const [org] = await sql`
+    select o.id from organizations o
+    join organization_members m on m.organization_id = o.id
+    join users u on u.id = m.user_id
+    where u.name = ${`Site ${suffix}`} limit 1`;
+
+  // A site seeded in SQL with 12 pages: one indexed, one failed, ten not indexed yet.
+  const host = `ejemplo-${suffix}.org`;
+  const documentId = await seedDocument(org.id, `Página indexada ${suffix}`);
+  const options = sql.json({
+    version: "2024",
+    status: "CURRENT",
+    effectiveFrom: "2024-01-10",
+    effectiveUntil: null,
+    sourceNote: null,
+    jurisdiction: "ES",
+    territory: null,
+    scope: null,
+  });
+  const [site] = await sql`
+    insert into knowledge_websites (organization_id, url, title, discovery_source, discovered_at, options)
+    values (${org.id}, ${`https://${host}/`}, ${`Sitio ${suffix}`}, 'sitemap', now(), ${options}) returning id`;
+  for (let i = 1; i <= 12; i++) {
+    const url = `https://${host}/pagina-${String(i).padStart(2, "0")}`;
+    const status = i === 1 ? "INDEXED" : i === 2 ? "FAILED" : "DISCOVERED";
+    const error = i === 2 ? "No se pudo descargar la página. Comprueba que es pública y accesible." : null;
+    await sql`
+      insert into knowledge_website_pages (website_id, organization_id, url, status, error, document_id)
+      values (${site.id}, ${org.id}, ${url}, ${status}, ${error}, ${i === 1 ? documentId : null})`;
+  }
+
+  // The list shows the site; opening it shows the panel with its three tabs.
+  await page.goto("/knowledge");
+  await expect(page.getByText("1 de 12 indexadas")).toBeVisible();
+  await expect(page.getByText("1 con error", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: `Sitio ${suffix}` }).click();
+  const panel = page.getByRole("dialog", { name: `Sitio ${suffix}` });
+  await expect(panel.getByRole("tab", { name: "Información" })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: "Páginas" })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: "Configuración" })).toBeVisible();
+
+  // Información: preview placeholder (no og:image), counts and where the pages came from.
+  await expect(panel.getByText("12 encontradas")).toBeVisible();
+  await expect(panel.getByText("1 indexadas")).toBeVisible();
+  await expect(panel.getByText("Sitemap del sitio")).toBeVisible();
+  await expectNoSeriousAccessibilityViolations(page, "/knowledge?sitio=[id]");
+
+  // Páginas: ten at a time, a selector for more, next page, and a search.
+  await panel.getByRole("tab", { name: "Páginas" }).click();
+  await expect(panel.getByText("1–10 de 12")).toBeVisible();
+  await expect(panel.getByText("/pagina-10", { exact: true })).toBeVisible();
+  await expect(panel.getByText("/pagina-11", { exact: true })).toHaveCount(0);
+
+  await panel.getByLabel("Páginas por tabla").selectOption("25");
+  await expect(panel.getByText("1–12 de 12")).toBeVisible();
+  await expect(panel.getByText("/pagina-11", { exact: true })).toBeVisible();
+  await panel.getByLabel("Páginas por tabla").selectOption("10");
+  await panel.getByRole("button", { name: "Siguiente" }).click();
+  await expect(panel.getByText("11–12 de 12")).toBeVisible();
+  await expect(panel.getByText("/pagina-11", { exact: true })).toBeVisible();
+
+  await panel.getByLabel("Buscar una página").fill("pagina-07");
+  await expect(panel.getByText("1–1 de 1")).toBeVisible();
+  await expect(panel.getByText("/pagina-07", { exact: true })).toBeVisible();
+  await expect(panel.getByText("/pagina-08", { exact: true })).toHaveCount(0);
+
+  // Choosing pages: an indexed page cannot be chosen again; a pending one can.
+  await expect(panel.getByRole("button", { name: "Indexar páginas" })).toBeDisabled();
+  await panel.getByLabel("Indexar /pagina-07").check();
+  await expect(panel.getByText("1 de 30 seleccionadas")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Indexar 1 página", exact: true })).toBeEnabled();
+  await panel.getByLabel("Buscar una página").fill("pagina-01");
+  await expect(panel.getByLabel("Indexar /pagina-01")).toBeDisabled();
+  await panel.getByLabel("Buscar una página").fill("pagina-02");
+  await expect(panel.getByText("No se pudo descargar la página. Comprueba que es pública y accesible.")).toBeVisible();
+  await expect(panel.getByLabel("Indexar /pagina-02")).toBeEnabled();
+
+  // Adding a page by address: only from the same site.
+  await panel.getByLabel("Dirección de la página a añadir").fill(`https://otro-${suffix}.org/x`);
+  await panel.getByRole("button", { name: "Añadir", exact: true }).click();
+  await expect(panel.getByText("La página debe ser del mismo sitio web.")).toBeVisible();
+  await panel.getByLabel("Dirección de la página a añadir").fill(`https://${host}/manual`);
+  await panel.getByRole("button", { name: "Añadir", exact: true }).click();
+  await panel.getByLabel("Buscar una página").fill("manual");
+  await expect(panel.getByText("/manual", { exact: true })).toBeVisible();
+
+  // Configuración: the publication data is editable.
+  await panel.getByRole("tab", { name: "Configuración" }).click();
+  await panel.getByLabel("Versión", { exact: true }).fill("v2");
+  await panel.getByRole("button", { name: "Guardar cambios" }).click();
+  await expect(panel.getByText("Cambios guardados.")).toBeVisible();
+  const [saved] = await sql`select options from knowledge_websites where id = ${site.id}`;
+  expect(saved.options.version).toBe("v2");
+
+  // Danger zone: deleting the site, and its indexed document if asked.
+  await panel.getByRole("button", { name: "Eliminar sitio web" }).click();
+  const confirm = page.getByRole("dialog", { name: "Eliminar sitio web" });
+  await confirm.getByLabel(/También eliminar los 1 documento indexado/).check();
+  await confirm.getByRole("button", { name: "Eliminar sitio web" }).click();
+  await expect(page).not.toHaveURL(/sitio=/);
+  await expect(page.getByRole("link", { name: `Sitio ${suffix}` })).toHaveCount(0);
+  const [{ count }] = await sql`select count(*)::int as count from knowledge_documents where id = ${documentId}`;
+  expect(count).toBe(0);
+});
+
+test("adding a website refuses a private address, and another organization's site has no panel", async ({ page }) => {
+  const suffix = randomUUID().slice(0, 8);
+  await register(page, `AddSite ${suffix}`);
+
+  await page.goto("/knowledge");
+  await page.getByRole("button", { name: "Añadir conocimiento" }).click();
+  const picker = page.getByRole("dialog", { name: "Añadir conocimiento" });
+  await expect(picker.getByLabel("Tipo de conocimiento")).toHaveValue("WEBSITE");
+  await picker.getByLabel("Dirección del sitio web").fill("http://127.0.0.1:3000/");
+  await picker.getByRole("button", { name: "Añadir sitio web" }).click();
+  await expect(picker.getByText("No se pudo acceder al sitio. Comprueba que la dirección es pública y accesible.")).toBeVisible();
+
+  const [other] = await sql`insert into organizations (name) values (${`Otra sitio ${suffix}`}) returning id`;
+  const [foreign] = await sql`
+    insert into knowledge_websites (organization_id, url, title, options)
+    values (${other.id}, ${`https://ajeno-${suffix}.org/`}, ${`Ajeno ${suffix}`}, ${sql.json({ version: "1", status: "CURRENT", effectiveFrom: "2024-01-01", effectiveUntil: null, sourceNote: null, jurisdiction: null, territory: null, scope: null })})
+    returning id`;
+  await page.goto(`/knowledge?sitio=${foreign.id}`);
+  await expect(page.getByRole("heading", { name: "Conocimiento", level: 1 })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Páginas" })).toHaveCount(0);
+  await expect(page.getByText(`Ajeno ${suffix}`)).toHaveCount(0);
 });
 
 test("a DELEGATE is offered no way to upload", async ({ page, browser }) => {
@@ -210,6 +354,6 @@ test("a DELEGATE is offered no way to upload", async ({ page, browser }) => {
 
   await delegate.goto("/knowledge");
   await expect(delegate.getByRole("heading", { name: "Conocimiento", level: 1 })).toBeVisible();
-  await expect(delegate.getByRole("button", { name: "Subir documento" })).toHaveCount(0);
+  await expect(delegate.getByRole("button", { name: "Añadir conocimiento" })).toHaveCount(0);
   await context.close();
 });

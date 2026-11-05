@@ -17,7 +17,7 @@
  * with window functions.
  */
 import "server-only";
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, cosineDistance } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql, cosineDistance, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import {
   documents,
@@ -30,6 +30,7 @@ import { APPLICABLE_STATUSES } from "@/modules/knowledge/domain";
 import { knowledgeVisibilityCondition } from "@/modules/knowledge/visibility";
 import { getEmbeddingProvider } from "@/modules/knowledge/embedding-provider";
 import { combineRankedResults } from "@/modules/knowledge/retrieval-fusion";
+import { normalizeLegalReferences } from "@/modules/knowledge/indexing";
 
 export interface RetrieveKnowledgeInput {
   /** The acting organization — required, like every other read in this module. */
@@ -63,7 +64,29 @@ export interface KnowledgeSearchResult {
   label: string | null;
   path: string | null;
   content: string;
+  /** RRF score — ordering only, not comparable across queries. */
   score: number;
+  /**
+   * Absolute relevance signals, for deciding whether a candidate is worth
+   * offering at all (Fase 8): the chunk matches at least one lexeme of the
+   * query, and/or its cosine similarity (1 = identical direction) to the
+   * query, or null when the chunk was embedded by another model.
+   */
+  ftsMatch: boolean;
+  similarity: number | null;
+}
+
+/**
+ * Natural-language FTS query: the OR of the query's own lexemes (Spanish
+ * stemming, stopwords dropped), so a chunk matches when it shares *some*
+ * terms and ranks higher the more it shares (`ts_rank_cd`). Built from
+ * `to_tsvector(query)` rather than `websearch_to_tsquery`, which ANDs every
+ * term and gives operator meaning to user text ("-horas" would become a
+ * negation). Each lexeme is quoted, so no user text is parsed as tsquery
+ * syntax. A query of only stopwords yields an empty tsquery (no FTS match).
+ */
+function naturalLanguageTsQuery(query: string) {
+  return sql`(select coalesce(string_agg(quote_literal(lexeme), ' | '), '')::tsquery from unnest(tsvector_to_array(to_tsvector('spanish', ${query}))) as lexeme)`;
 }
 
 /** How many candidates each sub-query fetches before fusion narrows to `limit`. */
@@ -102,7 +125,7 @@ function hardFilters(input: Required<Pick<RetrieveKnowledgeInput, "organizationI
   );
 }
 
-const resultColumns = {
+const baseColumns = {
   chunkId: knowledgeChunks.id,
   documentId: knowledgeChunks.documentId,
   documentVersionId: knowledgeChunks.documentVersionId,
@@ -122,9 +145,9 @@ const resultColumns = {
   content: knowledgeChunks.content,
 };
 
-function baseQuery() {
+function baseQuery(signals: { ftsMatch: SQL<boolean>; similarity: SQL<number | null> }) {
   return db
-    .select(resultColumns)
+    .select({ ...baseColumns, ...signals })
     .from(knowledgeChunks)
     .innerJoin(documentVersions, eq(documentVersions.id, knowledgeChunks.documentVersionId))
     .innerJoin(documents, eq(documents.id, knowledgeChunks.documentId));
@@ -143,17 +166,25 @@ export async function retrieveKnowledge(input: RetrieveKnowledgeInput): Promise<
   const filters = hardFilters({ ...input, atDate });
   const fetchLimit = candidateLimit(limit);
 
-  const tsQuery = sql`websearch_to_tsquery('spanish', ${input.query})`;
+  const query = normalizeLegalReferences(input.query);
+  const tsQuery = naturalLanguageTsQuery(query);
 
-  const ftsResults = await baseQuery()
+  const provider = getEmbeddingProvider();
+  const [queryEmbedding] = await provider.embed([query]);
+
+  const signals = {
+    ftsMatch: sql<boolean>`${knowledgeChunks.contentTsv} @@ ${tsQuery}`,
+    // Only vectors from the active model are comparable with the query vector.
+    similarity: sql<number | null>`case when ${knowledgeChunks.embeddingModel} = ${provider.id} then ${sql`1 - (${cosineDistance(knowledgeChunks.embedding, queryEmbedding)})`} end`,
+  };
+
+  const ftsResults = await baseQuery(signals)
     .where(and(filters, sql`${knowledgeChunks.contentTsv} @@ ${tsQuery}`))
-    .orderBy(desc(sql`ts_rank(${knowledgeChunks.contentTsv}, ${tsQuery})`))
+    .orderBy(desc(sql`ts_rank_cd(${knowledgeChunks.contentTsv}, ${tsQuery})`))
     .limit(fetchLimit);
 
-  const [queryEmbedding] = await getEmbeddingProvider().embed([input.query]);
-
-  const vectorResults = await baseQuery()
-    .where(filters)
+  const vectorResults = await baseQuery(signals)
+    .where(and(filters, eq(knowledgeChunks.embeddingModel, provider.id)))
     .orderBy(asc(cosineDistance(knowledgeChunks.embedding, queryEmbedding)))
     .limit(fetchLimit);
 

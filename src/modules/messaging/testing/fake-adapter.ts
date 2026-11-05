@@ -5,12 +5,27 @@ import type {
   ConnectionResult,
   ConnectionStatus,
   ConversationRecord,
+  MediaDownload,
   MessagingAccountRecord,
   MessagingAdapter,
   NormalizedInboundEvent,
   OutboundMessage,
   SendResult,
 } from "@/modules/messaging/adapter";
+import { MediaUnavailableError } from "@/modules/messaging/adapter";
+import { ATTACHMENT_KINDS, bodyForAttachment, type AttachmentKind, type MessageAttachment } from "@/modules/messaging/attachments";
+
+/** The file descriptor a fake webhook may carry (`attachment: { kind, mediaId, mimeType, filename }`), or null. */
+function readFakeAttachment(raw: unknown): MessageAttachment | null {
+  const value = raw as Partial<Record<keyof MessageAttachment, unknown>> | null | undefined;
+  if (!value || typeof value.mediaId !== "string" || !ATTACHMENT_KINDS.includes(value.kind as AttachmentKind)) return null;
+  return {
+    kind: value.kind as AttachmentKind,
+    mediaId: value.mediaId,
+    mimeType: typeof value.mimeType === "string" ? value.mimeType : null,
+    filename: typeof value.filename === "string" ? value.filename : null,
+  };
+}
 
 /**
  * Test-only double for `MessagingAdapter`. Lives under `src/` (not
@@ -56,6 +71,7 @@ export class FakeMessagingAdapter implements MessagingAdapter {
       serviceWindowHours: options.serviceWindowHours ?? null,
       canDisconnect: options.canDisconnect ?? true,
       onboarding: options.onboarding ?? "DIRECT",
+      inboundMediaDays: options.inboundMediaDays === undefined ? 7 : options.inboundMediaDays,
     };
   }
 
@@ -92,6 +108,28 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     const externalMessageId = this.nextExternalMessageId ?? `fake-outbound-${randomUUID()}`;
     this.nextExternalMessageId = null;
     return { externalMessageId, deliveryStatus: "SENT" };
+  }
+
+  /** Every file the proxy opened, so tests can assert what was (not) downloaded. */
+  public downloads: MessageAttachment[] = [];
+
+  /** A `mediaId` starting with `expired-` behaves like a file the provider no longer has. */
+  async downloadMedia(_account: MessagingAccountRecord, attachment: MessageAttachment): Promise<MediaDownload> {
+    this.downloads.push(attachment);
+    if (attachment.mediaId.startsWith("expired-")) {
+      throw new MediaUnavailableError();
+    }
+    const bytes = new TextEncoder().encode(`Contenido simulado del archivo ${attachment.mediaId}`);
+    return {
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+      contentType: attachment.mimeType,
+      contentLength: bytes.byteLength,
+    };
   }
 
   /** Every "typing…" signal, so tests can assert what the Contact would have seen (PKG-013). */
@@ -154,6 +192,7 @@ export class FakeMessagingAdapter implements MessagingAdapter {
           occurredAt: new Date(),
         };
       }
+      const attachment = readFakeAttachment(event.attachment);
       return {
         kind: "MESSAGE",
         externalConversationId: String(event.externalConversationId),
@@ -161,7 +200,8 @@ export class FakeMessagingAdapter implements MessagingAdapter {
         externalContactId: String(event.externalContactId),
         contactDisplayName: (event.contactDisplayName as string | null) ?? null,
         contactPhoneE164: (event.contactPhoneE164 as string | null) ?? null,
-        text: String(event.text),
+        text: attachment ? bodyForAttachment(event.text as string | undefined, attachment) : String(event.text),
+        attachment,
         occurredAt: new Date(),
       };
     });

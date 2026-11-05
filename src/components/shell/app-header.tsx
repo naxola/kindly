@@ -13,16 +13,18 @@ import type { CurrentOrganizationMember } from "@/modules/organizations/service"
 export function AppHeader({
   member,
   unreadCount,
+  pendingAffiliates,
   theme,
 }: {
   member: CurrentOrganizationMember;
   unreadCount: number;
+  pendingAffiliates: number;
   theme: ThemePreference;
 }) {
   return (
     <header className="z-(--z-header) flex h-header items-center justify-between gap-3 border-b border-border bg-background px-3 md:px-gutter">
       <div className="flex min-w-0 items-center gap-2">
-        <MobileNav unreadCount={unreadCount} />
+        <MobileNav unreadCount={unreadCount} isAdmin={member.role === "ADMIN"} pendingAffiliates={pendingAffiliates} />
         <Link href="/inbox" className="rounded-sm type-section-title font-semibold text-foreground focus-ring">
           Kindly
         </Link>

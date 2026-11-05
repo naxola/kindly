@@ -661,7 +661,7 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 
 - [x] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (cerrado 2026-09-29).
 - [x] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente (cerrado 2026-09-29).
-- [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
+- [x] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". (2026-10-11 — `procedures/applications.ts`, `messaging/attachments.ts`, `/api/conversations/[id]/messages/[messageId]/media`, migraciones 0016-0017.) Pendiente antes de producción: revisión jurídica del aviso y de la política de privacidad; probar un archivo real con Meta.
 - [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
 - [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
@@ -714,17 +714,36 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 
 - [x] Subida de documentos desde la UI, sin script de operador (PDF, texto, página web; solo ADMIN; solo conocimiento de la organización). (Fase 7f, cerrado 2026-09-30 — `knowledge/upload.ts`, `knowledge/actions.ts`, `/knowledge` "Subir documento" y "Nueva versión".)
 
+- [x] Lista de fuentes de conocimiento con estado de indexado, contador de uso y "Añadir conocimiento" al estilo Aidbase (paso 1; sin Vídeo). (2026-10-08 — `knowledge/source-status.ts`, `listKnowledgeSources`, `reindexKnowledgeSourceAction`, `/knowledge`.)
+- [x] Sitio web como fuente de conocimiento: diálogo de tipo → panel con Información/Páginas/Configuración; descubrir por `sitemap.xml`/RSS, elegir páginas (buscador, paginación), indexar en segundo plano con estado por página, datos de publicación, reindexar y eliminar. (2026-10-08 — `ingestion/site-discovery.ts`, `websites.ts`, migraciones 0013-0015, `/knowledge?sitio=`.)
+- [ ] Re-sincronizar un sitio importado (detectar páginas nuevas o cambiadas) y terminar importaciones abandonadas desde el cron semanal.
+
 ## Fase 8 — AI
 
-- [ ] Abstracción `LLMProvider` (OpenAI inicial).
-- [ ] Construcción de contexto acotado (mensajes recientes, resumen, Contact,
+- [x] Abstracción `LLMProvider` (OpenAI inicial). (Fase 8a, 2026-10-01 — `ai/llm-provider.ts`, `ai/openai-llm-provider.ts`.)
+- [x] Construcción de contexto acotado (Fase 8a — `ai/service.ts`) (mensajes recientes, resumen, Contact,
       Case, tareas, conocimiento relevante).
-- [ ] AI Copilot: `AISuggestion` estructurado (issue, suggestedReply,
+- [x] AI Copilot: `AISuggestion` estructurado (Fase 8a — `ai/domain.ts`, fuentes reconstruidas de fragmentos reales) (issue, suggestedReply,
       evidenceLevel, sources, warnings, missingInformation).
-- [ ] UI de Copilot en la vista de conversación (Accept / Edit / Reject).
-- [ ] Auditabilidad de AI (qué recibió, qué recuperó, qué generó, qué hizo el
+- [x] Fase 8 paso 1: retrieval (FTS en OR, `search_text` jerárquico, "art. 34.8", `embedding_model` por fragmento, `knowledge:reindex`, fragmentos completos). (2026-10-01)
+- [x] Fase 8 paso 2: abstención real, inyección desde documentos, `catch` del proveedor, consulta con contexto, `Reranker` identidad, umbral parametrizado. (2026-10-01)
+- [x] Fase 8 paso 3: Copilot API (rutas, DTO sin modelo/prompt, freno 1/10 s). (2026-10-01)
+- [x] Fase 8 paso 4: tarjeta del Copiloto en la conversación (Usar como borrador / Descartar) vía Copilot API. (2026-10-01)
+- [x] Auditabilidad de AI (Fase 8a — `ai_suggestions`, retención 90 días) (qué recibió, qué recuperó, qué generó, qué hizo el
       profesional) con política de retención explícita.
-- [ ] Garantía de que ninguna sugerencia se envía sin acción humana.
+- [x] (backend) Garantía de que ninguna sugerencia se envía sin acción humana.
+
+- [x] Fase 8 paso 6: preparar evaluación (formato de dataset, métricas, `npm run eval:retrieval`). (2026-10-01)
+- [ ] Fase 8, pendiente de staging: probar `gpt-5.4-mini` real; calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset; programar `purgeExpiredSuggestions`.
+
+## Altas de afiliados por webhook (2026-10-26)
+
+- [x] Tablas `affiliate_profiles`, `affiliate_requests`, `integration_keys` (migración 0018).
+- [x] Endpoint `POST /api/integrations/affiliate-requests` (clave Bearer por organización, 202 con resultado por alta).
+- [x] Propuesta de delegado por carga y confirmación/descarte/duplicados por el ADMIN.
+- [x] UI: "Altas" con contador y aviso, panel de asignación con carga por delegado, Organización → Integraciones.
+- [ ] Pendiente (no es código): aplicar la migración 0018 en staging/Production y configurar el nodo HTTP de n8n.
+- [ ] Anotado: ver los datos de afiliado en la ficha del contacto; histórico de altas resueltas.
 
 ## Onboarding de delegados (cerrado 2026-11-05)
 

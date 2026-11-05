@@ -4,6 +4,7 @@ import type {
   KnowledgeDocumentSourceType,
   KnowledgeVisibility,
 } from "@/modules/knowledge/schema";
+import type { IndexStatus, WebsitePageState } from "@/modules/knowledge/source-status";
 import type { BadgeProps } from "@/components/ui/badge";
 
 /** Display-only Spanish labels; the enum values stay identifiers (`CLAUDE.md` §1). */
@@ -33,6 +34,42 @@ export const SOURCE_TYPE_LABELS: Record<KnowledgeDocumentSourceType, string> = {
   PDF: "PDF",
   WEB: "Web",
 };
+
+export const INDEX_STATUS_LABELS: Record<IndexStatus, string> = {
+  INDEXED: "Indexado",
+  OUTDATED: "Pendiente de reindexar",
+  EMPTY: "Sin contenido",
+  UNKNOWN: "Sin comprobar",
+};
+
+export const INDEX_STATUS_TONES: Record<IndexStatus, NonNullable<BadgeProps["tone"]>> = {
+  INDEXED: "success",
+  OUTDATED: "warning",
+  EMPTY: "neutral",
+  UNKNOWN: "neutral",
+};
+
+export const WEBSITE_PAGE_STATUS_LABELS: Record<WebsitePageState, string> = {
+  DISCOVERED: "Sin indexar",
+  PENDING: "En cola",
+  INDEXING: "Indexando",
+  INDEXED: "Indexada",
+  FAILED: "Error",
+};
+
+export const WEBSITE_PAGE_STATUS_TONES: Record<WebsitePageState, NonNullable<BadgeProps["tone"]>> = {
+  DISCOVERED: "neutral",
+  PENDING: "neutral",
+  INDEXING: "info",
+  INDEXED: "success",
+  FAILED: "destructive",
+};
+
+export const DISCOVERY_SOURCE_LABELS = {
+  sitemap: "Sitemap del sitio",
+  feed: "Feed RSS del sitio",
+  none: "Solo la dirección indicada (el sitio no publica sitemap ni feed)",
+} as const;
 
 export const CHUNK_LEVEL_LABELS: Record<KnowledgeChunkLevel, string> = {
   CHAPTER: "Capítulo",

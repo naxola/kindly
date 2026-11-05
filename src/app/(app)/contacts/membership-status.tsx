@@ -1,5 +1,6 @@
 import { firstUnpaidMonth, isFeeOverdue } from "@/modules/memberships/domain";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/cn";
 
 export interface MembershipStatusData {
   status: "ACTIVE" | "INACTIVE";
@@ -22,7 +23,7 @@ const monthYear = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { m
  * "buen momento para proponer la afiliación") are fixed rules
  * (`memberships/domain.ts`), never something the AI infers.
  */
-export function MembershipStatus({ membership }: { membership: MembershipStatusData | null }) {
+export function MembershipStatus({ membership, boxed = false }: { membership: MembershipStatusData | null; boxed?: boolean }) {
   if (!membership) {
     return <p className="type-body text-foreground-lighter">Sin dar de alta.</p>;
   }
@@ -32,7 +33,7 @@ export function MembershipStatus({ membership }: { membership: MembershipStatusD
   if (membership.status === "INACTIVE") {
     const until = membership.endedAt ? new Date(membership.endedAt).toLocaleDateString("es-ES") : "—";
     return (
-      <div className="flex flex-col gap-1">
+      <div className={cn("flex flex-col gap-1", boxed && "rounded-lg border border-warning-border bg-warning-soft px-3 py-2.5")}>
         <Badge tone="warning" dot>
           Afiliación dada de baja
         </Badge>
@@ -47,7 +48,7 @@ export function MembershipStatus({ membership }: { membership: MembershipStatusD
   const overdue = membership.feePaidUntil ? isFeeOverdue({ status: membership.status, feePaidUntil: membership.feePaidUntil }) : false;
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className={cn("flex flex-col gap-1", boxed && "rounded-lg border border-primary-border bg-primary-soft px-3 py-2.5")}>
       <Badge tone="success" dot>
         Afiliación activa
       </Badge>

@@ -10,7 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 type Origin = "PDF" | "TEXT" | "WEB";
 
 /**
- * Shared by "Subir documento" (new document: also asks for title/ámbito) and
+ * Shared by "Añadir conocimiento" (new document: also asks for title/ámbito) and
  * "Nueva versión" (existing document). The server action owns validation and
  * returns what is wrong, shown inline — no throw (`actions.ts`).
  */
@@ -18,14 +18,17 @@ export function UploadForm({
   action,
   withDocumentFields,
   submitLabel,
+  origins = ["PDF", "TEXT", "WEB"],
 }: {
   action: (previous: UploadFormState, formData: FormData) => Promise<UploadFormState>;
   withDocumentFields: boolean;
   submitLabel: string;
+  /** Which origins the form offers; a new document leaves out WEB (websites have their own flow). */
+  origins?: Origin[];
 }) {
   const [state, formAction] = useActionState(action, { error: null });
   const values = state.values ?? {};
-  const [origin, setOrigin] = useState<Origin>((values.origin as Origin | undefined) ?? "PDF");
+  const [origin, setOrigin] = useState<Origin>((values.origin as Origin | undefined) ?? origins[0]);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -34,6 +37,14 @@ export function UploadForm({
           {state.error}
         </Alert>
       )}
+
+      <Field label="Origen" description="Qué quieres que la IA pueda citar.">
+        <NativeSelect name="origin" value={origin} onChange={(event) => setOrigin(event.target.value as Origin)}>
+          {origins.includes("PDF") && <option value="PDF">Archivo PDF</option>}
+          {origins.includes("TEXT") && <option value="TEXT">Archivo de texto (.txt, .md)</option>}
+          {origins.includes("WEB") && <option value="WEB">Página web</option>}
+        </NativeSelect>
+      </Field>
 
       {withDocumentFields && (
         <>
@@ -51,14 +62,6 @@ export function UploadForm({
           </Field>
         </>
       )}
-
-      <Field label="Origen">
-        <NativeSelect name="origin" value={origin} onChange={(event) => setOrigin(event.target.value as Origin)}>
-          <option value="PDF">Archivo PDF</option>
-          <option value="TEXT">Archivo de texto (.txt, .md)</option>
-          <option value="WEB">Página web</option>
-        </NativeSelect>
-      </Field>
 
       {origin === "WEB" ? (
         <Field label="Dirección web" description="Solo se guarda el texto, no la página.">

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ProductMenu } from "@/components/shell/product-menu";
-import { ORGANIZATION_NAV_ITEMS } from "@/components/shell/organization-nav";
+import { organizationNavItems } from "@/components/shell/organization-nav";
+import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
 
 /**
  * `/organization` module shell (UI-7): the `ProductMenu` full-height column
@@ -9,10 +10,11 @@ import { ORGANIZATION_NAV_ITEMS } from "@/components/shell/organization-nav";
  * under its own `PageHeader` — the layout has no header of its own to put
  * it under.
  */
-export default function OrganizationLayout({ children }: { children: ReactNode }) {
+export default async function OrganizationLayout({ children }: { children: ReactNode }) {
+  const member = await requireCurrentOrganizationMember();
   return (
     <div className="flex h-full min-w-0 flex-1">
-      <ProductMenu title="Organización" label="Organización" groups={[{ items: ORGANIZATION_NAV_ITEMS }]} />
+      <ProductMenu title="Organización" label="Organización" groups={[{ items: organizationNavItems(member.role === "ADMIN") }]} />
       <div className="h-full min-w-0 flex-1 overflow-y-auto">{children}</div>
     </div>
   );

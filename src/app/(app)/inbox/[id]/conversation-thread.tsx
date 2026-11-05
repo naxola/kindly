@@ -11,6 +11,9 @@ import { DeliveryTicks, type DisplayStatus } from "@/app/(app)/inbox/[id]/delive
 import { SheetBody, SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { AttachmentChip } from "@/app/(app)/inbox/[id]/attachment-chip";
+import { CopilotCard } from "@/app/(app)/inbox/[id]/copilot-card";
+import { attachmentPlaceholder, DOCUMENTS_NOTICE_TEXT } from "@/modules/messaging/attachments";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/cn";
 
@@ -256,14 +259,44 @@ export function ConversationThread({
     void deliver(again);
   }
 
-  function handleChange(value: string) {
-    setText(value);
+  function resizeComposer() {
     const el = textareaRef.current;
     if (el) {
       el.style.height = "auto";
       const lineHeight = parseFloat(getComputedStyle(el).lineHeight || "20");
       el.style.height = `${Math.min(el.scrollHeight, lineHeight * COMPOSER_MAX_ROWS)}px`;
     }
+  }
+
+  /**
+   * The Copilot's "Usar como borrador": fills the composer and focuses it —
+   * nothing is sent and no typing indicator is signalled (the professional
+   * has not typed anything). They edit and press Send themselves.
+   */
+  function applyCopilotDraft(value: string) {
+    setText(value);
+    requestAnimationFrame(() => {
+      resizeComposer();
+      textareaRef.current?.focus();
+    });
+  }
+
+  /**
+   * "Insertar aviso": puts the documents notice in the composer (after what is
+   * already written) and focuses it. Like the copiloto's draft, nothing is
+   * sent — the delegate reads, edits and presses Send.
+   */
+  function insertDocumentsNotice() {
+    setText((current) => (current.trim() ? `${current.trimEnd()}\n\n${DOCUMENTS_NOTICE_TEXT}` : DOCUMENTS_NOTICE_TEXT));
+    requestAnimationFrame(() => {
+      resizeComposer();
+      textareaRef.current?.focus();
+    });
+  }
+
+  function handleChange(value: string) {
+    setText(value);
+    resizeComposer();
     const now = Date.now();
     if (supportsTyping && value.trim() && now - lastTypingSentAt.current > TYPING_INDICATOR_THROTTLE_MS) {
       lastTypingSentAt.current = now;
@@ -276,6 +309,7 @@ export function ConversationThread({
   const todayKey = dayKey(now.toISOString());
   const yesterdayKey = dayKey(new Date(now.getTime() - 86_400_000).toISOString());
   const timeline = buildTimeline(messages, todayKey, yesterdayKey);
+  const latestInboundId = [...messages].reverse().find((m) => m.direction === "INBOUND")?.id ?? null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -286,7 +320,7 @@ export function ConversationThread({
           wrapper's box straight onto the footer below it (real bug, found
           verifying a closed service window with several messages). */}
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <SheetBody ref={scrollRef} onScroll={handleScroll} className="flex flex-col gap-1">
+        <SheetBody ref={scrollRef} onScroll={handleScroll} tabIndex={0} className="flex flex-col gap-1 focus-ring">
           {/* `role="log"` (a live-region role) can't sit on the `<ul>`
               itself: it overrides the element's implicit list role, which
               in turn strips the `<li>` children of their implicit listitem
@@ -311,6 +345,9 @@ export function ConversationThread({
                       createdAt={message.createdAt}
                       status={message.deliveryStatus}
                       sentFromDevice={message.sentFromDevice}
+                      attachment={message.attachment}
+                      conversationId={conversationId}
+                      messageId={message.id}
                     />
                   </li>,
                 ];
@@ -353,6 +390,17 @@ export function ConversationThread({
           </div>
         )}
       </div>
+
+      {canReply && (
+        <CopilotCard
+          conversationId={conversationId}
+          latestInboundId={latestInboundId}
+          composerAvailable={serviceWindow.status !== "CLOSED"}
+          composerUnavailableReason="La ventana de respuesta libre está cerrada: no puedes responder en texto libre ahora mismo."
+          hasDraftText={text.trim() !== ""}
+          onUseAsDraft={applyCopilotDraft}
+        />
+      )}
 
       <SheetFooter className="flex-col items-stretch">
         {!canReply ? (
@@ -401,6 +449,9 @@ export function ConversationThread({
             />
             <div className="flex items-center justify-between gap-2">
               <p className="type-caption text-foreground-lighter">Intro para enviar · Mayús+Intro salto de línea</p>
+              <Button type="button" size="sm" variant="ghost" onClick={insertDocumentsNotice}>
+                Insertar aviso de documentos
+              </Button>
               <Button type="submit" size="sm" disabled={!text.trim()} icon={<Send className="size-4" />}>
                 Enviar
               </Button>
@@ -428,6 +479,9 @@ function Bubble({
   createdAt,
   status,
   sentFromDevice,
+  attachment,
+  conversationId,
+  messageId,
   error,
   onRetry,
 }: {
@@ -436,6 +490,9 @@ function Bubble({
   createdAt: string;
   status: DisplayStatus;
   sentFromDevice: boolean;
+  attachment?: ThreadMessage["attachment"];
+  conversationId?: string;
+  messageId?: string;
   error?: string;
   onRetry?: () => void;
 }) {
@@ -449,7 +506,11 @@ function Bubble({
           status === "SENDING" && "opacity-80",
         )}
       >
-        <p className="whitespace-pre-wrap">{body}</p>
+        {/* A message that is only a file shows the file box, not its "[Imagen]" placeholder as well. */}
+        {!(attachment && body === attachmentPlaceholder(attachment)) && <p className="whitespace-pre-wrap">{body}</p>}
+        {attachment && conversationId && messageId && (
+          <AttachmentChip attachment={attachment} conversationId={conversationId} messageId={messageId} />
+        )}
         <p className="mt-1 flex items-center justify-end gap-1 type-caption text-foreground-lighter">
           <span>{timeFormatter.format(new Date(createdAt))}</span>
           {/* Coexistence: an outbound message may have been written on the delegate's own phone (PKG-005). */}

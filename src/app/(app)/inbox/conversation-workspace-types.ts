@@ -36,6 +36,8 @@ export interface ConversationWorkspaceData {
     /** Pending only, soonest due first (no due date last). */
     pendingTasks: { id: string; title: string; dueDate: string | null }[];
     otherConversations: { id: string; channel: string; delegateName: string; lastMessageBody: string | null }[];
+    /** UI-10c: procedures in progress with their documents, and the ones that can still be started. */
+    procedures: WorkspaceProcedures;
   };
 }
 
@@ -55,4 +57,26 @@ export interface WorkspaceMembership {
   endedAt: string | null;
   /** ISO date (first of month), or `null` if never recorded. */
   feePaidUntil: string | null;
+}
+
+export interface WorkspaceProcedureDocument {
+  id: string;
+  name: string;
+  received: boolean;
+  /** ISO date-time; set when received. */
+  receivedAt: string | null;
+  receivedChannel: string | null;
+}
+
+export interface WorkspaceProcedureApplication {
+  id: string;
+  procedureName: string;
+  version: number;
+  caseTitle: string | null;
+  documents: WorkspaceProcedureDocument[];
+}
+
+export interface WorkspaceProcedures {
+  applications: WorkspaceProcedureApplication[];
+  startable: { id: string; name: string }[];
 }

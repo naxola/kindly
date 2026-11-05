@@ -44,6 +44,7 @@ import {
   customType,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -53,6 +54,7 @@ import {
   vector,
   date,
 } from "drizzle-orm/pg-core";
+import { users } from "@/modules/auth/schema";
 import { organizations } from "@/modules/organizations/schema";
 
 /** Dimensión del vector de embeddings — ver cabecera. Una sola fuente de verdad. */
@@ -175,13 +177,21 @@ export const knowledgeChunks = pgTable(
     label: text("label"),
     path: text("path"),
     content: text("content").notNull(),
+    // Lo que se indexa y se embebe (Fase 8): contexto jerárquico completo
+    // (documento, ubicación, artículo, apartados) + `content` entero. Lo
+    // construye `indexing.ts::buildSearchText`; `content` es lo que se cita.
+    searchText: text("search_text").notNull(),
     embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
-    // Columna generada para la búsqueda de texto completo de 7c. 'spanish':
-    // el conocimiento normativo del producto es en español (decisión
-    // registrada en `docs/DECISIONS.md`, Fase 7a).
+    // `EmbeddingProvider.id` que calculó `embedding` (p. ej.
+    // "openai:text-embedding-3-small"). La búsqueda vectorial solo compara
+    // vectores del proveedor activo: dos modelos con la misma dimensión no
+    // son comparables. `knowledge:reindex` re-embebe los de otro modelo.
+    embeddingModel: text("embedding_model").notNull(),
+    // FTS de 7c, generada desde `search_text` (antes desde `content`; el
+    // nombre se conserva). 'spanish': decisión registrada en Fase 7a.
     contentTsv: tsvector("content_tsv")
       .notNull()
-      .generatedAlwaysAs((): SQL => sql`to_tsvector('spanish', content)`),
+      .generatedAlwaysAs((): SQL => sql`to_tsvector('spanish', search_text)`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -195,6 +205,94 @@ export const knowledgeChunks = pgTable(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
     ),
+  ],
+);
+
+export const websitePageStatus = pgEnum("knowledge_website_page_status", [
+  "DISCOVERED",
+  "PENDING",
+  "INDEXING",
+  "INDEXED",
+  "FAILED",
+]);
+export type WebsitePageStatus = (typeof websitePageStatus.enumValues)[number];
+
+/** How the pages of a website are published as documents (set once, editable in the website's settings). */
+export interface WebsiteOptions {
+  version: string;
+  status: "CURRENT" | "DRAFT";
+  effectiveFrom: string;
+  effectiveUntil: string | null;
+  sourceNote: string | null;
+  jurisdiction: string | null;
+  territory: string | null;
+  scope: string | null;
+}
+
+export type WebsiteDiscoverySource = "sitemap" | "feed" | "none";
+
+/**
+ * A website an ADMIN added as a knowledge source ("Añadir conocimiento" →
+ * Sitio web). The site is the unit the ADMIN manages; each page the ADMIN
+ * chooses to index becomes a normal ORGANIZATION document
+ * (`knowledge_website_pages.document_id`). Always scoped to one
+ * organization — never GLOBAL.
+ */
+export const knowledgeWebsites = pgTable(
+  "knowledge_websites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // The address the ADMIN gave (a site root or one of its sections), normalized.
+    url: text("url").notNull(),
+    // `<title>` and `og:image` of that address: the card's name and thumbnail.
+    title: text("title"),
+    imageUrl: text("image_url"),
+    discoverySource: text("discovery_source").$type<WebsiteDiscoverySource>().notNull().default("none"),
+    discoveredAt: timestamp("discovered_at", { withTimezone: true }),
+    options: jsonb("options").$type<WebsiteOptions>().notNull(),
+    createdBy: text("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("knowledge_websites_org_url_unique").on(table.organizationId, table.url)],
+);
+
+/**
+ * One page of a website, with its own state so a long import can run in
+ * background slices and be followed (and retried) page by page.
+ * `organization_id` is denormalized so every query filters by tenant without
+ * a join. `DISCOVERED` = known but not chosen; the others follow indexing.
+ */
+export const knowledgeWebsitePages = pgTable(
+  "knowledge_website_pages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    websiteId: uuid("website_id")
+      .notNull()
+      .references(() => knowledgeWebsites.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    // Known from a feed at discovery time, else read from the page when it is indexed.
+    title: text("title"),
+    lastModified: text("last_modified"),
+    status: websitePageStatus("status").notNull().default("DISCOVERED"),
+    // User-facing reason (Spanish), never a stack trace or provider detail.
+    error: text("error"),
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    // Claim time of the current attempt: an INDEXING row older than the lease is taken over.
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("knowledge_website_pages_website_url_unique").on(table.websiteId, table.url),
+    index("knowledge_website_pages_org_website_idx").on(table.organizationId, table.websiteId),
+    index("knowledge_website_pages_website_status_idx").on(table.websiteId, table.status),
   ],
 );
 

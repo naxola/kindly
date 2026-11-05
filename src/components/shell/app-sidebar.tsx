@@ -4,7 +4,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { NAV_ITEMS, ORGANIZATION_NAV_ITEM, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
+import { NAV_COUNT_LABELS, NAV_ITEMS, ORGANIZATION_NAV_ITEM, isNavItemActive, type NavItem } from "@/components/shell/nav-items";
 import { setSidebarCollapsed } from "@/components/shell/sidebar-actions";
 import { CountBadge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/primitives";
@@ -15,7 +15,17 @@ import { cn } from "@/lib/cn";
  * Global navigation (docs/ui/LAYOUT_NAVIGATION.md §3). Hidden below `md`
  * (the header's `MobileNav` Sheet takes over there).
  */
-export function AppSidebar({ initialCollapsed, unreadCount }: { initialCollapsed: boolean; unreadCount: number }) {
+export function AppSidebar({
+  initialCollapsed,
+  unreadCount,
+  isAdmin,
+  pendingAffiliates,
+}: {
+  initialCollapsed: boolean;
+  unreadCount: number;
+  isAdmin: boolean;
+  pendingAffiliates: number;
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [, startTransition] = useTransition();
@@ -36,13 +46,13 @@ export function AppSidebar({ initialCollapsed, unreadCount }: { initialCollapsed
       )}
     >
       <nav aria-label="Principal" className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => isAdmin || !item.adminOnly).map((item) => (
           <SidebarLink
             key={item.href}
             item={item}
             active={isNavItemActive(pathname, item.href)}
             collapsed={collapsed}
-            count={item.href === "/inbox" ? unreadCount : undefined}
+            count={navCount(item.href, unreadCount, pendingAffiliates)}
           />
         ))}
         <Separator className="my-2" />
@@ -69,6 +79,12 @@ export function AppSidebar({ initialCollapsed, unreadCount }: { initialCollapsed
       </div>
     </aside>
   );
+}
+
+function navCount(href: string, unreadCount: number, pendingAffiliates: number): number | undefined {
+  if (href === "/inbox") return unreadCount;
+  if (href === "/affiliate-requests") return pendingAffiliates;
+  return undefined;
 }
 
 function SidebarLink({
@@ -99,7 +115,7 @@ function SidebarLink({
       {!collapsed && (
         <span className="flex flex-1 items-center justify-between gap-2 truncate">
           {item.label}
-          {typeof count === "number" && <CountBadge count={count} label="conversaciones sin leer" />}
+          {typeof count === "number" && <CountBadge count={count} label={NAV_COUNT_LABELS[item.href] ?? ""} />}
         </span>
       )}
     </Link>

@@ -10,6 +10,7 @@ import {
 import { listContactsForMember } from "@/modules/contacts/service";
 import { getActiveAssignment, listAssignmentHistory, type ContactAssignment } from "@/modules/contacts/assignments";
 import { getCurrentMembership } from "@/modules/memberships/service";
+import { listApplicationsForContact, listStartableProcedures } from "@/modules/procedures/applications";
 import { listCasesForContact } from "@/modules/cases/service";
 import { isTaskPending, listTasksForContact } from "@/modules/tasks/service";
 import type { ConversationWorkspaceData, WorkspaceAssignment } from "@/app/(app)/inbox/conversation-workspace-types";
@@ -31,7 +32,7 @@ export async function getConversationWorkspace(
   }
   const contactId = details.contact.id;
 
-  const [threadState, members, contacts, activeAssignment, history, membership, cases, tasks, contactConversations, linkedCaseIds] =
+  const [threadState, members, contacts, activeAssignment, history, membership, cases, tasks, contactConversations, linkedCaseIds, applications, startable] =
     await Promise.all([
       getConversationThreadState(organizationId, member, conversationId, { markRead }),
       listOrganizationMembers(organizationId),
@@ -43,6 +44,8 @@ export async function getConversationWorkspace(
       listTasksForContact(organizationId, member, contactId),
       listConversationsWithPreview(organizationId, member, { contactId }),
       listCaseIdsLinkedToConversation(organizationId, conversationId),
+      listApplicationsForContact(organizationId, contactId),
+      listStartableProcedures(organizationId, contactId),
     ]);
   if (!threadState) {
     return null;
@@ -111,6 +114,22 @@ export async function getConversationWorkspace(
           delegateName: nameById.get(c.delegateId) ?? "—",
           lastMessageBody: c.lastMessage?.body ?? null,
         })),
+      procedures: {
+        applications: applications.map((application) => ({
+          id: application.id,
+          procedureName: application.procedureName,
+          version: application.version,
+          caseTitle: cases.find((c) => c.id === application.caseId)?.title ?? null,
+          documents: application.documents.map((doc) => ({
+            id: doc.id,
+            name: doc.name,
+            received: doc.status === "RECEIVED",
+            receivedAt: doc.receivedAt?.toISOString() ?? null,
+            receivedChannel: doc.receivedChannel,
+          })),
+        })),
+        startable: startable.map((procedure) => ({ id: procedure.id, name: procedure.name })),
+      },
     },
   };
 }

@@ -17,6 +17,7 @@ import { getMessagingAccount } from "@/modules/messaging/service";
 import { getMessagingAdapter } from "@/modules/messaging/registry";
 import { recordActivity } from "@/modules/audit/service";
 import type { MessagingAccountRecord } from "@/modules/messaging/adapter";
+import { isMediaExpired, type AttachmentKind, type MessageAttachment } from "@/modules/messaging/attachments";
 
 export async function listConversations(organizationId: string) {
   return db.select().from(conversations).where(eq(conversations.organizationId, organizationId));
@@ -241,6 +242,8 @@ interface InsertInboundMessageInput {
   account: MessagingAccountRecord;
   externalMessageId: string;
   body: string;
+  /** The file the message carries, if any — a descriptor only, never the file (UI-10c). */
+  attachment?: MessageAttachment | null;
   sourceWebhookEventId: string;
   occurredAt: Date;
 }
@@ -262,6 +265,7 @@ export async function insertInboundMessage(input: InsertInboundMessageInput) {
       externalMessageId: input.externalMessageId,
       direction: "INBOUND",
       body: input.body,
+      attachment: input.attachment ?? null,
       deliveryStatus: "DELIVERED",
       sourceWebhookEventId: input.sourceWebhookEventId,
       createdAt: input.occurredAt,
@@ -871,22 +875,40 @@ export async function reassignConversationContact(
  * What the conversation screen needs of a message, serializable so the
  * same shape serves the first render and every poll (PKG-013).
  */
+export interface ThreadAttachment {
+  kind: AttachmentKind;
+  filename: string | null;
+  mimeType: string | null;
+  /** False once the provider no longer serves the file (or the channel cannot download). The provider's handle never leaves the server. */
+  downloadable: boolean;
+}
+
 export interface ThreadMessage {
   id: string;
   direction: "INBOUND" | "OUTBOUND";
   body: string;
   deliveryStatus: "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED";
   sentFromDevice: boolean;
+  attachment: ThreadAttachment | null;
   createdAt: string;
 }
 
-export function toThreadMessage(message: typeof messages.$inferSelect): ThreadMessage {
+/** `mediaDays`: how long the channel serves inbound files (`null`: it cannot download). */
+export function toThreadMessage(message: typeof messages.$inferSelect, mediaDays: number | null = null): ThreadMessage {
   return {
     id: message.id,
     direction: message.direction,
     body: message.body,
     deliveryStatus: message.deliveryStatus,
     sentFromDevice: message.sentFromDevice,
+    attachment: message.attachment
+      ? {
+          kind: message.attachment.kind,
+          filename: message.attachment.filename,
+          mimeType: message.attachment.mimeType,
+          downloadable: !isMediaExpired(message.createdAt, mediaDays),
+        }
+      : null,
     createdAt: message.createdAt.toISOString(),
   };
 }
@@ -927,10 +949,56 @@ export async function getConversationThreadState(
     listMessages(organizationId, conversationId),
     getConversationServiceWindow(organizationId, conversationId, conversation.channel),
   ]);
+  const adapter = getMessagingAdapter(conversation.channel);
+  const mediaDays = adapter?.downloadMedia ? adapter.capabilities.inboundMediaDays : null;
   return {
-    messages: rows.map(toThreadMessage),
+    messages: rows.map((row) => toThreadMessage(row, mediaDays)),
     serviceWindow: { status: serviceWindow.status, expiresAt: serviceWindow.expiresAt?.toISOString() ?? null },
   };
+}
+
+export type MediaDownloadLookup =
+  | { status: "NOT_FOUND" }
+  | { status: "FORBIDDEN" }
+  | {
+      status: "OK";
+      message: typeof messages.$inferSelect & { attachment: MessageAttachment };
+      conversation: typeof conversations.$inferSelect;
+      account: MessagingAccountRecord;
+    };
+
+/**
+ * Everything the download proxy needs about one message's file, with the
+ * access rule applied (UI-10c): a message that is not in this organization is
+ * `NOT_FOUND`; one in a conversation the member may not see (the same
+ * visibility as the ficha, PKG-014) is `FORBIDDEN`.
+ */
+export async function getMessageForMediaDownload(
+  organizationId: string,
+  member: VisibilityMember,
+  conversationId: string,
+  messageId: string,
+): Promise<MediaDownloadLookup> {
+  const conversation = await getConversation(organizationId, conversationId);
+  if (!conversation) return { status: "NOT_FOUND" };
+  if (!(await getConversationWithDetails(organizationId, member, conversationId))) return { status: "FORBIDDEN" };
+
+  const [message] = await db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.organizationId, organizationId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.id, messageId),
+      ),
+    )
+    .limit(1);
+  if (!message?.attachment) return { status: "NOT_FOUND" };
+
+  const account = await getMessagingAccount(organizationId, message.messagingAccountId);
+  if (!account) return { status: "NOT_FOUND" };
+  return { status: "OK", message: { ...message, attachment: message.attachment }, conversation, account };
 }
 
 /** Whether the conversation's channel can show "typing…" to the Contact (PKG-013). */

@@ -173,7 +173,8 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
+| **Fase 8a** | **AI Copilot: backend (`LLMProvider`, contexto, `AISuggestion` reconciliada con fuentes reales, auditoría con retención 90 días)** | Código (agente) | 🟢 **Completo** (2026-10-01) |
+| **Fase 8** (alcance 2026-10-01) | **AI Copilot como tarjeta contextual: retrieval, grounding/abstención, seguridad, Copilot API, tarjeta, trazabilidad, evaluación preparada** | Código (agente) | 🟢 **Completo** (2026-10-01) — pendiente validar en staging |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 

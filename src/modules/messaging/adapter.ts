@@ -12,6 +12,7 @@
  * normalization). See docs/DECISIONS.md.
  */
 import type { conversations, messagingAccounts } from "@/db/schema";
+import type { MessageAttachment } from "@/modules/messaging/attachments";
 
 export type MessagingAccountRecord = typeof messagingAccounts.$inferSelect;
 export type ConversationRecord = typeof conversations.$inferSelect;
@@ -67,6 +68,8 @@ export interface NormalizedInboundMessage {
   /** Opportunistic, never used as technical identity. */
   contactPhoneE164?: string | null;
   text: string;
+  /** The file the message carries, if any (UI-10c). `text` is then its caption or a placeholder. */
+  attachment?: MessageAttachment | null;
   occurredAt: Date;
 }
 
@@ -171,9 +174,31 @@ export interface MessagingChannelCapabilities {
    * the onboarding UI never hardcodes a provider (`CLAUDE.md` sección 2).
    */
   onboarding: MessagingOnboardingKind;
+  /**
+   * Days an inbound file stays downloadable from the provider, counted from
+   * when the message arrived; `null` when the channel cannot download one.
+   * WhatsApp Cloud API: 7 ("Media IDs in webhooks expire after 7 days",
+   * checked against Meta's current docs, 2026-10-11).
+   */
+  inboundMediaDays: number | null;
 }
 
 export type MessagingOnboardingKind = "DIRECT" | "WHATSAPP_COEXISTENCE";
+
+/** A file being passed through from the provider to a member's browser. Never stored. */
+export interface MediaDownload {
+  body: ReadableStream<Uint8Array>;
+  contentType: string | null;
+  contentLength: number | null;
+}
+
+/** The provider no longer serves the file (expired or removed). */
+export class MediaUnavailableError extends Error {
+  constructor(message = "The provider no longer serves this file.") {
+    super(message);
+    this.name = "MediaUnavailableError";
+  }
+}
 
 export interface MessagingAdapter {
   readonly channel: string;
@@ -200,6 +225,14 @@ export interface MessagingAdapter {
    * route answers 404.
    */
   verifyWebhookChallenge?(query: URLSearchParams): string | null;
+  /**
+   * Optional: open an inbound file at the provider and hand back its bytes
+   * as a stream (UI-10c). The caller pipes it to the member's browser; it is
+   * never written to disk, storage, logs or cache. Throws
+   * `MediaUnavailableError` when the provider no longer has it. Channels
+   * that cannot download declare `inboundMediaDays: null` and omit this.
+   */
+  downloadMedia?(account: MessagingAccountRecord, attachment: MessageAttachment): Promise<MediaDownload>;
   /**
    * Optional: show "typing…" to the Contact, anchored to their latest
    * inbound message (PKG-013). On WhatsApp Cloud API the same call marks

@@ -123,6 +123,7 @@ describe("WhatsAppTestAdapter — parsing Meta's webhook JSON", () => {
       contactDisplayName: "Nacho",
       contactPhoneE164: "+34600111222",
       text: "Hola, ¿me ayudas?",
+      attachment: null,
       occurredAt: new Date(1790150400 * 1000),
     });
   });

@@ -82,8 +82,64 @@
     {
       "idx": 11,
       "version": "7",
-      "when": 1793897103610,
-      "tag": "0011_delegate_phone_welcome_email",
+      "when": 1790861913324,
+      "tag": "0011_ai_suggestions",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790868204497,
+      "tag": "0012_knowledge_search_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791482033318,
+      "tag": "0013_knowledge_import_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791490166418,
+      "tag": "0014_drop_knowledge_import_pages",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791490167447,
+      "tag": "0015_knowledge_websites",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791744240736,
+      "tag": "0016_procedure_applications",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791744852625,
+      "tag": "0017_message_attachment",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793043714639,
+      "tag": "0018_affiliate_intake",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793915356103,
+      "tag": "0019_delegate_phone_welcome_email",
       "breakpoints": true
     }
   ]

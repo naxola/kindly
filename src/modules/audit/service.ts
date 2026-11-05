@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db/client";
 import { activities } from "@/modules/audit/schema";
 
@@ -11,7 +11,9 @@ export type ActivityEntityType =
   | "messaging_account"
   | "organization"
   | "procedure"
-  | "knowledge_document";
+  | "knowledge_document"
+  | "ai_suggestion"
+  | "affiliate_request";
 
 /**
  * Beyond the "tipos mínimos" documented in docs/DATABASE.md sección 12
@@ -23,6 +25,8 @@ export type ActivityEntityType =
  * PKG-005 adds MESSAGE_SENT_FROM_DEVICE: on a channel with coexistence an
  * outbound message may have been written on the delegate's own phone, with
  * no actor inside Kindly — that is not the same event as MESSAGE_SENT.
+ * UI-10c adds MESSAGE_MEDIA_DOWNLOADED (`conversations/service.ts`, the download proxy) —
+ * entity `conversation`; it is also what the proxy counts to rate-limit a member.
  * PKG-006 adds MEMBER_INVITED/MEMBER_JOINED/INVITATION_REVOKED, the first
  * activities whose entity is the Organization itself.
  * UI-7 adds MEMBER_ROLE_CHANGED (changing a member's role, ORGANIZATION.md
@@ -44,6 +48,14 @@ export type ActivityEntityType =
  * (`knowledge/upload.ts`) — entity `knowledge_document`.
  * Delegate-onboarding work adds CONTACT_WELCOME_SENT (`contacts/welcome.ts`,
  * entity `contact`) and MEMBER_PHONE_CHANGED (entity `organization`).
+ * UI-10c adds PROCEDURE_STARTED/DOCUMENT_RECEIVED/DOCUMENT_UNMARKED/COMPLETED/
+ * CANCELLED (`procedures/applications.ts`) — entity `contact`, whose feed shows them.
+ * Fase 8 adds AI_SUGGESTION_GENERATED/USED/DISCARDED (`ai/service.ts`) —
+ * entity `ai_suggestion`.
+ * Altas por webhook add AFFILIATE_REQUEST_RECEIVED/CONFIRMED/DISCARDED/APPLIED
+ * (`affiliates/requests.ts`, entity `affiliate_request`; the Contact also gets
+ * CONTACT_CREATED / CONTACT_DELEGATE_ASSIGNED) and INTEGRATION_KEY_CREATED/
+ * REVOKED (entity `organization`).
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -66,6 +78,7 @@ export type ActivityType =
   | "MESSAGE_RECEIVED"
   | "MESSAGE_SENT"
   | "MESSAGE_SENT_FROM_DEVICE"
+  | "MESSAGE_MEDIA_DOWNLOADED"
   | "CONVERSATION_REASSIGNED"
   | "CHANNEL_CONNECTED"
   | "CHANNEL_DISCONNECTED"
@@ -76,8 +89,22 @@ export type ActivityType =
   | "ORGANIZATION_RENAMED"
   | "PROCEDURE_CREATED"
   | "PROCEDURE_VERSION_PUBLISHED"
+  | "PROCEDURE_STARTED"
+  | "PROCEDURE_DOCUMENT_RECEIVED"
+  | "PROCEDURE_DOCUMENT_UNMARKED"
+  | "PROCEDURE_COMPLETED"
+  | "PROCEDURE_CANCELLED"
   | "KNOWLEDGE_DOCUMENT_CREATED"
-  | "KNOWLEDGE_VERSION_PUBLISHED";
+  | "KNOWLEDGE_VERSION_PUBLISHED"
+  | "AI_SUGGESTION_GENERATED"
+  | "AI_SUGGESTION_USED"
+  | "AI_SUGGESTION_DISCARDED"
+  | "AFFILIATE_REQUEST_RECEIVED"
+  | "AFFILIATE_REQUEST_CONFIRMED"
+  | "AFFILIATE_REQUEST_DISCARDED"
+  | "AFFILIATE_REQUEST_APPLIED"
+  | "INTEGRATION_KEY_CREATED"
+  | "INTEGRATION_KEY_REVOKED";
 
 interface RecordActivityInput {
   organizationId: string;
@@ -117,4 +144,25 @@ export async function listActivitiesForEntity(
       ),
     )
     .orderBy(desc(activities.createdAt));
+}
+
+/** How many activities of one type a member produced in the last `windowMs` — the basis of a database-backed rate limit (no shared memory in serverless). */
+export async function countRecentActivities(
+  organizationId: string,
+  actorUserId: string,
+  type: ActivityType,
+  windowMs: number,
+): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.organizationId, organizationId),
+        eq(activities.actorUserId, actorUserId),
+        eq(activities.type, type),
+        gt(activities.createdAt, new Date(Date.now() - windowMs)),
+      ),
+    );
+  return row?.total ?? 0;
 }
