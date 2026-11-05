@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { requireCurrentOrganizationMember, listOrganizationMembers } from "@/modules/organizations/service";
 import { listInvitations } from "@/modules/organizations/invitations";
 import { ChangeRoleControl } from "@/app/(app)/organization/members/change-role-control";
+import { MemberPhoneControl } from "@/app/(app)/organization/members/member-phone-control";
 import { NewMemberDialog } from "@/app/(app)/organization/members/new-member-dialog";
+import { ResendInvitationButton } from "@/app/(app)/organization/members/resend-invitation-button";
 import { RevokeInvitationButton } from "@/app/(app)/organization/members/revoke-invitation-button";
 import { OrganizationContextNav } from "@/app/(app)/organization/organization-context-nav";
 import { PageContainer } from "@/components/patterns/page-container";
@@ -20,10 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Organization members and pending invitations (PKG-006).
  *
- * Kindly does not send email yet, so an invitation is a link the ADMIN
- * copies and passes on by whatever means they already use. That is a real
- * limitation, shown as such rather than hidden behind a "Sent!" toast that
- * would be a lie (see docs/DECISIONS.md).
+ * Inviting emails the link to the invitee. If the send fails (e.g. Resend
+ * without a verified domain only delivers to the account owner) the
+ * invitation still exists and the link below is the fallback the ADMIN
+ * passes on by hand; the UI says so instead of claiming "sent"
+ * (see docs/DECISIONS.md).
  */
 export default async function MembersPage() {
   const member = await requireCurrentOrganizationMember();
@@ -52,6 +55,7 @@ export default async function MembersPage() {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Teléfono</TableHead>
               <TableHead>Rol</TableHead>
             </TableRow>
           </TableHeader>
@@ -63,6 +67,13 @@ export default async function MembersPage() {
                   {row.userId === member.userId && <span className="font-normal text-foreground-lighter"> (tú)</span>}
                 </TableCell>
                 <TableCell className="text-foreground-lighter">{row.email}</TableCell>
+                <TableCell className="text-foreground-lighter">
+                  {isAdmin || row.userId === member.userId ? (
+                    <MemberPhoneControl userId={row.userId} memberName={row.name} currentPhone={row.phoneE164} />
+                  ) : (
+                    row.phoneE164 ?? "—"
+                  )}
+                </TableCell>
                 <TableCell className="text-foreground-lighter">
                   {isAdmin ? (
                     <ChangeRoleControl userId={row.userId} memberName={row.name} currentRole={row.role} />
@@ -107,6 +118,7 @@ export default async function MembersPage() {
                       {invitation.expiresAt.toLocaleDateString("es-ES")}
                     </TableCell>
                     <TableCell className="text-right">
+                      <ResendInvitationButton invitationId={invitation.id} email={invitation.email} />
                       <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
                     </TableCell>
                   </TableRow>

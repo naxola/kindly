@@ -4,6 +4,7 @@ import { db } from "@/db/client";
 import { contactAssignments, contacts } from "@/modules/contacts/schema";
 import { contactVisibilityCondition, type VisibilityMember } from "@/modules/contacts/visibility";
 import { recordActivity } from "@/modules/audit/service";
+import { isOrganizationMember } from "@/modules/organizations/service";
 
 /**
  * Every function here takes `organizationId` explicitly and filters by it
@@ -71,18 +72,26 @@ export interface CreateContactInput {
   phoneE164?: string | null;
   email?: string | null;
   notes?: string | null;
+  /**
+   * Initial reference delegate. Defaults to the creator (PKG-014). Whether
+   * the actor may pick someone else is the caller's check (ADMIN only);
+   * here we only guarantee the delegate belongs to the organization.
+   */
+  delegateId?: string;
 }
 
 /**
- * A manually-created Contact is assigned to its creator as the initial
- * reference delegate (PKG-014) — there is no delegate picker in this form
- * (`docs/DECISIONS.md`: kept out on purpose, to avoid a required field that
- * only matters to an ADMIN reassigning immediately afterward, which the
- * "Reasignar" action on the Contact already covers). An inbound message
- * instead assigns the `MessagingAccount`'s own delegate — see
- * `findOrCreateConversation` in `conversations/service.ts`.
+ * A manually-created Contact is assigned to `delegateId`, or to its creator
+ * when none is given, as the initial reference delegate (PKG-014; the
+ * picker was added with the delegate-onboarding work, see `docs/DECISIONS.md`).
+ * An inbound message instead assigns the `MessagingAccount`'s own delegate —
+ * see `findOrCreateConversation` in `conversations/service.ts`.
  */
 export async function createContact(input: CreateContactInput) {
+  const delegateId = input.delegateId ?? input.actorUserId;
+  if (delegateId !== input.actorUserId && !(await isOrganizationMember(input.organizationId, delegateId))) {
+    throw new Error("Cannot assign a contact to a user outside the organization.");
+  }
   const contact = await db.transaction(async (tx) => {
     const [inserted] = await tx
       .insert(contacts)
@@ -96,7 +105,14 @@ export async function createContact(input: CreateContactInput) {
       .returning();
     await tx
       .insert(contactAssignments)
-      .values({ organizationId: input.organizationId, contactId: inserted.id, delegateId: input.actorUserId });
+      .values({
+        organizationId: input.organizationId,
+        contactId: inserted.id,
+        delegateId,
+        // Null for the default (creator = delegate), as before: a human
+        // choice is only recorded when someone else was picked.
+        assignedBy: delegateId === input.actorUserId ? null : input.actorUserId,
+      });
     return inserted;
   });
 

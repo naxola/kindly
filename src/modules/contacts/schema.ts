@@ -76,6 +76,10 @@ export const contactAssignments = pgTable(
     // message, or the backfill migration) — there is no human actor for
     // those, same reasoning as Activity.actorUserId for MESSAGE_RECEIVED.
     assignedBy: text("assigned_by").references(() => users.id, { onDelete: "set null" }),
+    // Set when the welcome email introducing this delegate was sent to the
+    // Contact. Lives on the assignment (not the Contact) because a new
+    // delegate means a new introduction.
+    welcomeSentAt: timestamp("welcome_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

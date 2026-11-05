@@ -4,7 +4,33 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
+## Paquete activo: Onboarding de delegados (invitación por email, teléfono, bienvenida) cerrado. Siguiente: UI-10c o Fase 8
+
+Último commit: ver `git log` (este commit incluye el registro).
+
+### Onboarding de delegados (2026-11-05)
+
+Hecho, en cuatro paquetes: **B** teléfono del delegado
+(`organization_members.phone_e164`, editable por el propio miembro o un ADMIN
+en `/organization/members`); **A** invitación por email (plantilla HTML,
+"Reenviar", enlace como respaldo); **C** email de bienvenida al afiliado con
+email y teléfono del delegado (`contacts/welcome.ts`, sello
+`contact_assignments.welcome_sent_at`, ficha con "Enviar/Reenviar"); **D** alta
+de afiliado con selector de delegado (ADMIN) y checkbox de bienvenida, y casillero
+opcional al reasignar. Detalle en `docs/DECISIONS.md` ("Onboarding de
+delegados"). Verificado: lint+typecheck+566 tests+52/52 E2E.
+
+**Pendiente, anotado:** sin dominio verificado en Resend los correos solo
+llegan al dueño de la cuenta (la UI avisa del fallo); migración `0011` a
+aplicar a mano en staging/producción; la ficha del panel de Inbox no muestra el
+estado de la bienvenida (solo `/contacts/[id]`); no hay E2E del envío exitoso
+(cubierto en integración con `EmailSender` falso).
+**Próximo paso concreto:** elección del usuario — **UI-10c** o **Fase 8 (AI)**;
+y verificar un dominio en Resend para que los correos lleguen a todos.
+
+---
+
+### (anterior) Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
 
 Último commit: ver `git log` (este commit incluye el registro).
 

@@ -27,6 +27,7 @@ export interface ContactAssignment {
   startedAt: Date;
   endedAt: Date | null;
   assignedBy: string | null;
+  welcomeSentAt: Date | null;
 }
 
 export async function getActiveAssignment(organizationId: string, contactId: string): Promise<ContactAssignment | null> {

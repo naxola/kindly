@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireCurrentOrganizationMember } from "@/modules/organizations/service";
+import { listOrganizationMembers, requireCurrentOrganizationMember } from "@/modules/organizations/service";
 import { listContactsForMember } from "@/modules/contacts/service";
 import { NewContactSheet } from "@/app/(app)/contacts/new-contact-sheet";
 import { PageContainer } from "@/components/patterns/page-container";
@@ -15,14 +15,24 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ContactsPage() {
   const member = await requireCurrentOrganizationMember();
-  const contacts = await listContactsForMember(member.organizationId, member);
+  const isAdmin = member.role === "ADMIN";
+  const [contacts, members] = await Promise.all([
+    listContactsForMember(member.organizationId, member),
+    // Only an ADMIN gets the delegate picker, so only they need the list.
+    isAdmin ? listOrganizationMembers(member.organizationId) : Promise.resolve([]),
+  ]);
 
   return (
     <PageContainer>
       <PageHeader
         title="Contactos"
         description="Personas con las que la organización tiene una relación. No son usuarios de Kindly"
-        aside={<NewContactSheet />}
+        aside={
+          <NewContactSheet
+            delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
+            defaultDelegateId={member.userId}
+          />
+        }
       />
 
       <Table>

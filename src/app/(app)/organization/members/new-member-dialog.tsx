@@ -33,7 +33,7 @@ export function NewMemberDialog() {
             </Field>
             <Field
               label="Rol"
-              description="Kindly todavía no envía emails: al invitar se genera un enlace que tienes que hacer llegar tú a esa persona. La invitación caduca a los 7 días."
+              description="Le enviaremos un email con el enlace para crear su cuenta. Si el envío falla, podrás copiar el enlace de la tabla. La invitación caduca a los 7 días."
             >
               <NativeSelect name="role" defaultValue="DELEGATE">
                 <option value="DELEGATE">DELEGATE</option>

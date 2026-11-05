@@ -42,6 +42,8 @@ export type ActivityEntityType =
  * (`procedures/service.ts`) — entity `procedure`.
  * Fase 7f adds KNOWLEDGE_DOCUMENT_CREATED/KNOWLEDGE_VERSION_PUBLISHED
  * (`knowledge/upload.ts`) — entity `knowledge_document`.
+ * Delegate-onboarding work adds CONTACT_WELCOME_SENT (`contacts/welcome.ts`,
+ * entity `contact`) and MEMBER_PHONE_CHANGED (entity `organization`).
  * The docs call that list "mínimos", not closed.
  */
 export type ActivityType =
@@ -49,6 +51,8 @@ export type ActivityType =
   | "CONTACT_UPDATED"
   | "CONTACT_IDENTIFIED"
   | "CONTACT_DELEGATE_ASSIGNED"
+  | "CONTACT_WELCOME_SENT"
+  | "MEMBER_PHONE_CHANGED"
   | "MEMBERSHIP_CREATED"
   | "MEMBERSHIP_UPDATED"
   | "MEMBERSHIP_ENDED"

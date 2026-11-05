@@ -36,6 +36,10 @@ export const organizationMembers = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     role: organizationRole("role").notNull(),
+    // Professional contact phone (E.164), shown to affiliates in the welcome
+    // email as "your delegate's phone". Per membership, not per user: it is
+    // the organization's contact channel for that person, not account data.
+    phoneE164: text("phone_e164"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

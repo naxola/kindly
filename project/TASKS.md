@@ -726,6 +726,14 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
       profesional) con política de retención explícita.
 - [ ] Garantía de que ninguna sugerencia se envía sin acción humana.
 
+## Onboarding de delegados (cerrado 2026-11-05)
+
+- [x] Teléfono del delegado por miembro, editable por él mismo o un ADMIN (migración `0011`).
+- [x] Invitación del equipo por email (HTML) con "Reenviar" y enlace de respaldo.
+- [x] Email de bienvenida al afiliado con email y teléfono del delegado; sello por asignación; reenvío manual.
+- [x] Alta de afiliado: selector de delegado (ADMIN) + enviar bienvenida; al reasignar, aviso opcional al afiliado.
+- [ ] Verificar un dominio en Resend (hoy solo entrega al dueño de la cuenta).
+
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
 Microservicios, Kubernetes, Elasticsearch/OpenSearch, vector DB externa, apps

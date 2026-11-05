@@ -19,6 +19,7 @@ export function ReferenceDelegateSection({
   isAdmin,
   contactId,
   contactName,
+  contactHasEmail,
   activeAssignment,
   history,
   delegates,
@@ -27,6 +28,7 @@ export function ReferenceDelegateSection({
   isAdmin: boolean;
   contactId: string;
   contactName: string;
+  contactHasEmail: boolean;
   activeAssignment: ReferenceDelegateAssignment | null;
   history: ReferenceDelegateAssignment[];
   delegates: { userId: string; name: string }[];
@@ -39,6 +41,7 @@ export function ReferenceDelegateSection({
           <ReassignDelegateControl
             contactId={contactId}
             contactName={contactName}
+            contactHasEmail={contactHasEmail}
             currentDelegateId={activeAssignment.delegateId}
             delegates={delegates}
             onReassigned={onReassigned}

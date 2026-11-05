@@ -96,6 +96,7 @@ export function ContactFicha({
           isAdmin={ficha.isAdmin}
           contactId={contact.id}
           contactName={contact.name}
+          contactHasEmail={Boolean(contact.email)}
           activeAssignment={ficha.activeAssignment}
           history={ficha.assignmentHistory}
           delegates={ficha.delegates}

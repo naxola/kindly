@@ -1,6 +1,19 @@
 "use client";
 
 import { useTransition } from "react";
+import { toast } from "@/components/ui/toast";
+
+/**
+ * What an action may hand back for the UI: `error` keeps the Sheet/Dialog
+ * open and is toasted (a thrown Server Action error is redacted in
+ * production, so expected failures travel as values); `warning` closes it
+ * but tells the user something partial happened (e.g. record created, email
+ * not sent).
+ */
+export interface ActionFeedback {
+  error?: string;
+  warning?: string;
+}
 
 /**
  * Wraps a Server Action so its Sheet/Dialog closes automatically once it
@@ -11,18 +24,24 @@ import { useTransition } from "react";
  * state the same way whether its `action` is a Server Action reference or,
  * as here, a plain client function.
  *
- * Errors are not caught here: a thrown Server Action surfaces exactly as
- * it already does today outside a Sheet (no inline recovery in this pass —
- * a documented gap, not a regression).
+ * Thrown errors are not caught here: they surface exactly as they do
+ * outside a Sheet. Expected failures should be returned as `ActionFeedback`.
  */
 export function useCloseAfterAction(
-  action: (formData: FormData) => Promise<void>,
+  action: (formData: FormData) => Promise<ActionFeedback | void>,
   onClose: () => void,
 ): (formData: FormData) => void {
   const [, startTransition] = useTransition();
   return (formData: FormData) => {
     startTransition(async () => {
-      await action(formData);
+      const feedback = await action(formData);
+      if (feedback?.error) {
+        toast.error(feedback.error);
+        return;
+      }
+      if (feedback?.warning) {
+        toast.warning(feedback.warning);
+      }
       onClose();
     });
   };

@@ -79,6 +79,22 @@ export async function listInvitations(organizationId: string) {
     .orderBy(desc(organizationInvitations.createdAt));
 }
 
+/** A still-PENDING invitation of this organization, or null (accepted/revoked/not ours). */
+export async function getPendingInvitation(organizationId: string, invitationId: string) {
+  const [row] = await db
+    .select()
+    .from(organizationInvitations)
+    .where(
+      and(
+        eq(organizationInvitations.organizationId, organizationId),
+        eq(organizationInvitations.id, invitationId),
+        eq(organizationInvitations.status, "PENDING"),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
 export type InvitationUsability =
   | "USABLE"
   | "EXPIRED"

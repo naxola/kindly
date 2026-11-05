@@ -1,12 +1,51 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { changeMemberRole, renameOrganization, requireOrganizationAdmin } from "@/modules/organizations/service";
-import { createInvitation, revokeInvitation } from "@/modules/organizations/invitations";
+import {
+  changeMemberRole,
+  renameOrganization,
+  requireCurrentOrganizationMember,
+  requireOrganizationAdmin,
+} from "@/modules/organizations/service";
+import { createInvitation, getPendingInvitation, revokeInvitation } from "@/modules/organizations/invitations";
+import { buildInvitationEmail } from "@/modules/organizations/invitation-email";
+import { appBaseUrl } from "@/modules/email/app-url";
+import { sendEmail } from "@/modules/email/sender";
+import { parseOptionalPhoneE164 } from "@/lib/phone";
+import { updateMemberPhone } from "@/modules/organizations/service";
 import { recordActivity } from "@/modules/audit/service";
 import type { OrganizationRole } from "@/modules/organizations/schema";
+import type { ActionFeedback } from "@/components/patterns/use-close-after-action";
 
-export async function inviteMemberAction(formData: FormData) {
+/**
+ * Emails the invitation link. Returns a user-facing warning on failure
+ * instead of throwing: the invitation already exists and its link stays
+ * copyable on the Members page, so a failed send must not look like a failed
+ * invitation (nor a successful one — hence the explicit message).
+ */
+async function deliverInvitationEmail(
+  invitation: { email: string; role: OrganizationRole; token: string; expiresAt: Date },
+  member: { userName: string; organizationName: string },
+): Promise<string | undefined> {
+  try {
+    await sendEmail(
+      buildInvitationEmail({
+        to: invitation.email,
+        organizationName: member.organizationName,
+        invitedByName: member.userName,
+        role: invitation.role,
+        url: `${appBaseUrl()}/invite/${invitation.token}`,
+        expiresAt: invitation.expiresAt,
+      }),
+    );
+    return undefined;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "error desconocido";
+    return `La invitación está creada, pero el email no se pudo enviar (${reason}). Copia el enlace de la tabla y pásaselo a mano.`;
+  }
+}
+
+export async function inviteMemberAction(formData: FormData): Promise<ActionFeedback | void> {
   const member = await requireOrganizationAdmin();
   const email = String(formData.get("email") ?? "").trim();
   const role = String(formData.get("role") ?? "") as OrganizationRole;
@@ -34,7 +73,58 @@ export async function inviteMemberAction(formData: FormData) {
     metadata: { invitationId: invitation.id, email: invitation.email, role },
   });
 
+  const warning = await deliverInvitationEmail(invitation, member);
+
   revalidatePath("/organization/members");
+  return warning ? { warning } : undefined;
+}
+
+/** "Reenviar": sends the same pending invitation (same link, same expiry) again. */
+export async function resendInvitationAction(invitationId: string): Promise<{ error: string } | undefined> {
+  const member = await requireOrganizationAdmin();
+  const invitation = await getPendingInvitation(member.organizationId, invitationId);
+  if (!invitation) {
+    return { error: "La invitación ya no está pendiente." };
+  }
+  const warning = await deliverInvitationEmail(invitation, member);
+  return warning ? { error: warning } : undefined;
+}
+
+/**
+ * A member's professional phone: each person edits their own, an ADMIN can
+ * edit anyone's. Returns `{ error }` for expected failures (see
+ * `changeMemberRoleAction` for why not throw).
+ */
+export async function updateMemberPhoneAction(
+  userId: string,
+  phone: string,
+): Promise<{ error: string } | undefined> {
+  const member = await requireCurrentOrganizationMember();
+  if (member.userId !== userId && member.role !== "ADMIN") {
+    return { error: "Solo puedes editar tu propio teléfono." };
+  }
+
+  const parsed = parseOptionalPhoneE164(phone);
+  if (!parsed.ok) {
+    return { error: "Teléfono no válido. Usa el formato internacional, por ejemplo +34600111222." };
+  }
+
+  const updated = await updateMemberPhone(member.organizationId, userId, parsed.value);
+  if (!updated) {
+    return { error: "Miembro no encontrado." };
+  }
+
+  await recordActivity({
+    organizationId: member.organizationId,
+    type: "MEMBER_PHONE_CHANGED",
+    actorUserId: member.userId,
+    entityType: "organization",
+    entityId: member.organizationId,
+    metadata: { userId },
+  });
+
+  revalidatePath("/organization/members");
+  return undefined;
 }
 
 export async function revokeInvitationAction(invitationId: string) {

@@ -235,7 +235,7 @@ export default function UiKitPage() {
           >
             El token ha caducado. Vuelve a autorizar la cuenta.
           </Alert>
-          <Alert tone="info">Kindly todavía no envía emails: comparte tú el enlace de invitación.</Alert>
+          <Alert tone="info">Si el email no llega, copia el enlace de invitación y compártelo tú.</Alert>
           <Alert tone="success" title="Canal conectado" />
         </div>
       </Section>

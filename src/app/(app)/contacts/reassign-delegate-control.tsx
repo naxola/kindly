@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { assignContactToDelegateAction } from "@/modules/contacts/actions";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { NativeSelect } from "@/components/ui/input";
+import { Field } from "@/components/ui/field";
+import { Checkbox, NativeSelect } from "@/components/ui/input";
+import { toast } from "@/components/ui/toast";
 
 /**
  * "Reasignar" (PKG-014, ADMIN-only, `docs/DECISIONS.md`). Same shape as
@@ -16,18 +18,22 @@ import { NativeSelect } from "@/components/ui/input";
 export function ReassignDelegateControl({
   contactId,
   contactName,
+  contactHasEmail,
   currentDelegateId,
   delegates,
   onReassigned,
 }: {
   contactId: string;
   contactName: string;
+  /** The optional "avisar al afiliado" checkbox only makes sense with an email to send to. */
+  contactHasEmail: boolean;
   currentDelegateId: string;
   delegates: { userId: string; name: string }[];
   /** For a caller that owns its own data (the Inbox panel) and has to reload it — `/contacts/[id]` relies on the action's `revalidatePath`. */
   onReassigned?: () => void;
 }) {
   const [pendingDelegateId, setPendingDelegateId] = useState<string | null>(null);
+  const [notifyContact, setNotifyContact] = useState(false);
   const open = pendingDelegateId !== null && pendingDelegateId !== currentDelegateId;
   const pendingDelegateName = delegates.find((d) => d.userId === pendingDelegateId)?.name;
 
@@ -50,6 +56,7 @@ export function ReassignDelegateControl({
         onOpenChange={(next) => {
           if (!next) {
             setPendingDelegateId(null);
+            setNotifyContact(false);
           }
         }}
         title="Reasignar delegado"
@@ -62,13 +69,32 @@ export function ReassignDelegateControl({
         confirmLoadingLabel="Reasignando…"
         successMessage="Delegado reasignado"
         onConfirm={async () => {
-          const result = await assignContactToDelegateAction(contactId, pendingDelegateId!);
+          const result = await assignContactToDelegateAction(contactId, pendingDelegateId!, notifyContact);
           if (result?.error) {
             throw new Error(result.error);
           }
+          if (result?.warning) {
+            toast.warning(result.warning);
+          }
           onReassigned?.();
         }}
-      />
+      >
+        <Field
+          layout="horizontal"
+          label="Avisar al afiliado por email"
+          description={
+            contactHasEmail
+              ? "Le enviamos la bienvenida con el email y teléfono de su nuevo delegado."
+              : "El afiliado no tiene email, no se le puede avisar."
+          }
+        >
+          <Checkbox
+            checked={notifyContact && contactHasEmail}
+            disabled={!contactHasEmail}
+            onChange={(event) => setNotifyContact(event.target.checked)}
+          />
+        </Field>
+      </ConfirmDialog>
     </>
   );
 }

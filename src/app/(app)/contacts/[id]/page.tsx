@@ -8,6 +8,7 @@ import { getCurrentMembership } from "@/modules/memberships/service";
 import { listActivitiesForEntity } from "@/modules/audit/service";
 import { ActivityFeed } from "@/app/(app)/activity-feed";
 import { ReferenceDelegateSection } from "@/app/(app)/contacts/reference-delegate-section";
+import { WelcomeEmailControl } from "@/app/(app)/contacts/welcome-email-control";
 import { MembershipSection } from "@/app/(app)/contacts/membership-section";
 import { PageContainer } from "@/components/patterns/page-container";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -92,10 +93,18 @@ export default async function ContactDetailPage({
             isAdmin={isAdmin}
             contactId={contact.id}
             contactName={contact.name}
+            contactHasEmail={Boolean(contact.email)}
             activeAssignment={activeAssignment ? withName(activeAssignment) : null}
             history={history.map(withName)}
             delegates={members.map((m) => ({ userId: m.userId, name: m.name }))}
           />
+          {activeAssignment && (
+            <WelcomeEmailControl
+              contactId={contact.id}
+              contactEmail={contact.email}
+              welcomeSentAt={activeAssignment.welcomeSentAt?.toISOString() ?? null}
+            />
+          )}
         </CardContent>
       </Card>
 

@@ -1,6 +1,6 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7f: subida de documentos de Knowledge desde la UI, solo ADMIN).
+Última actualización: 2026-11-05 (onboarding de delegados: invitación por email, teléfono del delegado y bienvenida al afiliado).
 
 ## Resumen en una línea
 

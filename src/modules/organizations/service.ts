@@ -132,10 +132,25 @@ export async function listOrganizationMembers(organizationId: string) {
       role: organizationMembers.role,
       name: users.name,
       email: users.email,
+      phoneE164: organizationMembers.phoneE164,
     })
     .from(organizationMembers)
     .innerJoin(users, eq(users.id, organizationMembers.userId))
     .where(eq(organizationMembers.organizationId, organizationId));
+}
+
+/**
+ * Sets (or clears, with null) a member's professional phone. Scoped by
+ * `organizationId`, so a userId from another organization matches nothing.
+ * Who may call it (self or ADMIN) is the caller's check.
+ */
+export async function updateMemberPhone(organizationId: string, userId: string, phoneE164: string | null) {
+  const [updated] = await db
+    .update(organizationMembers)
+    .set({ phoneE164, updatedAt: new Date() })
+    .where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, userId)))
+    .returning({ userId: organizationMembers.userId, phoneE164: organizationMembers.phoneE164 });
+  return updated ?? null;
 }
 
 /**

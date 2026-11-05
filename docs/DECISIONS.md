@@ -3621,3 +3621,63 @@ integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
 +51/51 E2E (49 previos + 2 de subida: texto+nueva versión+búsqueda con cita,
 PDF real/PDF falso/URL privada, y DELEGATE sin botón).
 
+
+
+## 2026-11-05 — Onboarding de delegados: invitación por email, teléfono, bienvenida al afiliado
+
+Pedido del usuario: enviar a los miembros del equipo el correo para darse de
+alta; enviar un email de bienvenida al afiliado cuando se le asigna delegado,
+con el **email y el teléfono del delegado**; y poder elegir delegado y enviar
+la bienvenida al crear un afiliado. Respuestas del usuario: teléfono editable
+por ADMIN y por cada delegado; sin dominio verificado por ahora (se usa el
+remitente que haya); bienvenida al reasignar **opcional**; plantillas HTML
+profesionales.
+
+**Supersede parcialmente:** "Kindly no envía emails, y se dice" (PKG-006) para
+las invitaciones, y "sin selector de delegado en el alta" (PKG-014).
+
+1. **Invitación por email** (`organizations/invitation-email.ts`, enviada desde
+   `inviteMemberAction`). El enlace sigue visible en la tabla de pendientes y
+   hay "Reenviar". Un fallo de envío **no** invalida la invitación: se crea y
+   se avisa ("creada, pero el email no se pudo enviar"), nunca un "enviado"
+   falso.
+2. **Limitación conocida (sin dominio verificado):** con `onboarding@resend.dev`
+   Resend solo entrega al email dueño de la cuenta; los correos al resto darán
+   error 403 y la UI mostrará el aviso. Al verificar un dominio basta con
+   cambiar `EMAIL_FROM`, sin tocar código.
+3. **Teléfono del delegado**: `organization_members.phone_e164` (por
+   pertenencia, no por usuario: es el canal profesional dentro de la
+   organización). Cada miembro edita el suyo; un ADMIN edita el de cualquiera.
+   Formato E.164 obligatorio (`lib/phone.ts`); no se adivina el prefijo.
+4. **Bienvenida al afiliado** (`contacts/welcome.ts`, plantilla pura en
+   `welcome-email.ts`): presenta al delegado de referencia vigente con nombre,
+   email y teléfono (la fila del teléfono se omite si no lo tiene). Se sella en
+   `contact_assignments.welcome_sent_at` —en la asignación, no en el Contact,
+   porque un delegado nuevo implica una presentación nueva— y se audita
+   (`CONTACT_WELCOME_SENT`). No se reenvía sola; "Reenviar" fuerza. El sello
+   solo se escribe tras un envío correcto, así que un fallo se puede reintentar.
+5. **Alta de afiliado con delegado**: el ADMIN elige delegado (por defecto,
+   él mismo); un DELEGATE no ve el selector y el servidor rechaza un
+   `delegateId` ajeno (misma regla ADMIN-only que "Reasignar"). `assignedBy`
+   solo se rellena si se eligió a otra persona (el caso por defecto sigue
+   siendo `null`, como antes).
+6. **Reasignar** tiene casillero opcional "Avisar al afiliado por email"
+   (deshabilitado sin email). Reasignar ya hecho + email fallido = aviso, no
+   error: la operación principal no se deshace por un fallo de correo.
+7. **La AI no interviene:** son plantillas redactadas por humanos y disparadas
+   por una acción humana; no choca con "la AI nunca autoenvía" (`CLAUDE.md` §2).
+8. Abstracciones: todo pasa por `EmailSender`; el HTML comparte
+   `email/layout.ts` (tablas + estilos en línea, los únicos colores
+   hardcodeados permitidos: un email no puede usar los tokens de `docs/ui/`).
+9. `useCloseAfterAction` acepta ahora un `ActionFeedback` (`error` mantiene el
+   formulario abierto; `warning` lo cierra y avisa), porque un error lanzado
+   por una Server Action se redacta en producción.
+
+**Migración `0011_delegate_phone_welcome_email`** (a aplicar a mano en
+staging/producción): `organization_members.phone_e164`,
+`contact_assignments.welcome_sent_at`.
+
+**Verificación:** lint + typecheck + 566 unit/integración (17 nuevos: plantillas,
+validación de teléfono, teléfono por organización, delegado elegido, bienvenida
+enviada/no duplicada/forzada/sin email/fallo reintentable/aislamiento entre
+organizaciones) + 52/52 E2E (1 nuevo).

@@ -36,7 +36,7 @@ No es "una página de ajustes": es el lugar donde se ve *quién* trabaja,
 
 | Acción | Componente | Detalle |
 |---|---|---|
-| Invitar miembro | `Dialog` (2 campos) desde el aside de Miembros | Email + rol (`NativeSelect`). Tras crear: el diálogo muestra el **enlace** con botón "Copiar enlace" (Kindly no envía emails de invitación todavía; la UI lo dice, `docs/DECISIONS.md` PKG-006). Cuando existan invitaciones por email, el mismo diálogo cambia el paso final |
+| Invitar miembro | `Dialog` (2 campos) desde el aside de Miembros | Email + rol (`NativeSelect`). Al invitar, Kindly **envía el email** con el enlace (HTML profesional, `organizations/invitation-email.ts`). Si el envío falla, la invitación existe igualmente, se avisa con un toast y el enlace sigue visible en la tabla de pendientes como respaldo; "Reenviar" vuelve a mandarlo (`docs/DECISIONS.md`, "Onboarding de delegados") |
 | Revocar invitación | `ConfirmDialog` `danger` | "¿Revocar la invitación a x@y? El enlace dejará de funcionar." → "Revocar invitación" |
 | Cambiar rol | `NativeSelect` en la fila + `ConfirmDialog` | Solo ADMIN. **Aprobado por el usuario (2026-09-26)**: se añade la acción de dominio en UI-7 (`changeMemberRole` en `src/modules/organizations`, con actividad `MEMBER_ROLE_CHANGED`). Reglas en servidor: solo ADMIN, misma organización, nunca dejar la organización sin ningún ADMIN (tampoco degradándose a sí mismo si es el último). Tests unit + integración (incluido aislamiento multi-tenant) + E2E. Confirmación: "¿Cambiar el rol de Marta a Administrador? Podrá invitar miembros y ver los canales de toda la organización." |
 | Quitar miembro | `ConfirmDialog` con `confirmText` (email) | *No existe en dominio hoy*; se diseña pero no se implementa hasta que el dominio lo soporte |
