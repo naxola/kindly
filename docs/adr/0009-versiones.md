@@ -32,8 +32,14 @@ las actualizaciones se hacen a mano y revisadas, nunca automáticas.
 | prettier                                     | 3.9.9                                                          |
 | tsx                                          | 4.23.15                                                        |
 
-Las fases siguientes añaden sus dependencias a esta tabla con el mismo criterio
-(Next, Better Auth, Hono, pg-boss…), partiendo de las versiones de procurement.
+## Fase 2
+
+| Paquete     | Versión |
+| ----------- | ------- |
+| better-auth | 1.7.7   |
+
+Las fases siguientes añaden sus dependencias con el mismo criterio
+(Next, Hono, pg-boss…), partiendo de las versiones de procurement.
 
 ## Desviación respecto a procurement
 

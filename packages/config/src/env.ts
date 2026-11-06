@@ -18,8 +18,18 @@ export const databaseEnv = z.object({
   DATABASE_URL: z.url(),
 })
 
+const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1')
+
+export const authEnv = z.object({
+  /** Better Auth secret (signs cookies and tokens). At least 32 characters. */
+  BETTER_AUTH_SECRET: z.string().min(32),
+  /** Rate limiting of the authentication endpoints. */
+  AUTH_RATE_LIMIT_ENABLED: bool.default(true),
+})
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
+export type AuthEnv = z.infer<typeof authEnv>
 
 export class EnvError extends Error {
   constructor(public readonly issues: string[]) {

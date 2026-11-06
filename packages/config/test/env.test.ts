@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { baseEnv, databaseEnv, EnvError, parseEnv } from '../src/env.ts'
+import { authEnv, baseEnv, databaseEnv, EnvError, parseEnv } from '../src/env.ts'
 
 describe('parseEnv', () => {
   it('applies defaults and parses valid values', () => {
@@ -25,5 +25,14 @@ describe('parseEnv', () => {
     expect(message).toContain('APP_URL')
     expect(message).toContain('DATABASE_URL')
     expect(message).not.toContain('hunter2')
+  })
+
+  it('requires a long auth secret and parses the rate-limit flag', () => {
+    expect(() => parseEnv(authEnv, { BETTER_AUTH_SECRET: 'short' })).toThrow(EnvError)
+    const env = parseEnv(authEnv, {
+      BETTER_AUTH_SECRET: 'x'.repeat(32),
+      AUTH_RATE_LIMIT_ENABLED: 'false',
+    })
+    expect(env.AUTH_RATE_LIMIT_ENABLED).toBe(false)
   })
 })
