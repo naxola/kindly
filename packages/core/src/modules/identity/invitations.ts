@@ -2,8 +2,11 @@ import { Prisma, withInvitationToken, withTenant, type OrganizationRole } from '
 import { z } from 'zod'
 import { nowOf, type BaseCtx, type Ctx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
+import { isLocale, DEFAULT_LOCALE } from '../../i18n.ts'
 import { writeAudit } from '../audit/index.ts'
+import { emitEvent } from '../events/index.ts'
 import { authorize } from './authorization.ts'
+import { invitationEmailJob } from './jobs.ts'
 import { hashToken, newToken } from './tokens.ts'
 import { accessEmailOf } from './users.ts'
 
@@ -16,9 +19,14 @@ export const CreateInvitationInput = z.object({
 })
 export type CreateInvitationInput = z.input<typeof CreateInvitationInput>
 
+/** Path of the acceptance page in apps/web. The raw token only travels in this link. */
+export const invitationUrl = (appUrl: string, token: string) =>
+  `${appUrl.replace(/\/$/, '')}/invitations/${token}`
+
 /**
- * Creates an invitation and returns the raw token ONCE, to build the link. Only its hash
- * is stored. Sending the email belongs to the worker (phase 3).
+ * Creates an invitation and, in the same transaction, enqueues its email and the
+ * `invitation.created` event. The raw token is returned once (for tests and tools);
+ * only its hash is stored.
  */
 export async function createInvitation(
   ctx: Ctx,
@@ -57,6 +65,36 @@ export async function createInvitation(
       after: { role },
       correlationId: ctx.correlationId,
       ip: ctx.ip,
+    })
+    const [organization, inviter] = await Promise.all([
+      tx.organization.findUnique({
+        where: { id: ctx.actor.organizationId },
+        select: { name: true, defaultLocale: true },
+      }),
+      tx.user.findUnique({ where: { id: ctx.actor.userId }, select: { displayName: true } }),
+    ])
+    await ctx.queue.enqueue(
+      tx,
+      invitationEmailJob,
+      {
+        to: email,
+        locale: isLocale(organization?.defaultLocale) ? organization.defaultLocale : DEFAULT_LOCALE,
+        organizationName: organization?.name ?? '',
+        inviterName: inviter?.displayName ?? '',
+        url: invitationUrl(ctx.appUrl, token),
+        expiresInDays: ttlDays,
+      },
+      {
+        organizationId: ctx.actor.organizationId,
+        correlationId: ctx.correlationId,
+        idempotencyKey: `invitation:${created.id}`,
+      },
+    )
+    await emitEvent(ctx, tx, {
+      type: 'invitation.created',
+      organizationId: ctx.actor.organizationId,
+      subjectId: created.id,
+      data: { invitationId: created.id, role },
     })
     return created
   })
@@ -177,6 +215,12 @@ export async function acceptInvitation(
         after: { memberId: member.id, role: view.role },
         correlationId: ctx.correlationId,
         ip: ctx.ip,
+      })
+      await emitEvent(ctx, tx, {
+        type: 'member.joined',
+        organizationId: view.organizationId,
+        subjectId: member.id,
+        data: { memberId: member.id, userId, role: view.role },
       })
       return member
     })

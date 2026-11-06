@@ -34,8 +34,8 @@ export interface CreateAuthOptions {
   /** Default true. Only disable in tests or local tools. */
   requireEmailVerification?: boolean
   /**
-   * Delivery of the access emails. Phase 3 wires them to the queue (async, idempotent).
-   * Until then the caller decides (tests capture them).
+   * Delivery of the access emails. In the apps, use `queuedAuthEmails(db, queue)`:
+   * Better Auth enqueues and the worker sends (async, idempotent). Tests capture them.
    */
   sendVerificationEmail?: (email: AuthEmail) => Promise<void>
   sendResetPasswordEmail?: (email: AuthEmail) => Promise<void>
@@ -112,3 +112,5 @@ export function createAuth({
 }
 
 export type Auth = ReturnType<typeof createAuth>
+
+export { queuedAuthEmails } from './queued-emails.ts'

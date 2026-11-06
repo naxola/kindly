@@ -106,6 +106,7 @@ Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en e
 | `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                 |
 | `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                  |
 | `pnpm format` / `pnpm format:check`                      | Prettier                                                                               |
+| `pnpm dev`                                               | Arranca en modo desarrollo lo que haya (hoy: el worker con `tsx watch`)                |
 | `pnpm build`                                             | Build de todos los paquetes                                                            |
 
 Convenciones al añadir código:
@@ -119,3 +120,12 @@ Convenciones al añadir código:
   crear datos de prueba en esas tablas).
 - Permisos nuevos: en `core/src/modules/identity/permissions.ts` (`PERMISSIONS` y
   `ROLE_PERMISSIONS`). Cada caso de uso empieza con `authorize(ctx.actor, …)`.
+- Jobs nuevos: `defineJob` en el módulo de `core`, añadido a `ALL_JOBS`
+  (`core/src/index.ts`) y registrado en `apps/worker/src/handlers.ts`. Un test falla
+  si un job no tiene consumidor. Se encolan con `ctx.queue.enqueue(tx, …)` dentro de
+  la transacción del cambio y con una clave de idempotencia del efecto de negocio.
+- Eventos de negocio nuevos: tipo en `BUSINESS_EVENT_TYPES` (`core/src/modules/events`)
+  y `emitEvent(ctx, tx, …)` en el caso de uso (ADR 0010).
+- El worker compilado (`dist/main.js`) solo arranca con un `node_modules` plano
+  (`pnpm --filter @saas/worker deploy --prod --legacy --config.node-linker=hoisted`),
+  que es lo que hará la imagen Docker. En local se usa `pnpm dev`.

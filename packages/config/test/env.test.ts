@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { authEnv, baseEnv, databaseEnv, EnvError, parseEnv } from '../src/env.ts'
+import {
+  authEnv,
+  baseEnv,
+  databaseEnv,
+  emailEnv,
+  EnvError,
+  eventsEnv,
+  parseEnv,
+} from '../src/env.ts'
 
 describe('parseEnv', () => {
   it('applies defaults and parses valid values', () => {
@@ -34,5 +42,22 @@ describe('parseEnv', () => {
       AUTH_RATE_LIMIT_ENABLED: 'false',
     })
     expect(env.AUTH_RATE_LIMIT_ENABLED).toBe(false)
+  })
+
+  it('validates the email provider by its own fields', () => {
+    expect(parseEnv(emailEnv, { EMAIL_PROVIDER: 'log', EMAIL_FROM: 'App <a@b.c>' })).toEqual({
+      EMAIL_PROVIDER: 'log',
+      EMAIL_FROM: 'App <a@b.c>',
+    })
+    expect(() =>
+      parseEnv(emailEnv, { EMAIL_PROVIDER: 'resend', EMAIL_FROM: 'x@y.z', RESEND_API_KEY: 'nope' }),
+    ).toThrow(EnvError)
+  })
+
+  it('requires the events secret only when a webhook URL is set', () => {
+    expect(parseEnv(eventsEnv, {})).toEqual({})
+    expect(() => parseEnv(eventsEnv, { EVENTS_WEBHOOK_URL: 'https://n8n.local/hook' })).toThrow(
+      /EVENTS_WEBHOOK_SECRET/,
+    )
   })
 })

@@ -38,8 +38,18 @@ las actualizaciones se hacen a mano y revisadas, nunca automáticas.
 | ----------- | ------- |
 | better-auth | 1.7.7   |
 
+## Fase 3
+
+| Paquete            | Versión                                                                        |
+| ------------------ | ------------------------------------------------------------------------------ |
+| pg-boss            | 12.36.0                                                                        |
+| pino / pino-pretty | 10.4.0 / 13.1.3                                                                |
+| resend             | 6.32.0                                                                         |
+| nodemailer         | 10.2.1 (10.0.13 de procurement tiene 3 avisos moderados, corregidos en 10.1.4) |
+| esbuild            | 0.28.2                                                                         |
+
 Las fases siguientes añaden sus dependencias con el mismo criterio
-(Next, Hono, pg-boss…), partiendo de las versiones de procurement.
+(Next, Hono…), partiendo de las versiones de procurement.
 
 ## Desviación respecto a procurement
 

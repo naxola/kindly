@@ -1,15 +1,15 @@
 # Roadmap de la plantilla
 
-**Fase actual: 2, acceso y organizaciones (terminada, pendiente de validación del usuario).** Fases 0 y 1 validadas el 2026-11-06.
+**Fase actual: 3, worker (terminada, pendiente de validación del usuario).** Fases 0, 1 y 2 validadas el 2026-11-06.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
 | Fase                       | Contenido                                                                         | Estado                   |
 | -------------------------- | --------------------------------------------------------------------------------- | ------------------------ |
 | 0. Decisiones              | `CLAUDE.md`, ADR 0001–0008                                                        | ✅ Validada (2026-11-06) |
-| 1. Esqueleto               | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)  | ⚪                       |
-| 2. Acceso y organizaciones | `auth_*`, `users`, `organization_members`, invitaciones, RLS                      | ⚪                       |
-| 3. Worker                  | `JobQueue`, worker, correo asíncrono, eventos de negocio                          | ⚪                       |
+| 1. Esqueleto               | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)  | ✅ Validada (2026-11-06) |
+| 2. Acceso y organizaciones | `auth_*`, `users`, `organization_members`, invitaciones, RLS                      | ✅ Validada (2026-11-06) |
+| 3. Worker                  | `JobQueue`, worker, correo asíncrono, eventos de negocio                          | 🟣 Pendiente de validar  |
 | 4. UI y web pública        | `packages/ui`, shell de `web`, `site` con portada, blog MDX y legales             | ⚪                       |
 | 5. Observabilidad          | Errores, logs, health/ready, alertas                                              | ⚪                       |
 | 6. Despliegue              | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte) | ⚪                       |
@@ -40,3 +40,16 @@
 **Verificado en local:** format, lint (con fronteras), typecheck, 12 unitarias, 28 de integración (9 de RLS, 4 de Better Auth, 15 de identidad), migraciones, sincronía esquema/migraciones, auditoría y build.
 
 **Pendiente, anotado:** envío real de correos de verificación, recuperación e invitación (fase 3, worker); MFA TOTP (más adelante); la API y las pantallas de alta, login, organizaciones y miembros llegan con `apps/web` (fase 4).
+
+## Fase 3 — entregado
+
+- **Cola** (`core/jobs` + `@saas/adapters/queue`): `defineJob`, interfaz `JobQueue`, pg-boss 12 con encolado dentro de la transacción del cambio, id del job derivado de la clave de idempotencia, reintentos con backoff y fallo definitivo registrado como `error` («job failed permanently»). Esquema `pgboss` en una migración.
+- **Correo** (`@saas/adapters/email`): proveedores `log` (solo desarrollo y test: el worker lo rechaza en staging), SMTP (Mailtrap) y Resend, todos con clave de idempotencia.
+- **Correos de acceso e invitación asíncronos**: `queuedAuthEmails(db, queue)` conecta Better Auth con la cola; `createInvitation` encola su correo con el enlace `/invitations/<token>`.
+- **Eventos de negocio** (ADR 0010, _propuesto_): `user.created`, `organization.created`, `invitation.created` y `member.joined`, emitidos en la transacción y entregados por webhook firmado con HMAC (`@saas/adapters/events`).
+- **Logger** (`@saas/adapters/logger`): pino con redacción de contraseñas, tokens, cookies y cabeceras de autorización.
+- **Worker** (`apps/worker`): solo cableado; consume todas las colas o las de `WORKER_QUEUES`, valida la configuración de correo al arrancar y se detiene esperando los jobs en curso. Un test exige que todo job de `ALL_JOBS` tenga consumidor.
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 25 unitarias, 40 de integración (incluidas 6 de pg-boss real —commit, rollback, idempotencia, reintento y fallo definitivo— y un flujo completo: crear organización e invitar → el worker envía el correo y entrega 3 eventos), migraciones, sincronía esquema/migraciones, auditoría sin vulnerabilidades, build del worker y arranque/parada del worker compilado desde un despliegue `pnpm deploy`.
+
+**Pendiente, anotado:** alertas sobre el fallo definitivo (fase 5, observabilidad); panel de la cola (fase 5); la imagen Docker del worker (fase 6); validar el ADR 0010.

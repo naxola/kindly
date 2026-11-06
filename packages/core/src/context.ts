@@ -1,10 +1,14 @@
 import type { Db } from '@saas/database'
+import type { JobQueue } from './jobs.ts'
 import type { Actor } from './modules/identity/authorization.ts'
 
 /** Dependencies and request information shared by every use case. */
 export interface BaseCtx {
   db: Db
+  queue: JobQueue
   correlationId: string
+  /** Public URL of the app, to build links in emails. */
+  appUrl: string
   ip?: string | null
   now?: () => Date
 }

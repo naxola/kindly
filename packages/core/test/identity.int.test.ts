@@ -1,5 +1,6 @@
 import { createDb, newId, withTenant, withUser, type Db } from '@saas/database'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { RecordingQueue } from './fake-queue.ts'
 import {
   acceptInvitation,
   changeMemberRole,
@@ -17,7 +18,8 @@ import {
 } from '../src/index.ts'
 
 let db: Db
-const base = () => ({ db, correlationId: newId() })
+const queue = new RecordingQueue()
+const base = () => ({ db, queue, correlationId: newId(), appUrl: 'https://app.example.com' })
 
 beforeAll(() => {
   db = createDb({ connectionString: process.env.DATABASE_URL! })
@@ -33,7 +35,7 @@ async function accessAccount(email = `p-${newId()}@example.com`, name = 'Person'
 
 async function personWithOrg(slug = `org-${newId().slice(-12)}`) {
   const access = await accessAccount()
-  const user = await ensureUser(db, access.id)
+  const user = await ensureUser(base(), access.id)
   const { organization } = await createOrganization(base(), user.id, { name: 'Acme', slug })
   const { actor } = await resolveActor(db, { userId: user.id, organizationId: organization.id })
   const ctx: Ctx = { ...base(), actor }
@@ -54,7 +56,7 @@ describe('business user', () => {
   it('is created on first entry, once, linked to the access account', async () => {
     const access = await accessAccount(undefined, 'Ana López')
     expect(await db.user.findUnique({ where: { authUserId: access.id } })).toBeNull()
-    const [a, b] = await Promise.all([ensureUser(db, access.id), ensureUser(db, access.id)])
+    const [a, b] = await Promise.all([ensureUser(base(), access.id), ensureUser(base(), access.id)])
     expect(a.id).toBe(b.id)
     expect(a.displayName).toBe('Ana López')
     expect(await db.user.count({ where: { authUserId: access.id } })).toBe(1)
@@ -85,7 +87,7 @@ describe('organizations and actor', () => {
 
   it('rejects a duplicated slug with CONFLICT', async () => {
     const { organization } = await personWithOrg()
-    const other = await ensureUser(db, (await accessAccount()).id)
+    const other = await ensureUser(base(), (await accessAccount()).id)
     expect(
       await codeOf(createOrganization(base(), other.id, { name: 'Copy', slug: organization.slug })),
     ).toEqual({ code: 'CONFLICT', detail: 'TAKEN' })
@@ -93,7 +95,7 @@ describe('organizations and actor', () => {
 
   it('a non-member gets NOT_FOUND, without learning whether the organization exists', async () => {
     const { organization } = await personWithOrg()
-    const stranger = await ensureUser(db, (await accessAccount()).id)
+    const stranger = await ensureUser(base(), (await accessAccount()).id)
     expect(
       await codeOf(resolveActor(db, { userId: stranger.id, organizationId: organization.id })),
     ).toEqual({ code: 'NOT_FOUND', detail: undefined })
@@ -132,7 +134,7 @@ describe('invitations', () => {
       email: guestAccess.email.toUpperCase(),
       role,
     })
-    const guest = await ensureUser(db, guestAccess.id)
+    const guest = await ensureUser(base(), guestAccess.id)
     return { owner, guest, guestAccess, invitation, token }
   }
 
@@ -161,7 +163,7 @@ describe('invitations', () => {
 
   it('a forwarded link is useless for another email', async () => {
     const { token } = await invited()
-    const other = await ensureUser(db, (await accessAccount()).id)
+    const other = await ensureUser(base(), (await accessAccount()).id)
     expect(await codeOf(acceptInvitation(base(), { token, userId: other.id }))).toEqual({
       code: 'FORBIDDEN',
       detail: 'EMAIL_MISMATCH',
@@ -224,11 +226,72 @@ describe('members', () => {
     const owner = await personWithOrg()
     const guestAccess = await accessAccount()
     const { token } = await createInvitation(owner.ctx, { email: guestAccess.email })
-    const guest = await ensureUser(db, guestAccess.id)
+    const guest = await ensureUser(base(), guestAccess.id)
     const member = await acceptInvitation(base(), { token, userId: guest.id })
     await disableMember(owner.ctx, member.id)
     expect(
       await codeOf(resolveActor(db, { userId: guest.id, organizationId: owner.organization.id })),
     ).toEqual({ code: 'NOT_FOUND', detail: undefined })
+  })
+})
+
+describe('emails and business events (enqueued in the same transaction)', () => {
+  it('first entry emits user.created once, with the access email', async () => {
+    const access = await accessAccount()
+    await ensureUser(base(), access.id)
+    await ensureUser(base(), access.id)
+    const events = queue
+      .of('events.deliver')
+      .filter((j) => (j.payload as { data: { email?: string } }).data.email === access.email)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.payload).toMatchObject({ type: 'user.created', organizationId: null })
+  })
+
+  it('creating an organization emits organization.created with its owner', async () => {
+    const { organization, access } = await personWithOrg()
+    const event = queue
+      .of('events.deliver')
+      .find((j) => j.options.idempotencyKey === `organization.created:${organization.id}`)
+    expect(event?.payload).toMatchObject({
+      type: 'organization.created',
+      organizationId: organization.id,
+      data: { name: 'Acme', ownerEmail: access.email },
+    })
+  })
+
+  it('an invitation enqueues its email with the link and the invitation.created event', async () => {
+    const owner = await personWithOrg()
+    const { invitation, token } = await createInvitation(owner.ctx, {
+      email: 'guest@example.com',
+    })
+    const [email] = queue
+      .of('identity.invitation-email')
+      .filter((j) => j.options.idempotencyKey === `invitation:${invitation.id}`)
+    expect(email?.payload).toMatchObject({
+      to: 'guest@example.com',
+      organizationName: 'Acme',
+      inviterName: 'Person',
+      url: `https://app.example.com/invitations/${token}`,
+      expiresInDays: 7,
+    })
+    expect(email?.options.organizationId).toBe(owner.organization.id)
+    const event = queue
+      .of('events.deliver')
+      .find((j) => j.options.idempotencyKey === `invitation.created:${invitation.id}`)
+    // The event carries no email and no token: data minimization.
+    expect(JSON.stringify(event?.payload)).not.toContain('guest@example.com')
+    expect(JSON.stringify(event?.payload)).not.toContain(token)
+  })
+
+  it('accepting an invitation emits member.joined', async () => {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    const member = await acceptInvitation(base(), { token, userId: guest.id })
+    const event = queue
+      .of('events.deliver')
+      .find((j) => j.options.idempotencyKey === `member.joined:${member.id}`)
+    expect(event?.payload).toMatchObject({ type: 'member.joined', data: { userId: guest.id } })
   })
 })
