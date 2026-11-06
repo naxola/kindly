@@ -7,6 +7,7 @@
     "node": ">=24.21.0 <25"
   },
   "scripts": {
+    "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "eslint . --max-warnings=0 && pnpm check:boundaries",
     "check:boundaries": "tsx scripts/check-boundaries.ts",

@@ -27,9 +27,45 @@ export const authEnv = z.object({
   AUTH_RATE_LIMIT_ENABLED: bool.default(true),
 })
 
+export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
+  /** Prints emails to the worker log. Local development and tests only. */
+  z.object({ EMAIL_PROVIDER: z.literal('log'), EMAIL_FROM: z.string().min(3) }),
+  /** SMTP: a sandbox such as Mailtrap in development. */
+  z.object({
+    EMAIL_PROVIDER: z.literal('smtp'),
+    EMAIL_FROM: z.string().min(3),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().positive(),
+    SMTP_USER: z.string().min(1),
+    SMTP_PASS: z.string().min(1),
+  }),
+  /** Resend: staging and production. */
+  z.object({
+    EMAIL_PROVIDER: z.literal('resend'),
+    EMAIL_FROM: z.string().min(3),
+    RESEND_API_KEY: z.string().startsWith('re_'),
+  }),
+])
+
+/**
+ * Business events webhook (n8n or similar). Without URL, events are recorded as
+ * delivered-to-nobody in the worker log; with URL, the secret is mandatory.
+ */
+export const eventsEnv = z
+  .object({
+    EVENTS_WEBHOOK_URL: z.url().optional(),
+    EVENTS_WEBHOOK_SECRET: z.string().min(32).optional(),
+  })
+  .refine((e) => !e.EVENTS_WEBHOOK_URL || e.EVENTS_WEBHOOK_SECRET, {
+    path: ['EVENTS_WEBHOOK_SECRET'],
+    message: 'Required when EVENTS_WEBHOOK_URL is set',
+  })
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
 export type AuthEnv = z.infer<typeof authEnv>
+export type EmailEnv = z.infer<typeof emailEnv>
+export type EventsEnv = z.infer<typeof eventsEnv>
 
 export class EnvError extends Error {
   constructor(public readonly issues: string[]) {

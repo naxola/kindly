@@ -8,7 +8,15 @@ export { CreateOrganizationInput, createOrganization } from './organizations.ts'
 export { resolveActor } from './actor.ts'
 export { ChangeRoleInput, listMembers, changeMemberRole, disableMember } from './members.ts'
 export {
+  verificationEmailJob,
+  passwordResetEmailJob,
+  invitationEmailJob,
+  identityEmailHandlers,
+} from './jobs.ts'
+export { verificationEmail, passwordResetEmail, invitationEmail } from './emails.ts'
+export {
   INVITATION_TTL_DAYS,
+  invitationUrl,
   CreateInvitationInput,
   createInvitation,
   revokeInvitation,

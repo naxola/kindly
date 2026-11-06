@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { nowOf, type BaseCtx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
 import { writeAudit } from '../audit/index.ts'
+import { emitEvent } from '../events/index.ts'
+import { accessEmailOf } from './users.ts'
 
 export const CreateOrganizationInput = z.object({
   name: z.string().trim().min(2).max(120),
@@ -41,6 +43,18 @@ export async function createOrganization(
         after: { name: data.name, slug: data.slug },
         correlationId: ctx.correlationId,
         ip: ctx.ip,
+      })
+      await emitEvent(ctx, tx, {
+        type: 'organization.created',
+        organizationId: id,
+        subjectId: id,
+        data: {
+          organizationId: id,
+          name: data.name,
+          slug: data.slug,
+          ownerUserId: userId,
+          ownerEmail: await accessEmailOf(tx, userId),
+        },
       })
       return { organization, member }
     })
