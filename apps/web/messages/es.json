@@ -9,8 +9,16 @@
     "themeDark": "Oscuro",
     "themeSystem": "Sistema",
     "language": "Idioma",
-    "signOut": "Cerrar sesión",
-    "account": "Cuenta"
+    "mainNav": "Navegación principal",
+    "openMenu": "Abrir menú",
+    "search": "Buscar…",
+    "searchPlaceholder": "Ir a un módulo…",
+    "searchEmpty": "Sin resultados",
+    "searchTitle": "Paleta de comandos",
+    "searchGroupModules": "Módulos",
+    "searchGroupSettings": "Ajustes",
+    "close": "Cerrar",
+    "skipToContent": "Saltar al contenido"
   },
   "auth": {
     "backToSignIn": "Volver a iniciar sesión",
@@ -101,7 +109,96 @@
   },
   "home": {
     "title": "Inicio",
-    "signedInAs": "Has iniciado sesión como {email}.",
-    "next": "El siguiente paso, crear tu organización o unirte a una, llega con la fase 4b de la plantilla."
+    "greeting": "Hola, {name}",
+    "organization": "Estás en {organization}.",
+    "empty": "Aquí irá el panel principal de tu producto."
+  },
+  "nav": {
+    "home": "Inicio",
+    "settings": "Ajustes"
+  },
+  "menu": {
+    "settings": {
+      "title": "Ajustes",
+      "members": "Miembros"
+    }
+  },
+  "orgSwitcher": {
+    "label": "Organización",
+    "create": "Crear otra organización"
+  },
+  "userMenu": {
+    "label": "Cuenta",
+    "signOut": "Cerrar sesión"
+  },
+  "onboarding": {
+    "title": "Tu organización",
+    "description": "Elige la organización con la que quieres trabajar o crea una nueva.",
+    "chooseTitle": "Tus organizaciones",
+    "createTitle": "Crear una organización",
+    "createDescription": "Serás su administrador.",
+    "create": "Crear organización",
+    "name": "Nombre",
+    "slug": "Identificador",
+    "slugHint": "Minúsculas, números y guiones. Único.",
+    "defaultLocale": "Idioma por defecto"
+  },
+  "invite": {
+    "title": "Invitación",
+    "joinTitle": "Únete a {organization}",
+    "description": "Invitación para {email}. Caduca el {date}.",
+    "notFound": "El enlace de invitación no es válido.",
+    "needAccount": "Inicia sesión o crea una cuenta con ese email para aceptarla.",
+    "signUp": "Crear cuenta",
+    "signIn": "Iniciar sesión",
+    "otherEmail": "Has iniciado sesión como {email}. Esta invitación es para otra dirección.",
+    "switchAccount": "Cambiar de cuenta",
+    "accept": "Aceptar la invitación",
+    "status": {
+      "PENDING": "Pendiente",
+      "ACCEPTED": "Aceptada",
+      "REVOKED": "Revocada",
+      "EXPIRED": "Caducada"
+    },
+    "statusMessage": {
+      "PENDING": "La invitación está pendiente.",
+      "ACCEPTED": "Esta invitación ya se aceptó.",
+      "REVOKED": "Esta invitación se revocó.",
+      "EXPIRED": "Esta invitación ha caducado. Pide una nueva a quien te invitó."
+    }
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "actions": "Acciones"
+  },
+  "roles": {
+    "ADMIN": "Administrador",
+    "MEMBER": "Miembro"
+  },
+  "settings": {
+    "members": {
+      "title": "Miembros",
+      "invite": "Invitar",
+      "inviteDescription": "Recibirá un enlace que caduca en 7 días.",
+      "sendInvite": "Enviar invitación",
+      "name": "Nombre",
+      "status": "Estado",
+      "since": "desde {date}",
+      "expires": "Caduca",
+      "statuses": {
+        "ACTIVE": "Activo",
+        "DISABLED": "Desactivado"
+      },
+      "disable": "Desactivar",
+      "enable": "Reactivar",
+      "disableDescription": "{name} perderá el acceso a la organización de inmediato. Su histórico se conserva.",
+      "invitations": "Invitaciones",
+      "revoke": "Revocar",
+      "description": "Personas con acceso a la organización y su rol.",
+      "role": "Rol",
+      "roleOf": "Rol de {name}",
+      "roleHint": "Un administrador gestiona miembros e invitaciones.",
+      "enableDescription": "{name} recuperará el acceso con su rol actual."
+    }
   }
 }

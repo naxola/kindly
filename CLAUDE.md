@@ -121,6 +121,10 @@ Convenciones al añadir código:
   `app.ts` (`v1`) con esquemas zod, y después `pnpm api:generate` (el CI falla si el
   contrato no está al día). Las rutas son capas finas: contexto → caso de uso de `core`.
 - Textos de interfaz: `apps/web/messages/{es,en}.json` (un test exige las mismas claves).
+- Módulos nuevos en la navegación: `apps/web/src/navigation/config.tsx` (`MODULES`),
+  con los permisos que muestran cada elemento (`anyOf`). Solo filtra la interfaz.
+- Las rutas de negocio usan `actorCtx(c)` (organización activa + permisos);
+  `accessCtx(c)` solo para lo que ocurre antes de entrar al producto.
 - Identidad visual del producto: solo `packages/ui/src/brand.css` (color de acento y
   radio) y `app.name` en los mensajes.
 - Solo `packages/adapters/src/auth` y `packages/core/src/modules/identity` acceden a

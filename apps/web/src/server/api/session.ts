@@ -1,6 +1,14 @@
-import { DomainError, findUserByAuthId, type BaseCtx } from '@saas/core'
+import {
+  DomainError,
+  findUserByAuthId,
+  listMyOrganizations,
+  resolveActor,
+  type BaseCtx,
+  type Ctx,
+} from '@saas/core'
 import type { User } from '@saas/database'
 import type { Context } from 'hono'
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 import { createMiddleware } from 'hono/factory'
 import { auth } from '../auth.ts'
 import { db } from '../db.ts'
@@ -68,4 +76,57 @@ export async function accessCtx(
   if (!access) throw new DomainError('UNAUTHENTICATED', 'Authentication required')
   const base = await baseCtx(c)
   return { ...base, access, user: await findUserByAuthId(base.db, access.authUserId) }
+}
+
+/**
+ * Active organization: a business choice, so it lives in its own cookie and never in the
+ * access session (ADR 0003). It is only a preference: every request re-checks the
+ * membership with resolveActor.
+ */
+export const ACTIVE_ORG_COOKIE = 'active_org'
+
+export function setActiveOrganization(c: Context<ApiEnv>, organizationId: string) {
+  setCookie(c, ACTIVE_ORG_COOKIE, organizationId, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: env().APP_URL.startsWith('https://'),
+    maxAge: 60 * 60 * 24 * 365,
+  })
+}
+
+/** Business user of the request; 403 if they have not entered the product yet. */
+export async function userCtx(c: Context<ApiEnv>) {
+  const ctx = await accessCtx(c)
+  if (!ctx.user) {
+    throw new DomainError('FORBIDDEN', 'No organization yet', [{ code: 'NO_ACTIVE_ORGANIZATION' }])
+  }
+  return { ...ctx, user: ctx.user }
+}
+
+/**
+ * Tenant context: the organization in the cookie (or the only one the person has) and an
+ * active membership in it. Without membership, 404 so as not to reveal it exists.
+ */
+export async function actorCtx(c: Context<ApiEnv>): Promise<Ctx> {
+  const ctx = await userCtx(c)
+  let organizationId = getCookie(c, ACTIVE_ORG_COOKIE)
+  if (!organizationId) {
+    const mine = await listMyOrganizations(ctx.db, ctx.user.id)
+    if (mine.length === 1) organizationId = mine[0]!.id
+  }
+  if (!organizationId) {
+    throw new DomainError('FORBIDDEN', 'No active organization', [
+      { code: 'NO_ACTIVE_ORGANIZATION' },
+    ])
+  }
+  try {
+    const { actor } = await resolveActor(ctx.db, { userId: ctx.user.id, organizationId })
+    c.set('log', c.get('log').child({ organizationId }))
+    return { ...ctx, actor }
+  } catch (error) {
+    // A stale cookie (left the organization, disabled…) must not stick.
+    deleteCookie(c, ACTIVE_ORG_COOKIE, { path: '/' })
+    throw error
+  }
 }

@@ -6,7 +6,13 @@ export type { Actor } from './authorization.ts'
 export { ensureUser, findUserByAuthId, listMyOrganizations } from './users.ts'
 export { CreateOrganizationInput, createOrganization } from './organizations.ts'
 export { resolveActor } from './actor.ts'
-export { ChangeRoleInput, listMembers, changeMemberRole, disableMember } from './members.ts'
+export {
+  ChangeRoleInput,
+  listMembers,
+  changeMemberRole,
+  disableMember,
+  enableMember,
+} from './members.ts'
 export {
   verificationEmailJob,
   passwordResetEmailJob,

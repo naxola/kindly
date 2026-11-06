@@ -1,7 +1,7 @@
 /*
  * Design system (ADR 0007): structure and visual scale inspired by Supabase Studio, with
  * its own tokens and identity. Each product sets its accent (--brand) in its brand file.
- * La app debe importar antes "tailwindcss" y declarar @source sobre packages/ui/src.
+ * The app must import "tailwindcss" first and declare @source over packages/ui/src.
  */
 @import 'tw-animate-css';
 

@@ -34,8 +34,12 @@ librería de autenticación y complica borrar el acceso conservando el historial
   exige `name` en `auth_users`: se trata como dato técnico mínimo y solo se usa
   para proponer el `display_name` inicial (verificado en la fase 2).
 - **La organización activa no se guarda en la sesión de acceso** (procurement sí
-  lo hace con `activeOrganizationId`). La elige la capa de negocio (cabecera o
-  cookie de la app) y `resolveActor` la valida contra `organization_members`.
+  lo hace con `activeOrganizationId`). Vive en una cookie de la app
+  (`active_org`, httpOnly) que es solo una preferencia: cada petición la valida con
+  `resolveActor`, y si ya no es válida se borra. Sin cookie y con una única
+  organización, se usa esa.
+- El enlace de invitación lleva el token en el **fragmento** (`/invite#token`): el
+  navegador no lo envía al servidor, así que no acaba en logs ni en `Referer`.
 - `users.auth_user_id` es nullable con `ON DELETE SET NULL`: borrar el acceso
   deja el usuario de negocio anonimizable y su historial intacto.
 - MFA (TOTP) queda para más adelante: el plugin de Better Auth añadirá

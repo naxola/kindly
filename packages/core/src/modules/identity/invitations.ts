@@ -19,9 +19,12 @@ export const CreateInvitationInput = z.object({
 })
 export type CreateInvitationInput = z.input<typeof CreateInvitationInput>
 
-/** Path of the acceptance page in apps/web. The raw token only travels in this link. */
+/**
+ * Acceptance page in apps/web. The raw token travels in the URL fragment: browsers never
+ * send it to the server, so it does not end up in access logs, proxies or Referer headers.
+ */
 export const invitationUrl = (appUrl: string, token: string) =>
-  `${appUrl.replace(/\/$/, '')}/invitations/${token}`
+  `${appUrl.replace(/\/$/, '')}/invite#${token}`
 
 /**
  * Creates an invitation and, in the same transaction, enqueues its email and the
@@ -141,6 +144,7 @@ export interface InvitationView {
   email: string
   role: OrganizationRole
   status: InvitationStatus
+  expiresAt: Date
 }
 
 /** Public view of an invitation by its token (acceptance page). Null if it does not exist. */
@@ -170,6 +174,7 @@ export async function getInvitationByToken(
     email: row.email,
     role: row.role,
     status,
+    expiresAt: row.expiresAt,
   }
 }
 

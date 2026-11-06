@@ -8,6 +8,7 @@ import {
   createOrganization,
   disableMember,
   DomainError,
+  enableMember,
   ensureUser,
   getInvitationByToken,
   listMembers,
@@ -271,7 +272,7 @@ describe('emails and business events (enqueued in the same transaction)', () => 
       to: 'guest@example.com',
       organizationName: 'Acme',
       inviterName: 'Person',
-      url: `https://app.example.com/invitations/${token}`,
+      url: `https://app.example.com/invite#${token}`,
       expiresInDays: 7,
     })
     expect(email?.options.organizationId).toBe(owner.organization.id)
@@ -293,5 +294,24 @@ describe('emails and business events (enqueued in the same transaction)', () => 
       .of('events.deliver')
       .find((j) => j.options.idempotencyKey === `member.joined:${member.id}`)
     expect(event?.payload).toMatchObject({ type: 'member.joined', data: { userId: guest.id } })
+  })
+})
+
+describe('member listing and re-enabling', () => {
+  it('lists members with their access email, and a disabled member can be re-enabled', async () => {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    const member = await acceptInvitation(base(), { token, userId: guest.id })
+    const listed = await listMembers(owner.ctx)
+    expect(listed.find((m) => m.id === member.id)?.email).toBe(guestAccess.email)
+    await disableMember(owner.ctx, member.id)
+    await enableMember(owner.ctx, member.id)
+    const { actor } = await resolveActor(db, {
+      userId: guest.id,
+      organizationId: owner.organization.id,
+    })
+    expect(actor.memberId).toBe(member.id)
   })
 })

@@ -11,17 +11,24 @@ import { permissionsOf, type Actor } from './authorization.ts'
 export async function resolveActor(
   db: Db,
   { userId, organizationId }: { userId: string; organizationId: string },
-): Promise<{ actor: Actor; organization: { id: string; name: string; slug: string } }> {
+): Promise<{
+  actor: Actor
+  organization: { id: string; name: string; slug: string; defaultLocale: string }
+}> {
   const membership = await withTenant(db, organizationId, (tx) =>
     tx.organizationMember.findUnique({
       where: { organizationId_userId: { organizationId, userId } },
-      include: { organization: { select: { id: true, name: true, slug: true, archivedAt: true } } },
+      include: {
+        organization: {
+          select: { id: true, name: true, slug: true, defaultLocale: true, archivedAt: true },
+        },
+      },
     }),
   )
   if (!membership || membership.status !== 'ACTIVE' || membership.organization.archivedAt) {
     throw new DomainError('NOT_FOUND', 'Organization not found')
   }
-  const { id, name, slug } = membership.organization
+  const { id, name, slug, defaultLocale } = membership.organization
   return {
     actor: {
       userId,
@@ -30,6 +37,6 @@ export async function resolveActor(
       role: membership.role,
       permissions: permissionsOf(membership.role),
     },
-    organization: { id, name, slug },
+    organization: { id, name, slug, defaultLocale },
   }
 }

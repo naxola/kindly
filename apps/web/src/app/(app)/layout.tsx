@@ -1,31 +1,29 @@
-import { getTranslations } from 'next-intl/server'
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { Logo } from '@/components/logo.tsx'
-import { PreferencesMenu } from '@/components/preferences-menu.tsx'
-import { SignOutButton } from '@/components/sign-out-button.tsx'
-import { getViewer } from '@/server/viewer.ts'
+import { AppFrame } from '@/components/app-frame.tsx'
+import { getWorkspace } from '@/server/viewer.ts'
 
 /**
- * Signed-in area. Navigation only reflects permissions; security is enforced by the API in
- * every use case. The full shell (organization picker, navigation) arrives in phase 4b.
+ * Application shell: requires a session and an active organization. Permissions only
+ * filter navigation; security is enforced by the API in every use case.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const viewer = await getViewer()
-  if (!viewer) redirect('/sign-in')
-  const t = await getTranslations('app')
+  const workspace = await getWorkspace()
+  if (!workspace) redirect('/sign-in')
+  if (!workspace.user || !workspace.active) redirect('/onboarding')
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="flex h-12 items-center justify-between border-b border-border bg-background-alt px-3">
-        <Logo name={t('name')} />
-        <div className="flex items-center gap-1">
-          <PreferencesMenu />
-          <SignOutButton />
-        </div>
-      </header>
-      <main id="main" className="flex-1 px-4 py-10">
-        {children}
-      </main>
-    </div>
+    <AppFrame
+      user={{
+        id: workspace.user.id,
+        memberId: workspace.active.memberId,
+        name: workspace.user.displayName,
+        email: workspace.viewer.email,
+      }}
+      organizations={workspace.organizations.map((o) => ({ id: o.id, name: o.name }))}
+      active={{ id: workspace.active.id, name: workspace.active.name }}
+      permissions={workspace.active.permissions}
+    >
+      {children}
+    </AppFrame>
   )
 }

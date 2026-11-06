@@ -94,7 +94,7 @@ describe('worker', () => {
 
     const email = await until(() => sent.find((m) => m.to === guest))
     expect(email.subject).toBe('Invitación a Acme')
-    expect(email.text).toContain(`https://app.example.com/invitations/${token}`)
+    expect(email.text).toContain(`https://app.example.com/invite#${token}`)
     expect(email.idempotencyKey).toMatch(/^identity\.invitation-email:/)
 
     const types = await until(() => {
