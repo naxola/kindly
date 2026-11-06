@@ -48,8 +48,25 @@ las actualizaciones se hacen a mano y revisadas, nunca automáticas.
 | nodemailer         | 10.2.1 (10.0.13 de procurement tiene 3 avisos moderados, corregidos en 10.1.4) |
 | esbuild            | 0.28.2                                                                         |
 
-Las fases siguientes añaden sus dependencias con el mismo criterio
-(Next, Hono…), partiendo de las versiones de procurement.
+## Fase 4a
+
+| Paquete                                 | Versión                                                                                                                                                                                                                                   |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| next                                    | **16.4.3** (procurement usa 16.3.8: las versiones 16.0.0–16.4.0 tienen dos vulnerabilidades críticas de ejecución remota de código, GHSA-2464-fhr4-w9xw y GHSA-673q-mjm6-r5xr, y una alta de denegación de servicio, GHSA-p3m5-59mp-jv5r) |
+| react / react-dom                       | 19.3.0                                                                                                                                                                                                                                    |
+| next-intl / next-themes                 | 4.14.9 / 0.4.6                                                                                                                                                                                                                            |
+| hono / @hono/zod-openapi                | 4.13.12 / 1.6.3                                                                                                                                                                                                                           |
+| @tanstack/react-query                   | 5.104.1                                                                                                                                                                                                                                   |
+| openapi-fetch / openapi-typescript      | 0.17.0 / 7.13.0                                                                                                                                                                                                                           |
+| tailwindcss / @tailwindcss/postcss      | 4.3.3                                                                                                                                                                                                                                     |
+| radix-ui / lucide-react / sonner / cmdk | 1.6.7 / 1.50.0 / 2.0.8 / 1.1.1                                                                                                                                                                                                            |
+| @playwright/test                        | 1.63.0                                                                                                                                                                                                                                    |
+
+**Criterio ante avisos de seguridad:** una corrección de seguridad crítica o alta
+prevalece sobre la regla de los 14 días; se toma la versión corregida más antigua
+que cumpla ese plazo, o la primera corregida si ninguna lo cumple.
+
+Las fases siguientes añaden sus dependencias con el mismo criterio.
 
 ## Desviación respecto a procurement
 

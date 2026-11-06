@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import '@saas/ui/styles.css';
+@import '@saas/ui/brand.css';
+
+/* Tailwind only scans the app by default: include the design system too. */
+@source '../../../../packages/ui/src';

@@ -2,3 +2,4 @@ pnpm-lock.yaml
 **/generated/**
 **/.next/**
 **/dist/**
+docs/api/openapi.json

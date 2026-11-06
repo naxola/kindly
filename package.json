@@ -21,10 +21,14 @@
     "db:generate": "pnpm --filter @saas/database generate",
     "db:migrate": "pnpm --filter @saas/database migrate:dev",
     "db:deploy": "pnpm --filter @saas/database migrate:deploy",
-    "db:check": "pnpm --filter @saas/database migrate:check"
+    "db:check": "pnpm --filter @saas/database migrate:check",
+    "api:generate": "pnpm --filter @saas/web generate",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@saas/adapters": "workspace:*",
     "@saas/config": "workspace:*",
     "@types/node": "24.19.1",
     "@types/pg": "8.23.1",

@@ -1,19 +1,21 @@
 # Roadmap de la plantilla
 
-**Fase actual: 4, UI y web pública (en curso).** Fases 0 a 3 validadas el 2026-11-06.
+**Fase actual: 4a, UI y esqueleto de `web` (terminada, pendiente de validación del usuario).** Fases 0 a 3 validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
-| Fase                       | Contenido                                                                         | Estado                   |
-| -------------------------- | --------------------------------------------------------------------------------- | ------------------------ |
-| 0. Decisiones              | `CLAUDE.md`, ADR 0001–0008                                                        | ✅ Validada (2026-11-06) |
-| 1. Esqueleto               | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)  | ✅ Validada (2026-11-06) |
-| 2. Acceso y organizaciones | `auth_*`, `users`, `organization_members`, invitaciones, RLS                      | ✅ Validada (2026-11-06) |
-| 3. Worker                  | `JobQueue`, worker, correo asíncrono, eventos de negocio                          | ✅ Validada (2026-11-06) |
-| 4. UI y web pública        | `packages/ui`, shell de `web`, `site` con portada, blog MDX y legales             | ⚪                       |
-| 5. Observabilidad          | Errores, logs, health/ready, alertas                                              | ⚪                       |
-| 6. Despliegue              | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte) | ⚪                       |
-| 7. v1.0.0                  | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                    | ⚪                       |
+| Fase                        | Contenido                                                                                             | Estado                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
+| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06) |
+| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06) |
+| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06) |
+| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06) |
+| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | 🟣 Pendiente de validar  |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ⚪                       |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ⚪                       |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | ⚪                       |
+| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
 
 ## Fase 1 — entregado
 
@@ -53,3 +55,17 @@
 **Verificado en local:** format, lint (con fronteras), typecheck, 25 unitarias, 40 de integración (incluidas 6 de pg-boss real —commit, rollback, idempotencia, reintento y fallo definitivo— y un flujo completo: crear organización e invitar → el worker envía el correo y entrega 3 eventos), migraciones, sincronía esquema/migraciones, auditoría sin vulnerabilidades, build del worker y arranque/parada del worker compilado desde un despliegue `pnpm deploy`.
 
 **Pendiente, anotado:** alertas sobre el fallo definitivo (fase 5, observabilidad); panel de la cola (fase 5); la imagen Docker del worker (fase 6).
+
+## Fase 4a — entregado
+
+- **`packages/ui`** (extraído de procurement): tokens claro/oscuro, componentes (botón, campos, callout, tabla, menús, diálogo de confirmación, panel lateral, paleta de comandos, toasts) y shell (TopBar, NavRail, ProductMenu, móvil). La identidad de cada producto vive solo en `brand.css`.
+- **`apps/web`**: Next.js 16.4.3 (App Router, salida `standalone`), next-intl es/en por cookie o `Accept-Language`, tema claro/oscuro, TanStack Query.
+- **API** (`/api`): Hono + zod-openapi con `correlationId` en cada petición, errores normalizados (`{ error: { code, message, details, correlationId } }`), defensa CSRF, `/api/health`, `/api/ready` (BD y cola), `/api/v1/me` y Better Auth en `/api/auth/*`. Contrato en `docs/api/openapi.json` y cliente tipado generado.
+- **Pantallas**: alta, confirmación de email, inicio y cierre de sesión, recuperación y nueva contraseña; inicio protegido. Los correos se encolan (el worker los envía).
+- `/api/v1/me` distingue acceso y negocio: con sesión pero sin haber entrado al producto, `user` es `null` (ADR 0003).
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 28 unitarias, 46 de integración (6 de la API: health/ready, errores normalizados, CSRF y el flujo alta → job de verificación en la cola → verificación → login → `/me`), 3 E2E en Chromium contra la build de producción (alta y verificación, cierre e inicio de sesión con contraseña errónea y correcta, protección de páginas, recuperación de contraseña por el enlace), build y auditoría sin vulnerabilidades.
+
+**Seguridad:** next 16.3.8 (procurement) y 16.3.5 (kindly) están afectados por vulnerabilidades críticas; la plantilla usa 16.4.3 (ADR 0009).
+
+**Siguiente:** fase 4b (onboarding, organización activa, shell completo, miembros e invitaciones).

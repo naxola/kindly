@@ -1,0 +1,21 @@
+/*
+ * Brand of the product: the ONLY file a product edits to get its identity (accent colour
+ * and radius). Everything else in the design system stays shared. Imported after
+ * styles.css, so these values win.
+ */
+:root {
+  --brand: #3b5bdb;
+  --brand-hover: #3451c4;
+  --brand-foreground: #ffffff;
+  --brand-subtle: #e8edfc;
+  --ring: #3b5bdb;
+  --radius: 6px;
+}
+
+.dark {
+  --brand: #7b93f5;
+  --brand-hover: #91a5f7;
+  --brand-foreground: #0f1426;
+  --brand-subtle: #1c2340;
+  --ring: #7b93f5;
+}

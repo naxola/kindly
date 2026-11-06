@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "Mi SaaS"
+  },
+  "shell": {
+    "preferences": "Preferencias",
+    "theme": "Tema",
+    "themeLight": "Claro",
+    "themeDark": "Oscuro",
+    "themeSystem": "Sistema",
+    "language": "Idioma",
+    "signOut": "Cerrar sesión",
+    "account": "Cuenta"
+  },
+  "auth": {
+    "backToSignIn": "Volver a iniciar sesión",
+    "fields": {
+      "name": "Nombre",
+      "email": "Email",
+      "password": "Contraseña",
+      "newPassword": "Contraseña nueva",
+      "confirmPassword": "Repite la contraseña",
+      "passwordHint": "Al menos {min} caracteres. Una frase larga es más segura que una palabra rara."
+    },
+    "errors": {
+      "PASSWORD_MISMATCH": "Las contraseñas no coinciden.",
+      "INVALID_TOKEN": "El enlace no es válido o ha caducado."
+    },
+    "signIn": {
+      "title": "Iniciar sesión",
+      "description": "Accede a tu cuenta.",
+      "submit": "Entrar",
+      "forgot": "¿Has olvidado la contraseña?",
+      "noAccount": "¿No tienes cuenta?",
+      "signUp": "Regístrate",
+      "unverifiedTitle": "Confirma tu correo",
+      "unverified": "Te hemos reenviado el enlace de confirmación."
+    },
+    "signUp": {
+      "title": "Crear una cuenta",
+      "description": "Después podrás crear tu organización o unirte a una.",
+      "submit": "Crear cuenta",
+      "haveAccount": "¿Ya tienes cuenta?",
+      "signIn": "Inicia sesión"
+    },
+    "verify": {
+      "title": "Confirma tu correo",
+      "description": "Te enviaremos un enlace para confirmar tu dirección.",
+      "sent": "Hemos enviado un enlace a {email}.",
+      "hint": "Abre el enlace en este navegador. Caduca en 1 hora.",
+      "notReceived": "¿No te ha llegado?",
+      "resend": "Reenviar el enlace",
+      "resent": "Si la cuenta existe y no está confirmada, te hemos enviado un enlace nuevo."
+    },
+    "forgot": {
+      "title": "Recuperar la contraseña",
+      "description": "Te enviaremos un enlace de un solo uso para elegir una contraseña nueva.",
+      "submit": "Enviar enlace",
+      "sent": "Si existe una cuenta con ese email, recibirás un enlace en unos minutos."
+    },
+    "reset": {
+      "title": "Elegir una contraseña nueva",
+      "description": "Al cambiarla se cerrarán tus otras sesiones.",
+      "submit": "Guardar contraseña",
+      "requestNew": "Pide un enlace nuevo"
+    }
+  },
+  "errors": {
+    "UNKNOWN": "Algo ha fallado. Inténtalo de nuevo.",
+    "INTERNAL": "Error interno. Si persiste, contacta con soporte indicando la hora.",
+    "VALIDATION_FAILED": "Revisa los datos del formulario.",
+    "UNAUTHENTICATED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+    "FORBIDDEN": "No tienes permiso para esta acción.",
+    "MISSING_PERMISSION": "No tienes permiso para esta acción.",
+    "NOT_FOUND": "No existe o no tienes acceso.",
+    "CONFLICT": "La acción no es compatible con el estado actual.",
+    "RATE_LIMITED": "Demasiados intentos. Espera un minuto.",
+    "CSRF": "Petición rechazada por seguridad. Recarga la página.",
+    "NO_ACTIVE_ORGANIZATION": "Elige una organización.",
+    "LAST_ADMIN": "La organización debe conservar al menos un Administrador activo.",
+    "ALREADY_MEMBER": "Esa persona ya es miembro de la organización.",
+    "EMAIL_MISMATCH": "La invitación es para otra dirección de correo.",
+    "INVITATION_ACCEPTED": "La invitación ya se aceptó.",
+    "INVITATION_REVOKED": "La invitación está revocada.",
+    "INVITATION_EXPIRED": "La invitación ha caducado. Pide una nueva.",
+    "EMAIL_NOT_VERIFIED": "Confirma tu correo antes de continuar.",
+    "INVALID_EMAIL_OR_PASSWORD": "Email o contraseña incorrectos.",
+    "INVALID_EMAIL": "El email no es válido.",
+    "INVALID_PASSWORD": "La contraseña no es correcta.",
+    "PASSWORD_TOO_SHORT": "La contraseña es demasiado corta.",
+    "PASSWORD_TOO_LONG": "La contraseña es demasiado larga.",
+    "USER_ALREADY_EXISTS": "Ya existe una cuenta con ese email.",
+    "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": "Ya existe una cuenta con ese email.",
+    "INVALID_TOKEN": "El enlace no es válido o ha caducado.",
+    "TOKEN_EXPIRED": "El enlace ha caducado.",
+    "ACCOUNT_TEMPORARILY_LOCKED": "Cuenta bloqueada temporalmente por intentos fallidos.",
+    "SESSION_EXPIRED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+    "SESSION_NOT_FRESH": "Por seguridad, vuelve a iniciar sesión para hacer esto.",
+    "TAKEN": "Ese identificador ya está en uso.",
+    "PENDING_INVITATION": "Ya hay una invitación pendiente para ese email."
+  },
+  "home": {
+    "title": "Inicio",
+    "signedInAs": "Has iniciado sesión como {email}.",
+    "next": "El siguiente paso, crear tu organización o unirte a una, llega con la fase 4b de la plantilla."
+  }
+}
