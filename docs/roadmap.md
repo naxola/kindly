@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 3, worker (terminada, pendiente de validación del usuario).** Fases 0, 1 y 2 validadas el 2026-11-06.
+**Fase actual: 4, UI y web pública (en curso).** Fases 0 a 3 validadas el 2026-11-06.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -9,7 +9,7 @@
 | 0. Decisiones              | `CLAUDE.md`, ADR 0001–0008                                                        | ✅ Validada (2026-11-06) |
 | 1. Esqueleto               | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)  | ✅ Validada (2026-11-06) |
 | 2. Acceso y organizaciones | `auth_*`, `users`, `organization_members`, invitaciones, RLS                      | ✅ Validada (2026-11-06) |
-| 3. Worker                  | `JobQueue`, worker, correo asíncrono, eventos de negocio                          | 🟣 Pendiente de validar  |
+| 3. Worker                  | `JobQueue`, worker, correo asíncrono, eventos de negocio                          | ✅ Validada (2026-11-06) |
 | 4. UI y web pública        | `packages/ui`, shell de `web`, `site` con portada, blog MDX y legales             | ⚪                       |
 | 5. Observabilidad          | Errores, logs, health/ready, alertas                                              | ⚪                       |
 | 6. Despliegue              | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte) | ⚪                       |
@@ -52,4 +52,4 @@
 
 **Verificado en local:** format, lint (con fronteras), typecheck, 25 unitarias, 40 de integración (incluidas 6 de pg-boss real —commit, rollback, idempotencia, reintento y fallo definitivo— y un flujo completo: crear organización e invitar → el worker envía el correo y entrega 3 eventos), migraciones, sincronía esquema/migraciones, auditoría sin vulnerabilidades, build del worker y arranque/parada del worker compilado desde un despliegue `pnpm deploy`.
 
-**Pendiente, anotado:** alertas sobre el fallo definitivo (fase 5, observabilidad); panel de la cola (fase 5); la imagen Docker del worker (fase 6); validar el ADR 0010.
+**Pendiente, anotado:** alertas sobre el fallo definitivo (fase 5, observabilidad); panel de la cola (fase 5); la imagen Docker del worker (fase 6).
