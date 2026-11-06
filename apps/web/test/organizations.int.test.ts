@@ -186,3 +186,81 @@ describe('organizations, members and invitations through the API', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('sign-up from an invitation link', () => {
+  async function ownerInviting(email: string) {
+    const owner = await person('owner')
+    await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Acme',
+      slug: `acme-${newId().slice(-12)}`,
+    })
+    expect((await owner.browser.call('POST', '/api/v1/invitations', { email })).status).toBe(201)
+    return { owner, token: await invitationToken(email) }
+  }
+
+  it('creates a verified account with only name and password, signs in and joins', async () => {
+    const email = `new-${newId()}@example.com`
+    const { token } = await ownerInviting(email)
+    const guest = new Browser()
+
+    let res = await guest.call('POST', '/api/v1/invitations/preview', { token })
+    expect(res.body).toMatchObject({ status: 'PENDING', emailRegistered: false })
+
+    res = await guest.call('POST', '/api/v1/invitations/register', {
+      token,
+      name: 'Nora',
+      password: PASSWORD,
+    })
+    expect(res.status).toBe(201)
+    // Signed in straight away, inside the organization.
+    res = await guest.call('GET', '/api/v1/me')
+    expect(res.body.access).toEqual({ email, emailVerified: true })
+    expect(res.body.user.displayName).toBe('Nora')
+    expect(res.body.activeOrganizationId).toBeTruthy()
+    // No second verification email: the link already proved the inbox.
+    const { rows } = await jobs.query(
+      `SELECT 1 FROM pgboss.job WHERE name = 'identity.verification-email'
+       AND data->'payload'->>'to' = $1`,
+      [email],
+    )
+    expect(rows).toHaveLength(0)
+
+    // The link is now used: it says so, and creating the account again is refused.
+    res = await new Browser().call('POST', '/api/v1/invitations/preview', { token })
+    expect(res.body).toMatchObject({ status: 'ACCEPTED', emailRegistered: true })
+    res = await new Browser().call('POST', '/api/v1/invitations/register', {
+      token,
+      name: 'Nora',
+      password: PASSWORD,
+    })
+    expect(res.status).toBe(409)
+    expect(res.body.error.details).toEqual([{ code: 'INVITATION_ACCEPTED' }])
+  })
+
+  it('an email that already has an account must sign in instead', async () => {
+    const existing = await person('existing')
+    const { token } = await ownerInviting(existing.email)
+    let res = await new Browser().call('POST', '/api/v1/invitations/preview', { token })
+    expect(res.body.emailRegistered).toBe(true)
+    res = await new Browser().call('POST', '/api/v1/invitations/register', {
+      token,
+      name: 'Impostor',
+      password: PASSWORD,
+    })
+    expect(res.status).toBe(409)
+    expect(res.body.error.details).toEqual([{ code: 'USER_ALREADY_EXISTS' }])
+  })
+
+  it('rejects a short password without creating anything', async () => {
+    const email = `short-${newId()}@example.com`
+    const { token } = await ownerInviting(email)
+    const res = await new Browser().call('POST', '/api/v1/invitations/register', {
+      token,
+      name: 'Sam',
+      password: 'short',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error.details).toEqual([{ code: 'PASSWORD_TOO_SHORT', path: 'password' }])
+    expect(await db.authUser.findUnique({ where: { email } })).toBeNull()
+  })
+})

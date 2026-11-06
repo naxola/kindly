@@ -78,3 +78,10 @@
 **Verificado en local:** format, lint (con fronteras), typecheck, 29 unitarias, 49 de integración (un recorrido de dos personas por la API: sin organización → crear → invitar → vista pública → otra cuenta rechazada → aceptar → miembros → último ADMIN → MEMBER sin permiso → desactivar y limpieza de la cookie → cambiar de organización → revocar), 5 E2E en Chromium contra la build de producción (incluidos: invitar desde ajustes, aceptar registrándose desde el enlace, ascender y desactivar a un miembro, cambiar de organización), build y auditoría sin vulnerabilidades.
 
 **Corregido por el camino:** el `setup` de integración vacía también la cola de pg-boss; los E2E dejaban jobs que hacían intermitente el test del worker.
+
+### Fase 4b — ajuste tras la revisión del usuario (2026-11-06)
+
+- **Alta desde la invitación**: la pantalla del enlace se adapta a cada situación. Email sin cuenta → nombre y contraseña en la misma página, cuenta creada ya verificada (el enlace prueba el buzón), sesión iniciada y dentro de la organización. Email con cuenta → solo «Iniciar sesión y unirme», con el email ya relleno. Enlace ya usado → lo dice y ofrece iniciar sesión. Revocado o caducado → lo dice, sin botones (ADR 0003).
+- `POST /api/v1/invitations/register` (pública, límite de 5 por minuto e IP) y `emailRegistered` en la vista pública.
+- Corregido: al volver de iniciar sesión, la invitación usaba de la caché la respuesta «sin sesión»; el login vacía la caché y la pantalla consulta siempre la sesión.
+- Tests: 3 de integración nuevos (cuenta nueva sin correo de verificación, enlace ya usado, email con cuenta previa, contraseña corta) y E2E del alta desde el enlace, del enlace reutilizado y del invitado con cuenta previa.

@@ -40,6 +40,13 @@ librería de autenticación y complica borrar el acceso conservando el historial
   organización, se usa esa.
 - El enlace de invitación lleva el token en el **fragmento** (`/invite#token`): el
   navegador no lo envía al servidor, así que no acaba en logs ni en `Referer`.
+- **Alta desde una invitación** (2026-11-06, a petición del usuario): si el email
+  invitado no tiene cuenta, la propia página de la invitación pide solo nombre y
+  contraseña y crea la cuenta **ya verificada**, porque abrir el enlace enviado a ese
+  buzón demuestra que se controla. Inicia sesión y une a la organización en el mismo
+  paso. Si el email ya tiene cuenta, solo se ofrece iniciar sesión; si el enlace ya se
+  usó, se dice y se ofrece iniciar sesión. La vista pública indica si el email tiene
+  cuenta: solo lo ve quien tiene el token, enviado a ese mismo buzón.
 - `users.auth_user_id` es nullable con `ON DELETE SET NULL`: borrar el acceso
   deja el usuario de negocio anonimizable y su historial intacto.
 - MFA (TOTP) queda para más adelante: el plugin de Better Auth añadirá

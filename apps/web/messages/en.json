@@ -148,8 +148,6 @@
     "joinTitle": "Join {organization}",
     "description": "Invitation for {email}. Expires on {date}.",
     "notFound": "The invitation link is not valid.",
-    "needAccount": "Sign in or create an account with that email to accept it.",
-    "signUp": "Create account",
     "signIn": "Sign in",
     "otherEmail": "You are signed in as {email}. This invitation is for another address.",
     "switchAccount": "Switch account",
@@ -165,6 +163,16 @@
       "ACCEPTED": "This invitation was already accepted.",
       "REVOKED": "This invitation was revoked.",
       "EXPIRED": "This invitation has expired. Ask whoever invited you for a new one."
+    },
+    "hasAccount": "There is already an account for {email}. Sign in with it to join.",
+    "signInToJoin": "Sign in and join",
+    "createDescription": "Create your account to join. The email is the one invited, so it does not need confirming.",
+    "emailFixed": "The email the invitation was sent to.",
+    "createAndJoin": "Create account and join",
+    "used": {
+      "title": "This link has already been used",
+      "body": "The invitation of {email} to {organization} was already accepted, so the account exists. Sign in to get in.",
+      "goToApp": "Go to the app"
     }
   },
   "common": {

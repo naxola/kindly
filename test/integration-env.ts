@@ -9,4 +9,6 @@ for (const key of required) {
 }
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
 process.env.DATABASE_MIGRATOR_URL = process.env.TEST_DATABASE_MIGRATOR_URL
+// Tests sign up and sign in many times from the same IP.
+process.env.AUTH_RATE_LIMIT_ENABLED = 'false'
 process.env.LOG_LEVEL = 'silent'

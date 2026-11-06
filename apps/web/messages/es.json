@@ -148,8 +148,6 @@
     "joinTitle": "Únete a {organization}",
     "description": "Invitación para {email}. Caduca el {date}.",
     "notFound": "El enlace de invitación no es válido.",
-    "needAccount": "Inicia sesión o crea una cuenta con ese email para aceptarla.",
-    "signUp": "Crear cuenta",
     "signIn": "Iniciar sesión",
     "otherEmail": "Has iniciado sesión como {email}. Esta invitación es para otra dirección.",
     "switchAccount": "Cambiar de cuenta",
@@ -165,6 +163,16 @@
       "ACCEPTED": "Esta invitación ya se aceptó.",
       "REVOKED": "Esta invitación se revocó.",
       "EXPIRED": "Esta invitación ha caducado. Pide una nueva a quien te invitó."
+    },
+    "hasAccount": "Ya hay una cuenta con {email}. Inicia sesión con ella para unirte.",
+    "signInToJoin": "Iniciar sesión y unirme",
+    "createDescription": "Crea tu cuenta para unirte. El email es el de la invitación, así que no hace falta confirmarlo.",
+    "emailFixed": "Es el email al que se envió la invitación.",
+    "createAndJoin": "Crear cuenta y unirme",
+    "used": {
+      "title": "Este enlace ya se ha usado",
+      "body": "La invitación de {email} a {organization} ya se aceptó, así que la cuenta ya existe. Inicia sesión para entrar.",
+      "goToApp": "Ir a la aplicación"
     }
   },
   "common": {
