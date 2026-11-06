@@ -19,18 +19,18 @@ las actualizaciones se hacen a mano y revisadas, nunca automáticas.
 
 ## Dependencias de la fase 1
 
-| Paquete                                      | Versión                   |
-| -------------------------------------------- | ------------------------- |
-| typescript                                   | 6.0.3                     |
-| prisma / @prisma/client / @prisma/adapter-pg | 7.10.0                    |
-| pg                                           | 8.23.1                    |
-| zod                                          | 4.6.5                     |
-| uuid                                         | 14.0.2                    |
-| turbo                                        | 2.11.7                    |
-| vitest                                       | 5.0.3                     |
-| eslint / typescript-eslint / @eslint/js      | 10.12.0 / 8.71.0 / 10.0.1 |
-| prettier                                     | 3.9.9                     |
-| tsx                                          | 4.23.15                   |
+| Paquete                                      | Versión                                                        |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| typescript                                   | 6.0.3                                                          |
+| prisma / @prisma/client / @prisma/adapter-pg | 7.10.0                                                         |
+| pg                                           | 8.23.1                                                         |
+| zod                                          | 4.6.7 (4.6.5 tenía un aviso de seguridad, GHSA-mrhx-c7xc-m3w5) |
+| uuid                                         | 14.0.2                                                         |
+| turbo                                        | 2.11.7                                                         |
+| vitest                                       | 5.0.3                                                          |
+| eslint / typescript-eslint / @eslint/js      | 10.12.0 / 8.71.0 / 10.0.1                                      |
+| prettier                                     | 3.9.9                                                          |
+| tsx                                          | 4.23.15                                                        |
 
 Las fases siguientes añaden sus dependencias a esta tabla con el mismo criterio
 (Next, Better Auth, Hono, pg-boss…), partiendo de las versiones de procurement.
