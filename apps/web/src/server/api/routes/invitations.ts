@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { createInvitedAccount, PASSWORD_MAX_LENGTH } from '@saas/adapters/auth'
 import {
   acceptInvitation,
   createInvitation,
@@ -9,6 +10,7 @@ import {
   listPendingInvitations,
   revokeInvitation,
 } from '@saas/core'
+import { auth } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
 import { rateLimit } from '../rate-limit.ts'
 import { accessCtx, actorCtx, baseCtx, setActiveOrganization } from '../session.ts'
@@ -26,6 +28,8 @@ const PreviewSchema = z
     role: Role,
     status: z.enum(['PENDING', 'EXPIRED', 'REVOKED', 'ACCEPTED']),
     expiresAt: z.iso.datetime(),
+    /** The invited email already has an account: offer sign-in, not sign-up. */
+    emailRegistered: z.boolean(),
   })
   .openapi('InvitationPreview')
 
@@ -73,6 +77,13 @@ const previewLimit = rateLimit({
   keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
 })
 
+// Creating accounts from a public endpoint: stricter per-IP limit.
+const registerLimit = rateLimit({
+  limit: 5,
+  windowMs: 60_000,
+  keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
+})
+
 const preview = createRoute({
   method: 'post',
   path: '/invitations/preview',
@@ -83,6 +94,25 @@ const preview = createRoute({
   responses: {
     200: { description: 'Invitation', ...json(PreviewSchema) },
     ...errorResponses(400, 404, 429),
+  },
+})
+
+const RegisterInput = Token.extend({
+  name: z.string().trim().min(1).max(120),
+  password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
+})
+
+const register = createRoute({
+  method: 'post',
+  path: '/invitations/register',
+  tags: ['invitations'],
+  summary:
+    'Create the account of an invited email (already verified by the link), sign in and join',
+  middleware: [registerLimit] as const,
+  request: { body: { required: true, ...json(RegisterInput) } },
+  responses: {
+    201: { description: 'Joined', ...json(z.object({ organizationId: z.uuid() })) },
+    ...errorResponses(400, 404, 409, 429),
   },
 })
 
@@ -129,9 +159,45 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
         role: view.role,
         status: view.status,
         expiresAt: view.expiresAt.toISOString(),
+        emailRegistered: view.emailRegistered,
       },
       200,
     )
+  })
+  .openapi(register, async (c) => {
+    const { token, name, password } = c.req.valid('json')
+    const ctx = await baseCtx(c)
+    const view = await getInvitationByToken(ctx, token)
+    if (!view) throw new DomainError('NOT_FOUND', 'Invitation not found')
+    if (view.status !== 'PENDING') {
+      throw new DomainError('CONFLICT', `Invitation is ${view.status.toLowerCase()}`, [
+        { code: `INVITATION_${view.status}` },
+      ])
+    }
+    const created = await createInvitedAccount(auth(), { email: view.email, name, password })
+    if (!created.ok) {
+      throw new DomainError(
+        created.code === 'USER_ALREADY_EXISTS' ? 'CONFLICT' : 'VALIDATION_FAILED',
+        'Cannot create the account',
+        [
+          {
+            code: created.code,
+            ...(created.code === 'USER_ALREADY_EXISTS' ? {} : { path: 'password' }),
+          },
+        ],
+      )
+    }
+    // Signed in straight away: the session cookie goes back with this answer.
+    const signIn = await auth().api.signInEmail({
+      body: { email: view.email, password },
+      returnHeaders: true,
+    })
+    for (const cookie of signIn.headers.getSetCookie())
+      c.header('set-cookie', cookie, { append: true })
+    const user = await ensureUser(ctx, created.authUserId)
+    const member = await acceptInvitation(ctx, { token, userId: user.id })
+    setActiveOrganization(c, member.organizationId)
+    return c.json({ organizationId: member.organizationId }, 201)
   })
   .openapi(accept, async (c) => {
     const ctx = await accessCtx(c)

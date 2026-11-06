@@ -114,3 +114,5 @@ export function createAuth({
 export type Auth = ReturnType<typeof createAuth>
 
 export { queuedAuthEmails } from './queued-emails.ts'
+export { createInvitedAccount } from './invited-account.ts'
+export type { InvitedAccountResult } from './invited-account.ts'

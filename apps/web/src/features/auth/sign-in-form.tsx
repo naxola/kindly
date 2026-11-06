@@ -1,6 +1,7 @@
 'use client'
 
 import { Button, Callout, Field, Input } from '@saas/ui'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import NextLink from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,6 +14,7 @@ import { AuthCard } from './auth-card.tsx'
 export function SignInForm() {
   const t = useTranslations()
   const router = useRouter()
+  const qc = useQueryClient()
   const params = useSearchParams()
   const next = safeNext(params.get('next'))
   const [error, setError] = useState<string | null>(null)
@@ -32,6 +34,8 @@ export function SignInForm() {
     })
     setPending(false)
     if (res.ok) {
+      // Nothing cached while signed out (e.g. "no session") survives the sign-in.
+      qc.clear()
       router.push(next)
       router.refresh()
       return
@@ -70,7 +74,16 @@ export function SignInForm() {
           </Callout>
         ) : null}
         <Field label={t('auth.fields.email')}>
-          {(p) => <Input {...p} name="email" type="email" autoComplete="email" required />}
+          {(p) => (
+            <Input
+              {...p}
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              defaultValue={params.get('email') ?? ''}
+            />
+          )}
         </Field>
         <Field label={t('auth.fields.password')}>
           {(p) => (

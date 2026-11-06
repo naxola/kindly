@@ -145,6 +145,11 @@ export interface InvitationView {
   role: OrganizationRole
   status: InvitationStatus
   expiresAt: Date
+  /**
+   * Whether the invited email already has an access account. Only shown to whoever holds
+   * the token (sent to that very inbox), to offer sign-in instead of sign-up.
+   */
+  emailRegistered: boolean
 }
 
 /** Public view of an invitation by its token (acceptance page). Null if it does not exist. */
@@ -167,6 +172,10 @@ export async function getInvitationByToken(
       : row.expiresAt <= nowOf(ctx)
         ? 'EXPIRED'
         : 'PENDING'
+  const registered = await ctx.db.authUser.findUnique({
+    where: { email: row.email },
+    select: { id: true },
+  })
   return {
     id: row.id,
     organizationId: row.organizationId,
@@ -175,6 +184,7 @@ export async function getInvitationByToken(
     role: row.role,
     status,
     expiresAt: row.expiresAt,
+    emailRegistered: !!registered,
   }
 }
 
