@@ -1,6 +1,6 @@
 # 0010 — Contrato de eventos de negocio
 
-**Estado:** Propuesto (implementado en la fase 3; se valida con ella)
+**Estado:** Aceptado (2026-11-06)
 
 ## Contexto
 
