@@ -3,10 +3,12 @@
 **Estado:** Aceptado (2026-11-06)
 
 ## Contexto
+
 Una fuga de datos entre organizaciones es el fallo más grave posible. Basta un
 `where organization_id` olvidado.
 
 ## Decisión (igual que procurement)
+
 - Esquema compartido; `organization_id NOT NULL` en toda tabla del tenant.
 - Filtro explícito en cada consulta **y además** RLS forzado con la política
   `organization_id = current_setting('app.org_id')::uuid`.
@@ -18,9 +20,11 @@ Una fuga de datos entre organizaciones es el fallo más grave posible. Basta un
   controla en `core/identity`.
 
 ## Alternativas
+
 - Solo filtro en la aplicación: sin red de seguridad.
 - Esquema o BD por tenant: coste operativo excesivo.
 
 ## Consecuencias
+
 - Cada petición abre una transacción; compatible con poolers en modo transacción.
 - Las políticas RLS se escriben a mano en SQL en las migraciones.

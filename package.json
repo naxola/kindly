@@ -1,0 +1,40 @@
+{
+  "name": "saas-template",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "lint": "eslint . --max-warnings=0 && pnpm check:boundaries",
+    "check:boundaries": "tsx scripts/check-boundaries.ts",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "db:generate": "pnpm --filter @saas/database generate",
+    "db:migrate": "pnpm --filter @saas/database migrate:dev",
+    "db:deploy": "pnpm --filter @saas/database migrate:deploy",
+    "db:check": "pnpm --filter @saas/database migrate:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@saas/config": "workspace:*",
+    "@types/node": "24.19.1",
+    "@types/pg": "8.23.1",
+    "dotenv": "18.0.5",
+    "eslint": "10.12.0",
+    "pg": "8.23.1",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "turbo": "2.11.7",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3"
+  }
+}
