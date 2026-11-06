@@ -1,20 +1,27 @@
 # 0007 — Stack base: ORM, API, auth y UI
 
-**Estado:** Propuesto
+**Estado:** Aceptado (2026-11-06)
 
-## Propuesta (la de procurement, salvo donde se indica)
-| Área | Propuesta | Alternativa a decidir |
-|---|---|---|
-| Runtime | Node 24 LTS, pnpm, TypeScript estricto, versiones exactas | — |
-| App | Next.js App Router | — |
-| ORM | **Prisma** (procurement ya tiene `withTenant` y RLS resueltos con él) | **Drizzle** (kindly): migrar kindly a la plantilla sería más directo |
-| API | Hono + zod-openapi en `/api/v1`, cliente tipado + TanStack Query | Server Actions (kindly): menos código, pero el dominio queda más atado a Next |
-| Auth | Better Auth con tablas `auth_*` (ADR 0003) | — |
-| UI | shadcn/ui + Radix + Tailwind, sonner, TanStack Table, react-hook-form, temas claro/oscuro | — |
-| i18n | next-intl, es/en | — |
-| Correo | Interfaz `EmailSender`; Resend | — |
-| Tests | Vitest (unitarios e integración contra Postgres real) + Playwright | — |
+## Decisión
+| Área | Decisión |
+|---|---|
+| Runtime | Node 24 LTS, pnpm, TypeScript estricto, versiones exactas (se fijan en un ADR de versiones en la fase 1) |
+| App | Next.js App Router |
+| ORM | **Prisma** (procurement ya resuelve con él `withTenant` y RLS) |
+| API | **Hono + @hono/zod-openapi** en `/api/v1`, OpenAPI generado desde los esquemas zod |
+| Cliente | **TanStack Query** sobre un cliente tipado generado del OpenAPI. Sin Server Actions para lógica de negocio |
+| Auth | Better Auth con tablas `auth_*` (ADR 0003) |
+| UI | shadcn/ui + Radix + Tailwind, sonner, TanStack Table, react-hook-form, temas claro/oscuro |
+| i18n | next-intl, es/en |
+| Correo | Interfaz `EmailSender`; Resend (asíncrono, vía worker) |
+| Tests | Vitest (unitarios e integración contra Postgres real) + Playwright |
 
-## Pendiente
-El usuario debe elegir ORM y estilo de API: afectan a toda la plantilla y al
-coste de llevar kindly a ella.
+## Alternativas descartadas
+- **Drizzle** (kindly): migrar kindly a la plantilla sería más directo, pero
+  procurement ya tiene probado el aislamiento con Prisma.
+- **Server Actions** (kindly): menos código, pero ata el dominio a Next y no da
+  una API reutilizable por otros clientes.
+
+## Consecuencias
+- Llevar kindly a la plantilla implica cambiar de ORM y de forma de llamar al
+  servidor: se hará por partes, no como reescritura completa.
