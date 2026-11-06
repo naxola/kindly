@@ -1,12 +1,12 @@
 # 0002 — Multi-tenancy: esquema compartido + RLS
 
-**Estado:** Propuesto
+**Estado:** Aceptado (2026-11-06)
 
 ## Contexto
 Una fuga de datos entre organizaciones es el fallo más grave posible. Basta un
 `where organization_id` olvidado.
 
-## Decisión (propuesta, igual que procurement)
+## Decisión (igual que procurement)
 - Esquema compartido; `organization_id NOT NULL` en toda tabla del tenant.
 - Filtro explícito en cada consulta **y además** RLS forzado con la política
   `organization_id = current_setting('app.org_id')::uuid`.

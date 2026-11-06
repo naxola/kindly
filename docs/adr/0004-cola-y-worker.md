@@ -1,12 +1,12 @@
 # 0004 — Cola pg-boss con encolado transaccional y worker
 
-**Estado:** Propuesto
+**Estado:** Aceptado (2026-11-06)
 
 ## Contexto
 Correos, eventos de negocio, importaciones y tareas programadas no deben
 bloquear la petición del usuario ni perderse si el proceso se reinicia.
 
-## Decisión (propuesta, igual que procurement)
+## Decisión (igual que procurement)
 - pg-boss sobre el mismo PostgreSQL, detrás de la interfaz `JobQueue` de `core`.
 - El job se encola **en la misma transacción** que el cambio de negocio.
 - Cada job lleva `organizationId`, `correlationId` y una clave de idempotencia

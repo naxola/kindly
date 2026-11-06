@@ -1,18 +1,20 @@
-# 0006 — Entornos: local, staging en homelab, producción en Hetzner
+# 0006 — Entornos: local y staging en homelab; producción por decidir
 
 **Estado:** Aceptado (2026-11-06)
 
 ## Decisión
 | Entorno | Dónde | Datos | Correo | Notas |
 |---|---|---|---|---|
-| Local | Docker Compose en el equipo | BD de pruebas creada por los tests | Consola o sandbox | |
+| Local | Docker Compose en el equipo | BD de pruebas creada por los tests | Consola o sandbox | Desarrollo y pruebas |
 | Staging | Homelab con Coolify | Sintéticos | Resend en pruebas | Expuesto con Cloudflare Tunnel, sin abrir puertos |
-| Producción | Hetzner con Coolify | Reales | Resend con dominio verificado | Copias cifradas fuera de Hetzner + PITR |
+| Producción | **Por decidir** | — | — | Se decidirá en un ADR propio |
 
-- **Misma imagen** en staging y producción: CI la construye una vez; producción
-  despliega la imagen ya probada en staging, nunca la reconstruye.
+- CI construye la imagen una vez; staging despliega esa imagen. Cuando exista
+  producción, desplegará la misma imagen ya probada en staging, sin reconstruirla.
 - Migraciones compatibles hacia atrás (añadir antes de borrar), probadas en staging.
-- Simulacro de restauración periódico. Una copia no restaurada no cuenta.
-- La monitorización y las alertas de producción no dependen del homelab.
 - Secretos fuera del repo y distintos por entorno.
-- `Forgejo` del homelab como espejo del repositorio; GitHub sigue siendo el origen (CI).
+- Forgejo del homelab como espejo del repositorio; GitHub sigue siendo el origen (CI).
+
+## Pendiente (ADR de producción)
+Ubicación, copias cifradas fuera del sitio con restauración probada, y
+monitorización que no dependa del homelab.

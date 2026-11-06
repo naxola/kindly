@@ -31,11 +31,12 @@ Origen: extraída de la arquitectura de `naxola/procurement` (rama `staging`).
 ## Flujo de ramas (obligatorio)
 
 - `main`: versión estable de la plantilla. **Solo el usuario fusiona en `main`.**
+  Todavía no existe: se crea al validar la plantilla, con la etiqueta `v1.0.0`.
 - `staging`: integración. Todo el trabajo llega aquí.
 - Cada cambio en su propia rama desde `staging`: `feat/…`, `fix/…`, `chore/…`, `docs/…`.
 - Al terminar: push de la rama, merge `--no-ff` en `staging` y push de `staging`.
 - Sin force-push ni reescritura de historial publicado.
-- Las versiones de la plantilla se etiquetan (`v0.1.0`…). Cada producto anota
+- Las versiones de la plantilla se etiquetan (`v1.0.0`…). Cada producto anota
   en su README de qué versión partió.
 
 ## Estructura
@@ -50,7 +51,7 @@ packages/core     Dominio común + casos de uso por módulo, autorización
 packages/adapters Auth, correo, cola, storage, logger, cobros
 packages/ui       Sistema de diseño compartido por web y site (tokens de marca)
 packages/content  Fuente de contenidos del blog (MDX; CMS más adelante)
-infra/            Compose de local, staging (homelab) y producción (Hetzner)
+infra/            Compose de local y staging (homelab); producción por decidir
 ```
 
 - En `packages/core` cada módulo es una carpeta con un `index.ts` público.
