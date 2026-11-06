@@ -61,11 +61,22 @@ export const eventsEnv = z
     message: 'Required when EVENTS_WEBHOOK_URL is set',
   })
 
+/** Public site (apps/site). Read at build time: the pages are prerendered. */
+export const siteEnv = z.object({
+  /** Public URL of the site (canonical URLs, sitemap, RSS, Open Graph). */
+  SITE_URL: z.url(),
+  /** Public URL of the app (sign-in and sign-up links). */
+  APP_URL: z.url(),
+  /** Plausible domain. Empty: no analytics script at all. */
+  PLAUSIBLE_DOMAIN: z.string().min(3).optional(),
+})
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
 export type AuthEnv = z.infer<typeof authEnv>
 export type EmailEnv = z.infer<typeof emailEnv>
 export type EventsEnv = z.infer<typeof eventsEnv>
+export type SiteEnv = z.infer<typeof siteEnv>
 
 export class EnvError extends Error {
   constructor(public readonly issues: string[]) {

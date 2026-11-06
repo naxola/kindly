@@ -1,0 +1,31 @@
+---
+title: How to write on the blog
+description: This example article explains where posts live and which fields each one has. Delete it when you publish the first real one.
+date: 2026-11-06
+author: Team
+tags: [guide]
+---
+
+This is an **example article** of the template. Delete it when you publish the first real one.
+
+## Where posts live
+
+Each post is an `.mdx` file in `apps/site/content/blog/<locale>/`. The file name is the post's address: `how-to-write-on-the-blog.mdx` is published at `/en/blog/how-to-write-on-the-blog`.
+
+## The header
+
+| Field         | Required | Used for                                    |
+| ------------- | -------- | ------------------------------------------- |
+| `title`       | Yes      | Title and social card                       |
+| `description` | Yes      | Summary in the list, search engines and RSS |
+| `date`        | Yes      | Publication date (`YYYY-MM-DD`)             |
+| `updated`     | No       | Date of the last update                     |
+| `author`      | No       | Author                                      |
+| `tags`        | No       | Tags                                        |
+| `draft`       | No       | `true` hides it except in development       |
+
+If a required field is missing, the site build stops and says which file to fix.
+
+## Publishing
+
+Publishing means committing and deploying the site. When posts must go out without a deploy, or someone non-technical writes them, it will move to a CMS without touching the pages.
