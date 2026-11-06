@@ -93,4 +93,24 @@ infra/            Compose de local y staging (homelab); producción por decidir
 
 ## Comandos
 
-_Pendiente de la fase 1. Se documentan aquí cuando existan._
+Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en el puerto **5441**.
+
+| Comando                                                  | Qué hace                                                                               |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `pnpm install`                                           | Dependencias (aisladas: `node-linker=isolated`)                                        |
+| `cp .env.example .env`                                   | Configuración local (solo vale para el `docker-compose.yml` local)                     |
+| `pnpm infra:up` / `pnpm infra:down`                      | Postgres en Docker, con los roles `app_migrator`, `app_user` y `app_platform`          |
+| `pnpm db:generate`                                       | Genera el cliente Prisma                                                               |
+| `pnpm db:migrate`                                        | Crea o aplica migraciones en desarrollo. **Las políticas RLS se añaden a mano al SQL** |
+| `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                      |
+| `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                 |
+| `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                  |
+| `pnpm format` / `pnpm format:check`                      | Prettier                                                                               |
+| `pnpm build`                                             | Build de todos los paquetes                                                            |
+
+Convenciones al añadir código:
+
+- Toda tabla nueva del tenant lleva `organization_id` y su política RLS en la
+  migración; el test de esquema (`packages/database/test/rls.int.test.ts`) falla si no.
+- Una tabla global (sin RLS de tenant) se declara en `GLOBAL_TABLES` de ese test, con su ADR.
+- Un paquete nuevo se declara en `ALLOWED` de `scripts/check-boundaries.ts`.

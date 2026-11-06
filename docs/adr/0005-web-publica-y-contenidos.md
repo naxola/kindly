@@ -3,10 +3,12 @@
 **Estado:** Aceptado (2026-11-06)
 
 ## Contexto
+
 Cada producto necesita portada, precios, blog y páginas legales, con buen SEO,
 y publicar contenido no debe afectar al SaaS.
 
 ## Decisión
+
 - `apps/site` es una aplicación separada de `apps/web`, en su propio dominio
   (`producto.com` frente a `app.producto.com`), generada de forma estática siempre
   que sea posible. Comparte `packages/ui`.
@@ -20,5 +22,6 @@ y publicar contenido no debe afectar al SaaS.
   un evento de negocio, analítica y es/en.
 
 ## Consecuencias
+
 - Publicar un post = commit + despliegue de `site`.
 - El cambio a CMS queda acotado a `packages/content`.

@@ -3,11 +3,13 @@
 **Estado:** Aceptado (2026-11-06)
 
 ## Contexto
+
 Un único desarrollador mantiene varios SaaS que comparten casi toda la
 fontanería. Cada uno necesita una aplicación con sesión, una web pública con
 blog y trabajo en segundo plano que no bloquee al usuario ni se pierda.
 
 ## Decisión
+
 - Monorepo con pnpm workspaces + Turborepo (patrón probado en procurement).
 - Tres aplicaciones, cada una un proceso que se arranca:
   - `apps/web`: el SaaS, con sesión (`app.producto.com`);
@@ -22,11 +24,13 @@ blog y trabajo en segundo plano que no bloquee al usuario ni se pierda.
   dirección de dependencias.
 
 ## Alternativas
+
 - **Una sola app Next con todo** (como kindly hoy): el worker no puede reutilizar
   el dominio sin depender de Next, y publicar un post redespliega el SaaS.
 - **Un paquete por módulo:** demasiada ceremonia para una persona.
 
 ## Consecuencias
+
 - Ninguna app contiene reglas de negocio; el worker queda en unas pocas
   centenas de líneas.
 - Las fronteras dependen del script de lint: debe ejecutarse en CI.

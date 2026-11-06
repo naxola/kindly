@@ -3,10 +3,12 @@
 **Estado:** Aceptado (2026-11-06)
 
 ## Contexto
+
 Correos, eventos de negocio, importaciones y tareas programadas no deben
 bloquear la petición del usuario ni perderse si el proceso se reinicia.
 
 ## Decisión (igual que procurement)
+
 - pg-boss sobre el mismo PostgreSQL, detrás de la interfaz `JobQueue` de `core`.
 - El job se encola **en la misma transacción** que el cambio de negocio.
 - Cada job lleva `organizationId`, `correlationId` y una clave de idempotencia
@@ -16,10 +18,12 @@ bloquear la petición del usuario ni perderse si el proceso se reinicia.
 - Jobs definidos con `defineJob` en `core`, registrados en `apps/worker/src/handlers.ts`.
 
 ## Alternativas
+
 - BullMQ + Redis: otro servicio y sin encolado transaccional.
 - Inngest / colas serverless: sin encolado transaccional (requiere outbox).
 - `after()` de Next (kindly hoy): sin reintentos ni durabilidad.
 
 ## Consecuencias
+
 - El sondeo de pg-boss mantiene la BD activa: incompatible con planes que
   suspenden la BD por inactividad (Neon gratuito).

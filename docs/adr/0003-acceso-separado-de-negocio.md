@@ -3,6 +3,7 @@
 **Estado:** Aceptado (2026-11-06)
 
 ## Contexto
+
 Quien puede entrar al sistema (credenciales, sesiones, verificación) y quién es
 esa persona para el negocio (perfil, organización, rol, datos propios de cada
 SaaS) son preocupaciones distintas. Mezclarlas obliga a crear un perfil de
@@ -10,6 +11,7 @@ negocio en el alta aunque no haga falta para acceder, acopla el negocio a la
 librería de autenticación y complica borrar el acceso conservando el historial.
 
 ## Decisión
+
 - **Acceso**: tablas con prefijo `auth_` (`auth_users`, `auth_sessions`,
   `auth_accounts`, `auth_verifications`, `auth_two_factors`…), gestionadas por la
   librería de autenticación con nombres configurados. Solo contienen lo necesario
@@ -33,11 +35,13 @@ librería de autenticación y complica borrar el acceso conservando el historial
   `SUPUESTO` a verificar con la versión exacta elegida.
 
 ## Alternativas
+
 - **Una sola tabla `users` compartida con la librería de auth** (como kindly y
   procurement hoy): más simple al principio, pero acopla negocio y acceso.
 - **Perfil creado en el alta:** filas sin uso para quien nunca entra al producto.
 
 ## Consecuencias
+
 - Cambiar el sistema de acceso (SSO, un proveedor OIDC común a varios productos)
   solo afecta a la capa de acceso.
 - RGPD: se puede eliminar el acceso de una persona y anonimizar `users` sin
