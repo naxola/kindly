@@ -95,19 +95,21 @@ infra/            Compose de local y staging (homelab); producción por decidir
 
 Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en el puerto **5441**.
 
-| Comando                                                  | Qué hace                                                                               |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `pnpm install`                                           | Dependencias (aisladas: `node-linker=isolated`)                                        |
-| `cp .env.example .env`                                   | Configuración local (solo vale para el `docker-compose.yml` local)                     |
-| `pnpm infra:up` / `pnpm infra:down`                      | Postgres en Docker, con los roles `app_migrator`, `app_user` y `app_platform`          |
-| `pnpm db:generate`                                       | Genera el cliente Prisma                                                               |
-| `pnpm db:migrate`                                        | Crea o aplica migraciones en desarrollo. **Las políticas RLS se añaden a mano al SQL** |
-| `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                      |
-| `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                 |
-| `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                  |
-| `pnpm format` / `pnpm format:check`                      | Prettier                                                                               |
-| `pnpm dev`                                               | Arranca en modo desarrollo lo que haya (hoy: el worker con `tsx watch`)                |
-| `pnpm build`                                             | Build de todos los paquetes                                                            |
+| Comando                                                  | Qué hace                                                                                                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                                           | Dependencias (aisladas: `node-linker=isolated`)                                                                                                |
+| `cp .env.example .env`                                   | Configuración local (solo vale para el `docker-compose.yml` local)                                                                             |
+| `pnpm infra:up` / `pnpm infra:down`                      | Postgres en Docker, con los roles `app_migrator`, `app_user` y `app_platform`                                                                  |
+| `pnpm db:generate`                                       | Genera el cliente Prisma                                                                                                                       |
+| `pnpm db:migrate`                                        | Crea o aplica migraciones en desarrollo. **Las políticas RLS se añaden a mano al SQL**                                                         |
+| `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                                                                              |
+| `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                                                                         |
+| `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                                                                          |
+| `pnpm format` / `pnpm format:check`                      | Prettier                                                                                                                                       |
+| `pnpm dev`                                               | Arranca en modo desarrollo lo que haya (hoy: el worker con `tsx watch`)                                                                        |
+| `pnpm api:generate`                                      | Regenera `docs/api/openapi.json` y los tipos del cliente. Ejecutar tras cambiar una ruta                                                       |
+| `pnpm test:e2e`                                          | E2E con Playwright (build de producción contra la BD de test; requiere `infra:up`). Con Chromium preinstalado: `PW_CHROMIUM_PATH=/ruta/chrome` |
+| `pnpm build`                                             | Build de todos los paquetes                                                                                                                    |
 
 Convenciones al añadir código:
 
@@ -115,6 +117,12 @@ Convenciones al añadir código:
   migración; el test de esquema (`packages/database/test/rls.int.test.ts`) falla si no.
 - Una tabla global (sin RLS de tenant) se declara en `GLOBAL_TABLES` de ese test, con su ADR.
 - Un paquete nuevo se declara en `ALLOWED` de `scripts/check-boundaries.ts`.
+- Rutas nuevas de la API: en `apps/web/src/server/api/routes/`, registradas en
+  `app.ts` (`v1`) con esquemas zod, y después `pnpm api:generate` (el CI falla si el
+  contrato no está al día). Las rutas son capas finas: contexto → caso de uso de `core`.
+- Textos de interfaz: `apps/web/messages/{es,en}.json` (un test exige las mismas claves).
+- Identidad visual del producto: solo `packages/ui/src/brand.css` (color de acento y
+  radio) y `app.name` en los mensajes.
 - Solo `packages/adapters/src/auth` y `packages/core/src/modules/identity` acceden a
   `auth_*` (`tx.authUser`…). El script de fronteras lo comprueba (los tests pueden
   crear datos de prueba en esas tablas).

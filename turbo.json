@@ -3,7 +3,7 @@
   "globalDependencies": [".env"],
   "tasks": {
     "generate": {
-      "inputs": ["prisma/**", "prisma.config.ts"],
+      "inputs": ["prisma/**", "prisma.config.ts", "src/server/api/**", "scripts/export-openapi.ts"],
       "outputs": ["src/generated/**"],
       "cache": false,
       "dependsOn": ["^generate"],

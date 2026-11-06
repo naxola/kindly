@@ -36,8 +36,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: cp .env.example .env
       - run: pnpm db:generate
+      - name: OpenAPI contract is up to date
+        run: |
+          pnpm api:generate
+          git diff --exit-code -- docs/api/openapi.json || (echo "::error::docs/api/openapi.json is outdated: run 'pnpm api:generate' and commit it" && exit 1)
       - run: pnpm format:check
+      # Typed lint of the whole monorepo exceeds Node's default heap on the runner.
       - run: pnpm lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
@@ -71,6 +78,12 @@ jobs:
       - name: Schema and migrations are in sync
         run: pnpm db:check
       - run: pnpm test:integration
+      - name: Generate the typed API client (needed by the web build)
+        run: pnpm api:generate
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: E2E (Playwright, production build against the test database)
+        run: pnpm test:e2e
       - name: Infra logs on failure
         if: failure()
         run: docker compose logs --tail 200

@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "My SaaS"
+  },
+  "shell": {
+    "preferences": "Preferences",
+    "theme": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System",
+    "language": "Language",
+    "signOut": "Sign out",
+    "account": "Account"
+  },
+  "auth": {
+    "backToSignIn": "Back to sign in",
+    "fields": {
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "newPassword": "New password",
+      "confirmPassword": "Repeat the password",
+      "passwordHint": "At least {min} characters. A long phrase is safer than a strange word."
+    },
+    "errors": {
+      "PASSWORD_MISMATCH": "Passwords do not match.",
+      "INVALID_TOKEN": "The link is invalid or has expired."
+    },
+    "signIn": {
+      "title": "Sign in",
+      "description": "Access your account.",
+      "submit": "Sign in",
+      "forgot": "Forgot your password?",
+      "noAccount": "No account yet?",
+      "signUp": "Sign up",
+      "unverifiedTitle": "Confirm your email",
+      "unverified": "We have sent you the confirmation link again."
+    },
+    "signUp": {
+      "title": "Create an account",
+      "description": "Then you can create your organization or join one.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in"
+    },
+    "verify": {
+      "title": "Confirm your email",
+      "description": "We will send you a link to confirm your address.",
+      "sent": "We have sent a link to {email}.",
+      "hint": "Open the link in this browser. It expires in 1 hour.",
+      "notReceived": "Did not receive it?",
+      "resend": "Resend the link",
+      "resent": "If the account exists and is not confirmed, we have sent a new link."
+    },
+    "forgot": {
+      "title": "Recover your password",
+      "description": "We will send you a single-use link to choose a new password.",
+      "submit": "Send link",
+      "sent": "If an account with that email exists, you will receive a link in a few minutes."
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "description": "Changing it signs out your other sessions.",
+      "submit": "Save password",
+      "requestNew": "Request a new link"
+    }
+  },
+  "errors": {
+    "UNKNOWN": "Something went wrong. Please try again.",
+    "INTERNAL": "Internal error. If it persists, contact support with the time.",
+    "VALIDATION_FAILED": "Please check the form data.",
+    "UNAUTHENTICATED": "Your session has expired. Please sign in again.",
+    "FORBIDDEN": "You are not allowed to do this.",
+    "MISSING_PERMISSION": "You are not allowed to do this.",
+    "NOT_FOUND": "It does not exist or you have no access.",
+    "CONFLICT": "The action conflicts with the current state.",
+    "RATE_LIMITED": "Too many attempts. Wait a minute.",
+    "CSRF": "Request rejected for security. Reload the page.",
+    "NO_ACTIVE_ORGANIZATION": "Choose an organization.",
+    "LAST_ADMIN": "The organization must keep at least one active Administrator.",
+    "ALREADY_MEMBER": "That person is already a member.",
+    "EMAIL_MISMATCH": "The invitation is for another email address.",
+    "INVITATION_ACCEPTED": "The invitation was already accepted.",
+    "INVITATION_REVOKED": "The invitation was revoked.",
+    "INVITATION_EXPIRED": "The invitation has expired. Ask for a new one.",
+    "EMAIL_NOT_VERIFIED": "Confirm your email first.",
+    "INVALID_EMAIL_OR_PASSWORD": "Incorrect email or password.",
+    "INVALID_EMAIL": "The email is not valid.",
+    "INVALID_PASSWORD": "The password is incorrect.",
+    "PASSWORD_TOO_SHORT": "The password is too short.",
+    "PASSWORD_TOO_LONG": "The password is too long.",
+    "USER_ALREADY_EXISTS": "An account with that email already exists.",
+    "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL": "An account with that email already exists.",
+    "INVALID_TOKEN": "The link is invalid or has expired.",
+    "TOKEN_EXPIRED": "The link has expired.",
+    "ACCOUNT_TEMPORARILY_LOCKED": "Account temporarily locked after failed attempts.",
+    "SESSION_EXPIRED": "Your session has expired. Sign in again.",
+    "SESSION_NOT_FRESH": "For security, sign in again to do this.",
+    "TAKEN": "That identifier is already in use.",
+    "PENDING_INVITATION": "There is already a pending invitation for that email."
+  },
+  "home": {
+    "title": "Home",
+    "signedInAs": "You are signed in as {email}.",
+    "next": "The next step, creating your organization or joining one, arrives with phase 4b of the template."
+  }
+}
