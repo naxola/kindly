@@ -4,10 +4,18 @@ import { createDb, InvalidTenantError, newId, withTenant, type Db } from '../src
 
 /**
  * Global tables without tenant RLS. Adding one requires justifying it in an ADR:
- * every new table is protected by default. Phase 2 adds the access tables (auth_*)
- * and business `users` here (ADR 0003).
+ * every new table is protected by default.
  */
-const GLOBAL_TABLES = new Set<string>(['_prisma_migrations'])
+const GLOBAL_TABLES = new Set<string>([
+  '_prisma_migrations',
+  // Access (ADR 0003): managed by Better Auth, they belong to no tenant.
+  'auth_users',
+  'auth_sessions',
+  'auth_accounts',
+  'auth_verifications',
+  // Business person, shared by all the organizations they belong to (ADR 0003).
+  'users',
+])
 
 let db: Db
 // Single-connection pool: proves the context does not leak between transactions.

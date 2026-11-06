@@ -30,9 +30,16 @@ librería de autenticación y complica borrar el acceso conservando el historial
 - Solo `packages/adapters/auth` y `core/identity` acceden a `auth_*`. El resto de
   `core` recibe un `Actor` de negocio (`userId`, `organizationId`, `memberId`, rol).
   El script de fronteras lo verifica.
-- El nombre visible y demás datos de perfil viven en `users`. Si la librería de
-  autenticación exige un campo `name`, se trata como dato técnico mínimo.
-  `SUPUESTO` a verificar con la versión exacta elegida.
+- El nombre visible y demás datos de perfil viven en `users`. Better Auth 1.7.7
+  exige `name` en `auth_users`: se trata como dato técnico mínimo y solo se usa
+  para proponer el `display_name` inicial (verificado en la fase 2).
+- **La organización activa no se guarda en la sesión de acceso** (procurement sí
+  lo hace con `activeOrganizationId`). La elige la capa de negocio (cabecera o
+  cookie de la app) y `resolveActor` la valida contra `organization_members`.
+- `users.auth_user_id` es nullable con `ON DELETE SET NULL`: borrar el acceso
+  deja el usuario de negocio anonimizable y su historial intacto.
+- MFA (TOTP) queda para más adelante: el plugin de Better Auth añadirá
+  `auth_two_factors` sin tocar el negocio.
 
 ## Alternativas
 

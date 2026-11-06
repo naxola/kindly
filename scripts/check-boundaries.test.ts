@@ -57,4 +57,15 @@ describe('checkBoundaries', () => {
       "packages/core/src/modules/b/use.ts: el módulo 'b' importa el interior de 'a' (usa su index.ts)",
     ])
   })
+
+  it('only lets identity and the auth adapter touch the access tables', () => {
+    root = mkdtempSync(join(tmpdir(), 'bounds-'))
+    pkg('packages/core', '@saas/core', ['@saas/database'])
+    file('packages/core/src/modules/identity/users.ts', 'tx.authUser.findUnique({})')
+    file('packages/core/src/modules/billing/x.ts', 'tx.authUser.findMany()')
+    file('packages/core/test/fixtures.ts', 'db.authUser.create({})')
+    expect(checkBoundaries(root)).toEqual([
+      'packages/core/src/modules/billing/x.ts: accede a las tablas de acceso (auth_*); solo puede core/identity (ADR 0003)',
+    ])
+  })
 })

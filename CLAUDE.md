@@ -114,3 +114,8 @@ Convenciones al añadir código:
   migración; el test de esquema (`packages/database/test/rls.int.test.ts`) falla si no.
 - Una tabla global (sin RLS de tenant) se declara en `GLOBAL_TABLES` de ese test, con su ADR.
 - Un paquete nuevo se declara en `ALLOWED` de `scripts/check-boundaries.ts`.
+- Solo `packages/adapters/src/auth` y `packages/core/src/modules/identity` acceden a
+  `auth_*` (`tx.authUser`…). El script de fronteras lo comprueba (los tests pueden
+  crear datos de prueba en esas tablas).
+- Permisos nuevos: en `core/src/modules/identity/permissions.ts` (`PERMISSIONS` y
+  `ROLE_PERMISSIONS`). Cada caso de uso empieza con `authorize(ctx.actor, …)`.

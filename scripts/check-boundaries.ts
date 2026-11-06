@@ -3,6 +3,7 @@
  *  1. Dependency graph between workspace packages (package.json).
  *  2. Inside packages/core/src/modules, a module imports another only through its index.ts.
  *  3. Nobody imports the inside of a package (`@saas/x/src/...`).
+ *  4. Access tables (auth_*) are only touched by the auth adapter and core/identity (ADR 0003).
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
@@ -19,6 +20,15 @@ export const ALLOWED: Record<string, string[]> = {
   '@saas/site': ['@saas/config', '@saas/ui', '@saas/content'],
   '@saas/worker': ['@saas/config', '@saas/database', '@saas/core', '@saas/adapters'],
 }
+
+/** Directories allowed to touch the access tables (ADR 0003). Tests may build fixtures. */
+export const AUTH_ALLOWED_DIRS = [
+  'packages/database',
+  'packages/adapters/src/auth',
+  'packages/core/src/modules/identity',
+]
+const authAccessRe =
+  /\.(authUser|authSession|authAccount|authVerification)\b|["'`]auth_[a-z_]+["'`]/
 
 function walk(dir: string, out: string[] = []): string[] {
   let entries: string[]
@@ -105,6 +115,20 @@ export function checkBoundaries(root: string): string[] {
             `${relative(root, file)}: el módulo '${mod}' importa el interior de '${targetModule}' (usa su index.ts)`,
           )
         }
+      }
+    }
+  }
+
+  // 4. Access tables
+  for (const group of ['apps', 'packages']) {
+    for (const file of walk(join(root, group))) {
+      const rel = relative(root, file).split(sep).join('/')
+      if (AUTH_ALLOWED_DIRS.some((dir) => rel.startsWith(`${dir}/`))) continue
+      if (/(^|\/)test\//.test(rel) || /\.test\.tsx?$/.test(rel)) continue
+      if (authAccessRe.test(readFileSync(file, 'utf8'))) {
+        errors.push(
+          `${rel}: accede a las tablas de acceso (auth_*); solo puede core/identity (ADR 0003)`,
+        )
       }
     }
   }
