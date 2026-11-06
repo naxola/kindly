@@ -1,0 +1,82 @@
+{
+  "site": {
+    "name": "Mi SaaS",
+    "tagline": "Describe aquí, en una frase, qué resuelve tu producto."
+  },
+  "nav": {
+    "pricing": "Precios",
+    "blog": "Blog",
+    "signIn": "Entrar",
+    "signUp": "Empezar gratis",
+    "language": "Idioma",
+    "main": "Navegación principal"
+  },
+  "home": {
+    "title": "Describe aquí el resultado que consigue tu cliente",
+    "subtitle": "Una o dos frases sobre para quién es el producto y por qué es mejor que la alternativa. Cámbialo en apps/site/messages.",
+    "primaryCta": "Empezar gratis",
+    "secondaryCta": "Ver precios",
+    "featuresTitle": "Qué puedes hacer",
+    "features": {
+      "one": {
+        "title": "Primera ventaja",
+        "body": "Explica un beneficio concreto, no una función."
+      },
+      "two": {
+        "title": "Segunda ventaja",
+        "body": "Mejor con un dato o un ejemplo real de un cliente."
+      },
+      "three": {
+        "title": "Tercera ventaja",
+        "body": "Y lo que te diferencia de la competencia."
+      }
+    },
+    "faqTitle": "Preguntas frecuentes",
+    "faq": {
+      "one": {
+        "q": "¿Para quién es?",
+        "a": "Responde aquí a la duda más habitual de tus visitantes."
+      },
+      "two": {
+        "q": "¿Cuánto cuesta?",
+        "a": "Enlaza con la página de precios o resume los planes."
+      },
+      "three": {
+        "q": "¿Dónde están mis datos?",
+        "a": "Explica dónde se alojan y quién puede verlos."
+      }
+    },
+    "ctaTitle": "¿Empezamos?",
+    "ctaBody": "Crea tu cuenta en un minuto."
+  },
+  "pricing": {
+    "title": "Precios",
+    "description": "Planes y condiciones.",
+    "comingSoon": "Estamos preparando los precios.",
+    "contact": "Escríbenos a {email} y te contamos.",
+    "choose": "Empezar",
+    "featured": "Recomendado",
+    "plans": {}
+  },
+  "blog": {
+    "title": "Blog",
+    "description": "Novedades y guías.",
+    "empty": "Todavía no hay artículos.",
+    "readingTime": "{minutes} min de lectura",
+    "rss": "RSS",
+    "back": "Volver al blog",
+    "by": "por {author}",
+    "updated": "Actualizado el {date}"
+  },
+  "legal": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "cookies": "Cookies",
+    "reviewWarning": "Plantilla pendiente de revisión legal: este texto no debe publicarse tal cual. Revísalo con tu asesoría y marca legal.reviewed en site.config.ts.",
+    "updated": "Última actualización: {date}"
+  },
+  "footer": {
+    "rights": "© {year} {company}",
+    "legal": "Legal"
+  }
+}

@@ -21,6 +21,24 @@ y publicar contenido no debe afectar al SaaS.
   RSS, imágenes Open Graph, datos estructurados, captación de newsletter que emite
   un evento de negocio, analítica y es/en.
 
+## Implementación (fase 4c, 2026-11-06)
+
+- Rutas por idioma (`/es/...`, `/en/...`) **prerenderizadas en estático**, sin proxy
+  (`middleware`): la raíz redirige a `/es`. hreflang y canónicas en cada página.
+- `packages/content`: interfaz `ContentSource` e implementación sobre archivos MDX
+  (`apps/site/content/`). La cabecera se valida con zod y un error para la build
+  indicando el archivo. Borradores solo en desarrollo.
+- **MDX ejecuta código**: solo se renderiza contenido del repositorio, revisado como
+  código. Lo que venga de un CMS o de usuarios no pasa por `renderMdx`.
+- Páginas legales (privacidad, términos, cookies) como **plantillas** con los datos de
+  la empresa como variables (`site.config.ts`). Mientras `legal.reviewed` sea falso
+  muestran un aviso, no se indexan y no están en el sitemap. Una variable sin valor
+  para la build.
+- Precios desde `site.config.ts`: sin planes, la página lo dice (no hay precios inventados).
+- Analítica: Plausible (sin cookies) solo si se configura `PLAUSIBLE_DOMAIN`.
+- **Pendiente:** la newsletter queda fuera de la 4c hasta decidir dónde se guarda el
+  consentimiento (doble opt-in propio o herramienta externa).
+
 ## Consecuencias
 
 - Publicar un post = commit + despliegue de `site`.

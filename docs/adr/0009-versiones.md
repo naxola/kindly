@@ -66,6 +66,15 @@ las actualizaciones se hacen a mano y revisadas, nunca automáticas.
 prevalece sobre la regla de los 14 días; se toma la versión corregida más antigua
 que cumpla ese plazo, o la primera corregida si ninguna lo cumple.
 
+## Fase 4c
+
+| Paquete     | Versión |
+| ----------- | ------- |
+| @mdx-js/mdx | 3.1.1   |
+| remark-gfm  | 4.0.1   |
+| yaml        | 2.9.1   |
+| @types/mdx  | 2.0.14  |
+
 Las fases siguientes añaden sus dependencias con el mismo criterio.
 
 ## Desviación respecto a procurement

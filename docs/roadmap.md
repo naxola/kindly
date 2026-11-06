@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 4b, organizaciones en `web` (terminada, pendiente de validación del usuario).** Fases 0 a 4a validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Fase actual: 4c, web pública (terminada, pendiente de validación del usuario).** Fases 0 a 4b validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -11,8 +11,8 @@
 | 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06) |
 | 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06) |
 | 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
-| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | 🟣 Pendiente de validar  |
-| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ⚪                       |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06) |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | 🟣 Pendiente de validar  |
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | ⚪                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
@@ -85,3 +85,13 @@
 - `POST /api/v1/invitations/register` (pública, límite de 5 por minuto e IP) y `emailRegistered` en la vista pública.
 - Corregido: al volver de iniciar sesión, la invitación usaba de la caché la respuesta «sin sesión»; el login vacía la caché y la pantalla consulta siempre la sesión.
 - Tests: 3 de integración nuevos (cuenta nueva sin correo de verificación, enlace ya usado, email con cuenta previa, contraseña corta) y E2E del alta desde el enlace, del enlace reutilizado y del invitado con cuenta previa.
+
+## Fase 4c — entregado
+
+- **`packages/content`**: `ContentSource` (posts y páginas por idioma) sobre archivos MDX, cabecera validada con zod (error con el archivo y el motivo), borradores solo en desarrollo, tiempo de lectura y `renderMdx` (GFM, componentes propios, variables `{{nombre}}` que paran la build si faltan).
+- **`apps/site`**: Next.js 16.4.3 con las 24 páginas prerenderizadas en estático (`/es`, `/en`): portada (hero, ventajas, preguntas frecuentes, llamada a la acción), precios desde `site.config.ts`, blog (lista, post, RSS por idioma), legales (privacidad, términos, cookies) como plantillas con aviso mientras no se revisen, imágenes Open Graph generadas en la build, datos estructurados (SoftwareApplication, BlogPosting), sitemap con hreflang, robots y Plausible opcional. Comparte el sistema de diseño y la marca con `web`.
+- Un post de ejemplo por idioma que explica cómo escribir posts (se borra al publicar el primero real).
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 36 unitarias (6 de contenido), 52 de integración, build de todos los paquetes, auditoría sin vulnerabilidades y 11 E2E (5 nuevos de la web pública: redirección y enlaces a la app, cambio de idioma, post con datos estructurados e imagen social, RSS, sitemap, legales con datos de la empresa y aviso, precios sin planes).
+
+**Pendiente de decisión:** la newsletter (doble opt-in propio en la BD o herramienta externa como Brevo o Loops).

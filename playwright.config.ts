@@ -9,6 +9,9 @@ loadEnv({ path: new URL('.env', import.meta.url).pathname, quiet: true })
 
 const PORT = 3100
 const BASE_URL = `http://localhost:${PORT}`
+/** Public site (apps/site), on its own port. */
+export const SITE_PORT = 3200
+export const SITE_URL = `http://localhost:${SITE_PORT}`
 
 export default defineConfig({
   testDir: 'e2e',
@@ -42,6 +45,13 @@ export default defineConfig({
         AUTH_RATE_LIMIT_ENABLED: 'false',
         LOG_LEVEL: 'warn',
       },
+    },
+    {
+      command: `pnpm --filter @saas/site build && pnpm --filter @saas/site exec next start --port ${SITE_PORT}`,
+      url: `${SITE_URL}/robots.txt`,
+      timeout: 240_000,
+      reuseExistingServer: false,
+      env: { NODE_ENV: 'production', SITE_URL, APP_URL: BASE_URL },
     },
   ],
 })

@@ -106,7 +106,7 @@ Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en e
 | `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                                                                         |
 | `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                                                                          |
 | `pnpm format` / `pnpm format:check`                      | Prettier                                                                                                                                       |
-| `pnpm dev`                                               | Arranca en modo desarrollo lo que haya (hoy: el worker con `tsx watch`)                                                                        |
+| `pnpm dev`                                               | Web (http://localhost:3000), web pública (http://localhost:3001) y worker en modo desarrollo                                                   |
 | `pnpm api:generate`                                      | Regenera `docs/api/openapi.json` y los tipos del cliente. Ejecutar tras cambiar una ruta                                                       |
 | `pnpm test:e2e`                                          | E2E con Playwright (build de producción contra la BD de test; requiere `infra:up`). Con Chromium preinstalado: `PW_CHROMIUM_PATH=/ruta/chrome` |
 | `pnpm build`                                             | Build de todos los paquetes                                                                                                                    |
@@ -127,6 +127,10 @@ Convenciones al añadir código:
   `accessCtx(c)` solo para lo que ocurre antes de entrar al producto.
 - Identidad visual del producto: solo `packages/ui/src/brand.css` (color de acento y
   radio) y `app.name` en los mensajes.
+- Web pública: textos en `apps/site/messages/{es,en}.json`; enlaces, datos legales y
+  planes en `apps/site/src/site.config.ts`; posts en `apps/site/content/blog/<idioma>/*.mdx`
+  y textos legales en `apps/site/content/legal/<idioma>/`. Las páginas solo leen el
+  contenido a través de `ContentSource` (`@saas/content`).
 - Solo `packages/adapters/src/auth` y `packages/core/src/modules/identity` acceden a
   `auth_*` (`tx.authUser`…). El script de fronteras lo comprueba (los tests pueden
   crear datos de prueba en esas tablas).

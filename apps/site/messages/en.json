@@ -1,0 +1,82 @@
+{
+  "site": {
+    "name": "My SaaS",
+    "tagline": "Describe here, in one sentence, what your product solves."
+  },
+  "nav": {
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "signIn": "Sign in",
+    "signUp": "Start for free",
+    "language": "Language",
+    "main": "Main navigation"
+  },
+  "home": {
+    "title": "Describe here the outcome your customer gets",
+    "subtitle": "One or two sentences on who the product is for and why it beats the alternative. Change it in apps/site/messages.",
+    "primaryCta": "Start for free",
+    "secondaryCta": "See pricing",
+    "featuresTitle": "What you can do",
+    "features": {
+      "one": {
+        "title": "First benefit",
+        "body": "Explain a concrete benefit, not a feature."
+      },
+      "two": {
+        "title": "Second benefit",
+        "body": "Better with a figure or a real customer example."
+      },
+      "three": {
+        "title": "Third benefit",
+        "body": "And what sets you apart from the competition."
+      }
+    },
+    "faqTitle": "Frequently asked questions",
+    "faq": {
+      "one": {
+        "q": "Who is it for?",
+        "a": "Answer here your visitors' most common question."
+      },
+      "two": {
+        "q": "How much does it cost?",
+        "a": "Link to the pricing page or summarize the plans."
+      },
+      "three": {
+        "q": "Where is my data?",
+        "a": "Explain where it is hosted and who can see it."
+      }
+    },
+    "ctaTitle": "Shall we start?",
+    "ctaBody": "Create your account in a minute."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "description": "Plans and terms.",
+    "comingSoon": "We are preparing our prices.",
+    "contact": "Write to {email} and we will tell you.",
+    "choose": "Start",
+    "featured": "Recommended",
+    "plans": {}
+  },
+  "blog": {
+    "title": "Blog",
+    "description": "News and guides.",
+    "empty": "No articles yet.",
+    "readingTime": "{minutes} min read",
+    "rss": "RSS",
+    "back": "Back to the blog",
+    "by": "by {author}",
+    "updated": "Updated on {date}"
+  },
+  "legal": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "cookies": "Cookies",
+    "reviewWarning": "Template pending legal review: this text must not be published as is. Review it with your adviser and set legal.reviewed in site.config.ts.",
+    "updated": "Last updated: {date}"
+  },
+  "footer": {
+    "rights": "© {year} {company}",
+    "legal": "Legal"
+  }
+}
