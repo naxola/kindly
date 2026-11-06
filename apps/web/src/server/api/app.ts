@@ -4,7 +4,10 @@ import { auth } from '../auth.ts'
 import { errorBody, handleError, validationError } from './errors.ts'
 import { requestContext } from './middleware.ts'
 import { healthRoutes } from './routes/health.ts'
+import { invitationRoutes } from './routes/invitations.ts'
+import { memberRoutes } from './routes/members.ts'
 import { meRoutes } from './routes/me.ts'
+import { organizationRoutes } from './routes/organizations.ts'
 import { csrfGuard, session } from './session.ts'
 import type { ApiEnv } from './types.ts'
 
@@ -25,6 +28,9 @@ function newApp() {
 const v1 = newApp()
 v1.use('*', csrfGuard, session)
 v1.route('/', meRoutes)
+v1.route('/', organizationRoutes)
+v1.route('/', memberRoutes)
+v1.route('/', invitationRoutes)
 
 export const api = newApp().basePath('/api')
 api.use('*', requestContext)

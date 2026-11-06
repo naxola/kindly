@@ -9,8 +9,16 @@
     "themeDark": "Dark",
     "themeSystem": "System",
     "language": "Language",
-    "signOut": "Sign out",
-    "account": "Account"
+    "mainNav": "Main navigation",
+    "openMenu": "Open menu",
+    "search": "Search…",
+    "searchPlaceholder": "Go to a module…",
+    "searchEmpty": "No results",
+    "searchTitle": "Command palette",
+    "searchGroupModules": "Modules",
+    "searchGroupSettings": "Settings",
+    "close": "Close",
+    "skipToContent": "Skip to content"
   },
   "auth": {
     "backToSignIn": "Back to sign in",
@@ -101,7 +109,96 @@
   },
   "home": {
     "title": "Home",
-    "signedInAs": "You are signed in as {email}.",
-    "next": "The next step, creating your organization or joining one, arrives with phase 4b of the template."
+    "greeting": "Hello, {name}",
+    "organization": "You are in {organization}.",
+    "empty": "Your product dashboard goes here."
+  },
+  "nav": {
+    "home": "Home",
+    "settings": "Settings"
+  },
+  "menu": {
+    "settings": {
+      "title": "Settings",
+      "members": "Members"
+    }
+  },
+  "orgSwitcher": {
+    "label": "Organization",
+    "create": "Create another organization"
+  },
+  "userMenu": {
+    "label": "Account",
+    "signOut": "Sign out"
+  },
+  "onboarding": {
+    "title": "Your organization",
+    "description": "Choose the organization to work with or create a new one.",
+    "chooseTitle": "Your organizations",
+    "createTitle": "Create an organization",
+    "createDescription": "You will be its administrator.",
+    "create": "Create organization",
+    "name": "Name",
+    "slug": "Identifier",
+    "slugHint": "Lower case, numbers and dashes. Unique.",
+    "defaultLocale": "Default language"
+  },
+  "invite": {
+    "title": "Invitation",
+    "joinTitle": "Join {organization}",
+    "description": "Invitation for {email}. Expires on {date}.",
+    "notFound": "The invitation link is not valid.",
+    "needAccount": "Sign in or create an account with that email to accept it.",
+    "signUp": "Create account",
+    "signIn": "Sign in",
+    "otherEmail": "You are signed in as {email}. This invitation is for another address.",
+    "switchAccount": "Switch account",
+    "accept": "Accept the invitation",
+    "status": {
+      "PENDING": "Pending",
+      "ACCEPTED": "Accepted",
+      "REVOKED": "Revoked",
+      "EXPIRED": "Expired"
+    },
+    "statusMessage": {
+      "PENDING": "The invitation is pending.",
+      "ACCEPTED": "This invitation was already accepted.",
+      "REVOKED": "This invitation was revoked.",
+      "EXPIRED": "This invitation has expired. Ask whoever invited you for a new one."
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "actions": "Actions"
+  },
+  "roles": {
+    "ADMIN": "Administrator",
+    "MEMBER": "Member"
+  },
+  "settings": {
+    "members": {
+      "title": "Members",
+      "invite": "Invite",
+      "inviteDescription": "They will receive a link that expires in 7 days.",
+      "sendInvite": "Send invitation",
+      "name": "Name",
+      "status": "Status",
+      "since": "since {date}",
+      "expires": "Expires",
+      "statuses": {
+        "ACTIVE": "Active",
+        "DISABLED": "Disabled"
+      },
+      "disable": "Disable",
+      "enable": "Re-enable",
+      "disableDescription": "{name} will lose access to the organization immediately. Their history is kept.",
+      "invitations": "Invitations",
+      "revoke": "Revoke",
+      "description": "People with access to the organization and their role.",
+      "role": "Role",
+      "roleOf": "Role of {name}",
+      "roleHint": "An administrator manages members and invitations.",
+      "enableDescription": "{name} will regain access with their current role."
+    }
   }
 }

@@ -1,21 +1,25 @@
 import type { Metadata } from 'next'
+import { PageContainer, PageHeader } from '@saas/ui/shell'
 import { getTranslations } from 'next-intl/server'
-import { getViewer } from '@/server/viewer.ts'
+import { getWorkspace } from '@/server/viewer.ts'
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations('home'))('title') }
 }
 
+/** Home of the product. Each product replaces it with its own dashboard. */
 export default async function Page() {
   const t = await getTranslations('home')
-  const viewer = await getViewer()
+  const workspace = await getWorkspace()
   return (
-    <div className="mx-auto max-w-2xl space-y-2">
-      <h1 className="text-2xl text-foreground">{t('title')}</h1>
-      <p className="text-sm text-foreground-light">
-        {t('signedInAs', { email: viewer?.email ?? '' })}
-      </p>
-      <p className="text-sm text-foreground-lighter">{t('next')}</p>
-    </div>
+    <>
+      <PageHeader
+        title={t('greeting', { name: workspace?.user?.displayName ?? '' })}
+        description={t('organization', { organization: workspace?.active?.name ?? '' })}
+      />
+      <PageContainer>
+        <p className="text-sm text-foreground-lighter">{t('empty')}</p>
+      </PageContainer>
+    </>
   )
 }

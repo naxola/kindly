@@ -35,7 +35,8 @@ export const uniqueEmail = (label: string) => `${label}-${crypto.randomUUID()}@e
 
 /** Sign-up + verification through the emailed link. Ends signed in. */
 export async function signUp(page: Page, { name, email }: { name: string; email: string }) {
-  await page.goto('/sign-up')
+  // If already on sign-up (e.g. coming from an invitation), keep its `?next=`.
+  if (!new URL(page.url(), 'http://x').pathname.startsWith('/sign-up')) await page.goto('/sign-up')
   await page.getByLabel('Nombre').fill(name)
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)
@@ -49,4 +50,23 @@ export async function signUp(page: Page, { name, email }: { name: string; email:
 export async function shot(page: Page, name: string) {
   const dir = process.env.E2E_SHOTS
   if (dir) await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true, caret: 'initial' })
+}
+
+/** Full sign-up of an administrator with their organization (ends signed in, inside it). */
+export async function adminWithOrganization(page: Page, orgName: string) {
+  const email = uniqueEmail('admin')
+  await signUp(page, { name: 'Ana Admin', email })
+  await expect(page).toHaveURL(/\/onboarding/)
+  await createOrganization(page, orgName)
+  await expect(page.getByRole('heading', { name: 'Hola, Ana Admin' })).toBeVisible()
+  return email
+}
+
+/** Fills the onboarding form. The slug must be unique across runs of the suite. */
+export async function createOrganization(page: Page, name: string) {
+  await page.getByLabel('Nombre').fill(name)
+  await page
+    .getByLabel('Identificador')
+    .fill(`${name.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`)
+  await press(page.getByRole('button', { name: 'Crear organización' }))
 }

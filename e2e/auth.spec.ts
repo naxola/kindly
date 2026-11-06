@@ -6,11 +6,12 @@ test.afterAll(closeDb)
 test('sign-up, email verification, sign-out and sign-in', async ({ page }) => {
   const email = uniqueEmail('ana')
   await signUp(page, { name: 'Ana', email })
-  await expect(page.getByText(`Has iniciado sesión como ${email}.`)).toBeVisible()
-  await shot(page, 'home')
+  // Signed in, but not in the product yet: onboarding (ADR 0003).
+  await expect(page).toHaveURL(/\/onboarding/)
+  await shot(page, 'onboarding')
 
-  await press(page.getByRole('button', { name: 'Cerrar sesión' }))
-  await expect(page).toHaveURL(/\/sign-in/)
+  await page.context().clearCookies()
+  await page.goto('/sign-in')
 
   // A wrong password is rejected with a translated message.
   await page.getByLabel('Email').fill(email)
@@ -20,7 +21,7 @@ test('sign-up, email verification, sign-out and sign-in', async ({ page }) => {
 
   await page.getByLabel('Contraseña').fill(PASSWORD)
   await press(page.getByRole('button', { name: 'Entrar' }))
-  await expect(page.getByText(`Has iniciado sesión como ${email}.`)).toBeVisible()
+  await expect(page).toHaveURL(/\/onboarding/)
 })
 
 test('protected pages send anonymous visitors to sign-in', async ({ page }) => {
@@ -31,7 +32,7 @@ test('protected pages send anonymous visitors to sign-in', async ({ page }) => {
 test('password recovery through the emailed link', async ({ page }) => {
   const email = uniqueEmail('luis')
   await signUp(page, { name: 'Luis', email })
-  await press(page.getByRole('button', { name: 'Cerrar sesión' }))
+  await page.context().clearCookies()
 
   await page.goto('/forgot-password')
   await page.getByLabel('Email').fill(email)
@@ -48,5 +49,5 @@ test('password recovery through the emailed link', async ({ page }) => {
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Contraseña').fill(fresh)
   await press(page.getByRole('button', { name: 'Entrar' }))
-  await expect(page.getByText(`Has iniciado sesión como ${email}.`)).toBeVisible()
+  await expect(page).toHaveURL(/\/onboarding/)
 })

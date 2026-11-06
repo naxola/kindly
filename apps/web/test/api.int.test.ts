@@ -112,6 +112,7 @@ describe('access flow through the API', () => {
     expect(await json(me)).toEqual({
       access: { email, emailVerified: true },
       user: null,
+      activeOrganizationId: null,
       organizations: [],
     })
   })

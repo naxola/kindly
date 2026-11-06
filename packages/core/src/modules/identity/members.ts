@@ -4,22 +4,29 @@ import { nowOf, type Ctx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
 import { writeAudit } from '../audit/index.ts'
 import { authorize } from './authorization.ts'
+import { accessEmailsOf } from './users.ts'
 
 const tenantTx = <T>(ctx: Ctx, fn: (tx: TenantTx) => Promise<T>) =>
   withTenant(ctx.db, ctx.actor.organizationId, fn)
 
-/** Members of the active organization, with their visible name. */
+/** Members of the active organization, with their visible name and access email. */
 export async function listMembers(ctx: Ctx) {
   authorize(ctx.actor, 'members.read')
   return tenantTx(ctx, async (tx) => {
     const members = await tx.organizationMember.findMany({
-      include: { user: { select: { displayName: true } } },
+      include: { user: { select: { displayName: true, authUserId: true } } },
       orderBy: { joinedAt: 'asc' },
     })
+    const emails = await accessEmailsOf(
+      tx,
+      members.flatMap((m) => (m.user.authUserId ? [m.user.authUserId] : [])),
+    )
     return members.map((m) => ({
       id: m.id,
       userId: m.userId,
       displayName: m.user.displayName,
+      // Null once the access account was deleted (anonymized user).
+      email: m.user.authUserId ? (emails.get(m.user.authUserId) ?? null) : null,
       role: m.role,
       status: m.status,
       joinedAt: m.joinedAt,
@@ -62,6 +69,30 @@ export async function changeMemberRole(
       resourceId: memberId,
       before: { role: member.role },
       after: { role },
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+    })
+    return updated
+  })
+}
+
+/** Re-enables a disabled member. */
+export async function enableMember(ctx: Ctx, memberId: string) {
+  authorize(ctx.actor, 'members.manage')
+  return tenantTx(ctx, async (tx) => {
+    const member = await tx.organizationMember.findUnique({ where: { id: memberId } })
+    if (!member) throw new DomainError('NOT_FOUND', 'Member not found')
+    if (member.status === 'ACTIVE') return member
+    const updated = await tx.organizationMember.update({
+      where: { id: memberId },
+      data: { status: 'ACTIVE', disabledAt: null },
+    })
+    await writeAudit(tx, {
+      organizationId: ctx.actor.organizationId,
+      actorUserId: ctx.actor.userId,
+      action: 'member.enabled',
+      resourceType: 'organization_member',
+      resourceId: memberId,
       correlationId: ctx.correlationId,
       ip: ctx.ip,
     })

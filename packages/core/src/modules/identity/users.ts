@@ -55,6 +55,19 @@ export async function accessEmailOf(tx: TenantTx | Db, userId: string): Promise<
   return access?.email ?? null
 }
 
+/** Access emails of several access accounts at once (only identity may read auth_*). */
+export async function accessEmailsOf(
+  tx: TenantTx | Db,
+  authUserIds: string[],
+): Promise<Map<string, string>> {
+  if (authUserIds.length === 0) return new Map()
+  const rows = await tx.authUser.findMany({
+    where: { id: { in: authUserIds } },
+    select: { id: true, email: true },
+  })
+  return new Map(rows.map((r) => [r.id, r.email]))
+}
+
 /** Organizations where the user is an active member (organization picker). */
 export async function listMyOrganizations(db: Db, userId: string) {
   return withUser(db, userId, async (tx) => {

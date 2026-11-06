@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 4a, UI y esqueleto de `web` (terminada, pendiente de validación del usuario).** Fases 0 a 3 validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Fase actual: 4b, organizaciones en `web` (terminada, pendiente de validación del usuario).** Fases 0 a 4a validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -10,8 +10,8 @@
 | 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06) |
 | 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06) |
 | 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06) |
-| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | 🟣 Pendiente de validar  |
-| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ⚪                       |
+| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | 🟣 Pendiente de validar  |
 | 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ⚪                       |
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | ⚪                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
@@ -68,4 +68,13 @@
 
 **Seguridad:** next 16.3.8 (procurement) y 16.3.5 (kindly) están afectados por vulnerabilidades críticas; la plantilla usa 16.4.3 (ADR 0009).
 
-**Siguiente:** fase 4b (onboarding, organización activa, shell completo, miembros e invitaciones).
+## Fase 4b — entregado
+
+- **API** (`/api/v1`): `POST /organizations` (primera entrada al producto: crea el usuario de negocio, la organización y la deja activa), `PUT /me/organization`, `GET /organization` (permisos efectivos), `GET /members`, `PUT /members/{id}/role`, `PUT /members/{id}/status`, `GET|POST /invitations`, `POST /invitations/{id}/revoke`, `POST /invitations/preview` (pública, con límite por IP) y `POST /invitations/accept`.
+- **Organización activa** en la cookie `active_org`, validada en cada petición y borrada si deja de valer (ADR 0003).
+- **Interfaz**: shell completo (barra superior con selector de organización y menú de usuario, rail, menú de módulo, ⌘K, móvil), onboarding (elegir o crear organización con identificador generado del nombre), pantalla de invitación (token en el fragmento, alta o login sin perder la invitación, aviso si la cuenta es de otro email), ajustes de miembros (rol, desactivar/reactivar con confirmación, invitar en panel lateral, invitaciones pendientes y revocación). Los permisos ocultan acciones; la API las rechaza igualmente.
+- `core`: `listMembers` con el email de acceso (solo `identity` lee `auth_*`), `enableMember`, `resolveActor` devuelve el idioma por defecto, el idioma de la interfaz considera la preferencia de la persona y la de la organización.
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 29 unitarias, 49 de integración (un recorrido de dos personas por la API: sin organización → crear → invitar → vista pública → otra cuenta rechazada → aceptar → miembros → último ADMIN → MEMBER sin permiso → desactivar y limpieza de la cookie → cambiar de organización → revocar), 5 E2E en Chromium contra la build de producción (incluidos: invitar desde ajustes, aceptar registrándose desde el enlace, ascender y desactivar a un miembro, cambiar de organización), build y auditoría sin vulnerabilidades.
+
+**Corregido por el camino:** el `setup` de integración vacía también la cola de pg-boss; los E2E dejaban jobs que hacían intermitente el test del worker.

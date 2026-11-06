@@ -10,7 +10,7 @@ export interface SidePanelProps {
   onOpenChange: (open: boolean) => void
   title: ReactNode
   description?: ReactNode
-  /** Acciones del pie (p. ej. Cancelar / Guardar). */
+  /** Footer actions (e.g. Cancel / Save). */
   footer?: ReactNode
   size?: 'medium' | 'large' | 'xlarge'
   closeLabel: string
