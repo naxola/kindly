@@ -21,8 +21,10 @@ FROM base AS build
 COPY pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm fetch --frozen-lockfile
 COPY . .
+# prisma.config.ts requires the migrator URL even to generate the client (it does not connect).
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --offline && pnpm db:generate
+    pnpm install --frozen-lockfile --offline \
+    && DATABASE_MIGRATOR_URL=postgresql://build@localhost:5432/build pnpm db:generate
 
 FROM build AS build-web
 # The typed API client is generated from the routes, then the standalone server is built.

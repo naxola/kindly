@@ -150,7 +150,7 @@ jobs:
           probe web http://127.0.0.1:3000/sign-in
       - name: Compose logs
         if: always()
-        run: docker compose -f infra/staging/compose.yml --env-file smoke.env logs --tail 100 || true
+        run: test -f smoke.env && docker compose -f infra/staging/compose.yml --env-file smoke.env logs --tail 100 || true
       - name: Publish to ghcr.io (staging branch)
         if: env.PUBLISH == 'true'
         run: |
