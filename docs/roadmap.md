@@ -125,4 +125,6 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 
 **Verificado en local:** format, lint (con fronteras), typecheck, 54 unitarias (latido del worker, variables vacías), 55 de integración, 11 E2E, build y sincronía esquema/migraciones. Sin Docker en el entorno de desarrollo, se comprobó a mano lo que cada imagen ejecuta: la web compilada sin ninguna variable de entorno; la web y la web pública _standalone_ copiadas fuera del repositorio responden (`/api/ready`, CSS, portada con las URLs de staging, blog, imagen social); el worker desde un `pnpm deploy` plano; y el script de `migrate` contra la base local. **Las imágenes en sí las construye y prueba el CI** (trabajo «Docker images»).
 
+**Mejora anotada:** la imagen del worker pesa cerca de 1 GB porque las dependencias opcionales de Better Auth (`next`, `vitest`…) se resuelven desde el workspace. Funciona y respeta el lockfile; se adelgazará empaquetando el worker por completo o separando el adaptador de acceso.
+
 **Para publicar imágenes** el repositorio necesita las variables `STAGING_SITE_URL` y `STAGING_APP_URL` (`docs/deploy.md`). Sin ellas el CI construye y prueba, pero no publica.

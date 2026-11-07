@@ -41,11 +41,15 @@ RUN SITE_URL="$SITE_URL" APP_URL="$APP_URL" PLAUSIBLE_DOMAIN="$PLAUSIBLE_DOMAIN"
     pnpm --filter @saas/site build
 
 FROM build AS build-worker
-# A flat node_modules with production dependencies only (see CLAUDE.md).
+# Production dependencies of the worker, from the lockfile, in a flat node_modules
+# (the bundle in dist/ already contains the workspace packages).
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @saas/worker build \
-    && pnpm --filter @saas/worker deploy --prod --legacy --offline --config.node-linker=hoisted /out \
-    && cp -r apps/worker/dist /out/dist
+    && mkdir /out && cp pnpm-lock.yaml pnpm-workspace.yaml .npmrc package.json /out/ \
+    && find apps packages -maxdepth 2 -name package.json -exec cp --parents {} /out/ \; \
+    && cd /out && pnpm install --prod --frozen-lockfile --offline --filter "@saas/worker..." \
+       --config.node-linker=hoisted --ignore-scripts \
+    && cp -r /app/apps/worker/dist /out/apps/worker/dist
 
 # ---------------------------------------------------------------- runtime images
 FROM ${NODE_IMAGE} AS runtime
@@ -74,6 +78,7 @@ CMD ["node", "apps/site/server.js"]
 
 FROM runtime AS worker
 COPY --from=build-worker --chown=node:node /out ./
+WORKDIR /app/apps/worker
 USER node
 EXPOSE 3002
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
