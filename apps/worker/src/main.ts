@@ -1,3 +1,4 @@
+import { flushErrors } from '@saas/adapters/errors'
 import { createLogger } from '@saas/adapters/logger'
 import { loadEnv } from './env.ts'
 import { startWorker } from './worker.ts'
@@ -17,6 +18,7 @@ async function main() {
     stopping = true
     log.info({ signal }, 'worker stopping')
     await worker.stop()
+    await flushErrors()
     log.info('worker stopped')
     process.exit(0)
   }

@@ -13,7 +13,7 @@ const config: NextConfig = {
   devIndicators: { position: 'bottom-right' },
   // Workspace packages are published as TypeScript source.
   transpilePackages: ['@saas/ui', '@saas/config', '@saas/core', '@saas/database', '@saas/adapters'],
-  serverExternalPackages: ['pg', 'pino', 'pino-pretty'],
+  serverExternalPackages: ['pg', 'pino', 'pino-pretty', '@sentry/node'],
   outputFileTracingRoot: new URL('../..', import.meta.url).pathname,
 }
 

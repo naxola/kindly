@@ -8,7 +8,9 @@
     "./queue": "./src/queue/index.ts",
     "./email": "./src/email/index.ts",
     "./logger": "./src/logger/index.ts",
-    "./events": "./src/events/index.ts"
+    "./events": "./src/events/index.ts",
+    "./alerts": "./src/alerts/index.ts",
+    "./errors": "./src/errors/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -17,6 +19,7 @@
     "@saas/config": "workspace:*",
     "@saas/core": "workspace:*",
     "@saas/database": "workspace:*",
+    "@sentry/node": "11.9.0",
     "better-auth": "1.7.7",
     "nodemailer": "10.2.1",
     "pg-boss": "12.36.0",

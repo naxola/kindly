@@ -105,6 +105,7 @@ Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en e
 | `pnpm db:migrate`                                        | Crea o aplica migraciones en desarrollo. **Las políticas RLS se añaden a mano al SQL**                                                         |
 | `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                                                                              |
 | `pnpm queue:install`                                     | Crea o actualiza las tablas de pg-boss. **Va siempre junto a `db:deploy`** (la web solo encola y no las crea)                                  |
+| `pnpm ops:queue` / `pnpm ops:queue retry <cola> <id>`    | Estado de las colas y últimos fallos definitivos / reintenta un job fallido (runbook: `docs/operations.md`)                                    |
 | `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                                                                         |
 | `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                                                                          |
 | `pnpm format` / `pnpm format:check`                      | Prettier                                                                                                                                       |
@@ -144,6 +145,10 @@ Convenciones al añadir código:
   la transacción del cambio y con una clave de idempotencia del efecto de negocio.
 - Eventos de negocio nuevos: tipo en `BUSINESS_EVENT_TYPES` (`core/src/modules/events`)
   y `emitEvent(ctx, tx, …)` en el caso de uso (ADR 0010).
+- Observabilidad (ADR 0008): los errores inesperados se reportan con `captureError`
+  (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
+  Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son
+  solo para lo que necesita a una persona ya.
 - El worker compilado (`dist/main.js`) solo arranca con un `node_modules` plano
   (`pnpm --filter @saas/worker deploy --prod --legacy --config.node-linker=hoisted`),
   que es lo que hará la imagen Docker. En local se usa `pnpm dev`.

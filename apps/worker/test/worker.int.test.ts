@@ -1,3 +1,4 @@
+import type { Alert } from '@saas/adapters/alerts'
 import { createLogger } from '@saas/adapters/logger'
 import { createBoss, PgBossJobQueue, type PgBoss } from '@saas/adapters/queue'
 import {
@@ -19,6 +20,8 @@ import { startWorker, type RunningWorker } from '../src/worker.ts'
  */
 const sent: EmailMessage[] = []
 const delivered: BusinessEvent[] = []
+const alerts: Alert[] = []
+const HEALTH_PORT = 3902
 
 let db: Db
 let producer: PgBoss
@@ -27,7 +30,17 @@ let worker: RunningWorker
 beforeAll(async () => {
   db = createDb({ connectionString: process.env.DATABASE_URL! })
   worker = await startWorker({
-    env: loadEnv({ ...process.env, APP_URL: 'https://app.example.com' }),
+    env: loadEnv({
+      ...process.env,
+      APP_URL: 'https://app.example.com',
+      WORKER_HEALTH_PORT: String(HEALTH_PORT),
+    }),
+    alerts: {
+      send: (a) => {
+        alerts.push(a)
+        return Promise.resolve()
+      },
+    },
     log: createLogger({ level: 'silent', service: 'worker-test' }),
     email: {
       send: (m) => {
@@ -106,5 +119,29 @@ describe('worker', () => {
     expect(types).toEqual(['invitation.created', 'organization.created', 'user.created'])
     const created = delivered.find((e) => e.data.invitationId === invitation.id)
     expect(created?.type).toBe('invitation.created')
+  })
+})
+
+describe('worker health', () => {
+  it('answers /health and /ready', async () => {
+    const health = await fetch(`http://127.0.0.1:${HEALTH_PORT}/health`)
+    const ready = await fetch(`http://127.0.0.1:${HEALTH_PORT}/ready`)
+    const other = await fetch(`http://127.0.0.1:${HEALTH_PORT}/other`)
+    expect([health.status, ready.status, other.status]).toEqual([200, 200, 404])
+  })
+
+  it('alerts when a queue is not draining', async () => {
+    const name = `test-stuck-${newId().slice(-8)}`
+    await producer.createQueue(name)
+    await producer.send(name, {})
+    await producer
+      .getDb()
+      .executeSql(`UPDATE pgboss.job SET start_after = now() - interval '1 hour' WHERE name = $1`, [
+        name,
+      ])
+    await worker.checkQueues()
+    const alert = alerts.find((a) => a.key === `queue-stuck:${name}`)
+    expect(alert?.severity).toBe('warning')
+    expect(alert?.body).toContain('60 min')
   })
 })

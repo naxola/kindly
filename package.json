@@ -25,7 +25,8 @@
     "db:deploy": "pnpm --filter @saas/database migrate:deploy",
     "db:check": "pnpm --filter @saas/database migrate:check",
     "queue:install": "tsx scripts/install-queue.ts",
-    "api:generate": "pnpm --filter @saas/web generate"
+    "api:generate": "pnpm --filter @saas/web generate",
+    "ops:queue": "tsx scripts/ops-queue.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

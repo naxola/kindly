@@ -75,6 +75,19 @@ que cumpla ese plazo, o la primera corregida si ninguna lo cumple.
 | yaml        | 2.9.1   |
 | @types/mdx  | 2.0.14  |
 
+## Fase 5
+
+| Paquete      | Versión                 |
+| ------------ | ----------------------- |
+| @sentry/node | 11.9.0 (del 2026-10-23) |
+
+**Avisos moderados aceptados:** `@sentry/node` arrastra `@sentry/bundler-plugins`, que depende de
+`glob` 13 y `minimatch` 10 (GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249). Afectan a patrones de
+búsqueda de archivos controlados por un atacante; el código de la plantilla no los usa en
+ejecución. La corrección exige `glob` 14 y `minimatch` 11 (versión mayor, publicadas hace menos de
+14 días), así que no se fuerza con `overrides`: se revisa al actualizar Sentry. El CI solo para
+con avisos altos o críticos.
+
 Las fases siguientes añaden sus dependencias con el mismo criterio.
 
 ## Desviación respecto a procurement

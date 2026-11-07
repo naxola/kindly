@@ -1,6 +1,7 @@
 import { newId, type Db } from '@saas/database'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { isAPIError } from 'better-auth/api'
 
 /**
  * Access layer (ADR 0003): Better Auth on the auth_* tables. It only knows who can sign
@@ -39,6 +40,11 @@ export interface CreateAuthOptions {
    */
   sendVerificationEmail?: (email: AuthEmail) => Promise<void>
   sendResetPasswordEmail?: (email: AuthEmail) => Promise<void>
+  /**
+   * Unexpected failures inside the access layer (database down, bugs). Expected answers
+   * such as wrong password or rate limit are not reported. Without it, Better Auth logs them.
+   */
+  onUnexpectedError?: (error: unknown) => void
 }
 
 const missingSender = (kind: string) => () =>
@@ -52,6 +58,7 @@ export function createAuth({
   requireEmailVerification = true,
   sendVerificationEmail = missingSender('verification'),
   sendResetPasswordEmail = missingSender('password reset'),
+  onUnexpectedError,
 }: CreateAuthOptions) {
   const secure = baseURL.startsWith('https://')
   return betterAuth({
@@ -60,6 +67,16 @@ export function createAuth({
     secret,
     database: prismaAdapter(db, { provider: 'postgresql' }),
     telemetry: { enabled: false },
+    ...(onUnexpectedError
+      ? {
+          onAPIError: {
+            onError: (error: unknown) => {
+              if (isAPIError(error) && error.status !== 'INTERNAL_SERVER_ERROR') return
+              onUnexpectedError(error)
+            },
+          },
+        }
+      : {}),
     // Access tables carry the auth_ prefix (Prisma models AuthUser, AuthSession…).
     user: { modelName: 'authUser' },
     session: {
