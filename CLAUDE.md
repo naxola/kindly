@@ -153,6 +153,6 @@ Convenciones al añadir código:
 - Despliegue (ADR 0006): las imágenes no llevan variables del entorno (se leen al arrancar);
   nada debe leer `env()` durante `next build`. Una variable nueva va en `.env.example`,
   en `infra/staging/compose.yml` y en `infra/staging/.env.example`.
-- El worker compilado (`dist/main.js`) solo arranca con un `node_modules` plano
-  (`pnpm --filter @saas/worker deploy --prod --legacy --config.node-linker=hoisted`),
-  que es lo que hará la imagen Docker. En local se usa `pnpm dev`.
+- El worker compilado (`dist/main.js`) solo arranca con un `node_modules` plano: la imagen
+  lo instala desde el lockfile con `pnpm install --prod --filter "@saas/worker..."
+--config.node-linker=hoisted` (ver `Dockerfile`). En local se usa `pnpm dev`.
