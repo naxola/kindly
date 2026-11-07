@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 4c, web pública (terminada, pendiente de validación del usuario).** Fases 0 a 4b validadas el 2026-11-06. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Fase actual: 5, observabilidad (siguiente).** Fases 0 a 4c validadas (2026-11-06/07). Newsletter pendiente de decisión. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -12,7 +12,7 @@
 | 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06) |
 | 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
 | 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06) |
-| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | 🟣 Pendiente de validar  |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07) |
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | ⚪                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
@@ -95,3 +95,9 @@
 **Verificado en local:** format, lint (con fronteras), typecheck, 36 unitarias (6 de contenido), 52 de integración, build de todos los paquetes, auditoría sin vulnerabilidades y 11 E2E (5 nuevos de la web pública: redirección y enlaces a la app, cambio de idioma, post con datos estructurados e imagen social, RSS, sitemap, legales con datos de la empresa y aviso, precios sin planes).
 
 **Pendiente de decisión:** la newsletter (doble opt-in propio en la BD o herramienta externa como Brevo o Loops).
+
+### Corrección (2026-11-07): el CI fallaba desde la fase 4b
+
+En una base de datos nueva, la web intentaba encolar antes de que existieran las tablas de pg-boss (las creaba solo el worker al arrancar): «pg-boss is not installed». En local no aparecía porque la base ya las tenía. Se añade `pnpm queue:install`, que el CI, los tests de integración y los E2E ejecutan tras las migraciones, y que **todo despliegue debe ejecutar junto a `db:deploy`** (fase 6). Reproducido en local con una base nueva antes y después del arreglo.
+
+También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes de `pnpm dev`.

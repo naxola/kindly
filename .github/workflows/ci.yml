@@ -75,6 +75,8 @@ jobs:
       - run: pnpm db:generate
       - name: Migrations apply cleanly from zero (dev database)
         run: pnpm db:deploy
+      - name: Queue tables install on a fresh database
+        run: pnpm queue:install
       - name: Schema and migrations are in sync
         run: pnpm db:check
       - run: pnpm test:integration
