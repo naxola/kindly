@@ -99,10 +99,12 @@ Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en e
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm install`                                           | Dependencias (aisladas: `node-linker=isolated`)                                                                                                |
 | `cp .env.example .env`                                   | Configuración local (solo vale para el `docker-compose.yml` local)                                                                             |
+| `pnpm env:check`                                         | Lista las variables de `.env.example` que faltan en tu `.env` (se ejecuta antes de `pnpm dev`)                                                 |
 | `pnpm infra:up` / `pnpm infra:down`                      | Postgres en Docker, con los roles `app_migrator`, `app_user` y `app_platform`                                                                  |
 | `pnpm db:generate`                                       | Genera el cliente Prisma                                                                                                                       |
 | `pnpm db:migrate`                                        | Crea o aplica migraciones en desarrollo. **Las políticas RLS se añaden a mano al SQL**                                                         |
 | `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                                                                              |
+| `pnpm queue:install`                                     | Crea o actualiza las tablas de pg-boss. **Va siempre junto a `db:deploy`** (la web solo encola y no las crea)                                  |
 | `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                                                                         |
 | `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                                                                          |
 | `pnpm format` / `pnpm format:check`                      | Prettier                                                                                                                                       |

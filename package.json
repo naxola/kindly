@@ -7,23 +7,25 @@
     "node": ">=24.21.0 <25"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "pnpm env:check && turbo run dev",
     "build": "turbo run build",
     "lint": "eslint . --max-warnings=0 && pnpm check:boundaries",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "infra:up": "docker compose up -d --wait",
     "infra:down": "docker compose down",
+    "env:check": "tsx scripts/check-env.ts",
     "db:generate": "pnpm --filter @saas/database generate",
     "db:migrate": "pnpm --filter @saas/database migrate:dev",
     "db:deploy": "pnpm --filter @saas/database migrate:deploy",
     "db:check": "pnpm --filter @saas/database migrate:check",
-    "api:generate": "pnpm --filter @saas/web generate",
-    "test:e2e": "playwright test"
+    "queue:install": "tsx scripts/install-queue.ts",
+    "api:generate": "pnpm --filter @saas/web generate"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
