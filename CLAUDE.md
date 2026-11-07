@@ -51,7 +51,8 @@ packages/core     Dominio común + casos de uso por módulo, autorización
 packages/adapters Auth, correo, cola, storage, logger, cobros
 packages/ui       Sistema de diseño compartido por web y site (tokens de marca)
 packages/content  Fuente de contenidos del blog (MDX; CMS más adelante)
-infra/            Compose de local y staging (homelab); producción por decidir
+infra/            Compose de staging (homelab), init de Postgres, script de migrate; producción por decidir
+Dockerfile        Imágenes: web, site, worker, migrate, postgres (docs/deploy.md)
 ```
 
 - En `packages/core` cada módulo es una carpeta con un `index.ts` público.
@@ -149,6 +150,9 @@ Convenciones al añadir código:
   (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
   Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son
   solo para lo que necesita a una persona ya.
+- Despliegue (ADR 0006): las imágenes no llevan variables del entorno (se leen al arrancar);
+  nada debe leer `env()` durante `next build`. Una variable nueva va en `.env.example`,
+  en `infra/staging/compose.yml` y en `infra/staging/.env.example`.
 - El worker compilado (`dist/main.js`) solo arranca con un `node_modules` plano
   (`pnpm --filter @saas/worker deploy --prod --legacy --config.node-linker=hoisted`),
   que es lo que hará la imagen Docker. En local se usa `pnpm dev`.

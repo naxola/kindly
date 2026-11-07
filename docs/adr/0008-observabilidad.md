@@ -37,6 +37,9 @@ y poder reintentar sin perder datos.
 - **Panel de la cola**: en terminal (`pnpm ops:queue` y `pnpm ops:queue retry`), sin pantalla
   web: es una herramienta de operador, no de cliente, y no necesita permisos nuevos.
 - **Runbook**: `docs/operations.md`.
+- **Dónde corren** (ADR 0011, 2026-11-07): GlitchTip, ntfy y Uptime Kuma autoalojados en el
+  homelab. Uptime Kuma es el monitor externo de la web (`/api/ready`) y recibe el latido del
+  worker (`HEARTBEAT_URL`).
 
 ## Pendiente
 

@@ -18,8 +18,8 @@ y publicar contenido no debe afectar al SaaS.
   entradas, publicar desde n8n o que publique alguien no técnico, se sustituye la
   implementación de `ContentSource` por **Payload CMS** autoalojado (ADR nuevo).
 - Incluye: secciones reutilizables de portada, legales parametrizados, sitemap,
-  RSS, imágenes Open Graph, datos estructurados, captación de newsletter que emite
-  un evento de negocio, analítica y es/en.
+  RSS, imágenes Open Graph, datos estructurados, captación de newsletter (listmonk,
+  ver abajo), analítica y es/en.
 
 ## Implementación (fase 4c, 2026-11-06)
 
@@ -36,8 +36,8 @@ y publicar contenido no debe afectar al SaaS.
   para la build.
 - Precios desde `site.config.ts`: sin planes, la página lo dice (no hay precios inventados).
 - Analítica: Plausible (sin cookies) solo si se configura `PLAUSIBLE_DOMAIN`.
-- **Pendiente:** la newsletter queda fuera de la 4c hasta decidir dónde se guarda el
-  consentimiento (doble opt-in propio o herramienta externa).
+- **Newsletter** (2026-11-07): listmonk autoalojado (ADR 0011). La web pública solo muestra el
+  formulario de alta; listmonk guarda la lista y gestiona el doble opt-in y las bajas.
 
 ## Consecuencias
 

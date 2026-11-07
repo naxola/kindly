@@ -21,3 +21,37 @@ export function startHealthServer(port: number, ready: () => Promise<boolean>): 
   })
   return new Promise((resolve) => server.listen(port, () => resolve(server)))
 }
+
+/**
+ * Push heartbeat (Uptime Kuma "Push" monitor or any URL that expects a regular call): while
+ * the worker is ready it calls the URL every interval; if the worker dies, hangs or loses
+ * the database the calls stop and the monitor raises the alarm. Nothing to expose.
+ * The URL carries the monitor token: it is never logged.
+ */
+export function startHeartbeat({
+  url,
+  intervalMs,
+  ready,
+  onError,
+  fetchImpl = fetch,
+}: {
+  url: string
+  intervalMs: number
+  ready: () => Promise<boolean>
+  onError: (reason: string) => void
+  fetchImpl?: typeof fetch
+}) {
+  const beat = async () => {
+    try {
+      if (!(await ready())) return onError('not ready')
+      const res = await fetchImpl(url, { signal: AbortSignal.timeout(10_000) })
+      if (!res.ok) onError(`monitor answered ${res.status}`)
+    } catch (err) {
+      onError(err instanceof Error ? err.name : 'unknown error')
+    }
+  }
+  void beat()
+  const timer = setInterval(() => void beat(), intervalMs)
+  timer.unref()
+  return { beat, stop: () => clearInterval(timer) }
+}

@@ -15,7 +15,7 @@ import type { EmailSender, EventSink } from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
-import { startHealthServer } from './health.ts'
+import { startHealthServer, startHeartbeat } from './health.ts'
 import { registrations } from './handlers.ts'
 
 export interface StartWorkerOptions {
@@ -111,14 +111,24 @@ export async function startWorker({
   )
   interval.unref()
 
-  let health: Server | null = null
-  if (env.WORKER_HEALTH_PORT > 0) {
-    health = await startHealthServer(env.WORKER_HEALTH_PORT, async () => {
-      await db.$queryRaw`SELECT 1`
-      return true
-    })
+  const ready = async () => {
+    await db.$queryRaw`SELECT 1`
+    return true
   }
-  log.info({ queues, healthPort: env.WORKER_HEALTH_PORT || null }, 'worker started')
+  let health: Server | null = null
+  if (env.WORKER_HEALTH_PORT > 0) health = await startHealthServer(env.WORKER_HEALTH_PORT, ready)
+  const heartbeat = env.HEARTBEAT_URL
+    ? startHeartbeat({
+        url: env.HEARTBEAT_URL,
+        intervalMs: env.HEARTBEAT_INTERVAL_SECONDS * 1000,
+        ready,
+        onError: (reason) => log.warn({ reason }, 'heartbeat not sent'),
+      })
+    : null
+  log.info(
+    { queues, healthPort: env.WORKER_HEALTH_PORT || null, heartbeat: Boolean(heartbeat) },
+    'worker started',
+  )
 
   return {
     boss,
@@ -127,6 +137,7 @@ export async function startWorker({
     checkQueues,
     stop: async () => {
       clearInterval(interval)
+      heartbeat?.stop()
       await new Promise<void>((resolve) => (health ? health.close(() => resolve()) : resolve()))
       // Waits for running jobs (pg-boss puts them back in the queue if the timeout is hit).
       await boss.stop({ graceful: true, timeout: 30_000 })
