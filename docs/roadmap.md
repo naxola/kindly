@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 5, observabilidad (siguiente).** Fases 0 a 4c validadas (2026-11-06/07). Newsletter pendiente de decisión. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Fase actual: 5, observabilidad (entregada, pendiente de validar).** Fases 0 a 4c validadas (2026-11-06/07). Newsletter pendiente de decisión. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -13,7 +13,7 @@
 | 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
 | 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06) |
 | 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07) |
-| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | ⚪                       |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
 
@@ -101,3 +101,15 @@
 En una base de datos nueva, la web intentaba encolar antes de que existieran las tablas de pg-boss (las creaba solo el worker al arrancar): «pg-boss is not installed». En local no aparecía porque la base ya las tenía. Se añade `pnpm queue:install`, que el CI, los tests de integración y los E2E ejecutan tras las migraciones, y que **todo despliegue debe ejecutar junto a `db:deploy`** (fase 6). Reproducido en local con una base nueva antes y después del arreglo.
 
 También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes de `pnpm dev`.
+
+## Fase 5 — entregado
+
+- **Errores** (Sentry o GlitchTip, mismo DSN): worker (fallos definitivos de jobs) y servidor de la web (errores no controlados de la API con su `correlationId`, errores de páginas, errores inesperados de Better Auth). Sin datos personales: solo ids; cookies, cabeceras, cuerpos, query strings, variables locales y breadcrumbs desactivados y limpiados otra vez antes de enviar.
+- **Alertas al móvil** (ntfy o Telegram, `ALERT_PROVIDER`): crítica cuando un job agota sus reintentos, aviso cuando una cola tiene un job listo esperando más de 15 minutos. Una por motivo cada 15 minutos; si el canal falla, queda en el log.
+- **Salud del worker**: `/health` y `/ready` en `WORKER_HEALTH_PORT` (3002) para el healthcheck del contenedor.
+- **Panel de la cola** en terminal: `pnpm ops:queue` (estado y últimos fallos) y `pnpm ops:queue retry <cola> <id>`.
+- **Runbook**: `docs/operations.md`. ADR 0008 concretado.
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 50 unitarias (alertas y su limitación, limpieza de datos de los errores, reporte de errores de la API, panel de la cola), 55 de integración (gancho de fallo definitivo, foto de la cola y cola atascada contra pg-boss real; salud del worker y alerta de cola atascada), 11 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos (2 moderados aceptados, ADR 0009). A mano: la web compilada, con la base de datos caída, envía el error de Better Auth a un Sentry simulado sin email, contraseña ni cookie; el worker compilado desde un `pnpm deploy` responde `/health` y `/ready` y para limpio con SIGTERM.
+
+**Pendiente, anotado:** errores del navegador; centralizar logs y monitor externo (fase 6).

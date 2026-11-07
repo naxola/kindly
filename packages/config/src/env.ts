@@ -71,12 +71,49 @@ export const siteEnv = z.object({
   PLAUSIBLE_DOMAIN: z.string().min(3).optional(),
 })
 
+/**
+ * Observability (ADR 0008). Everything is optional: without values, errors are only logged
+ * and alerts only go to the log, so a fresh clone works without any account.
+ */
+export const observabilityEnv = z
+  .object({
+    /** Sentry or GlitchTip (same protocol). Empty: error tracking disabled. */
+    SENTRY_DSN: z.url().optional(),
+    ALERT_PROVIDER: z.enum(['none', 'ntfy', 'telegram']).default('none'),
+    /** ntfy topic URL, e.g. https://ntfy.sh/my-secret-topic or a self-hosted one. */
+    NTFY_URL: z.url().optional(),
+    /** Access token of a protected ntfy topic. */
+    NTFY_TOKEN: z.string().min(1).optional(),
+    TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+    TELEGRAM_CHAT_ID: z.string().min(1).optional(),
+  })
+  .superRefine((e, ctx) => {
+    if (e.ALERT_PROVIDER === 'ntfy' && !e.NTFY_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['NTFY_URL'],
+        message: 'Required with ALERT_PROVIDER=ntfy',
+      })
+    }
+    if (e.ALERT_PROVIDER === 'telegram') {
+      for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'] as const) {
+        if (!e[key])
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'Required with ALERT_PROVIDER=telegram',
+          })
+      }
+    }
+  })
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
 export type AuthEnv = z.infer<typeof authEnv>
 export type EmailEnv = z.infer<typeof emailEnv>
 export type EventsEnv = z.infer<typeof eventsEnv>
 export type SiteEnv = z.infer<typeof siteEnv>
+export type ObservabilityEnv = z.infer<typeof observabilityEnv>
 
 export class EnvError extends Error {
   constructor(public readonly issues: string[]) {

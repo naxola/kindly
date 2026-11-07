@@ -4,7 +4,15 @@ import { Writable } from 'node:stream'
 import pino from 'pino'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { createBoss, PgBossJobQueue, registerWorker, type PgBoss } from '../src/queue/index.ts'
+import {
+  createBoss,
+  PgBossJobQueue,
+  queueSnapshot,
+  registerWorker,
+  stuckQueues,
+  type FinalFailure,
+  type PgBoss,
+} from '../src/queue/index.ts'
 
 const logLines: string[] = []
 const log = pino(
@@ -151,6 +159,7 @@ describe('worker', () => {
 
   it('a failing job is retried and ends in a visible final failure', async () => {
     let attempts = 0
+    const finals: FinalFailure[] = []
     await registerWorker(
       boss,
       failingJob,
@@ -158,10 +167,17 @@ describe('worker', () => {
         attempts++
         return Promise.reject(new Error('boom'))
       },
-      { log },
+      {
+        log,
+        onFinalFailure: (f) => {
+          finals.push(f)
+          throw new Error('the hook failing must not change anything')
+        },
+      },
     )
+    const m = meta()
     const { id } = await withTenant(db, orgId, (tx) =>
-      queue.enqueue(tx, failingJob, {}, { ...meta(), idempotencyKey: newId() }),
+      queue.enqueue(tx, failingJob, {}, { ...m, idempotencyKey: newId() }),
     )
     const job = await waitForState(failingJob.name, id, ['failed'], 25_000)
     expect(job.state).toBe('failed')
@@ -170,7 +186,51 @@ describe('worker', () => {
       (l) => JSON.parse(l) as { msg: string; level: number; jobId?: string },
     )
     const mine = lines.filter((l) => l.jobId === id)
-    expect(mine.map((l) => l.msg)).toEqual(['job failed, will retry', 'job failed permanently'])
+    // A failing hook is logged and changes nothing else.
+    expect(mine.map((l) => l.msg)).toEqual([
+      'job failed, will retry',
+      'job failed permanently',
+      'final failure hook failed',
+    ])
     expect(mine[1]?.level).toBe(50) // error
+    expect(finals).toHaveLength(1)
+    expect(finals[0]).toMatchObject({
+      job: failingJob.name,
+      jobId: id,
+      organizationId: orgId,
+      correlationId: m.correlationId,
+      attempt: 1,
+    })
+
+    const snapshot = await queueSnapshot(boss, { failures: 100 })
+    expect(snapshot.queues.find((q) => q.name === failingJob.name)?.counts.failed).toBe(1)
+    expect(snapshot.recentFailures.find((f) => f.id === id)).toMatchObject({
+      name: failingJob.name,
+      attempts: 2,
+      correlationId: m.correlationId,
+      message: 'boom',
+    })
+  })
+})
+
+describe('queue health', () => {
+  it('a queue nobody consumes shows up as stuck', async () => {
+    const idleJob = defineJob({ name: `test-${run}.idle`, schema: z.object({}) })
+    const queue = new PgBossJobQueue(boss)
+    await withTenant(db, orgId, (tx) =>
+      queue.enqueue(tx, idleJob, {}, { ...meta(), idempotencyKey: newId() }),
+    )
+    // Pretend the job has been waiting for an hour.
+    await boss
+      .getDb()
+      .executeSql(`UPDATE pgboss.job SET start_after = now() - interval '1 hour' WHERE name = $1`, [
+        idleJob.name,
+      ])
+    const snapshot = await queueSnapshot(boss)
+    const idle = snapshot.queues.find((q) => q.name === idleJob.name)
+    expect(idle?.counts.created).toBe(1)
+    expect(idle?.oldestWaitingSeconds).toBeGreaterThanOrEqual(3600)
+    expect(stuckQueues(snapshot, 900).map((q) => q.name)).toContain(idleJob.name)
+    expect(stuckQueues(snapshot, 7200).map((q) => q.name)).not.toContain(idleJob.name)
   })
 })

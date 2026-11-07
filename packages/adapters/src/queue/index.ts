@@ -82,6 +82,15 @@ export class PgBossJobQueue implements JobQueue {
   }
 }
 
+export interface FinalFailure {
+  job: string
+  jobId: string
+  organizationId: string | null
+  correlationId: string
+  attempt: number
+  error: unknown
+}
+
 export type JobHandler<S extends z.ZodType> = (
   payload: z.output<S>,
   ctx: JobContext & { log: Logger },
@@ -96,7 +105,16 @@ export async function registerWorker<S extends z.ZodType>(
   boss: PgBoss,
   job: JobDefinition<S>,
   handler: JobHandler<S>,
-  { log, concurrency = 1 }: { log: Logger; concurrency?: number },
+  {
+    log,
+    concurrency = 1,
+    onFinalFailure,
+  }: {
+    log: Logger
+    concurrency?: number
+    /** Called once when a job exhausts its retries (alerts, error tracking). Never throws. */
+    onFinalFailure?: (failure: FinalFailure) => void | Promise<void>
+  },
 ) {
   await ensureQueue(boss, job, new Set())
   return boss.work<Envelope>(job.name, { localConcurrency: concurrency }, async ([raw]) => {
@@ -117,11 +135,105 @@ export async function registerWorker<S extends z.ZodType>(
       // `error` only for the final failure: that is what alerts are hooked on (ADR 0008).
       const final = attempt >= job.retryLimit
       const fields = { err, attempt, final, durationMs: Math.round(performance.now() - start) }
-      if (final) jobLog.error(fields, 'job failed permanently')
-      else jobLog.warn(fields, 'job failed, will retry')
+      if (final) {
+        jobLog.error(fields, 'job failed permanently')
+        try {
+          await onFinalFailure?.({
+            job: job.name,
+            jobId: raw.id,
+            organizationId: meta.organizationId,
+            correlationId: meta.correlationId,
+            attempt,
+            error: err,
+          })
+        } catch (hookErr) {
+          jobLog.error({ err: hookErr }, 'final failure hook failed')
+        }
+      } else jobLog.warn(fields, 'job failed, will retry')
       throw err
     }
   })
+}
+
+/** State of the queues, read from the pg-boss tables (version pinned in ADR 0009). */
+export interface QueueSnapshot {
+  queues: {
+    name: string
+    counts: Partial<
+      Record<'created' | 'retry' | 'active' | 'completed' | 'cancelled' | 'failed', number>
+    >
+    /** Seconds the oldest job ready to run has been waiting; null if none waits. */
+    oldestWaitingSeconds: number | null
+  }[]
+  recentFailures: {
+    name: string
+    id: string
+    failedAt: Date | null
+    attempts: number
+    correlationId: string | null
+    message: string | null
+  }[]
+}
+
+export async function queueSnapshot(boss: PgBoss, { failures = 10 } = {}): Promise<QueueSnapshot> {
+  const db = boss.getDb()
+  const s = PGBOSS_SCHEMA
+  const counts = await db.executeSql(
+    `SELECT name, state::text AS state, count(*)::int AS n FROM ${s}.job GROUP BY name, state`,
+  )
+  const waiting = await db.executeSql(
+    `SELECT name, extract(epoch FROM now() - min(start_after))::int AS seconds FROM ${s}.job
+     WHERE state IN ('created', 'retry') AND start_after <= now() GROUP BY name`,
+  )
+  const failed = await db.executeSql(
+    `SELECT name, id, completed_on, retry_count, data->'meta'->>'correlationId' AS correlation_id,
+            output->>'message' AS message
+     FROM ${s}.job WHERE state = 'failed' ORDER BY completed_on DESC NULLS LAST LIMIT $1`,
+    [failures],
+  )
+  const byName = new Map<string, QueueSnapshot['queues'][number]>()
+  const queue = (name: string) => {
+    let q = byName.get(name)
+    if (!q) byName.set(name, (q = { name, counts: {}, oldestWaitingSeconds: null }))
+    return q
+  }
+  for (const r of counts.rows as {
+    name: string
+    state: keyof QueueSnapshot['queues'][number]['counts']
+    n: number
+  }[]) {
+    queue(r.name).counts[r.state] = r.n
+  }
+  for (const r of waiting.rows as { name: string; seconds: number }[]) {
+    queue(r.name).oldestWaitingSeconds = r.seconds
+  }
+  return {
+    queues: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    recentFailures: (
+      failed.rows as {
+        name: string
+        id: string
+        completed_on: Date | null
+        retry_count: number
+        correlation_id: string | null
+        message: string | null
+      }[]
+    ).map((r) => ({
+      name: r.name,
+      id: r.id,
+      failedAt: r.completed_on,
+      attempts: r.retry_count + 1,
+      correlationId: r.correlation_id,
+      message: r.message,
+    })),
+  }
+}
+
+/** Queues whose oldest ready job has waited longer than allowed: nobody is consuming them. */
+export function stuckQueues(snapshot: QueueSnapshot, maxWaitSeconds: number) {
+  return snapshot.queues.filter(
+    (q) => q.oldestWaitingSeconds !== null && q.oldestWaitingSeconds > maxWaitSeconds,
+  )
 }
 
 export { PgBoss }

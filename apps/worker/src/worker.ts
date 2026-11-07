@@ -1,10 +1,21 @@
+import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
 import { createEmailSender } from '@saas/adapters/email'
+import { captureError, initErrorTracking } from '@saas/adapters/errors'
 import { LogEventSink, WebhookEventSink } from '@saas/adapters/events'
 import type { Logger } from '@saas/adapters/logger'
-import { createBoss, registerWorker, type PgBoss } from '@saas/adapters/queue'
+import {
+  createBoss,
+  queueSnapshot,
+  registerWorker,
+  stuckQueues,
+  type FinalFailure,
+  type PgBoss,
+} from '@saas/adapters/queue'
 import type { EmailSender, EventSink } from '@saas/core'
 import { createDb, type Db } from '@saas/database'
-import { loadEmailEnv, loadEventsEnv, type WorkerEnv } from './env.ts'
+import type { Server } from 'node:http'
+import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
+import { startHealthServer } from './health.ts'
 import { registrations } from './handlers.ts'
 
 export interface StartWorkerOptions {
@@ -13,12 +24,17 @@ export interface StartWorkerOptions {
   /** Tests inject fakes; otherwise they are built from the environment. */
   email?: EmailSender
   events?: EventSink
+  alerts?: AlertSender
+  /** How often the queues are checked for stuck jobs (default 5 minutes). */
+  healthCheckIntervalMs?: number
 }
 
 export interface RunningWorker {
   boss: PgBoss
   db: Db
   queues: string[]
+  /** Runs the stuck-queue check now (also run on an interval). */
+  checkQueues: () => Promise<void>
   stop: () => Promise<void>
 }
 
@@ -43,6 +59,23 @@ export async function startWorker({
     return sender
   }
   const events = overrides.events ?? eventSinkFromEnv(log)
+  const observability = loadObservabilityEnv()
+  initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
+  const alerts = overrides.alerts ?? createAlertSender(observability, log)
+
+  const onFinalFailure = async (f: FinalFailure) => {
+    captureError(f.error, {
+      correlationId: f.correlationId,
+      organizationId: f.organizationId,
+      tags: { job: f.job, jobId: f.jobId },
+    })
+    await alerts.send({
+      key: `job-failed:${f.job}`,
+      severity: 'critical',
+      title: `Job failed for good: ${f.job}`,
+      body: `Job ${f.jobId} failed after ${f.attempt + 1} attempts (correlationId ${f.correlationId}). See \`pnpm ops:queue\` and the runbook.`,
+    })
+  }
 
   const db = createDb({ connectionString: env.DATABASE_URL })
   const boss = createBoss({ connectionString: env.DATABASE_URL, role: 'worker' })
@@ -52,16 +85,49 @@ export async function startWorker({
     await registerWorker(boss, job, handler({ db, email, events }), {
       log,
       concurrency: env.WORKER_CONCURRENCY,
+      onFinalFailure,
     })
   }
   const queues = selected.map((r) => r.job.name)
-  log.info({ queues }, 'worker started')
+
+  // A queue nobody consumes (worker of that queue down, poison backlog) raises an alert.
+  const checkQueues = async () => {
+    try {
+      for (const q of stuckQueues(await queueSnapshot(boss), env.QUEUE_MAX_WAIT_SECONDS)) {
+        await alerts.send({
+          key: `queue-stuck:${q.name}`,
+          severity: 'warning',
+          title: `Queue not draining: ${q.name}`,
+          body: `The oldest ready job has waited ${Math.round(q.oldestWaitingSeconds! / 60)} min. Is the worker of this queue running?`,
+        })
+      }
+    } catch (err) {
+      log.error({ err }, 'queue health check failed')
+    }
+  }
+  const interval = setInterval(
+    () => void checkQueues(),
+    overrides.healthCheckIntervalMs ?? 5 * 60_000,
+  )
+  interval.unref()
+
+  let health: Server | null = null
+  if (env.WORKER_HEALTH_PORT > 0) {
+    health = await startHealthServer(env.WORKER_HEALTH_PORT, async () => {
+      await db.$queryRaw`SELECT 1`
+      return true
+    })
+  }
+  log.info({ queues, healthPort: env.WORKER_HEALTH_PORT || null }, 'worker started')
 
   return {
     boss,
     db,
     queues,
+    checkQueues,
     stop: async () => {
+      clearInterval(interval)
+      await new Promise<void>((resolve) => (health ? health.close(() => resolve()) : resolve()))
       // Waits for running jobs (pg-boss puts them back in the queue if the timeout is hit).
       await boss.stop({ graceful: true, timeout: 30_000 })
       await db.$disconnect()

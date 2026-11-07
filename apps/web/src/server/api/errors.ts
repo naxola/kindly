@@ -1,4 +1,5 @@
 import { z } from '@hono/zod-openapi'
+import { captureError } from '@saas/adapters/errors'
 import { DomainError, isDomainError } from '@saas/core'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
@@ -45,11 +46,18 @@ const logOf = (c: Context<ApiEnv>) =>
 
 export function handleError(err: unknown, c: Context<ApiEnv>) {
   if (isDomainError(err)) {
-    if (err.httpStatus >= 500) logOf(c).error({ err }, 'domain error')
+    if (err.httpStatus >= 500) {
+      logOf(c).error({ err }, 'domain error')
+      captureError(err, { correlationId: c.get('correlationId'), tags: { code: err.code } })
+    }
     return c.json(errorBody(c, err), err.httpStatus as ContentfulStatusCode)
   }
-  // Unhandled: logged in detail, answered without leaking internal information.
+  // Unhandled: logged in detail, reported and answered without leaking internal information.
   logOf(c).error({ err }, 'unhandled error')
+  captureError(err, {
+    correlationId: c.get('correlationId'),
+    tags: { method: c.req.method, route: c.req.routePath },
+  })
   return c.json(errorBody(c, new DomainError('INTERNAL', 'Internal server error')), 500)
 }
 
