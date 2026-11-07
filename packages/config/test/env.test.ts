@@ -6,6 +6,7 @@ import {
   emailEnv,
   EnvError,
   eventsEnv,
+  observabilityEnv,
   parseEnv,
 } from '../src/env.ts'
 
@@ -59,5 +60,12 @@ describe('parseEnv', () => {
     expect(() => parseEnv(eventsEnv, { EVENTS_WEBHOOK_URL: 'https://n8n.local/hook' })).toThrow(
       /EVENTS_WEBHOOK_SECRET/,
     )
+  })
+
+  it('treats empty variables as unset (Compose and Coolify pass VAR= for blank values)', () => {
+    const env = parseEnv(observabilityEnv, { SENTRY_DSN: '', ALERT_PROVIDER: '' })
+    expect(env.SENTRY_DSN).toBeUndefined()
+    expect(env.ALERT_PROVIDER).toBe('none')
+    expect(() => parseEnv(baseEnv, { APP_URL: '' })).toThrow(/APP_URL/)
   })
 })

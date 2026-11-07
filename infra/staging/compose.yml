@@ -1,0 +1,94 @@
+# Staging on the homelab (ADR 0006), deployed with Coolify as a Docker Compose resource.
+# Images come from CI (ghcr.io); nothing is built here. Guide: docs/deploy.md.
+# Required variables use ${VAR:?}: the deployment stops if one is missing.
+name: saas-staging
+
+x-app-env: &app-env
+  APP_ENV: staging
+  APP_URL: ${APP_URL:?}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD:?}@postgres:5432/saas
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  ALERT_PROVIDER: ${ALERT_PROVIDER:-none}
+  NTFY_URL: ${NTFY_URL:-}
+  NTFY_TOKEN: ${NTFY_TOKEN:-}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+
+services:
+  postgres:
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/postgres:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      APP_MIGRATOR_PASSWORD: ${APP_MIGRATOR_PASSWORD:?}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?}
+      APP_PLATFORM_PASSWORD: ${APP_PLATFORM_PASSWORD:?}
+      APP_DATABASES: saas
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d saas']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  # One-shot: migrations + queue tables. Web and worker wait for it to succeed.
+  migrate:
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/migrate:${IMAGE_TAG:-staging}
+    restart: 'no'
+    environment:
+      DATABASE_MIGRATOR_URL: postgresql://app_migrator:${APP_MIGRATOR_PASSWORD:?}@postgres:5432/saas
+      DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD:?}@postgres:5432/saas
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/web:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
+      AUTH_RATE_LIMIT_ENABLED: 'true'
+    expose:
+      - '3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/worker:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    stop_grace_period: 40s
+    environment:
+      <<: *app-env
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      EMAIL_FROM: ${EMAIL_FROM:?}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EVENTS_WEBHOOK_URL: ${EVENTS_WEBHOOK_URL:-}
+      EVENTS_WEBHOOK_SECRET: ${EVENTS_WEBHOOK_SECRET:-}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      WORKER_HEALTH_PORT: '3002'
+      QUEUE_MAX_WAIT_SECONDS: ${QUEUE_MAX_WAIT_SECONDS:-900}
+      HEARTBEAT_URL: ${HEARTBEAT_URL:-}
+    expose:
+      - '3002'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Public site: static pages, its URLs are baked into the image by CI.
+  site:
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/site:${IMAGE_TAG:-staging}
+    restart: unless-stopped
+    expose:
+      - '3001'
+
+volumes:
+  pgdata:

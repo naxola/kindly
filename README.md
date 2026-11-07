@@ -8,4 +8,5 @@ UI, web pública con blog y despliegue), sin lógica de negocio.
 - Decisiones: [`docs/adr/`](docs/adr/README.md)
 - Estado: [`docs/roadmap.md`](docs/roadmap.md)
 
-Estado actual: **fase 0 (decisiones)**. Todavía no hay código.
+Estado actual: ver [`docs/roadmap.md`](docs/roadmap.md). Operación:
+[`docs/operations.md`](docs/operations.md). Despliegue: [`docs/deploy.md`](docs/deploy.md).

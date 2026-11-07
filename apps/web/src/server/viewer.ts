@@ -21,7 +21,10 @@ export interface Viewer {
 
 /** Session of the current request (RSC), memoized per request. */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  const result = await auth().api.getSession({ headers: await headers() })
+  // headers() first: it marks the page as dynamic before anything reads the environment,
+  // so `next build` (Docker image, no runtime variables) never evaluates it.
+  const requestHeaders = await headers()
+  const result = await auth().api.getSession({ headers: requestHeaders })
   if (!result) return null
   return { authUserId: result.user.id, email: result.user.email, name: result.user.name }
 })

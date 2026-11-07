@@ -12,6 +12,9 @@ export const workerEnv = baseEnv.extend(databaseEnv.shape).extend({
   WORKER_CONCURRENCY: z.coerce.number().int().positive().max(50).default(2),
   /** Port of the /health and /ready endpoints. 0 disables them. */
   WORKER_HEALTH_PORT: z.coerce.number().int().min(0).max(65535).default(3002),
+  /** Push heartbeat (e.g. Uptime Kuma push monitor). Empty: no heartbeat. Secret: carries a token. */
+  HEARTBEAT_URL: z.url().optional(),
+  HEARTBEAT_INTERVAL_SECONDS: z.coerce.number().int().min(10).default(60),
   /** A queue whose oldest ready job waits longer than this raises an alert. */
   QUEUE_MAX_WAIT_SECONDS: z.coerce.number().int().positive().default(900),
   /** Queues this process consumes, comma separated. Default: all of them. */

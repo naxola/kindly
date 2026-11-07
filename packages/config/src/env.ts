@@ -124,13 +124,15 @@ export class EnvError extends Error {
 
 /**
  * Validates environment variables against a schema. The error never includes the
- * values, only the variable names and the reason.
+ * values, only the variable names and the reason. An empty variable counts as unset
+ * (Docker Compose and Coolify pass `VAR=` for optional values left blank).
  */
 export function parseEnv<S extends z.ZodType>(
   schema: S,
   source: Record<string, string | undefined> = process.env,
 ): z.infer<S> {
-  const result = schema.safeParse(source)
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''))
+  const result = schema.safeParse(present)
   if (!result.success) {
     throw new EnvError(
       result.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),

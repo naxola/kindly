@@ -1,6 +1,6 @@
 # Roadmap de la plantilla
 
-**Fase actual: 5, observabilidad (entregada, pendiente de validar).** Fases 0 a 4c validadas (2026-11-06/07). Newsletter pendiente de decisión. La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Fase actual: 6, despliegue (entregada, pendiente de validar).** Fases 0 a 4c validadas (2026-11-06/07). La 5 se validará en staging, con GlitchTip, ntfy y Uptime Kuma autoalojados (ADR 0011). Newsletter: listmonk (formulario pendiente). La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
@@ -13,8 +13,8 @@
 | 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
 | 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06) |
 | 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07) |
-| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡                       |
-| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | ⚪                       |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging    |
+| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
 
 ## Fase 1 — entregado
@@ -94,7 +94,7 @@
 
 **Verificado en local:** format, lint (con fronteras), typecheck, 36 unitarias (6 de contenido), 52 de integración, build de todos los paquetes, auditoría sin vulnerabilidades y 11 E2E (5 nuevos de la web pública: redirección y enlaces a la app, cambio de idioma, post con datos estructurados e imagen social, RSS, sitemap, legales con datos de la empresa y aviso, precios sin planes).
 
-**Pendiente de decisión:** la newsletter (doble opt-in propio en la BD o herramienta externa como Brevo o Loops).
+**Newsletter (decidido 2026-11-07):** listmonk autoalojado (ADR 0011); falta el formulario de alta.
 
 ### Corrección (2026-11-07): el CI fallaba desde la fase 4b
 
@@ -113,3 +113,16 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 **Verificado en local:** format, lint (con fronteras), typecheck, 50 unitarias (alertas y su limitación, limpieza de datos de los errores, reporte de errores de la API, panel de la cola), 55 de integración (gancho de fallo definitivo, foto de la cola y cola atascada contra pg-boss real; salud del worker y alerta de cola atascada), 11 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos (2 moderados aceptados, ADR 0009). A mano: la web compilada, con la base de datos caída, envía el error de Better Auth a un Sentry simulado sin email, contraseña ni cookie; el worker compilado desde un `pnpm deploy` responde `/health` y `/ready` y para limpio con SIGTERM.
 
 **Pendiente, anotado:** errores del navegador; centralizar logs y monitor externo (fase 6).
+
+## Fase 6 — entregado
+
+- **`Dockerfile`** con un destino por proceso: `web` y `site` (Next standalone), `worker` (dependencias de producción planas), `migrate` (migraciones + tablas de la cola, paso único de cada despliegue) y `postgres` (con los roles del ADR 0002). Sin variables del entorno dentro de las imágenes, salvo las URLs de la web pública (prerenderizada).
+- **`infra/staging/compose.yml`** para Coolify: Postgres → `migrate` → web y worker; variables obligatorias que paran el despliegue si faltan; healthchecks en todas las imágenes.
+- **CI**: construye las cinco imágenes, las arranca con el compose de staging (prueba de humo de web, worker y web pública) y, en `staging`, las publica en `ghcr.io` (`staging` y `sha-<commit>`).
+- **Latido del worker** (`HEARTBEAT_URL`) para el monitor _Push_ de Uptime Kuma.
+- **Guía** `docs/deploy.md`: Coolify, Cloudflare Tunnel, espejo en Forgejo, GlitchTip, ntfy y monitores de Uptime Kuma. ADR 0011 (servicios autoalojados) y ADR 0006 concretado.
+- Corregido por el camino: la web ya no lee variables de entorno durante `next build` (la imagen no las tiene), y una variable vacía cuenta como no definida (Compose y Coolify pasan `VAR=`).
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 54 unitarias (latido del worker, variables vacías), 55 de integración, 11 E2E, build y sincronía esquema/migraciones. Sin Docker en el entorno de desarrollo, se comprobó a mano lo que cada imagen ejecuta: la web compilada sin ninguna variable de entorno; la web y la web pública _standalone_ copiadas fuera del repositorio responden (`/api/ready`, CSS, portada con las URLs de staging, blog, imagen social); el worker desde un `pnpm deploy` plano; y el script de `migrate` contra la base local. **Las imágenes en sí las construye y prueba el CI** (trabajo «Docker images»).
+
+**Para publicar imágenes** el repositorio necesita las variables `STAGING_SITE_URL` y `STAGING_APP_URL` (`docs/deploy.md`). Sin ellas el CI construye y prueba, pero no publica.
