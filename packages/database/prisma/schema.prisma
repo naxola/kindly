@@ -241,6 +241,8 @@ model Subscription {
   providerSubscriptionId String?            @unique @map("provider_subscription_id")
   providerCustomerId     String?            @map("provider_customer_id")
   pastDueSince           DateTime?          @map("past_due_since") @db.Timestamptz(3)
+  /// occurred_at of the last provider event applied: older events arrive late and are ignored.
+  providerUpdatedAt      DateTime?          @map("provider_updated_at") @db.Timestamptz(3)
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 

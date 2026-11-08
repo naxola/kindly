@@ -86,6 +86,25 @@ Las alertas de Kuma y las del worker llegan por el mismo tema de ntfy.
 > Si el homelab se cae, se caen a la vez staging y quien vigila. Para staging es aceptable.
 > Para producción hará falta al menos un vigilante fuera del homelab (ADR de producción).
 
+## Pagos con Paddle (ADR 0012)
+
+Staging usa **siempre el sandbox** de Paddle (claves `pdl_sdbx_…`). El adaptador sigue la
+documentación de Paddle, pero no está probado contra Paddle hasta que hagas este recorrido:
+
+1. En el panel de Paddle (sandbox):
+   - Crea los productos y precios de los planes. Copia cada `pri_…` en el `providerPriceId`
+     de su versión en `CATALOG`.
+   - Crea un producto para el excedente (`pro_…` → `PADDLE_OVERAGE_PRODUCT_ID`).
+2. Copia la clave de API (`PADDLE_API_KEY`) y el token de cliente (`PADDLE_CLIENT_TOKEN`).
+3. Crea un destino de notificaciones hacia `https://app.staging.<dominio>/api/webhooks/payments`
+   con los eventos `subscription.*`. Su secreto va en `PADDLE_WEBHOOK_SECRET`.
+4. `PAYMENT_PROVIDER=paddle` y `PADDLE_ENVIRONMENT=sandbox` en Coolify (web y worker).
+5. Comprueba, con una tarjeta de prueba de Paddle:
+   - Contratar un plan desde _Ajustes → Plan y consumo_ deja la organización en ese plan.
+   - El portal abre.
+   - Un periodo cerrado con excedente aparece cobrado en Paddle.
+   - Una firma inválida se rechaza (401 en los logs).
+
 ## Operación diaria
 
 - **Fijar o volver a una versión:** `IMAGE_TAG=sha-<commit>` en Coolify y volver a desplegar.

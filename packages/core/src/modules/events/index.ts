@@ -18,6 +18,7 @@ export const BUSINESS_EVENT_TYPES = [
   'member.joined',
   'usage.threshold_reached',
   'billing.period_closed',
+  'billing.subscription_changed',
 ] as const
 export type BusinessEventType = (typeof BUSINESS_EVENT_TYPES)[number]
 

@@ -17,7 +17,9 @@ export * from './modules/billing/index.ts'
 import {
   BILLING_SCHEDULES,
   closeDuePeriodsScanJob,
+  chargePeriodJob,
   closePeriodsJob,
+  providerEventJob,
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
@@ -39,6 +41,8 @@ export const ALL_JOBS = [
   quotaAlertEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
+  chargePeriodJob,
+  providerEventJob,
 ] as const
 
 /** Recurring jobs (cron, UTC). The worker registers them on start. */
