@@ -1,6 +1,9 @@
 import type { JobHandler } from '@saas/adapters/queue'
 import {
+  billingCloseHandlers,
   billingEmailHandlers,
+  closeDuePeriodsScanJob,
+  closePeriodsJob,
   deliverEventHandler,
   deliverEventJob,
   identityEmailHandlers,
@@ -11,6 +14,7 @@ import {
   type EmailSender,
   type EventSink,
   type JobDefinition,
+  type JobQueue,
 } from '@saas/core'
 import type { Db } from '@saas/database'
 import type { z } from 'zod'
@@ -20,6 +24,9 @@ export interface HandlerDeps {
   /** Lazy: only resolved if this process consumes a queue that sends email. */
   email: () => EmailSender
   events: EventSink
+  /** Producer side, for jobs that enqueue other jobs. */
+  queue: JobQueue
+  appUrl: string
 }
 
 export interface Registration<S extends z.ZodType = z.ZodType> {
@@ -57,4 +64,6 @@ export const registrations: Registration[] = [
     handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
     sendsEmail: true,
   }),
+  register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
+  register({ job: closePeriodsJob, handler: (deps) => billingCloseHandlers(deps).close }),
 ]

@@ -107,7 +107,9 @@
     "TAKEN": "Ese identificador ya está en uso.",
     "PENDING_INVITATION": "Ya hay una invitación pendiente para ese email.",
     "QUOTA_EXCEEDED": "Se ha alcanzado la cuota del plan. Espera al próximo periodo o cambia de plan.",
-    "FEATURE_NOT_IN_PLAN": "Tu plan no incluye esta función."
+    "FEATURE_NOT_IN_PLAN": "Tu plan no incluye esta función.",
+    "SPEND_CAP_REACHED": "Se ha alcanzado el tope de gasto del periodo.",
+    "NO_SUBSCRIPTION": "La organización no tiene un plan de pago."
   },
   "home": {
     "title": "Inicio",
@@ -237,7 +239,22 @@
       "hardLimit": "Al llegar al límite, se rechaza hasta el próximo periodo.",
       "overage": "Por encima: {price} por {unit}",
       "noMetricsTitle": "Este plan no mide consumo",
-      "noMetrics": "Cuando el producto defina conceptos medibles, su consumo aparecerá aquí."
+      "noMetrics": "Cuando el producto defina conceptos medibles, su consumo aparecerá aquí.",
+      "spendCap": "Tope de gasto",
+      "spendCapHint": "Máximo que se cobrará por excedente en cada periodo. Al alcanzarlo, el consumo extra se rechaza. Vacío: sin tope.",
+      "spendCapLabel": "Importe ({currency})",
+      "noCap": "Sin tope",
+      "save": "Guardar",
+      "periods": "Periodos cerrados",
+      "periodCol": "Periodo",
+      "overageCol": "Excedente",
+      "dueCol": "A cobrar",
+      "periodStatuses": {
+        "NO_CHARGE": "Sin excedente",
+        "PENDING_CHARGE": "Pendiente de cobro",
+        "CHARGED": "Cobrado",
+        "CHARGE_FAILED": "Cobro fallido"
+      }
     }
   },
   "billing": {

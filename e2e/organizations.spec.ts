@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import {
   adminWithOrganization,
+  closedBillingPeriod,
   closeDb,
   PASSWORD,
   createOrganization,
@@ -126,4 +127,12 @@ test('an admin sees the plan and usage of the organization', async ({ page }) =>
   await expect(page.getByText('Plan base')).toBeVisible()
   await expect(page.getByText('Este plan no mide consumo')).toBeVisible()
   await shot(page, 'billing')
+
+  // After the hourly close, closed periods are listed.
+  await closedBillingPeriod(page)
+  await page.reload()
+  await expect(page.getByText('Activo')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Periodos cerrados' })).toBeVisible()
+  await expect(page.getByText('Sin excedente')).toBeVisible()
+  await shot(page, 'billing-periods')
 })

@@ -157,6 +157,26 @@ Diferencias con la propuesta, por simplicidad:
 - Permisos nuevos `billing.read` y `billing.manage` (solo ADMIN). Pantalla _Ajustes → Plan y
   consumo_.
 
+### B4 (2026-11-08)
+
+- **Cierre**: un job programado cada hora (`billing.close-due-periods`, minuto 7, UTC) obtiene
+  las organizaciones con suscripción mediante `app.organizations_with_subscription()` (función
+  `SECURITY DEFINER` que solo devuelve ids; las tablas mantienen su RLS) y encola un cierre por
+  organización, que se ejecuta en su contexto de tenant.
+- Un periodo se cierra cuando ha terminado y ha pasado **1 hora de margen** para el uso que
+  llega tarde (SUPUESTO). Se cierra una sola vez (única por suscripción y periodo) y guarda una
+  **foto inmutable**: plan y versión, precio fijo de referencia, una línea por métrica (usado,
+  incluido, unidades de excedente, precio unitario e importe redondeado a céntimos, mitad hacia
+  arriba), total de excedente, tope y **importe a cobrar**. La aplicación solo puede cambiar el
+  estado de cobro (`status`, `provider_charge_ref`, `charged_at`); el resto está protegido con
+  permisos por columna.
+- Estados: `NO_CHARGE`, `PENDING_CHARGE` (lo cobrará el proveedor, B3), `CHARGED`,
+  `CHARGE_FAILED`. Auditoría y evento `billing.period_closed`.
+- **Tope de gasto** por suscripción (ADMIN, `billing.manage`): limita el importe a cobrar y
+  `recordUsage` rechaza el uso que lo superaría (`SPEND_CAP_REACHED`).
+- Si el plan cambia a mitad de periodo, el cierre aplica el plan vigente al cerrar. Si el worker
+  estuviera caído más de un periodo entero, solo se cierra el último (anotado).
+
 ### SUPUESTOS (configurables, a confirmar)
 
 - Proveedor del primer adaptador: **Paddle**.

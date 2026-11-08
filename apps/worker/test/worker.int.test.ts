@@ -77,8 +77,13 @@ async function until<T>(read: () => T | undefined, timeoutMs = 20_000): Promise<
 }
 
 describe('worker', () => {
-  it('consumes every template queue', () => {
-    expect(worker.queues).toHaveLength(5)
+  it('consumes every template queue and registers the schedules', async () => {
+    expect(worker.queues).toHaveLength(7)
+    const schedules = await worker.boss.getSchedules()
+    expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
+      'billing.close-due-periods',
+      '7 * * * *',
+    ])
   })
 
   it('sends the invitation email and delivers the business events', async () => {
