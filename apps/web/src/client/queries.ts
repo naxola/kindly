@@ -24,3 +24,14 @@ export function useInvitations(orgId: string, enabled = true) {
     queryFn: async () => unwrap(await apiClient.GET('/api/v1/invitations')).items,
   })
 }
+
+export const billingKeys = {
+  overview: (orgId: string) => ['org', orgId, 'billing'] as const,
+}
+
+export function useBillingOverview(orgId: string) {
+  return useQuery({
+    queryKey: billingKeys.overview(orgId),
+    queryFn: async () => unwrap(await apiClient.GET('/api/v1/billing')),
+  })
+}

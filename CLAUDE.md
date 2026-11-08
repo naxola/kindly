@@ -146,6 +146,12 @@ Convenciones al añadir código:
   la transacción del cambio y con una clave de idempotencia del efecto de negocio.
 - Eventos de negocio nuevos: tipo en `BUSINESS_EVENT_TYPES` (`core/src/modules/events`)
   y `emitEvent(ctx, tx, …)` en el caso de uso (ADR 0010).
+- Cobros (ADR 0012): métricas, funciones y planes del producto en `CATALOG`
+  (`core/src/modules/billing/catalog.ts`); un precio nuevo es una **versión nueva**, nunca se
+  edita una publicada. Lo que consume cuota se registra con `recordUsage(ctx, tx, …)` dentro
+  de la transacción del efecto y con su clave de idempotencia; una función de pago se comprueba
+  con `requireFeature(ctx, tx, …)` además de `authorize`. Nombres visibles de planes, métricas
+  y unidades en `billing.*` de los mensajes. Dinero y cantidades: decimales, nunca `float`.
 - Observabilidad (ADR 0008): los errores inesperados se reportan con `captureError`
   (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
   Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son

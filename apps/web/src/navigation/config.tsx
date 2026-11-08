@@ -31,7 +31,14 @@ export const MODULES: ModuleDef[] = [
     railGroup: 1,
     menu: {
       titleKey: 'menu.settings.title',
-      sections: [{ items: [{ key: 'members', path: 'members', anyOf: ['members.read'] }] }],
+      sections: [
+        {
+          items: [
+            { key: 'members', path: 'members', anyOf: ['members.read'] },
+            { key: 'billing', path: 'billing', anyOf: ['billing.read'] },
+          ],
+        },
+      ],
     },
   },
 ]

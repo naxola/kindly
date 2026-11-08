@@ -12,6 +12,7 @@ export {
   AuditActorType,
   OrganizationRole,
   MemberStatus,
+  SubscriptionStatus,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -19,4 +20,6 @@ export type {
   User,
   OrganizationMember,
   Invitation,
+  Subscription,
+  UsageEvent,
 } from './generated/prisma/client.ts'

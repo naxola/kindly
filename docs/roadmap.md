@@ -16,7 +16,7 @@
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging    |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
-| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 📝 Propuesto             |
+| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 B1–B2 entregadas      |
 
 ## Fase 1 — entregado
 
@@ -129,3 +129,13 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 **Mejora anotada:** la imagen del worker pesa cerca de 1 GB porque las dependencias opcionales de Better Auth (`next`, `vitest`…) se resuelven desde el workspace. Funciona y respeta el lockfile; se adelgazará empaquetando el worker por completo o separando el adaptador de acceso.
 
 **Para publicar imágenes** el repositorio necesita las variables `STAGING_SITE_URL` y `STAGING_APP_URL` (`docs/deploy.md`). Sin ellas el CI construye y prueba, pero no publica.
+
+## Cobros B1 + B2 — entregado (ADR 0012)
+
+- **Catálogo en código** (`defineCatalog`): métricas con su forma de agregar (`sum`, `max`, `unique`), funciones y planes versionados con cuota incluida, límite estricto o flexible y precio de excedente. Validado al arrancar. La plantilla solo trae el plan gratuito, sin precios inventados.
+- **Suscripciones** (`subscriptions`, RLS): sin fila, el plan por defecto en el mes natural; con fila, su periodo, que se avanza solo si la renovación del proveedor se retrasa.
+- **Medición** (`usage_events`, RLS y solo inserción): `recordUsage` idempotente, serializado por organización y métrica, que rechaza el efecto con límite estricto (`QUOTA_EXCEEDED`, 402) y avisa al 80 % y al 100 % (evento de negocio y correo a los administradores, una vez por periodo).
+- **Derechos**: `requireFeature`, separado de los permisos. Permisos `billing.read` y `billing.manage`.
+- **API** `GET /api/v1/billing` y `GET /api/v1/billing/plans`; pantalla _Ajustes → Plan y consumo_; componente `Progress` en `packages/ui`.
+
+**Verificado en local:** format, lint (con fronteras), typecheck, 61 unitarias (catálogo, periodos, correo de aviso), 67 de integración (11 de cobros contra Postgres real: plan por defecto, idempotencia, límite estricto que deshace la transacción, concurrencia que no supera la cuota, avisos al 80 % y 100 % una sola vez, `max` y `unique`, límite flexible, funciones por plan, vista de consumo, MEMBER sin acceso, aislamiento por RLS y uso no editable; y la API con ADMIN y MEMBER), 12 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos.

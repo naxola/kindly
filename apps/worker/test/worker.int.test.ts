@@ -78,7 +78,7 @@ async function until<T>(read: () => T | undefined, timeoutMs = 20_000): Promise<
 
 describe('worker', () => {
   it('consumes every template queue', () => {
-    expect(worker.queues).toHaveLength(4)
+    expect(worker.queues).toHaveLength(5)
   })
 
   it('sends the invitation email and delivers the business events', async () => {

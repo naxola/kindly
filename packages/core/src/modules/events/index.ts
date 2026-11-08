@@ -16,6 +16,7 @@ export const BUSINESS_EVENT_TYPES = [
   'organization.created',
   'invitation.created',
   'member.joined',
+  'usage.threshold_reached',
 ] as const
 export type BusinessEventType = (typeof BUSINESS_EVENT_TYPES)[number]
 
