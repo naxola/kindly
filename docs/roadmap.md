@@ -16,6 +16,7 @@
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging    |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                       |
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
+| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 📝 Propuesto             |
 
 ## Fase 1 — entregado
 
