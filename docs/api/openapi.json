@@ -596,6 +596,133 @@
             ]
           }
         ]
+      },
+      "BillingPeriod": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "version"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fixedPrice": {
+            "type": "string",
+            "example": "29.00"
+          },
+          "overageTotal": {
+            "type": "string",
+            "example": "29.00"
+          },
+          "spendCap": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "29.00"
+          },
+          "amountDue": {
+            "type": "string",
+            "example": "29.00"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NO_CHARGE",
+              "PENDING_CHARGE",
+              "CHARGED",
+              "CHARGE_FAILED"
+            ]
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "metric": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "used": {
+                  "type": "string",
+                  "example": "29.00"
+                },
+                "included": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "example": "29.00"
+                },
+                "overageUnits": {
+                  "type": "string",
+                  "example": "29.00"
+                },
+                "unitPrice": {
+                  "type": "string",
+                  "example": "29.00"
+                },
+                "amount": {
+                  "type": "string",
+                  "example": "29.00"
+                }
+              },
+              "required": [
+                "metric",
+                "unit",
+                "used",
+                "included",
+                "overageUnits",
+                "unitPrice",
+                "amount"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "plan",
+          "currency",
+          "periodStart",
+          "periodEnd",
+          "fixedPrice",
+          "overageTotal",
+          "spendCap",
+          "amountDue",
+          "status",
+          "closedAt",
+          "lines"
+        ]
       }
     },
     "parameters": {}
@@ -1724,6 +1851,161 @@
           },
           "401": {
             "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/periods": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Closed billing periods of the active organization (newest first)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Periods",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BillingPeriod"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/spend-cap": {
+      "put": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Set or remove the maximum overage per period",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spendCap": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
+                  }
+                },
+                "required": [
+                  "spendCap"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "spendCap": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "29.00"
+                    }
+                  },
+                  "required": [
+                    "spendCap"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state",
             "content": {
               "application/json": {
                 "schema": {

@@ -70,3 +70,38 @@ export async function createOrganization(page: Page, name: string) {
     .fill(`${name.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`)
   await press(page.getByRole('button', { name: 'Crear organización' }))
 }
+
+/**
+ * Billing fixture: puts the organization on a stored subscription of the default plan with
+ * one closed period, as the hourly close would leave it. Runs as app_user within the tenant.
+ */
+export async function closedBillingPeriod(page: Page) {
+  const orgId = (await page.context().cookies()).find((c) => c.name === 'active_org')?.value
+  if (!orgId) throw new Error('no active organization cookie')
+  const client = await db().connect()
+  try {
+    await client.query('BEGIN')
+    await client.query(`SELECT set_config('app.org_id', $1, true)`, [orgId])
+    const sub = await client.query<{ id: string }>(
+      `INSERT INTO subscriptions (id, organization_id, plan_key, plan_version, status,
+         current_period_start, current_period_end, updated_at)
+       VALUES (gen_random_uuid(), $1, 'free', 1, 'ACTIVE', '2026-10-01', '2026-11-01', now())
+       RETURNING id`,
+      [orgId],
+    )
+    await client.query(
+      `INSERT INTO billing_periods (id, organization_id, subscription_id, plan_key, plan_version,
+         currency, period_start, period_end, fixed_price, overage_total, amount_due, status,
+         closed_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, 'free', 1, 'EUR', '2026-09-01', '2026-10-01', 0, 0, 0,
+         'NO_CHARGE', now(), now())`,
+      [orgId, sub.rows[0]!.id],
+    )
+    await client.query('COMMIT')
+  } catch (e) {
+    await client.query('ROLLBACK')
+    throw e
+  } finally {
+    client.release()
+  }
+}

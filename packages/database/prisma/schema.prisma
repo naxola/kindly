@@ -29,11 +29,12 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs    AuditLog[]
-  members      OrganizationMember[]
-  invitations  Invitation[]
-  subscription Subscription?
-  usageEvents  UsageEvent[]
+  auditLogs      AuditLog[]
+  members        OrganizationMember[]
+  invitations    Invitation[]
+  subscription   Subscription?
+  usageEvents    UsageEvent[]
+  billingPeriods BillingPeriod[]
 
   @@map("organizations")
 }
@@ -266,4 +267,66 @@ model UsageEvent {
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, metric, occurredAt])
   @@map("usage_events")
+}
+
+enum BillingPeriodStatus {
+  /// Nothing to charge beyond the fixed price (the provider charges that itself).
+  NO_CHARGE
+  /// Overage computed, waiting to be charged at the provider.
+  PENDING_CHARGE
+  CHARGED
+  CHARGE_FAILED
+}
+
+/// Immutable snapshot of a closed period (ADR 0012). Only the charge columns change later.
+model BillingPeriod {
+  id                String              @id @default(uuid(7)) @db.Uuid
+  organizationId    String              @map("organization_id") @db.Uuid
+  subscriptionId    String              @map("subscription_id") @db.Uuid
+  planKey           String              @map("plan_key")
+  planVersion       Int                 @map("plan_version")
+  currency          String
+  periodStart       DateTime            @map("period_start") @db.Timestamptz(3)
+  periodEnd         DateTime            @map("period_end") @db.Timestamptz(3)
+  /// Fixed price of the plan, for reference: the provider charges it with the subscription.
+  fixedPrice        Decimal             @map("fixed_price") @db.Decimal(14, 2)
+  /// Sum of the overage lines, before the spend cap.
+  overageTotal      Decimal             @map("overage_total") @db.Decimal(14, 2)
+  spendCap          Decimal?            @map("spend_cap") @db.Decimal(14, 2)
+  /// What is charged for usage: overage total limited by the spend cap.
+  amountDue         Decimal             @map("amount_due") @db.Decimal(14, 2)
+  status            BillingPeriodStatus
+  providerChargeRef String?             @map("provider_charge_ref")
+  chargedAt         DateTime?           @map("charged_at") @db.Timestamptz(3)
+  closedAt          DateTime            @map("closed_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  lines        BillingPeriodLine[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, subscriptionId, periodStart])
+  @@index([organizationId, periodStart])
+  @@map("billing_periods")
+}
+
+/// One metric of a closed period. Append-only.
+model BillingPeriodLine {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  periodId       String   @map("period_id") @db.Uuid
+  metric         String
+  unit           String
+  used           Decimal  @db.Decimal(20, 6)
+  /// Null = unlimited.
+  included       Decimal? @db.Decimal(20, 6)
+  overageUnits   Decimal  @map("overage_units") @db.Decimal(20, 6)
+  unitPrice      Decimal  @map("unit_price") @db.Decimal(14, 6)
+  amount         Decimal  @db.Decimal(14, 2)
+
+  period BillingPeriod @relation(fields: [organizationId, periodId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([periodId, metric])
+  @@index([organizationId])
+  @@map("billing_period_lines")
 }

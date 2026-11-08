@@ -155,6 +155,24 @@ export async function registerWorker<S extends z.ZodType>(
   })
 }
 
+/**
+ * Recurring platform job (cron, UTC). Idempotent: re-registering on every start replaces the
+ * schedule. A missed occurrence (worker down) is sent once when the worker comes back.
+ */
+export async function scheduleJob<S extends z.ZodType>(
+  boss: PgBoss,
+  job: JobDefinition<S>,
+  cron: string,
+  payload: z.input<S>,
+) {
+  await ensureQueue(boss, job, new Set())
+  const envelope: Envelope = {
+    meta: { organizationId: null, correlationId: `schedule:${job.name}` },
+    payload: job.schema.parse(payload),
+  }
+  await boss.schedule(job.name, cron, envelope, { tz: 'UTC', missed: 'once' })
+}
+
 /** State of the queues, read from the pg-boss tables (version pinned in ADR 0009). */
 export interface QueueSnapshot {
   queues: {

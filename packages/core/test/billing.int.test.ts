@@ -2,14 +2,18 @@ import { createDb, newId, withTenant, type Db } from '@saas/database'
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  billingCloseHandlers,
   billingStateOf,
+  closeDuePeriods,
   createOrganization,
   DomainError,
   ensureUser,
   getBillingOverview,
+  listBillingPeriods,
   recordUsage,
   requireFeature,
   resolveActor,
+  setSpendCap,
   type Ctx,
   type RecordUsageInput,
 } from '../src/index.ts'
@@ -246,5 +250,131 @@ describe('usage isolation and integrity', () => {
     } finally {
       await client.end()
     }
+  })
+})
+
+describe('period close (B4)', () => {
+  const OCT = { start: new Date('2026-10-05T00:00:00Z'), end: new Date('2026-11-05T00:00:00Z') }
+
+  const subscribeSince = (orgId: string, spendCap: string | null = null) =>
+    withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: OCT.start,
+          currentPeriodEnd: OCT.end,
+          spendCap,
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+        },
+      }),
+    )
+
+  const close = (orgId: string) =>
+    withTenant(db, orgId, (tx) => closeDuePeriods(base(), tx, orgId, TEST_CATALOG))
+
+  it('stores an immutable snapshot of the period once, with its overage', async () => {
+    const { orgId, ctx } = await orgWithAdmin()
+    await subscribeSince(orgId)
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, { metric: 'api_calls', quantity: 1500, occurredAt: inOctober })
+    await record(orgId, { metric: 'storage_gb', quantity: '12', occurredAt: inOctober })
+    // Usage of the next period does not count for October.
+    await record(orgId, { metric: 'api_calls', quantity: 999, occurredAt: NOW })
+
+    const [period] = await close(orgId)
+    expect(period).toMatchObject({ status: 'PENDING_CHARGE', planKey: 'pro', currency: 'EUR' })
+    expect(period!.periodStart.toISOString()).toBe(OCT.start.toISOString())
+    expect(period!.overageTotal.toString()).toBe('1.5') // 500 × 0.001 + 2 × 0.5
+    expect(await close(orgId)).toEqual([])
+
+    const [listed] = await listBillingPeriods(ctx)
+    expect(listed!.lines.find((l) => l.metric === 'api_calls')).toMatchObject({
+      used: '1500',
+      overageUnits: '500',
+      amount: '0.5',
+    })
+    expect(
+      queue
+        .of('events.deliver')
+        .some((e) => (e.payload as { type: string }).type === 'billing.period_closed'),
+    ).toBe(true)
+  })
+
+  it('the spend cap limits the amount due and blocks usage beyond it', async () => {
+    const { orgId } = await orgWithAdmin()
+    await subscribeSince(orgId, '1.00')
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, { metric: 'api_calls', quantity: 1900, occurredAt: inOctober })
+    expect(
+      await errorOf(record(orgId, { metric: 'api_calls', quantity: 200, occurredAt: inOctober })),
+    ).toEqual({ code: 'QUOTA_EXCEEDED', detail: 'SPEND_CAP_REACHED' })
+    const [period] = await close(orgId)
+    expect(period!.amountDue.toString()).toBe('0.9')
+  })
+
+  it('only an ADMIN with a subscription sets the spend cap', async () => {
+    const { orgId, ctx } = await orgWithAdmin()
+    expect(await errorOf(setSpendCap(ctx, { spendCap: '50' }))).toEqual({
+      code: 'CONFLICT',
+      detail: 'NO_SUBSCRIPTION',
+    })
+    await subscribeSince(orgId)
+    expect(await setSpendCap(ctx, { spendCap: '50' })).toEqual({ spendCap: '50' })
+    const member: Ctx = { ...ctx, actor: { ...ctx.actor, role: 'MEMBER', permissions: new Set() } }
+    expect(await errorOf(setSpendCap(member, { spendCap: null }))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+  })
+
+  it('a closed period cannot be altered; only how it was charged', async () => {
+    const { orgId } = await orgWithAdmin()
+    await subscribeSince(orgId)
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 1200,
+      occurredAt: new Date('2026-10-20T10:00:00Z'),
+    })
+    const [period] = await close(orgId)
+    const client = new pg.Client({ connectionString: process.env.DATABASE_URL })
+    await client.connect()
+    try {
+      await client.query(`SELECT set_config('app.org_id', $1, false)`, [orgId])
+      await expect(
+        client.query('UPDATE billing_periods SET amount_due = 0 WHERE id = $1', [period!.id]),
+      ).rejects.toThrow(/permission denied/)
+      await expect(
+        client.query('UPDATE billing_period_lines SET amount = 0 WHERE period_id = $1', [
+          period!.id,
+        ]),
+      ).rejects.toThrow(/permission denied/)
+      const ok = await client.query(
+        `UPDATE billing_periods SET status = 'CHARGED', charged_at = now() WHERE id = $1`,
+        [period!.id],
+      )
+      expect(ok.rowCount).toBe(1)
+    } finally {
+      await client.end()
+    }
+  })
+
+  it('the hourly scan enqueues one close per organization with a subscription', async () => {
+    const { orgId } = await orgWithAdmin()
+    await subscribeSince(orgId)
+    const scanQueue = new RecordingQueue()
+    await billingCloseHandlers({
+      db,
+      queue: scanQueue,
+      appUrl: 'https://app.example.com',
+      now: () => NOW,
+      catalog: TEST_CATALOG,
+    }).scan({}, { organizationId: null, correlationId: 'scan', jobId: 'j', attempt: 0 })
+    const mine = scanQueue
+      .of('billing.close-periods')
+      .filter((j) => j.options.organizationId === orgId)
+    expect(mine).toHaveLength(1)
+    expect(mine[0]!.options.idempotencyKey).toBe(`close:${orgId}:2026-11-10T12`)
   })
 })

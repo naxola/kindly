@@ -27,11 +27,20 @@ export function useInvitations(orgId: string, enabled = true) {
 
 export const billingKeys = {
   overview: (orgId: string) => ['org', orgId, 'billing'] as const,
+  periods: (orgId: string) => ['org', orgId, 'billing', 'periods'] as const,
 }
 
 export function useBillingOverview(orgId: string) {
   return useQuery({
     queryKey: billingKeys.overview(orgId),
     queryFn: async () => unwrap(await apiClient.GET('/api/v1/billing')),
+  })
+}
+
+export function useBillingPeriods(orgId: string, enabled = true) {
+  return useQuery({
+    queryKey: billingKeys.periods(orgId),
+    enabled,
+    queryFn: async () => unwrap(await apiClient.GET('/api/v1/billing/periods')).items,
   })
 }

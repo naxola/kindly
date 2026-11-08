@@ -4,19 +4,19 @@
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
-| Fase                        | Contenido                                                                                             | Estado                   |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
-| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06) |
-| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06) |
-| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06) |
-| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06) |
-| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06) |
-| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06) |
-| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07) |
-| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging    |
-| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                       |
-| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                       |
-| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 B1–B2 entregadas      |
+| Fase                        | Contenido                                                                                             | Estado                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- |
+| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06)  |
+| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06)  |
+| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06)  |
+| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06)  |
+| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06)  |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06)  |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07)  |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging     |
+| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                        |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                        |
+| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 B1, B2 y B4 entregadas |
 
 ## Fase 1 — entregado
 
@@ -139,3 +139,12 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 - **API** `GET /api/v1/billing` y `GET /api/v1/billing/plans`; pantalla _Ajustes → Plan y consumo_; componente `Progress` en `packages/ui`.
 
 **Verificado en local:** format, lint (con fronteras), typecheck, 61 unitarias (catálogo, periodos, correo de aviso), 67 de integración (11 de cobros contra Postgres real: plan por defecto, idempotencia, límite estricto que deshace la transacción, concurrencia que no supera la cuota, avisos al 80 % y 100 % una sola vez, `max` y `unique`, límite flexible, funciones por plan, vista de consumo, MEMBER sin acceso, aislamiento por RLS y uso no editable; y la API con ADMIN y MEMBER), 12 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos.
+
+## Cobros B4 — entregado (ADR 0012)
+
+- **Cierre de periodo** cada hora (job programado + un cierre por organización en su tenant), con 1 hora de margen para el uso tardío. Foto inmutable por periodo con líneas por métrica, excedente redondeado a céntimos, tope e importe a cobrar; solo cambia el estado del cobro (permisos por columna).
+- **Tope de gasto** por suscripción: limita lo que se cobra y rechaza el uso que lo superaría.
+- `GET /api/v1/billing/periods`, `PUT /api/v1/billing/spend-cap`; en la pantalla, el tope (si el plan tiene excedentes) y los periodos cerrados.
+- El cobro del importe pendiente lo hará el proveedor (B3).
+
+**Verificado en local:** format, lint, typecheck, 66 unitarias (excedente y redondeo, tope, periodos vencidos), 72 de integración (cierre único con su foto y excedente correcto, uso del periodo siguiente excluido, tope que limita el cobro y rechaza el uso, tope solo para ADMIN con suscripción, periodo cerrado inalterable salvo el estado del cobro, escaneo horario que encola un cierre por organización, programación registrada en el worker), 12 E2E (incluida la pantalla con un periodo cerrado), build y sincronía esquema/migraciones.

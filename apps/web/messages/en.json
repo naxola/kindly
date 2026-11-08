@@ -107,7 +107,9 @@
     "TAKEN": "That identifier is already in use.",
     "PENDING_INVITATION": "There is already a pending invitation for that email.",
     "QUOTA_EXCEEDED": "The plan quota has been reached. Wait for the next period or change plans.",
-    "FEATURE_NOT_IN_PLAN": "Your plan does not include this feature."
+    "FEATURE_NOT_IN_PLAN": "Your plan does not include this feature.",
+    "SPEND_CAP_REACHED": "The spend cap for this period has been reached.",
+    "NO_SUBSCRIPTION": "The organization has no paid plan."
   },
   "home": {
     "title": "Home",
@@ -237,7 +239,22 @@
       "hardLimit": "At the limit, further use is rejected until the next period.",
       "overage": "Beyond the quota: {price} per {unit}",
       "noMetricsTitle": "This plan does not meter usage",
-      "noMetrics": "When the product defines metered usage, it will appear here."
+      "noMetrics": "When the product defines metered usage, it will appear here.",
+      "spendCap": "Spend cap",
+      "spendCapHint": "Maximum charged for overage each period. Once reached, extra usage is rejected. Empty: no cap.",
+      "spendCapLabel": "Amount ({currency})",
+      "noCap": "No cap",
+      "save": "Save",
+      "periods": "Closed periods",
+      "periodCol": "Period",
+      "overageCol": "Overage",
+      "dueCol": "Amount due",
+      "periodStatuses": {
+        "NO_CHARGE": "No overage",
+        "PENDING_CHARGE": "Pending charge",
+        "CHARGED": "Charged",
+        "CHARGE_FAILED": "Charge failed"
+      }
     }
   },
   "billing": {

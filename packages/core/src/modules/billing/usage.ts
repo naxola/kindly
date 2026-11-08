@@ -4,6 +4,7 @@ import { nowOf, type BaseCtx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
 import { emitEvent } from '../events/index.ts'
 import { CATALOG, metricOf, type Catalog, type MetricDef, type Quota } from './catalog.ts'
+import { overageOf } from './close.ts'
 import { quotaAlertEmailJob } from './jobs.ts'
 import type { Period } from './periods.ts'
 import { billingStateOf } from './state.ts'
@@ -118,6 +119,22 @@ export async function recordUsage(
     throw new DomainError('QUOTA_EXCEEDED', `Quota of ${metric.key} exceeded`, [
       { code: 'QUOTA_EXCEEDED', path: metric.key },
     ])
+  }
+
+  // Spend cap: the overage this event would bring must stay within the cap.
+  if (
+    state.spendCap !== null &&
+    quota.limit === 'soft' &&
+    quota.included !== null &&
+    next.gt(quota.included)
+  ) {
+    const all = await usageOf(tx, data.organizationId, catalog.metrics, state.period)
+    all.set(metric.key, next)
+    if (overageOf(state.plan, all, catalog).total.gt(state.spendCap)) {
+      throw new DomainError('QUOTA_EXCEEDED', 'Spend cap reached', [
+        { code: 'SPEND_CAP_REACHED', path: metric.key },
+      ])
+    }
   }
 
   await tx.usageEvent.create({

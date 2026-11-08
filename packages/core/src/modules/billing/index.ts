@@ -18,5 +18,22 @@ export { QUOTA_THRESHOLDS, RecordUsageInput, recordUsage, usageOf } from './usag
 export type { RecordUsageResult } from './usage.ts'
 export { hasFeature, requireFeature } from './entitlements.ts'
 export { getBillingOverview, listPlans } from './overview.ts'
-export { quotaAlertEmailJob, billingEmailHandlers } from './jobs.ts'
+export {
+  quotaAlertEmailJob,
+  billingEmailHandlers,
+  closeDuePeriodsScanJob,
+  closePeriodsJob,
+  billingCloseHandlers,
+  BILLING_SCHEDULES,
+} from './jobs.ts'
+export type { BillingJobDeps } from './jobs.ts'
+export {
+  LATE_USAGE_GRACE_MS,
+  amountDueOf,
+  closeDuePeriods,
+  duePeriods,
+  overageOf,
+} from './close.ts'
+export type { OverageLine } from './close.ts'
+export { SetSpendCapInput, listBillingPeriods, setSpendCap } from './manage.ts'
 export { quotaAlertEmail } from './emails.ts'

@@ -13,6 +13,7 @@ export {
   OrganizationRole,
   MemberStatus,
   SubscriptionStatus,
+  BillingPeriodStatus,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -22,4 +23,6 @@ export type {
   Invitation,
   Subscription,
   UsageEvent,
+  BillingPeriod,
+  BillingPeriodLine,
 } from './generated/prisma/client.ts'

@@ -6,12 +6,14 @@ import type { Logger } from '@saas/adapters/logger'
 import {
   createBoss,
   queueSnapshot,
+  PgBossJobQueue,
   registerWorker,
+  scheduleJob,
   stuckQueues,
   type FinalFailure,
   type PgBoss,
 } from '@saas/adapters/queue'
-import type { EmailSender, EventSink } from '@saas/core'
+import { ALL_SCHEDULES, type EmailSender, type EventSink } from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
@@ -81,14 +83,19 @@ export async function startWorker({
   const boss = createBoss({ connectionString: env.DATABASE_URL, role: 'worker' })
   boss.on('error', (err) => log.error({ err }, 'pg-boss error'))
   await boss.start()
+  const queue = new PgBossJobQueue(boss)
   for (const { job, handler } of selected) {
-    await registerWorker(boss, job, handler({ db, email, events }), {
+    await registerWorker(boss, job, handler({ db, email, events, queue, appUrl: env.APP_URL }), {
       log,
       concurrency: env.WORKER_CONCURRENCY,
       onFinalFailure,
     })
   }
   const queues = selected.map((r) => r.job.name)
+  // Schedules of the queues this process consumes (re-registered on every start).
+  for (const { job, cron } of ALL_SCHEDULES) {
+    if (queues.includes(job.name)) await scheduleJob(boss, job, cron, {})
+  }
 
   // A queue nobody consumes (worker of that queue down, poison backlog) raises an alert.
   const checkQueues = async () => {
