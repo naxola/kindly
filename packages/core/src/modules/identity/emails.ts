@@ -1,26 +1,9 @@
-import type { EmailMessage } from '../../email.ts'
+import { renderActionEmail, type ActionEmail, type RenderedEmail } from '../../email.ts'
 import type { Locale } from '../../i18n.ts'
 
-const escapeHtml = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
-
-interface Template {
-  subject: string
-  intro: string
-  action: string
-  outro: string
-}
-
-type Rendered = Omit<EmailMessage, 'to' | 'idempotencyKey'>
-
-function render(t: Template, url: string, greeting: string): Rendered {
-  const text = `${greeting}\n\n${t.intro}\n\n${t.action}: ${url}\n\n${t.outro}\n`
-  const html = `<p>${escapeHtml(greeting)}</p><p>${escapeHtml(t.intro)}</p><p><a href="${escapeHtml(url)}">${escapeHtml(t.action)}</a></p><p style="color:#666">${escapeHtml(t.outro)}</p>`
-  return { subject: t.subject, text, html }
-}
+type Template = ActionEmail
+type Rendered = RenderedEmail
+const render = renderActionEmail
 
 const hello = (locale: Locale, name: string) =>
   locale === 'es' ? `Hola, ${name}:` : `Hello ${name},`

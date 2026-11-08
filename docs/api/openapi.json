@@ -393,6 +393,209 @@
           "expiresAt",
           "emailRegistered"
         ]
+      },
+      "BillingOverview": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DEFAULT",
+              "TRIALING",
+              "ACTIVE",
+              "PAST_DUE",
+              "CANCELED"
+            ]
+          },
+          "period": {
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ]
+          },
+          "cancelAtPeriodEnd": {
+            "type": "boolean"
+          },
+          "spendCap": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "29.00"
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "used": {
+                  "type": "string",
+                  "example": "29.00"
+                },
+                "included": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "example": "29.00"
+                },
+                "limit": {
+                  "type": "string",
+                  "enum": [
+                    "hard",
+                    "soft"
+                  ]
+                },
+                "overagePrice": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "example": "29.00"
+                },
+                "percent": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "key",
+                "unit",
+                "used",
+                "included",
+                "limit",
+                "overagePrice",
+                "percent"
+              ]
+            }
+          }
+        },
+        "required": [
+          "plan",
+          "status",
+          "period",
+          "cancelAtPeriodEnd",
+          "spendCap",
+          "metrics"
+        ]
+      },
+      "Plan": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "month",
+              "year"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR",
+              "USD"
+            ]
+          },
+          "price": {
+            "type": "string",
+            "example": "29.00"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "key",
+          "version",
+          "interval",
+          "currency",
+          "price",
+          "features"
+        ]
+      },
+      "PlanOffer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Plan"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "quotas": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "metric": {
+                      "type": "string"
+                    },
+                    "included": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "29.00"
+                    },
+                    "limit": {
+                      "type": "string",
+                      "enum": [
+                        "hard",
+                        "soft"
+                      ]
+                    },
+                    "overagePrice": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "example": "29.00"
+                    }
+                  },
+                  "required": [
+                    "metric",
+                    "included",
+                    "limit",
+                    "overagePrice"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "quotas"
+            ]
+          }
+        ]
       }
     },
     "parameters": {}
@@ -1430,6 +1633,97 @@
           },
           "409": {
             "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Plan, current period and usage of the active organization",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/billing/plans": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Plans available to new subscriptions",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plans",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PlanOffer"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
             "content": {
               "application/json": {
                 "schema": {

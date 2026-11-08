@@ -7,6 +7,8 @@ export const ERROR_HTTP_STATUS = {
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  /** Plan quota reached (hard limit or spend cap): upgrading the plan solves it. */
+  QUOTA_EXCEEDED: 402,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,

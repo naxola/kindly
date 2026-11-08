@@ -105,7 +105,9 @@
     "SESSION_EXPIRED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
     "SESSION_NOT_FRESH": "Por seguridad, vuelve a iniciar sesión para hacer esto.",
     "TAKEN": "Ese identificador ya está en uso.",
-    "PENDING_INVITATION": "Ya hay una invitación pendiente para ese email."
+    "PENDING_INVITATION": "Ya hay una invitación pendiente para ese email.",
+    "QUOTA_EXCEEDED": "Se ha alcanzado la cuota del plan. Espera al próximo periodo o cambia de plan.",
+    "FEATURE_NOT_IN_PLAN": "Tu plan no incluye esta función."
   },
   "home": {
     "title": "Inicio",
@@ -120,7 +122,8 @@
   "menu": {
     "settings": {
       "title": "Ajustes",
-      "members": "Miembros"
+      "members": "Miembros",
+      "billing": "Plan y consumo"
     }
   },
   "orgSwitcher": {
@@ -207,6 +210,41 @@
       "roleOf": "Rol de {name}",
       "roleHint": "Un administrador gestiona miembros e invitaciones.",
       "enableDescription": "{name} recuperará el acceso con su rol actual."
+    },
+    "billing": {
+      "title": "Plan y consumo",
+      "description": "Plan de la organización y lo que lleva consumido en el periodo actual.",
+      "plan": "Plan",
+      "free": "Gratis",
+      "pricePer": {
+        "month": "{price} al mes",
+        "year": "{price} al año"
+      },
+      "period": "Periodo actual: del {start} al {end}",
+      "statuses": {
+        "DEFAULT": "Plan base",
+        "TRIALING": "En prueba",
+        "ACTIVE": "Activo",
+        "PAST_DUE": "Pago pendiente",
+        "CANCELED": "Cancelado"
+      },
+      "cancelAtPeriodEnd": "El plan se cancelará al final del periodo actual.",
+      "metric": "Concepto",
+      "usage": "Consumo",
+      "quota": "Cuota",
+      "usedOf": "{used} de {included} {unit}",
+      "unlimited": "Sin límite",
+      "hardLimit": "Al llegar al límite, se rechaza hasta el próximo periodo.",
+      "overage": "Por encima: {price} por {unit}",
+      "noMetricsTitle": "Este plan no mide consumo",
+      "noMetrics": "Cuando el producto defina conceptos medibles, su consumo aparecerá aquí."
     }
+  },
+  "billing": {
+    "plans": {
+      "free": "Gratuito"
+    },
+    "metrics": {},
+    "units": {}
   }
 }

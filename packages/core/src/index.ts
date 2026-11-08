@@ -5,13 +5,16 @@ export { nowOf } from './context.ts'
 export type { BaseCtx, Ctx } from './context.ts'
 export { defineJob } from './jobs.ts'
 export type { JobDefinition, JobQueue, JobMeta, JobContext, EnqueueOptions } from './jobs.ts'
-export type { EmailMessage, EmailSender } from './email.ts'
+export { renderActionEmail } from './email.ts'
+export type { ActionEmail, EmailMessage, EmailSender, RenderedEmail } from './email.ts'
 export { LOCALES, DEFAULT_LOCALE, isLocale } from './i18n.ts'
 export type { Locale } from './i18n.ts'
 export * from './modules/audit/index.ts'
 export * from './modules/events/index.ts'
 export * from './modules/identity/index.ts'
+export * from './modules/billing/index.ts'
 
+import { quotaAlertEmailJob } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
 import {
   invitationEmailJob,
@@ -28,4 +31,5 @@ export const ALL_JOBS = [
   passwordResetEmailJob,
   invitationEmailJob,
   deliverEventJob,
+  quotaAlertEmailJob,
 ] as const

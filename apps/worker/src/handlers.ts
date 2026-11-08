@@ -1,10 +1,12 @@
 import type { JobHandler } from '@saas/adapters/queue'
 import {
+  billingEmailHandlers,
   deliverEventHandler,
   deliverEventJob,
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
+  quotaAlertEmailJob,
   verificationEmailJob,
   type EmailSender,
   type EventSink,
@@ -50,4 +52,9 @@ export const registrations: Registration[] = [
     sendsEmail: true,
   }),
   register({ job: deliverEventJob, handler: ({ events }) => deliverEventHandler(events) }),
+  register({
+    job: quotaAlertEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
+    sendsEmail: true,
+  }),
 ]

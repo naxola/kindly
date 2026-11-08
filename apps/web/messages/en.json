@@ -105,7 +105,9 @@
     "SESSION_EXPIRED": "Your session has expired. Sign in again.",
     "SESSION_NOT_FRESH": "For security, sign in again to do this.",
     "TAKEN": "That identifier is already in use.",
-    "PENDING_INVITATION": "There is already a pending invitation for that email."
+    "PENDING_INVITATION": "There is already a pending invitation for that email.",
+    "QUOTA_EXCEEDED": "The plan quota has been reached. Wait for the next period or change plans.",
+    "FEATURE_NOT_IN_PLAN": "Your plan does not include this feature."
   },
   "home": {
     "title": "Home",
@@ -120,7 +122,8 @@
   "menu": {
     "settings": {
       "title": "Settings",
-      "members": "Members"
+      "members": "Members",
+      "billing": "Plan and usage"
     }
   },
   "orgSwitcher": {
@@ -207,6 +210,41 @@
       "roleOf": "Role of {name}",
       "roleHint": "An administrator manages members and invitations.",
       "enableDescription": "{name} will regain access with their current role."
+    },
+    "billing": {
+      "title": "Plan and usage",
+      "description": "The organization's plan and its usage in the current period.",
+      "plan": "Plan",
+      "free": "Free",
+      "pricePer": {
+        "month": "{price} per month",
+        "year": "{price} per year"
+      },
+      "period": "Current period: {start} to {end}",
+      "statuses": {
+        "DEFAULT": "Base plan",
+        "TRIALING": "Trial",
+        "ACTIVE": "Active",
+        "PAST_DUE": "Payment due",
+        "CANCELED": "Canceled"
+      },
+      "cancelAtPeriodEnd": "The plan will be canceled at the end of the current period.",
+      "metric": "Metric",
+      "usage": "Usage",
+      "quota": "Quota",
+      "usedOf": "{used} of {included} {unit}",
+      "unlimited": "Unlimited",
+      "hardLimit": "At the limit, further use is rejected until the next period.",
+      "overage": "Beyond the quota: {price} per {unit}",
+      "noMetricsTitle": "This plan does not meter usage",
+      "noMetrics": "When the product defines metered usage, it will appear here."
     }
+  },
+  "billing": {
+    "plans": {
+      "free": "Free"
+    },
+    "metrics": {},
+    "units": {}
   }
 }

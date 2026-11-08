@@ -124,3 +124,34 @@ export async function disableMember(ctx: Ctx, memberId: string) {
     return updated
   })
 }
+
+/**
+ * Active ADMINs of an organization with their access email, for system notices (billing
+ * alerts). Runs inside a tenant transaction of that organization.
+ */
+export async function organizationAdmins(tx: TenantTx) {
+  const admins = await tx.organizationMember.findMany({
+    where: { role: 'ADMIN', status: 'ACTIVE' },
+    include: {
+      user: { select: { displayName: true, authUserId: true, locale: true } },
+      organization: { select: { name: true, defaultLocale: true } },
+    },
+  })
+  const emails = await accessEmailsOf(
+    tx,
+    admins.flatMap((a) => (a.user.authUserId ? [a.user.authUserId] : [])),
+  )
+  return admins.flatMap((a) => {
+    const email = a.user.authUserId ? emails.get(a.user.authUserId) : undefined
+    if (!email) return []
+    return [
+      {
+        memberId: a.id,
+        email,
+        displayName: a.user.displayName,
+        locale: a.user.locale ?? a.organization.defaultLocale,
+        organizationName: a.organization.name,
+      },
+    ]
+  })
+}

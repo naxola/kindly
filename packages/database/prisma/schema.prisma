@@ -29,9 +29,11 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs   AuditLog[]
-  members     OrganizationMember[]
-  invitations Invitation[]
+  auditLogs    AuditLog[]
+  members      OrganizationMember[]
+  invitations  Invitation[]
+  subscription Subscription?
+  usageEvents  UsageEvent[]
 
   @@map("organizations")
 }
@@ -207,4 +209,61 @@ model Invitation {
   @@unique([organizationId, id])
   @@index([organizationId, email])
   @@map("invitations")
+}
+
+// ============================================================================
+// BILLING (ADR 0012). The plan catalog lives in code (core/billing/catalog.ts), versioned;
+// the database stores which plan version each organization has and what it consumed.
+// ============================================================================
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+/// Plan of an organization. Without a row, the organization is on the catalog's default plan.
+model Subscription {
+  id                     String             @id @default(uuid(7)) @db.Uuid
+  organizationId         String             @unique @map("organization_id") @db.Uuid
+  planKey                String             @map("plan_key")
+  planVersion            Int                @map("plan_version")
+  status                 SubscriptionStatus
+  currentPeriodStart     DateTime           @map("current_period_start") @db.Timestamptz(3)
+  currentPeriodEnd       DateTime           @map("current_period_end") @db.Timestamptz(3)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  /// Maximum overage per period, in the plan currency. Null = no cap.
+  spendCap               Decimal?           @map("spend_cap") @db.Decimal(14, 2)
+  /// Payment provider (B3). Null while the plan is free.
+  provider               String?
+  providerSubscriptionId String?            @unique @map("provider_subscription_id")
+  providerCustomerId     String?            @map("provider_customer_id")
+  pastDueSince           DateTime?          @map("past_due_since") @db.Timestamptz(3)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@map("subscriptions")
+}
+
+/// Metered usage. Append-only for app_user; one row per business effect (idempotency key).
+model UsageEvent {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  metric         String
+  quantity       Decimal  @db.Decimal(20, 6)
+  /// For `unique` metrics: what is counted once per period (e.g. a member id).
+  subjectKey     String?  @map("subject_key")
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  idempotencyKey String   @map("idempotency_key")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, metric, occurredAt])
+  @@map("usage_events")
 }

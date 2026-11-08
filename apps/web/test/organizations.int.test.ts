@@ -264,3 +264,36 @@ describe('sign-up from an invitation link', () => {
     expect(await db.authUser.findUnique({ where: { email } })).toBeNull()
   })
 })
+
+describe('billing through the API', () => {
+  it('an ADMIN sees the default plan; a MEMBER is refused', async () => {
+    const owner = await person('billing-owner')
+    expect(
+      (
+        await owner.browser.call('POST', '/api/v1/organizations', {
+          name: 'Billing Co',
+          slug: `billing-${newId().slice(-12)}`,
+        })
+      ).status,
+    ).toBe(201)
+    const res = await owner.browser.call('GET', '/api/v1/billing')
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({
+      plan: { key: 'free', version: 1, price: '0' },
+      status: 'DEFAULT',
+      metrics: [],
+    })
+    const plans = await owner.browser.call('GET', '/api/v1/billing/plans')
+    expect(plans.body.items.map((p: { key: string }) => p.key)).toEqual(['free'])
+
+    const guest = await person('billing-guest')
+    await owner.browser.call('POST', '/api/v1/invitations', { email: guest.email, role: 'MEMBER' })
+    const token = await invitationToken(guest.email)
+    expect((await guest.browser.call('POST', '/api/v1/invitations/accept', { token })).status).toBe(
+      200,
+    )
+    const refused = await guest.browser.call('GET', '/api/v1/billing')
+    expect(refused.status).toBe(403)
+    expect(refused.body.error.details[0].code).toBe('MISSING_PERMISSION')
+  })
+})

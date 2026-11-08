@@ -11,6 +11,8 @@ export const PERMISSIONS = [
   'members.read',
   'members.invite',
   'members.manage',
+  'billing.read',
+  'billing.manage',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]

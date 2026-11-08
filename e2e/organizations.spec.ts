@@ -116,3 +116,14 @@ test('someone who already has an account signs in from the invitation and joins'
   await press(known.getByRole('button', { name: 'Aceptar la invitación' }))
   await expect(known.getByText('Estás en Gamma.')).toBeVisible()
 })
+
+test('an admin sees the plan and usage of the organization', async ({ page }) => {
+  await adminWithOrganization(page, 'Planes')
+  await page.goto('/settings/members')
+  await page.getByRole('link', { name: 'Plan y consumo' }).click()
+  await expect(page).toHaveURL(/\/settings\/billing$/)
+  await expect(page.getByText('Gratuito')).toBeVisible()
+  await expect(page.getByText('Plan base')).toBeVisible()
+  await expect(page.getByText('Este plan no mide consumo')).toBeVisible()
+  await shot(page, 'billing')
+})

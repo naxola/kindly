@@ -1,6 +1,6 @@
 # 0012 — Cobros: suscripción, uso medido y proveedor de pago
 
-**Estado:** Propuesto (2026-11-08). No se implementa nada hasta que el usuario lo valide.
+**Estado:** Aceptado (2026-11-08, el usuario pidió implementarlo).
 
 ## Contexto
 
@@ -133,8 +133,36 @@ del periodo.
 - Riesgo principal: errores de cálculo con efecto económico. Se mitiga con la foto inmutable
   del cierre, la idempotencia y el cuadre mensual.
 
+## Implementación
+
+### B1 + B2 (2026-11-08)
+
+Diferencias con la propuesta, por simplicidad:
+
+- **El catálogo vive en código** (`core/billing/catalog.ts`, `defineCatalog`), no en tablas: no
+  hay pantalla para editar planes y los precios se revisan en git. `defineCatalog` valida al
+  arrancar que cada plan define la cuota de cada métrica, que los límites flexibles tienen
+  precio de excedente y que el plan por defecto es gratuito. Las versiones publicadas no se
+  editan; la foto del cierre (B4) guarda además los precios aplicados.
+- **Sin tabla de agregados diarios todavía**: el consumo del periodo se calcula con una consulta
+  agregada sobre `usage_events` (índice por organización, métrica e instante). La tabla diaria
+  se añadirá cuando el volumen lo pida (regla de no añadir infraestructura sin necesidad).
+- Sin suscripción guardada, la organización está en el plan por defecto y su periodo es el mes
+  natural (UTC).
+- `recordUsage` serializa por organización y métrica (bloqueo de transacción), es idempotente
+  por clave y, con límite estricto, rechaza el efecto (`QUOTA_EXCEEDED`, HTTP 402) para que la
+  transacción del llamador se deshaga entera.
+- Avisos al 80 % y al 100 %: evento `usage.threshold_reached` y correo a los ADMIN activos, una
+  vez por periodo, métrica y umbral.
+- Permisos nuevos `billing.read` y `billing.manage` (solo ADMIN). Pantalla _Ajustes → Plan y
+  consumo_.
+
+### SUPUESTOS (configurables, a confirmar)
+
+- Proveedor del primer adaptador: **Paddle**.
+- Periodo de gracia por impago: **7 días**.
+- Planes **mensuales y anuales** desde la primera versión (el catálogo admite ambos).
+
 ## Pendiente de decidir por el usuario
 
-- Validar este ADR.
-- Proveedor del primer adaptador (propuesto: Paddle) tras comprobar los puntos de la sección 6.
-- Periodo de gracia por impago y si los planes anuales entran en la primera versión.
+- Confirmar o cambiar los SUPUESTOS de arriba.
