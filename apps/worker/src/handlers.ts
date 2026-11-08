@@ -1,6 +1,10 @@
 import type { JobHandler } from '@saas/adapters/queue'
 import {
+  billingChargeHandler,
   billingCloseHandlers,
+  chargePeriodJob,
+  providerEventHandler,
+  providerEventJob,
   billingEmailHandlers,
   closeDuePeriodsScanJob,
   closePeriodsJob,
@@ -15,6 +19,7 @@ import {
   type EventSink,
   type JobDefinition,
   type JobQueue,
+  type PaymentProvider,
 } from '@saas/core'
 import type { Db } from '@saas/database'
 import type { z } from 'zod'
@@ -27,6 +32,8 @@ export interface HandlerDeps {
   /** Producer side, for jobs that enqueue other jobs. */
   queue: JobQueue
   appUrl: string
+  /** Null when PAYMENT_PROVIDER=none. */
+  payments: PaymentProvider | null
 }
 
 export interface Registration<S extends z.ZodType = z.ZodType> {
@@ -66,4 +73,9 @@ export const registrations: Registration[] = [
   }),
   register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
   register({ job: closePeriodsJob, handler: (deps) => billingCloseHandlers(deps).close }),
+  register({ job: providerEventJob, handler: (deps) => providerEventHandler(deps) }),
+  register({
+    job: chargePeriodJob,
+    handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
 ]

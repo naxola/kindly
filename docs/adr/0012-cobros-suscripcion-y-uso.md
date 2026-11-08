@@ -177,6 +177,48 @@ Diferencias con la propuesta, por simplicidad:
 - Si el plan cambia a mitad de periodo, el cierre aplica el plan vigente al cerrar. Si el worker
   estuviera caído más de un periodo entero, solo se cierra el último (anotado).
 
+### B3 + B5 (2026-11-08)
+
+Basado en la documentación de Paddle Billing consultada el 2026-11-08 (endpoints, firma y
+eventos). **No está probado contra el sandbox de Paddle**: no se declara operativo hasta
+hacerlo (`docs/deploy.md`).
+
+- **Puerto `PaymentProvider`** en core y adaptador Paddle en `@saas/adapters/payments`:
+  - **Pago:** con Paddle.js en el navegador. El servidor devuelve el precio, el token público
+    y `customData.organizationId`, que Paddle copia a la suscripción.
+  - **Portal del cliente:** `POST /customers/{id}/portal-sessions`.
+  - **Cargo del excedente:** `POST /subscriptions/{id}/charge` con
+    `effective_from: immediately` y un precio fuera de catálogo en céntimos, asociado al
+    producto `PADDLE_OVERAGE_PRODUCT_ID`.
+  - **Webhooks:** firma `Paddle-Signature` (HMAC-SHA256 de `ts:cuerpo`, rotación de secreto,
+    5 s de tolerancia).
+- **Webhook** `POST /api/webhooks/payments`: fuera de `/v1`, sin sesión. Solo verifica la
+  firma y encola el evento normalizado (`billing.provider-event`, idempotente por id de
+  evento). El worker lo aplica a `subscriptions`: plan por `providerPriceId`, estado, periodo
+  y cancelación programada. Ignora eventos más antiguos que el último aplicado, porque llegan
+  desordenados y al menos una vez. Un precio desconocido hace fallar el job, y con ello salta
+  la alerta.
+- **Cobro del excedente** (`billing.charge-period`) tras cada cierre con importe pendiente.
+  **Sin reintentos automáticos**, porque Paddle no documenta idempotencia: si falla queda
+  `CHARGE_FAILED` con alerta de fallo definitivo, y se reintenta a mano tras revisar Paddle.
+  Un periodo ya `CHARGED` no se vuelve a cobrar.
+- **Impagos (B5)**:
+  - `PAST_DUE` guarda desde cuándo.
+  - Durante 7 días de gracia (SUPUESTO, `PAYMENT_GRACE_DAYS`) se mantiene el plan.
+  - Después se aplica el plan por defecto (`restricted`) hasta que el proveedor confirme el
+    pago, sin borrar datos, con un aviso en la pantalla.
+  - `paused` se trata como cancelado.
+- **Pantalla**: contratar un plan de pago (si no hay suscripción), «Gestionar suscripción»
+  (portal) y aviso de pago pendiente.
+
+**Pendiente:**
+
+- Cambiar de plan una suscripción existente (API de actualización de Paddle, sin estudiar
+  todavía). Hoy se gestiona en el portal o en Paddle.
+- Créditos y ajustes manuales: necesitan un operador de plataforma, que la plantilla no tiene.
+- Cuadre automático contra las transacciones de Paddle. Hoy lo cubren la alerta de cobro
+  fallido y `pnpm ops:queue`.
+
 ### SUPUESTOS (configurables, a confirmar)
 
 - Proveedor del primer adaptador: **Paddle**.

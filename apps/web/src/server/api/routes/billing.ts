@@ -1,11 +1,15 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import {
+  customerPortalUrl,
   getBillingOverview,
   listBillingPeriods,
   listPlans,
   SetSpendCapInput,
   setSpendCap,
+  StartCheckoutInput,
+  startCheckout,
 } from '@saas/core'
+import { payments } from '../../payments.ts'
 import { cookieAuth, errorResponses } from '../openapi.ts'
 import { actorCtx } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
@@ -31,6 +35,9 @@ const BillingOverviewSchema = z
     status: z.enum(['DEFAULT', 'TRIALING', 'ACTIVE', 'PAST_DUE', 'CANCELED']),
     period: z.object({ start: z.iso.datetime(), end: z.iso.datetime() }),
     cancelAtPeriodEnd: z.boolean(),
+    restricted: z.boolean(),
+    /** A payment provider is configured: paid plans can be bought. */
+    paymentsEnabled: z.boolean(),
     spendCap: DecimalString.nullable(),
     metrics: z.array(
       z.object({
@@ -133,12 +140,49 @@ const spendCap = createRoute({
   },
 })
 
+const CheckoutSchema = z
+  .object({
+    provider: z.string(),
+    environment: z.enum(['sandbox', 'production']),
+    clientToken: z.string(),
+    priceId: z.string(),
+    customData: z.record(z.string(), z.string()),
+    customerEmail: z.email().nullable(),
+  })
+  .openapi('CheckoutSession')
+
+const checkout = createRoute({
+  method: 'post',
+  path: '/billing/checkout',
+  tags: ['billing'],
+  summary: 'Data to open the payment provider checkout for a plan',
+  security: cookieAuth,
+  request: { body: { required: true, ...json(StartCheckoutInput) } },
+  responses: {
+    200: { description: 'Checkout', ...json(CheckoutSchema) },
+    ...errorResponses(400, 401, 403, 404, 409),
+  },
+})
+
+const portal = createRoute({
+  method: 'post',
+  path: '/billing/portal',
+  tags: ['billing'],
+  summary: 'Link to the payment provider customer portal',
+  security: cookieAuth,
+  responses: {
+    200: { description: 'Portal', ...json(z.object({ url: z.url() })) },
+    ...errorResponses(401, 403, 409),
+  },
+})
+
 export const billingRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(overview, async (c) => {
     const o = await getBillingOverview(await actorCtx(c))
     return c.json(
       {
         ...o,
+        paymentsEnabled: payments() !== null,
         period: { start: o.period.start.toISOString(), end: o.period.end.toISOString() },
       },
       200,
@@ -164,4 +208,12 @@ export const billingRoutes = new OpenAPIHono<ApiEnv>()
   })
   .openapi(spendCap, async (c) => {
     return c.json(await setSpendCap(await actorCtx(c), c.req.valid('json')), 200)
+  })
+  .openapi(checkout, async (c) => {
+    const ctx = await actorCtx(c)
+    const email = c.get('access')?.email ?? null
+    return c.json(await startCheckout(ctx, payments(), c.req.valid('json'), email), 200)
+  })
+  .openapi(portal, async (c) => {
+    return c.json({ url: await customerPortalUrl(await actorCtx(c), payments()) }, 200)
   })

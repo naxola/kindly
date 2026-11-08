@@ -12,7 +12,7 @@ export {
 export type { Aggregation, Catalog, MetricDef, PlanVersion, Quota } from './catalog.ts'
 export { addInterval, calendarMonth, periodContaining } from './periods.ts'
 export type { Period } from './periods.ts'
-export { billingStateOf } from './state.ts'
+export { PAYMENT_GRACE_DAYS, billingStateOf } from './state.ts'
 export type { BillingState } from './state.ts'
 export { QUOTA_THRESHOLDS, RecordUsageInput, recordUsage, usageOf } from './usage.ts'
 export type { RecordUsageResult } from './usage.ts'
@@ -25,6 +25,12 @@ export {
   closePeriodsJob,
   billingCloseHandlers,
   BILLING_SCHEDULES,
+  chargePeriodJob,
+  billingChargeHandler,
+  ProviderEventPayload,
+  providerEventPayload,
+  providerEventJob,
+  providerEventHandler,
 } from './jobs.ts'
 export type { BillingJobDeps } from './jobs.ts'
 export {
@@ -37,3 +43,18 @@ export {
 export type { OverageLine } from './close.ts'
 export { SetSpendCapInput, listBillingPeriods, setSpendCap } from './manage.ts'
 export { quotaAlertEmail } from './emails.ts'
+export { InvalidWebhookError } from './provider.ts'
+export type {
+  CheckoutSession,
+  OverageCharge,
+  PaymentProvider,
+  ProviderEvent,
+  ProviderSubscription,
+  ProviderSubscriptionStatus,
+} from './provider.ts'
+export {
+  StartCheckoutInput,
+  applyProviderEvent,
+  customerPortalUrl,
+  startCheckout,
+} from './subscriptions.ts'

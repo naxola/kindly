@@ -107,6 +107,26 @@ export const observabilityEnv = z
     }
   })
 
+/**
+ * Payment provider (ADR 0012). `none`: plans can only be the default one (no checkout).
+ * Paddle keys are per environment: sandbox keys only work against the sandbox API.
+ */
+export const paymentEnv = z.discriminatedUnion('PAYMENT_PROVIDER', [
+  z.object({ PAYMENT_PROVIDER: z.literal('none') }),
+  z.object({
+    PAYMENT_PROVIDER: z.literal('paddle'),
+    PADDLE_ENVIRONMENT: z.enum(['sandbox', 'production']),
+    /** Server API key (pdl_sdbx_apikey_… / pdl_live_apikey_…). Secret. */
+    PADDLE_API_KEY: z.string().startsWith('pdl_'),
+    /** Client-side token for Paddle.js. Public by design. */
+    PADDLE_CLIENT_TOKEN: z.string().min(10),
+    /** Secret of the notification destination (pdl_ntfset_…). */
+    PADDLE_WEBHOOK_SECRET: z.string().min(10),
+    /** Paddle product the overage charges are attached to. */
+    PADDLE_OVERAGE_PRODUCT_ID: z.string().startsWith('pro_'),
+  }),
+])
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
 export type AuthEnv = z.infer<typeof authEnv>
@@ -114,6 +134,11 @@ export type EmailEnv = z.infer<typeof emailEnv>
 export type EventsEnv = z.infer<typeof eventsEnv>
 export type SiteEnv = z.infer<typeof siteEnv>
 export type ObservabilityEnv = z.infer<typeof observabilityEnv>
+export type PaymentEnv = z.infer<typeof paymentEnv>
+
+/** Payment configuration; without PAYMENT_PROVIDER there is no provider (`none`). */
+export const loadPaymentEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(paymentEnv, { ...source, PAYMENT_PROVIDER: source.PAYMENT_PROVIDER || 'none' })
 
 export class EnvError extends Error {
   constructor(public readonly issues: string[]) {

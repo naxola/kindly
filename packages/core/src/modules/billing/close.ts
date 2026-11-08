@@ -4,6 +4,7 @@ import { writeAudit } from '../audit/index.ts'
 import { emitEvent } from '../events/index.ts'
 import { CATALOG, planVersionOf, type Catalog, type PlanVersion } from './catalog.ts'
 import { addInterval, periodContaining, type Period } from './periods.ts'
+import { chargePeriodJob } from './jobs.ts'
 import { usageOf } from './usage.ts'
 
 const Decimal = Prisma.Decimal
@@ -148,6 +149,14 @@ export async function closeDuePeriods(
         amountDue: amountDue.toString(),
       },
     })
+    if (amountDue.gt(0) && sub.provider) {
+      await ctx.queue.enqueue(
+        tx,
+        chargePeriodJob,
+        { organizationId, periodId: record.id },
+        { organizationId, correlationId: ctx.correlationId, idempotencyKey: `charge:${record.id}` },
+      )
+    }
     closed.push(record)
   }
   return closed

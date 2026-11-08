@@ -10,7 +10,8 @@
     "./logger": "./src/logger/index.ts",
     "./events": "./src/events/index.ts",
     "./alerts": "./src/alerts/index.ts",
-    "./errors": "./src/errors/index.ts"
+    "./errors": "./src/errors/index.ts",
+    "./payments": "./src/payments/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

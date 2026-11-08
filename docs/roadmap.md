@@ -4,19 +4,19 @@
 
 `main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
 
-| Fase                        | Contenido                                                                                             | Estado                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- |
-| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06)  |
-| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06)  |
-| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06)  |
-| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06)  |
-| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06)  |
-| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06)  |
-| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07)  |
-| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging     |
-| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                        |
-| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                        |
-| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 B1, B2 y B4 entregadas |
+| Fase                        | Contenido                                                                                             | Estado                                      |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06)                    |
+| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06)                    |
+| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06)                    |
+| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06)                    |
+| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06)                    |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06)                    |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07)                    |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging                       |
+| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                                          |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                                          |
+| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 Entregadas; Paddle sin probar en sandbox |
 
 ## Fase 1 — entregado
 
@@ -148,3 +148,14 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 - El cobro del importe pendiente lo hará el proveedor (B3).
 
 **Verificado en local:** format, lint, typecheck, 66 unitarias (excedente y redondeo, tope, periodos vencidos), 72 de integración (cierre único con su foto y excedente correcto, uso del periodo siguiente excluido, tope que limita el cobro y rechaza el uso, tope solo para ADMIN con suscripción, periodo cerrado inalterable salvo el estado del cobro, escaneo horario que encola un cierre por organización, programación registrada en el worker), 12 E2E (incluida la pantalla con un periodo cerrado), build y sincronía esquema/migraciones.
+
+## Cobros B3 + B5 — entregado, pendiente de probar con el sandbox de Paddle (ADR 0012)
+
+- **Puerto `PaymentProvider`** y **adaptador Paddle**: pago con Paddle.js, portal del cliente, cargo del excedente y verificación de la firma de los webhooks. Construido con la documentación oficial (2026-11-08).
+- **Webhook** `POST /api/webhooks/payments`: verifica y encola; el worker aplica el evento a la suscripción, ignorando los antiguos que llegan tarde.
+- **Cobro del excedente** tras cada cierre, sin reintentos automáticos (Paddle no documenta idempotencia): fallo → `CHARGE_FAILED` + alerta.
+- **Impagos**: 7 días de gracia (SUPUESTO) y después el plan por defecto hasta que se pague, sin borrar datos.
+- Pantalla: contratar plan, gestionar suscripción (portal) y aviso de pago pendiente. Variables `PAYMENT_PROVIDER` y `PADDLE_*` en local y staging.
+- **Pendiente**: probar con el sandbox (`docs/deploy.md`), cambio de plan de una suscripción existente, créditos manuales (necesitan operador de plataforma) y cuadre automático contra Paddle.
+
+**Verificado en local:** format, lint, typecheck, 76 unitarias (10 del adaptador Paddle: firma válida y con rotación, cuerpo alterado, secreto erróneo, firma caducada, normalización de eventos y estados, cargo en céntimos, errores sin la clave, portal), 80 de integración (evento → plan por su precio, eventos antiguos ignorados, gracia y vuelta al plan por defecto y su recuperación, precio desconocido, condiciones del pago, cobro único y fallo marcado sin reintento, webhook HTTP con firma real que rechaza falsificaciones y encola una sola vez), 12 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos. **No probado contra Paddle.**

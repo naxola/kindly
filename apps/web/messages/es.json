@@ -109,7 +109,10 @@
     "QUOTA_EXCEEDED": "Se ha alcanzado la cuota del plan. Espera al próximo periodo o cambia de plan.",
     "FEATURE_NOT_IN_PLAN": "Tu plan no incluye esta función.",
     "SPEND_CAP_REACHED": "Se ha alcanzado el tope de gasto del periodo.",
-    "NO_SUBSCRIPTION": "La organización no tiene un plan de pago."
+    "NO_SUBSCRIPTION": "La organización no tiene un plan de pago.",
+    "PAYMENTS_DISABLED": "Los pagos no están configurados.",
+    "ALREADY_SUBSCRIBED": "La organización ya tiene una suscripción: gestiónala desde el portal.",
+    "PLAN_NOT_FOUND": "Ese plan no está disponible."
   },
   "home": {
     "title": "Inicio",
@@ -254,7 +257,13 @@
         "PENDING_CHARGE": "Pendiente de cobro",
         "CHARGED": "Cobrado",
         "CHARGE_FAILED": "Cobro fallido"
-      }
+      },
+      "restrictedTitle": "Pago pendiente",
+      "restricted": "El último cobro no se pudo completar y ha pasado el periodo de gracia: se aplica el plan base hasta que se pague. Los datos no se borran.",
+      "manage": "Gestionar suscripción",
+      "choosePlan": "Contratar un plan",
+      "subscribe": "Contratar",
+      "afterCheckout": "Tras el pago, el plan se activa en cuanto el proveedor lo confirma (unos segundos)."
     }
   },
   "billing": {

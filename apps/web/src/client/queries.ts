@@ -44,3 +44,11 @@ export function useBillingPeriods(orgId: string, enabled = true) {
     queryFn: async () => unwrap(await apiClient.GET('/api/v1/billing/periods')).items,
   })
 }
+
+export function useBillingPlans(orgId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['org', orgId, 'billing', 'plans'],
+    enabled,
+    queryFn: async () => unwrap(await apiClient.GET('/api/v1/billing/plans')).items,
+  })
+}

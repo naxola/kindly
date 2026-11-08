@@ -23,7 +23,13 @@ import { useFormatter, useTranslations } from 'next-intl'
 import { useState, type FormEvent } from 'react'
 import { apiClient } from '@/client/api.ts'
 import { errorText, unwrap } from '@/client/errors.ts'
-import { billingKeys, useBillingOverview, useBillingPeriods } from '@/client/queries.ts'
+import { openPaddleCheckout } from '@/client/paddle.ts'
+import {
+  billingKeys,
+  useBillingOverview,
+  useBillingPeriods,
+  useBillingPlans,
+} from '@/client/queries.ts'
 import { useCan, useOrganizationId } from '@/components/workspace-context.tsx'
 
 type Overview = NonNullable<ReturnType<typeof useBillingOverview>['data']>
@@ -55,6 +61,22 @@ export function BillingSettings() {
   const periods = useBillingPeriods(orgId, subscribed)
   const canManage = useCan()('billing.manage')
   const hasOverage = Boolean(o?.metrics.some((m) => m.limit === 'soft' && m.included !== null))
+  const canBuy = Boolean(o?.paymentsEnabled && canManage && !subscribed)
+  const plans = useBillingPlans(orgId, canBuy)
+  const paidPlans = (plans.data ?? []).filter((p) => Number(p.price) > 0)
+  const checkout = useMutation({
+    mutationFn: async (plan: string) => {
+      const session = unwrap(await apiClient.POST('/api/v1/billing/checkout', { body: { plan } }))
+      await openPaddleCheckout(session)
+    },
+  })
+  const portal = useMutation({
+    mutationFn: async () => {
+      const { url } = unwrap(await apiClient.POST('/api/v1/billing/portal'))
+      window.location.assign(url)
+    },
+  })
+  const actionError = checkout.error ?? portal.error
 
   // Product texts: plan and metric names come from messages; unknown keys show the raw key.
   const tr = (key: string, fallback: string) => (t.has(key) ? t(key) : fallback)
@@ -122,6 +144,51 @@ export function BillingSettings() {
                 </div>
               ) : null}
             </Panel>
+
+            {o.restricted ? (
+              <Callout variant="warning" title={t('settings.billing.restrictedTitle')}>
+                {t('settings.billing.restricted')}
+              </Callout>
+            ) : null}
+            {actionError ? (
+              <Callout variant="destructive">{errorText(t, actionError)}</Callout>
+            ) : null}
+            {o.paymentsEnabled && canManage && subscribed ? (
+              <div>
+                <Button size="small" onClick={() => portal.mutate()} disabled={portal.isPending}>
+                  {t('settings.billing.manage')}
+                </Button>
+              </div>
+            ) : null}
+            {canBuy && paidPlans.length > 0 ? (
+              <section className="space-y-2">
+                <h2 className="text-sm text-foreground">{t('settings.billing.choosePlan')}</h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {paidPlans.map((p) => (
+                    <Panel key={p.key} title={tr(`billing.plans.${p.key}`, p.key)}>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-foreground-light">
+                          {t(`settings.billing.pricePer.${p.interval}`, {
+                            price: money(p.price, p.currency),
+                          })}
+                        </p>
+                        <Button
+                          size="small"
+                          variant="primary"
+                          disabled={checkout.isPending}
+                          onClick={() => checkout.mutate(p.key)}
+                        >
+                          {t('settings.billing.subscribe')}
+                        </Button>
+                      </div>
+                    </Panel>
+                  ))}
+                </div>
+                <p className="text-xs text-foreground-lighter">
+                  {t('settings.billing.afterCheckout')}
+                </p>
+              </section>
+            ) : null}
 
             {subscribed && hasOverage ? (
               <SpendCap

@@ -2,7 +2,10 @@ import { createDb, newId, withTenant, type Db } from '@saas/database'
 import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
+  applyProviderEvent,
+  billingChargeHandler,
   billingCloseHandlers,
+  chargePeriodJob,
   billingStateOf,
   closeDuePeriods,
   createOrganization,
@@ -14,7 +17,12 @@ import {
   requireFeature,
   resolveActor,
   setSpendCap,
+  startCheckout,
   type Ctx,
+  type OverageCharge,
+  type PaymentProvider,
+  type ProviderEvent,
+  type ProviderSubscription,
   type RecordUsageInput,
 } from '../src/index.ts'
 import { TEST_CATALOG } from './billing-catalog.ts'
@@ -378,3 +386,188 @@ describe('period close (B4)', () => {
     expect(mine[0]!.options.idempotencyKey).toBe(`close:${orgId}:2026-11-10T12`)
   })
 })
+
+describe('payment provider (B3 + B5)', () => {
+  const event = (
+    orgId: string,
+    patch: Partial<ProviderSubscription> = {},
+    at = '2026-11-05T00:00:05Z',
+    id = newId(),
+  ) => ({
+    id,
+    occurredAt: new Date(at),
+    kind: 'subscription' as const,
+    subscription: {
+      ref: `sub_${orgId}`,
+      customerRef: 'ctm_1',
+      status: 'ACTIVE' as const,
+      priceId: 'pri_test_pro_2',
+      periodStart: new Date('2026-11-05T00:00:00Z'),
+      periodEnd: new Date('2026-12-05T00:00:00Z'),
+      cancelAtPeriodEnd: false,
+      organizationId: orgId,
+      ...patch,
+    },
+  })
+  const apply = (orgId: string, e: ProviderEvent, now = NOW) =>
+    withTenant(db, orgId, (tx) =>
+      applyProviderEvent({ ...base(), now: () => now }, tx, orgId, e, 'paddle', TEST_CATALOG),
+    )
+  const stateAt = (orgId: string, at: Date) =>
+    withTenant(db, orgId, (tx) => billingStateOf(tx, orgId, at, TEST_CATALOG))
+
+  it('a subscription event puts the organization on the plan of its price', async () => {
+    const { orgId } = await orgWithAdmin()
+    expect((await apply(orgId, event(orgId))).applied).toBe(true)
+    const state = await stateAt(orgId, NOW)
+    expect(state).toMatchObject({ status: 'ACTIVE', restricted: false })
+    expect(`${state.plan.plan}@${state.plan.version}`).toBe('pro@2')
+    expect(
+      queue
+        .of('events.deliver')
+        .some((j) => (j.payload as { type: string }).type === 'billing.subscription_changed'),
+    ).toBe(true)
+  })
+
+  it('older events arriving late are ignored', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
+    expect((await apply(orgId, event(orgId, {}, '2026-11-05T00:00:00Z'))).applied).toBe(false)
+    expect((await stateAt(orgId, NOW)).status).toBe('DEFAULT')
+  })
+
+  it('past due keeps the plan during the grace period, then falls back (data kept)', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId))
+    await apply(
+      orgId,
+      event(orgId, { status: 'PAST_DUE' }, '2026-11-06T00:00:00Z'),
+      new Date('2026-11-06T00:00:00Z'),
+    )
+    const during = await stateAt(orgId, new Date('2026-11-10T00:00:00Z'))
+    expect(during).toMatchObject({ status: 'PAST_DUE', restricted: false })
+    expect(during.plan.plan).toBe('pro')
+    const after = await stateAt(orgId, new Date('2026-11-14T00:00:00Z'))
+    expect(after).toMatchObject({ status: 'PAST_DUE', restricted: true })
+    expect(after.plan.plan).toBe('free')
+    // Paying again restores the plan.
+    await apply(orgId, event(orgId, {}, '2026-11-15T00:00:00Z'))
+    expect((await stateAt(orgId, new Date('2026-11-15T00:00:01Z'))).restricted).toBe(false)
+  })
+
+  it('an unknown provider price fails loudly (the job is retried and alerted)', async () => {
+    const { orgId } = await orgWithAdmin()
+    await expect(apply(orgId, event(orgId, { priceId: 'pri_unknown' }))).rejects.toThrow(
+      /pri_unknown/,
+    )
+  })
+
+  it('checkout: only with a provider, a public paid plan and no live subscription', async () => {
+    const { orgId, ctx } = await orgWithAdmin()
+    const provider = fakeProvider()
+    expect(await errorOf(startCheckout(ctx, null, { plan: 'pro' }, null, TEST_CATALOG))).toEqual({
+      code: 'CONFLICT',
+      detail: 'PAYMENTS_DISABLED',
+    })
+    expect(
+      await errorOf(startCheckout(ctx, provider, { plan: 'gold' }, null, TEST_CATALOG)),
+    ).toMatchObject({
+      detail: 'PLAN_NOT_FOUND',
+    })
+    const session = await startCheckout(ctx, provider, { plan: 'pro' }, 'a@b.test', TEST_CATALOG)
+    expect(session).toMatchObject({
+      priceId: 'pri_test_pro_2',
+      customData: { organizationId: orgId },
+    })
+    await apply(orgId, event(orgId))
+    expect(
+      await errorOf(startCheckout(ctx, provider, { plan: 'pro' }, null, TEST_CATALOG)),
+    ).toMatchObject({
+      detail: 'ALREADY_SUBSCRIBED',
+    })
+  })
+
+  it('a closed period with amount due is charged once; a failed charge is marked and not retried', async () => {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date('2026-10-05T00:00:00Z'),
+          currentPeriodEnd: new Date('2026-11-05T00:00:00Z'),
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+          provider: 'paddle',
+          providerSubscriptionId: `sub_${newId()}`,
+          providerCustomerId: 'ctm_1',
+        },
+      }),
+    )
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 3000,
+      occurredAt: new Date('2026-10-20T00:00:00Z'),
+    })
+    const [period] = await withTenant(db, orgId, (tx) =>
+      closeDuePeriods(base(), tx, orgId, TEST_CATALOG),
+    )
+    const charge = queue
+      .of('billing.charge-period')
+      .find((j) => (j.payload as { periodId: string }).periodId === period!.id)
+    expect(charge?.options.idempotencyKey).toBe(`charge:${period!.id}`)
+    expect(chargePeriodJob.retryLimit).toBe(0)
+
+    const failing = fakeProvider(new Error('Paddle 400 subscription_is_past_due'))
+    const jobCtx = { organizationId: orgId, correlationId: 'c', jobId: 'j', attempt: 0 }
+    await expect(
+      billingChargeHandler({ db, provider: failing })(
+        { organizationId: orgId, periodId: period!.id },
+        jobCtx,
+      ),
+    ).rejects.toThrow('past_due')
+    const statusOf = () =>
+      withTenant(db, orgId, (tx) =>
+        tx.billingPeriod.findUniqueOrThrow({ where: { id: period!.id } }),
+      )
+    expect((await statusOf()).status).toBe('CHARGE_FAILED')
+
+    const ok = fakeProvider()
+    await billingChargeHandler({ db, provider: ok })(
+      { organizationId: orgId, periodId: period!.id },
+      jobCtx,
+    )
+    expect(ok.charges).toEqual([expect.objectContaining({ amount: '2.00', currency: 'EUR' })])
+    expect((await statusOf()).status).toBe('CHARGED')
+    // A second run (manual retry) does not charge again.
+    await billingChargeHandler({ db, provider: ok })(
+      { organizationId: orgId, periodId: period!.id },
+      jobCtx,
+    )
+    expect(ok.charges).toHaveLength(1)
+  })
+})
+
+function fakeProvider(failWith?: Error) {
+  const charges: OverageCharge[] = []
+  const provider: PaymentProvider & { charges: OverageCharge[] } = {
+    name: 'paddle',
+    charges,
+    checkout: (i) => ({
+      provider: 'paddle',
+      environment: 'sandbox',
+      clientToken: 'tok',
+      priceId: i.priceId,
+      customData: { organizationId: i.organizationId },
+      customerEmail: i.customerEmail,
+    }),
+    portalUrl: () => Promise.resolve('https://portal.test'),
+    chargeOverage: (c) =>
+      failWith ? Promise.reject(failWith) : (charges.push(c), Promise.resolve()),
+    parseWebhook: () => {
+      throw new Error('not used')
+    },
+  }
+  return provider
+}

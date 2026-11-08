@@ -109,7 +109,10 @@
     "QUOTA_EXCEEDED": "The plan quota has been reached. Wait for the next period or change plans.",
     "FEATURE_NOT_IN_PLAN": "Your plan does not include this feature.",
     "SPEND_CAP_REACHED": "The spend cap for this period has been reached.",
-    "NO_SUBSCRIPTION": "The organization has no paid plan."
+    "NO_SUBSCRIPTION": "The organization has no paid plan.",
+    "PAYMENTS_DISABLED": "Payments are not configured.",
+    "ALREADY_SUBSCRIBED": "The organization already has a subscription: manage it from the portal.",
+    "PLAN_NOT_FOUND": "That plan is not available."
   },
   "home": {
     "title": "Home",
@@ -254,7 +257,13 @@
         "PENDING_CHARGE": "Pending charge",
         "CHARGED": "Charged",
         "CHARGE_FAILED": "Charge failed"
-      }
+      },
+      "restrictedTitle": "Payment overdue",
+      "restricted": "The last payment could not be completed and the grace period is over: the base plan applies until it is paid. No data is deleted.",
+      "manage": "Manage subscription",
+      "choosePlan": "Choose a plan",
+      "subscribe": "Subscribe",
+      "afterCheckout": "After payment, the plan becomes active as soon as the provider confirms it (a few seconds)."
     }
   },
   "billing": {

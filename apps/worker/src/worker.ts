@@ -1,4 +1,6 @@
 import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
+import { createPaymentProvider } from '@saas/adapters/payments'
+import { loadPaymentEnv } from '@saas/config/env'
 import { createEmailSender } from '@saas/adapters/email'
 import { captureError, initErrorTracking } from '@saas/adapters/errors'
 import { LogEventSink, WebhookEventSink } from '@saas/adapters/events'
@@ -13,7 +15,7 @@ import {
   type FinalFailure,
   type PgBoss,
 } from '@saas/adapters/queue'
-import { ALL_SCHEDULES, type EmailSender, type EventSink } from '@saas/core'
+import { ALL_SCHEDULES, type EmailSender, type EventSink, type PaymentProvider } from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
@@ -27,6 +29,7 @@ export interface StartWorkerOptions {
   email?: EmailSender
   events?: EventSink
   alerts?: AlertSender
+  payments?: PaymentProvider | null
   /** How often the queues are checked for stuck jobs (default 5 minutes). */
   healthCheckIntervalMs?: number
 }
@@ -64,6 +67,8 @@ export async function startWorker({
   const observability = loadObservabilityEnv()
   initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
   const alerts = overrides.alerts ?? createAlertSender(observability, log)
+  const payments =
+    overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
 
   const onFinalFailure = async (f: FinalFailure) => {
     captureError(f.error, {
@@ -85,11 +90,16 @@ export async function startWorker({
   await boss.start()
   const queue = new PgBossJobQueue(boss)
   for (const { job, handler } of selected) {
-    await registerWorker(boss, job, handler({ db, email, events, queue, appUrl: env.APP_URL }), {
-      log,
-      concurrency: env.WORKER_CONCURRENCY,
-      onFinalFailure,
-    })
+    await registerWorker(
+      boss,
+      job,
+      handler({ db, email, events, queue, appUrl: env.APP_URL, payments }),
+      {
+        log,
+        concurrency: env.WORKER_CONCURRENCY,
+        onFinalFailure,
+      },
+    )
   }
   const queues = selected.map((r) => r.job.name)
   // Schedules of the queues this process consumes (re-registered on every start).

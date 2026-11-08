@@ -25,6 +25,7 @@ export async function getBillingOverview(ctx: Ctx, catalog: Catalog = CATALOG) {
       status: state.status,
       period: state.period,
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+      restricted: state.restricted,
       spendCap: state.spendCap?.toString() ?? null,
       metrics: catalog.metrics.map((m) => {
         const quota = state.plan.quotas[m.key]!
