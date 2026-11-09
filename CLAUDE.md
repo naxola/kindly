@@ -31,7 +31,8 @@ Origen: extraída de la arquitectura de `naxola/procurement` (rama `staging`).
 ## Flujo de ramas (obligatorio)
 
 - `main`: versión estable de la plantilla. **Solo el usuario fusiona en `main`.**
-  Todavía no existe: se crea al validar la plantilla, con la etiqueta `v1.0.0`.
+  Creada el 2026-11-09 desde `staging` por decisión del usuario. Solo se fusiona en ella
+  lo que el usuario pide expresamente.
 - `staging`: integración. Todo el trabajo llega aquí.
 - Cada cambio en su propia rama desde `staging`: `feat/…`, `fix/…`, `chore/…`, `docs/…`.
 - Al terminar: push de la rama, merge `--no-ff` en `staging` y push de `staging`.
