@@ -4,19 +4,20 @@
 
 `main` creada el 2026-11-09 desde `staging` por decisión del usuario. Siguen pendientes de validar en staging la observabilidad (fase 5) y los pagos con el sandbox de Paddle; la etiqueta `v1.0.0` queda a decisión del usuario.
 
-| Fase                        | Contenido                                                                                             | Estado                                      |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                            | ✅ Validada (2026-11-06)                    |
-| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                      | ✅ Validada (2026-11-06)                    |
-| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                          | ✅ Validada (2026-11-06)                    |
-| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                              | ✅ Validada (2026-11-06)                    |
-| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E | ✅ Validada (2026-11-06)                    |
-| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                  | ✅ Validada (2026-11-06)                    |
-| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07)                    |
-| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging                       |
-| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                                          |
-| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | 🟡 `main` creada; etiqueta pendiente        |
-| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 Entregadas; Paddle sin probar en sandbox |
+| Fase                        | Contenido                                                                                                 | Estado                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 0. Decisiones               | `CLAUDE.md`, ADR 0001–0008                                                                                | ✅ Validada (2026-11-06)                    |
+| 1. Esqueleto                | Monorepo, `config`, `database`, script de fronteras, CI (lint, typecheck, tests)                          | ✅ Validada (2026-11-06)                    |
+| 2. Acceso y organizaciones  | `auth_*`, `users`, `organization_members`, invitaciones, RLS                                              | ✅ Validada (2026-11-06)                    |
+| 3. Worker                   | `JobQueue`, worker, correo asíncrono, eventos de negocio                                                  | ✅ Validada (2026-11-06)                    |
+| 4a. UI y esqueleto de `web` | `packages/ui`, Next + es/en + temas, API `/api/v1`, Better Auth montado, alta/login/recuperación, E2E     | ✅ Validada (2026-11-06)                    |
+| 4b. Organizaciones en `web` | Onboarding, organización activa, shell, miembros e invitaciones, E2E                                      | ✅ Validada (2026-11-06)                    |
+| 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                         | ✅ Validada (2026-11-07)                    |
+| 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                      | 🟡 Validar en staging                       |
+| 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                         | 🟡                                          |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                            | 🟡 `main` creada; etiqueta pendiente        |
+| B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                                 | 🟡 Entregadas; Paddle sin probar en sandbox |
+| D1–D2. Sin Next.js          | Nivel 1: puertos de presentación y regla de fronteras. Nivel 2 (opcional): Hono + Vite + Astro (ADR 0013) | 📝 Propuesto                                |
 
 ## Fase 1 — entregado
 
