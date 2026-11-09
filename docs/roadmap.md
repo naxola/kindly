@@ -2,7 +2,7 @@
 
 **Fase actual: 6, despliegue (entregada, pendiente de validar).** Fases 0 a 4c validadas (2026-11-06/07). La 5 se validará en staging, con GlitchTip, ntfy y Uptime Kuma autoalojados (ADR 0011). Newsletter: listmonk (formulario pendiente). La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
-`main` no existe todavía: se crea cuando el usuario valide la plantilla completa, con la etiqueta `v1.0.0`.
+`main` creada el 2026-11-09 desde `staging` por decisión del usuario. Siguen pendientes de validar en staging la observabilidad (fase 5) y los pagos con el sandbox de Paddle; la etiqueta `v1.0.0` queda a decisión del usuario.
 
 | Fase                        | Contenido                                                                                             | Estado                                      |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------- |
@@ -15,7 +15,7 @@
 | 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                     | ✅ Validada (2026-11-07)                    |
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                  | 🟡 Validar en staging                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                     | 🟡                                          |
-| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | ⚪                                          |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                        | 🟡 `main` creada; etiqueta pendiente        |
 | B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                             | 🟡 Entregadas; Paddle sin probar en sandbox |
 
 ## Fase 1 — entregado
