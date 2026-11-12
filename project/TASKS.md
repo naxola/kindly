@@ -742,7 +742,8 @@ solo la vista de conjunto.
 - [x] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`) (2026-11-12).
 - [x] M4a — Contactos, asignaciones, afiliación y actividad: datos, `core` y API (2026-11-13).
 - [x] M4b — UI de contactos y afiliación; E2E; borrado de lo portado en `legacy/` (2026-11-13).
-- [ ] M5a/b — Casos y tareas.
+- [x] M5 (solo tareas) — datos, `core`, API, UI y E2E (2026-11-13).
+- [ ] M5-casos — Casos (máquina de estados, responsable, vínculo con conversaciones): **aplazados por el usuario**, sin fecha.
 - [ ] M6a/b — Mensajería (núcleo + WhatsApp/coexistence) con webhooks como jobs.
 - [ ] M7a/b/c — Inbox, espacio de conversación y canales.
 - [ ] M8a/b — Conocimiento (ingesta como job, recuperación híbrida, UI).

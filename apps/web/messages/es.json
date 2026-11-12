@@ -118,7 +118,9 @@
     "ALREADY_AFFILIATED": "Este contacto ya tiene una afiliación activa.",
     "NO_ACTIVE_AFFILIATION": "Esta afiliación ya no está activa.",
     "INVALID_DELEGATE": "Ese delegado no es un miembro activo de la organización.",
-    "CONCURRENT_ASSIGNMENT": "Alguien reasignó este contacto a la vez. Recarga e inténtalo de nuevo."
+    "CONCURRENT_ASSIGNMENT": "Alguien reasignó este contacto a la vez. Recarga e inténtalo de nuevo.",
+    "INVALID_CONTACT": "Ese contacto no existe o no tienes acceso a él.",
+    "INVALID_ASSIGNEE": "Esa persona no es un miembro activo de la organización."
   },
   "home": {
     "title": "Inicio",
@@ -129,6 +131,7 @@
   "nav": {
     "home": "Inicio",
     "contacts": "Contactos",
+    "tasks": "Tareas",
     "settings": "Ajustes"
   },
   "menu": {
@@ -390,6 +393,56 @@
         "AFFILIATION_CREATED": "Afiliación dada de alta",
         "AFFILIATION_UPDATED": "Afiliación editada",
         "AFFILIATION_ENDED": "Afiliación dada de baja"
+      }
+    }
+  },
+  "tasks": {
+    "title": "Tareas",
+    "description": "Seguimiento: llamar, pedir un documento, revisar normativa.",
+    "new": "Nueva tarea",
+    "newTitle": "Nueva tarea",
+    "create": "Crear tarea",
+    "save": "Guardar",
+    "emptyTitle": "Todavía no hay tareas",
+    "emptyDescription": "Crea la primera para no perder el seguimiento.",
+    "notFound": "Esta tarea no existe o no tienes acceso a ella.",
+    "back": "Volver a tareas",
+    "filters": {
+      "all": "Todas",
+      "pending": "Pendientes",
+      "done": "Completadas"
+    },
+    "fields": {
+      "title": "Título",
+      "contact": "Contacto",
+      "assignee": "Asignar a",
+      "due": "Fecha límite",
+      "description": "Descripción",
+      "completed": "Completada"
+    },
+    "none": {
+      "contact": "Sin contacto",
+      "assignee": "Sin asignar"
+    },
+    "columns": {
+      "done": "Completada",
+      "title": "Título",
+      "contact": "Contacto",
+      "assignee": "Asignada a",
+      "due": "Fecha límite"
+    },
+    "markDone": "Marcar como completada",
+    "markPending": "Marcar como pendiente",
+    "edit": {
+      "title": "Datos de la tarea"
+    },
+    "activity": {
+      "title": "Historial",
+      "empty": "Sin actividad todavía",
+      "by": "por {name}",
+      "types": {
+        "TASK_CREATED": "Tarea creada",
+        "TASK_COMPLETED": "Tarea completada"
       }
     }
   }

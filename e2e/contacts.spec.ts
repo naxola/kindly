@@ -1,13 +1,5 @@
-import { expect, test, type Browser, type Page } from '@playwright/test'
-import {
-  adminWithOrganization,
-  closeDb,
-  emailUrl,
-  PASSWORD,
-  press,
-  shot,
-  uniqueEmail,
-} from './helpers.ts'
+import { expect, test, type Page } from '@playwright/test'
+import { adminWithOrganization, closeDb, inviteDelegate, press, shot } from './helpers.ts'
 
 test.afterAll(closeDb)
 
@@ -18,25 +10,6 @@ async function newContact(page: Page, name: string, phone = '') {
   if (phone) await page.getByLabel('Teléfono').fill(phone)
   await press(page.getByRole('button', { name: 'Crear contacto' }))
   await expect(page.getByRole('link', { name })).toBeVisible()
-}
-
-/** The admin invites a delegate (a plain MEMBER); returns their page, signed in and inside. */
-async function inviteDelegate(adminPage: Page, browser: Browser, firstName: string) {
-  const email = uniqueEmail('delegate')
-  await adminPage.goto('/settings/members')
-  await press(adminPage.getByRole('button', { name: 'Invitar' }))
-  await adminPage.getByLabel('Email').fill(email)
-  await adminPage.getByLabel('Nombre').fill(firstName)
-  await press(adminPage.getByRole('button', { name: 'Enviar invitación' }))
-  await expect(adminPage.getByRole('cell', { name: email })).toBeVisible()
-  const page = await (await browser.newContext()).newPage()
-  await page.goto(await emailUrl('identity.invitation-email', email))
-  await page.getByLabel('Nombre').fill(`Cuenta de ${firstName}`)
-  await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)
-  await page.getByLabel('Repite la contraseña').fill(PASSWORD)
-  await press(page.getByRole('button', { name: 'Crear cuenta y unirme' }))
-  await expect(page.getByText('Estás en')).toBeVisible()
-  return page
 }
 
 test('create a contact, see it listed with its delegate, edit it and read its timeline', async ({

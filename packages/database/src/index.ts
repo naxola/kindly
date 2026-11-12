@@ -32,4 +32,5 @@ export type {
   ContactAssignment,
   Affiliation,
   Activity,
+  Task,
 } from './generated/prisma/client.ts'

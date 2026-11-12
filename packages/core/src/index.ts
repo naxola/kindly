@@ -17,6 +17,7 @@ export * from './modules/team/index.ts'
 export * from './modules/activity/index.ts'
 export * from './modules/contacts/index.ts'
 export * from './modules/affiliations/index.ts'
+export * from './modules/tasks/index.ts'
 
 import {
   BILLING_SCHEDULES,

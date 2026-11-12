@@ -44,6 +44,7 @@ model Organization {
   contactAssignments ContactAssignment[]
   affiliations       Affiliation[]
   activities         Activity[]
+  tasks              Task[]
 
   @@map("organizations")
 }
@@ -195,6 +196,7 @@ model OrganizationMember {
   assignedContacts   ContactAssignment[] @relation("AssignedDelegate")
   assignmentsMade    ContactAssignment[] @relation("AssignedBy")
   activities         Activity[]
+  assignedTasks      Task[]              @relation("TaskAssignee")
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -449,6 +451,7 @@ model Contact {
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   assignments  ContactAssignment[]
   affiliations Affiliation[]
+  tasks        Task[]
 
   @@unique([organizationId, id])
   @@index([organizationId, createdAt])
@@ -524,4 +527,30 @@ model Activity {
 
   @@index([organizationId, entityType, entityId, createdAt])
   @@map("activities")
+}
+
+/// Something someone has to do, optionally about a contact and assigned to a member. Pending
+/// exactly when `completedAt` is null: no status enum is invented. A task without a contact is
+/// visible to the whole organization; one with a contact is as visible as the contact.
+model Task {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  contactId      String?   @map("contact_id") @db.Uuid
+  assigneeId     String?   @map("assignee_id") @db.Uuid
+  title          String
+  description    String?
+  dueDate        DateTime? @map("due_date") @db.Timestamptz(3)
+  completedAt    DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      Contact?            @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  assignee     OrganizationMember? @relation("TaskAssignee", fields: [organizationId, assigneeId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, completedAt, createdAt])
+  @@index([organizationId, contactId])
+  @@index([organizationId, assigneeId])
+  @@map("tasks")
 }

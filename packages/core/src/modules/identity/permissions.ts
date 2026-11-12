@@ -21,6 +21,9 @@ export const PERMISSIONS = [
   'contacts.read_all',
   'contacts.assign',
   'affiliations.manage',
+  // Kindly (tasks): visible when they have no contact or the contact is visible.
+  'tasks.read',
+  'tasks.write',
   'billing.read',
   'billing.manage',
 ] as const
@@ -35,6 +38,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     'contacts.read',
     'contacts.write',
     'affiliations.manage',
+    'tasks.read',
+    'tasks.write',
   ],
 }
 

@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test'
+import { expect, type Browser, type Locator, type Page } from '@playwright/test'
 import pg from 'pg'
 
 export const PASSWORD = 'una frase bastante larga'
@@ -104,4 +104,23 @@ export async function closedBillingPeriod(page: Page) {
   } finally {
     client.release()
   }
+}
+
+/** The admin invites a delegate (a plain MEMBER); returns their page, signed in and inside. */
+export async function inviteDelegate(adminPage: Page, browser: Browser, firstName: string) {
+  const email = uniqueEmail('delegate')
+  await adminPage.goto('/settings/members')
+  await press(adminPage.getByRole('button', { name: 'Invitar' }))
+  await adminPage.getByLabel('Email').fill(email)
+  await adminPage.getByLabel('Nombre').fill(firstName)
+  await press(adminPage.getByRole('button', { name: 'Enviar invitación' }))
+  await expect(adminPage.getByRole('cell', { name: email })).toBeVisible()
+  const page = await (await browser.newContext()).newPage()
+  await page.goto(await emailUrl('identity.invitation-email', email))
+  await page.getByLabel('Nombre').fill(`Cuenta de ${firstName}`)
+  await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)
+  await page.getByLabel('Repite la contraseña').fill(PASSWORD)
+  await press(page.getByRole('button', { name: 'Crear cuenta y unirme' }))
+  await expect(page.getByText('Estás en')).toBeVisible()
+  return page
 }

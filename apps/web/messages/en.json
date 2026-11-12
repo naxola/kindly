@@ -118,7 +118,9 @@
     "ALREADY_AFFILIATED": "This contact already has an active affiliation.",
     "NO_ACTIVE_AFFILIATION": "This affiliation is no longer active.",
     "INVALID_DELEGATE": "That delegate is not an active member of the organization.",
-    "CONCURRENT_ASSIGNMENT": "Someone reassigned this contact at the same time. Reload and try again."
+    "CONCURRENT_ASSIGNMENT": "Someone reassigned this contact at the same time. Reload and try again.",
+    "INVALID_CONTACT": "That contact does not exist or you do not have access to it.",
+    "INVALID_ASSIGNEE": "That person is not an active member of the organization."
   },
   "home": {
     "title": "Home",
@@ -129,6 +131,7 @@
   "nav": {
     "home": "Home",
     "contacts": "Contacts",
+    "tasks": "Tasks",
     "settings": "Settings"
   },
   "menu": {
@@ -390,6 +393,56 @@
         "AFFILIATION_CREATED": "Affiliation registered",
         "AFFILIATION_UPDATED": "Affiliation edited",
         "AFFILIATION_ENDED": "Affiliation ended"
+      }
+    }
+  },
+  "tasks": {
+    "title": "Tasks",
+    "description": "Follow-up: call, ask for a document, review regulations.",
+    "new": "New task",
+    "newTitle": "New task",
+    "create": "Create task",
+    "save": "Save",
+    "emptyTitle": "There are no tasks yet",
+    "emptyDescription": "Create the first one so follow-ups are not lost.",
+    "notFound": "This task does not exist or you do not have access to it.",
+    "back": "Back to tasks",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "done": "Completed"
+    },
+    "fields": {
+      "title": "Title",
+      "contact": "Contact",
+      "assignee": "Assign to",
+      "due": "Due date",
+      "description": "Description",
+      "completed": "Completed"
+    },
+    "none": {
+      "contact": "No contact",
+      "assignee": "Unassigned"
+    },
+    "columns": {
+      "done": "Completed",
+      "title": "Title",
+      "contact": "Contact",
+      "assignee": "Assigned to",
+      "due": "Due date"
+    },
+    "markDone": "Mark as completed",
+    "markPending": "Mark as pending",
+    "edit": {
+      "title": "Task details"
+    },
+    "activity": {
+      "title": "History",
+      "empty": "No activity yet",
+      "by": "by {name}",
+      "types": {
+        "TASK_CREATED": "Task created",
+        "TASK_COMPLETED": "Task completed"
       }
     }
   }

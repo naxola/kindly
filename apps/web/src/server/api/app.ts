@@ -11,6 +11,7 @@ import { memberRoutes } from './routes/members.ts'
 import { meRoutes } from './routes/me.ts'
 import { organizationRoutes } from './routes/organizations.ts'
 import { paymentWebhookRoutes } from './routes/payments-webhook.ts'
+import { taskRoutes } from './routes/tasks.ts'
 import { teamRoutes } from './routes/team.ts'
 import { csrfGuard, session } from './session.ts'
 import type { ApiEnv } from './types.ts'
@@ -37,6 +38,7 @@ v1.route('/', memberRoutes)
 v1.route('/', invitationRoutes)
 v1.route('/', teamRoutes)
 v1.route('/', contactRoutes)
+v1.route('/', taskRoutes)
 v1.route('/', billingRoutes)
 
 export const api = newApp().basePath('/api')

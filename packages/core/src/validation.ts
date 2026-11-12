@@ -27,3 +27,16 @@ export const optionalEmail = z.preprocess(
 )
 
 export const optionalUuid = z.preprocess(blankToNull, z.uuid().nullable().optional())
+
+/** A day ("2026-09-15") or a full instant, as a Date; blank means null. */
+export const optionalDate = z.preprocess(
+  (v) => {
+    const blank = blankToNull(v)
+    return typeof blank === 'string' ? new Date(blank) : blank
+  },
+  z
+    .date()
+    .refine((d) => !Number.isNaN(d.getTime()), 'Invalid date')
+    .nullable()
+    .optional(),
+)
