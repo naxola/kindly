@@ -7,7 +7,7 @@
 Kindly pasa a construirse sobre `naxola/saas-template` `v1.0.0` (monorepo,
 Prisma + RLS, API Hono, worker pg-boss, `packages/ui`, `apps/site`). Plan por
 fases M0–M13 en `project/MIGRATION.md`. Estado: **M0 hecha y validada**
-(con ficha del miembro y cargos configurables como fase M3b); **M1 (a/b/c) y M2 hechas** (rama `migration/saas-template`); siguiente, M3a. La app actual
+(con ficha del miembro y cargos configurables como fase M3b); **M1 (a/b/c) y M2 hechas, M3a absorbida** (rama `migration/saas-template`); siguiente, M3b. La app actual
 sigue en `master` sin cambios hasta el corte (M13).
 
 ## Resumen en una línea

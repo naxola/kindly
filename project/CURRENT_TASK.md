@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M2 hecha. Siguiente: M3a
+## Paquete activo: Migración a `saas-template` — M2 hecha, M3a absorbida. Siguiente: M3b
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -29,7 +29,7 @@ solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (
 **M1b hecha:** plantilla `v1.0.0` fusionada (conflictos de `CLAUDE.md`,
 `README.md` y `.gitignore` resueltos en Kindly), `legacy/` fuera del tooling;
 format/lint/typecheck/76 unitarias en verde (Node 24). **Próximo paso
-concreto:** M3a — permisos de Kindly sobre `core/identity`; **M2 hecha**
+concreto:** M3b — ficha del miembro y cargos (M3a se absorbió: cada módulo añade sus permisos); **M2 hecha**
 (pgvector en imagen, init y migración; 82 de integración en verde; Docker
 no verificado). Detalle en `project/MIGRATION.md` §8.
 
