@@ -21,9 +21,9 @@ Hecho (M0): plan de fases M1–M13, decisiones D1–D13 propuestas
 El usuario aceptó D1–D13 salvo D4, que se rehízo: acceso (`auth_users`),
 ficha de la persona (`member_profiles`: nombre, teléfono…) y cargo
 configurable por organización (`member_positions`: delegado, presidente…)
-son tres cosas distintas; fase nueva M3b. Abiertas Q1–Q3 (si el cargo da
-comportamiento, uno o varios cargos, datos obligatorios), a resolver antes
-de M3b. UI-10c y Fase 8 quedan aparcadas hasta el corte (M13).
+son tres cosas distintas; fase nueva M3b. Q1–Q3 resueltas: el cargo es solo
+un nombre (las reglas de «delegado» dependen de `MEMBER`), uno por miembro, y
+solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (M13).
 **Próximo paso concreto:** M1a — crear la rama `migration/saas-template`
 desde `master` y mover la app actual a `legacy/`.
 

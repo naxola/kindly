@@ -733,7 +733,7 @@ solo la vista de conjunto.
 
 - [x] M0 — Plan y decisiones propuestas (2026-11-12).
 - [x] Validación del usuario de las decisiones (2026-11-12; D4 rehecha, D14–D15 nuevas).
-- [ ] Resolver Q1–Q3 (comportamiento del cargo, uno o varios, datos obligatorios) antes de M3b.
+- [x] Q1–Q3 resueltas (2026-11-12): cargo solo nombre, uno por miembro, solo nombre obligatorio.
 - [ ] M1a/b/c — `legacy/`, fusión de la plantilla `v1.0.0`, marca y CI.
 - [ ] M2 — pgvector y variables de entorno de Kindly.
 - [ ] M3a — Permisos de Kindly sobre `core/identity`.

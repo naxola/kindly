@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M0: decisiones validadas por el usuario; D4 rehecha y D14–D15 añadidas).
+Última actualización: 2026-11-12 (M0: decisiones validadas; D4 rehecha, D14–D15 añadidas, Q1–Q3 resueltas).
 
 ## 1. Objetivo
 
@@ -52,8 +52,8 @@ partes, no como reescritura completa».
 
 Estado: **Aceptadas por el usuario el 2026-11-12** (registradas en
 `docs/DECISIONS.md`). D4 se rehízo a petición suya y D14–D15 se añadieron
-(acceso ≠ persona ≠ cargo). Quedan abiertas solo las preguntas de la
-sección 3.1, que no bloquean M1–M2.
+(acceso ≠ persona ≠ cargo). Las preguntas Q1–Q3 se resolvieron el mismo
+día (sección 3.1).
 
 | #   | Decisión                       | Recomendación                                                                                                                                                                                                                                                                                                                 |
 | --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,20 +98,16 @@ sección 3.1, que no bloquean M1–M2.
 
 ## 5. Fases (cada una = uno o pocos commits revisables, siempre en verde)
 
-### 3.1 Preguntas abiertas (no bloquean M1–M2; resolver antes de M3b/M4a)
+### 3.1 Preguntas resueltas (usuario, 2026-11-12)
 
-- **Q1 ¿El cargo da comportamiento?** Propuesta: en M3b el cargo es
-  informativo (se muestra y se filtra) y las reglas de Kindly que hoy dicen
-  «solo un DELEGATE» (delegado de referencia de un afiliado, responsable de un
-  caso, visibilidad restringida) pasan a depender de un atributo del cargo:
-  `member_positions.handles_contacts` («puede tener afiliados asignados»),
-  verdadero en «Delegado». Así un «Presidente» `ADMIN` ve todo y un
-  «Presidente» `MEMBER` sin ese atributo no recibe afiliados. Alternativa:
-  que dependa solo de `role = MEMBER`.
-- **Q2 ¿Uno o varios cargos por miembro?** Propuesta: uno (columna
-  `position_id`); si hiciera falta varios, tabla puente más adelante.
-- **Q3 ¿Datos obligatorios de la ficha?** Propuesta: nombre obligatorio;
-  apellidos, teléfono y cargo opcionales en la invitación y editables después.
+- **Q1 El cargo no da comportamiento: es solo un nombre.** Las reglas de
+  Kindly que decían «solo un DELEGATE» (delegado de referencia de un
+  afiliado, responsable de un caso, visibilidad restringida a sus afiliados)
+  dependen **solo de `role = MEMBER`**. Nada en `core` lee el cargo para
+  decidir permisos ni reglas de negocio; se muestra y se puede filtrar.
+- **Q2 Un cargo por miembro** (columna `member_profiles.position_id`, opcional).
+- **Q3 Solo el nombre es obligatorio** en la ficha; apellidos, teléfono y
+  cargo son opcionales en la invitación y editables después.
 
 Leyenda: ⬜ pendiente · 🟡 en curso · ✅ hecha · ⏸ bloqueada.
 
@@ -132,7 +128,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                     | `legacy/tokens` (parte)                                                                          | ⬜      |
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                 | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ⬜      |
 | M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ⬜      |
-| M3b  | **Ficha del miembro y cargos** (D14, D15, Q1–Q3): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization` | ⬜      |
+| M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization` | ⬜      |
 | M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                              | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ⬜      |
 | M4b  | Contactos (UI + E2E): `/contacts`, `/contacts/[id]`, reasignar, afiliación                                                                                                                                                                                                       | `app/(app)/contacts`, E2E `crm`, `membership`, `contact-assignments` (parte)                     | ⬜      |
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                        | `modules/cases`, `tasks` + tests                                                                 | ⬜      |
@@ -211,4 +207,6 @@ Al terminar (haya acabado la fase o no):
   tabla de cargos configurable en ajustes y elegible al crear un miembro. D4
   rehecha, D14–D15 y fase M3b añadidas, preguntas Q1–Q3 abiertas.
 - **Próximo paso concreto:** M1a (crear `migration/saas-template` desde
-  `master` y mover la app a `legacy/`). Q1–Q3 se resuelven antes de M3b.
+  `master` y mover la app a `legacy/`). Q1–Q3 resueltas (sección 3.1).
+- **Respuestas del usuario a Q1–Q3:** el cargo es solo un nombre (las reglas
+  dependen de `MEMBER`), un cargo por miembro, solo el nombre obligatorio.

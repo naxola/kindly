@@ -3704,10 +3704,14 @@ miembro.
    misma transacción, mediante puntos de extensión genéricos en
    `core/identity` (`onOrganizationCreated`, `onMemberJoined`).
 
-**Abierto (antes de M3b, `project/MIGRATION.md` §3.1):** si el cargo da
-comportamiento (propuesta: atributo `handles_contacts` que sustituye a las
-reglas «solo un DELEGATE»), uno o varios cargos por miembro (propuesta: uno),
-y qué datos son obligatorios (propuesta: solo el nombre).
+**Resuelto por el usuario el mismo día (`project/MIGRATION.md` §3.1):**
+
+6. **El cargo es solo un nombre**, sin comportamiento. Las reglas que decían
+   «solo un DELEGATE» (delegado de referencia, responsable de caso,
+   visibilidad restringida a sus afiliados) dependen solo de `role = MEMBER`.
+   Descartado: un atributo del cargo («puede tener afiliados asignados»).
+7. **Un cargo por miembro** (`member_profiles.position_id`, opcional).
+8. **Solo el nombre es obligatorio** en la ficha.
 
 **Alternativas consideradas:** columnas nuevas en `users` de la plantilla
 (global: los datos de una organización serían visibles para otra y diverge
