@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M3b hecha: ficha del miembro y cargos).
+Última actualización: 2026-11-13 (M4a hecha: contactos, asignaciones, afiliaciones y actividad).
 
 ## 1. Objetivo
 
@@ -129,7 +129,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                                                                                                                                                                                   | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ✅             |
 | M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos                                                                                                                                               | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ✅ (absorbida) |
 | M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization`            | ✅             |
-| M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                                                                                                                                                                                                    | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ⬜             |
+| M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                                                                                                                                                                                                    | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ✅             |
 | M4b  | Contactos (UI + E2E): `/contacts`, `/contacts/[id]`, reasignar, afiliación                                                                                                                                                                                                                                                                                                                                                                              | `app/(app)/contacts`, E2E `crm`, `membership`, `contact-assignments` (parte)                     | ⬜             |
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                                                                                                                                                                                                | `modules/cases`, `tasks` + tests                                                                 | ⬜             |
 | M5b  | Casos y tareas (UI + E2E)                                                                                                                                                                                                                                                                                                                                                                                                                               | `app/(app)/cases`, `tasks`, `dashboard`; E2E `cases`                                             | ⬜             |
@@ -414,3 +414,56 @@ permissions,index}.ts`, `core/src/index.ts`, `apps/web/src/server/api/{app,error
   módulo `activity`. Aquí se añaden los permisos `contacts.*` a `ROLE_PERMISSIONS`
   y la entrada de navegación del módulo. Antes, releer en `legacy/src/modules/
 {contacts,memberships,audit}` y sus tests.
+
+### 2026-11-13 — M4a (contactos, asignación, afiliación y actividad: datos + `core` + API)
+
+- Hecho:
+  - **Datos** (migración `20261113100000_crm_contacts`, RLS forzado): `contacts`,
+    `contact_assignments`, `affiliations`, `activities`. Todas las referencias a personas
+    son a `organization_members` (clave compuesta con la organización). A mano en el SQL:
+    índice único parcial «una asignación abierta por contacto» y «una afiliación abierta
+    por contacto», CHECK de que `ACTIVE` ⇔ sin fecha de fin, CHECK E.164 y `activities`
+    append-only para `app_user`. `db:check` no detecta deriva por los índices parciales.
+  - **`core`**: módulos `activity` (línea de tiempo del producto, sin autorización propia),
+    `contacts` (listar/ver/crear/editar/identificar, historial de delegados, reasignar,
+    línea de tiempo, `assertContactVisible`, `contactVisibilityWhere`) y `affiliations`
+    (alta, edición, baja, rehacer alta, historial, regla de cuota vencida en `domain.ts`).
+    Permisos nuevos: `contacts.read|write|read_all|assign` y `affiliations.manage` (el
+    MEMBER tiene los tres primeros sin `read_all`/`assign`). Extraído
+    `core/src/validation.ts` (normalizadores compartidos con `team`).
+  - **API** `/api/v1/contacts…` (12 rutas) y contrato regenerado.
+- **Decisiones de esta fase** (también en `docs/DECISIONS.md`):
+  - «Afiliación» se llama `Affiliation`/`affiliations` (no `Membership`) para no
+    confundirla con `OrganizationMember`; los tipos de actividad son `AFFILIATION_*`.
+  - **La visibilidad es un fragmento `where` de Prisma** (`contactVisibilityWhere`), no un
+    filtro posterior: lo no visible no sale de la base de datos. Se basa en el permiso
+    `contacts.read_all`, no en el rol. Un contacto no visible responde 404 en todo.
+  - **El acceso temporal sigue pendiente** (regla 3 de «Delegado de referencia y acceso
+    temporal»): se deriva de mensajes y conversaciones, que llegan en M6a. Hoy solo existe
+    la regla del delegado de referencia. `contactVisibilityWhere` es el único sitio donde
+    hay que añadirla; casos, tareas y conversaciones pasarán por él.
+  - Cada acción relevante escribe la actividad (producto) **y** una auditoría (seguridad,
+    solo ids: nombres, teléfonos y emails son datos personales).
+- **Pendiente de la fase anterior y arreglado por el camino:** el test del worker se
+  quedaba sin tiempo cuando antes habían corrido otros archivos (la cola acumulaba los
+  correos y eventos de los recorridos de la API y el worker los despachaba uno a uno
+  antes de llegar a los suyos: **no era intermitente, crecía con cada test nuevo**).
+  Ahora vacía `pgboss.job` antes de arrancar. Dos pasadas completas consecutivas en verde.
+- **Protocolo de borrado de `legacy/` (refinamiento):** se borra lo portado cuando termina
+  **toda la rebanada** (fase «b», con su UI y E2E), y los módulos compartidos (`audit`) en
+  su último consumidor. Hoy el resto de `legacy` aún importa `contacts` y `audit`, así que
+  M4a no borra nada. De los tests de `legacy/tests/integration/contact-assignments.test.ts`
+  siguen **sin portar**: la asignación al recibir un mensaje y el acceso temporal (M6a),
+  que casos y tareas heredan la visibilidad (M5a) y las consultas de la ficha
+  `…ForContact` (M7b).
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`, `lint`,
+  `typecheck` (11/11), `test` (84), `test:integration` (126, dos pasadas; 25 nuevas de
+  contactos, afiliaciones y la API más el RLS de las tablas nuevas), `db:check` sin
+  diferencias, contrato regenerado, `build` (5/5) y `test:e2e` (13/13, sin cambios de UI).
+- **Próximo paso concreto:** M4b — UI de contactos: `/contacts` (lista con delegado de
+  referencia), `/contacts/[id]` (ficha editable, reasignar para ADMIN, afiliación con sus
+  dos avisos, historial de delegados y línea de tiempo), entrada «Contactos» en la
+  navegación con `anyOf: ['contacts.read']`, textos es/en, E2E de crm, afiliación y
+  asignación con dos delegados. Releer `legacy/src/app/(app)/contacts`, los componentes de
+  `inbox/` que usan la ficha y `docs/ui/CONVERSATION_WORKSPACE.md` §5.1. Al cerrar M4b,
+  borrar de `legacy/` lo portado (contacts, memberships, sus páginas y tests).

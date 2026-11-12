@@ -114,3 +114,27 @@ export async function updateMyProfile(ctx: Ctx, input: MyProfileInput) {
     upsertProfile(ctx, tx, ctx.actor.memberId, data, 'member_profile.updated_by_self'),
   )
 }
+
+/**
+ * Display names of members (the profile's name, or the account name when there is no profile),
+ * for modules that show "who": reference delegates, authors of activity. Runs in the caller's
+ * transaction; unknown ids are simply absent from the map.
+ */
+export async function displayNamesOf(
+  tx: TenantTx,
+  memberIds: readonly string[],
+): Promise<Map<string, string>> {
+  const unique = [...new Set(memberIds)]
+  if (unique.length === 0) return new Map()
+  const members = await tx.organizationMember.findMany({
+    where: { id: { in: unique } },
+    select: {
+      id: true,
+      user: { select: { displayName: true } },
+      profile: { select: { firstName: true, lastName: true } },
+    },
+  })
+  return new Map(
+    members.map((m) => [m.id, m.profile ? fullName(m.profile) : m.user.displayName] as const),
+  )
+}

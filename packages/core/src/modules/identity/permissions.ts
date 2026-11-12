@@ -14,6 +14,13 @@ export const PERMISSIONS = [
   // Kindly (team): positions catalog and any member's profile. Editing one's own is free.
   'positions.manage',
   'member_profiles.manage',
+  // Kindly (CRM). Reading and writing contacts is limited by visibility; reading all and
+  // reassigning the reference delegate are for administrators.
+  'contacts.read',
+  'contacts.write',
+  'contacts.read_all',
+  'contacts.assign',
+  'affiliations.manage',
   'billing.read',
   'billing.manage',
 ] as const
@@ -22,7 +29,13 @@ export type Permission = (typeof PERMISSIONS)[number]
 
 export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> = {
   ADMIN: PERMISSIONS,
-  MEMBER: ['organization.read', 'members.read'],
+  MEMBER: [
+    'organization.read',
+    'members.read',
+    'contacts.read',
+    'contacts.write',
+    'affiliations.manage',
+  ],
 }
 
 export const isPermission = (value: string): value is Permission =>

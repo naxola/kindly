@@ -29,16 +29,21 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs      AuditLog[]
-  members        OrganizationMember[]
-  invitations    Invitation[]
-  subscription   Subscription?
-  usageEvents    UsageEvent[]
-  billingPeriods BillingPeriod[]
+  auditLogs          AuditLog[]
+  members            OrganizationMember[]
+  invitations        Invitation[]
+  subscription       Subscription?
+  usageEvents        UsageEvent[]
+  billingPeriods     BillingPeriod[]
   // Kindly (team): positions and member profiles of the organization.
   memberPositions    MemberPosition[]
   memberProfiles     MemberProfile[]
   invitationProfiles InvitationProfile[]
+  // Kindly (CRM): contacts, who answers for them, their affiliation and their timeline.
+  contacts           Contact[]
+  contactAssignments ContactAssignment[]
+  affiliations       Affiliation[]
+  activities         Activity[]
 
   @@map("organizations")
 }
@@ -183,10 +188,13 @@ model OrganizationMember {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  invitationsCreated Invitation[] @relation("InvitedBy")
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user               User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitationsCreated Invitation[]        @relation("InvitedBy")
   profile            MemberProfile?
+  assignedContacts   ContactAssignment[] @relation("AssignedDelegate")
+  assignmentsMade    ContactAssignment[] @relation("AssignedBy")
+  activities         Activity[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -411,4 +419,109 @@ model InvitationProfile {
   @@unique([organizationId, id])
   @@unique([organizationId, invitationId])
   @@map("invitation_profiles")
+}
+
+// ============================================================================
+// CRM (Kindly): contacts, their reference delegate, affiliation and timeline.
+// Every table references organization_members, never auth_users (ADR 0003).
+// ============================================================================
+
+enum AffiliationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// A person the organization has a relationship with. Never a user of the product (no login).
+/// The phone is contact data in E.164 and is NOT the technical identity of a messaging channel.
+model Contact {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  phone          String?
+  email          String?  @db.Citext
+  notes          String?
+  /// True only for a contact auto-created from an unknown inbound sender, until someone
+  /// confirms who it is. Never true for one created by hand.
+  isUnassigned   Boolean  @default(false) @map("is_unassigned")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignments  ContactAssignment[]
+  affiliations Affiliation[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, createdAt])
+  @@map("contacts")
+}
+
+/// Who answers for a contact. One row per assignment, never updated in place except to close it
+/// (`endedAt`): the history of reference delegates is this table. At most one open row per
+/// contact (partial unique index, written by hand in the migration).
+model ContactAssignment {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  contactId      String    @map("contact_id") @db.Uuid
+  delegateId     String    @map("delegate_id") @db.Uuid
+  startedAt      DateTime  @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz(3)
+  /// Null for an automatic assignment (first inbound message): there is no human actor.
+  assignedById   String?   @map("assigned_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      Contact             @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  delegate     OrganizationMember  @relation("AssignedDelegate", fields: [organizationId, delegateId], references: [organizationId, id], onDelete: Restrict)
+  assignedBy   OrganizationMember? @relation("AssignedBy", fields: [organizationId, assignedById], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, contactId, startedAt])
+  @@index([organizationId, delegateId])
+  @@map("contact_assignments")
+}
+
+/// One continuous period of affiliation of a contact. Baja closes the row; joining again
+/// inserts a new one, so "since when" survives a leave and return. `status` is ACTIVE iff
+/// `endedAt` is null (both are always written together). At most one open row per contact
+/// (partial unique index). "Fee overdue" is derived from `feePaidUntil`, not a status.
+model Affiliation {
+  id             String            @id @default(uuid(7)) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  contactId      String            @map("contact_id") @db.Uuid
+  memberNumber   String?           @map("member_number")
+  status         AffiliationStatus @default(ACTIVE)
+  startedAt      DateTime          @default(now()) @map("started_at") @db.Timestamptz(3)
+  endedAt        DateTime?         @map("ended_at") @db.Timestamptz(3)
+  /// First day of the last month the fee is paid through. Null: no fee ever recorded.
+  feePaidUntil   DateTime?         @map("fee_paid_until") @db.Date
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  contact      Contact      @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, contactId])
+  @@map("affiliations")
+}
+
+/// Product timeline of an entity (what a person sees on a contact or a case). Not the security
+/// audit (audit_logs). Append-only. `entityType`/`entityId` are a polymorphic reference without
+/// a foreign key on purpose: every module adds entities and this table must not change for each.
+model Activity {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  type           String
+  /// Null for system activity with no human actor (e.g. a message received).
+  actorId        String?  @map("actor_id") @db.Uuid
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id") @db.Uuid
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actor        OrganizationMember? @relation(fields: [organizationId, actorId], references: [organizationId, id], onDelete: Restrict)
+
+  @@index([organizationId, entityType, entityId, createdAt])
+  @@map("activities")
 }

@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M3 completa. Siguiente: M4a (contactos y afiliación)
+## Paquete activo: Migración a `saas-template` — M4a hecha. Siguiente: M4b (UI de contactos)
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -29,7 +29,7 @@ solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (
 **M1b hecha:** plantilla `v1.0.0` fusionada (conflictos de `CLAUDE.md`,
 `README.md` y `.gitignore` resueltos en Kindly), `legacy/` fuera del tooling;
 format/lint/typecheck/76 unitarias en verde (Node 24). **Próximo paso
-concreto:** M4a — contactos, asignaciones, afiliación y actividad (datos + `core` + API); **M3b hecha** (ficha del miembro y cargos: 100 de integración y 13 E2E en verde); **M2 hecha**
+concreto:** M4b — UI de contactos, ficha, reasignación y afiliación (+ E2E); **M4a hecha** (126 de integración, 13 E2E en verde); **M3b hecha** (ficha del miembro y cargos: 100 de integración y 13 E2E en verde); **M2 hecha**
 (pgvector en imagen, init y migración; 82 de integración en verde; Docker
 no verificado). Detalle en `project/MIGRATION.md` §8.
 

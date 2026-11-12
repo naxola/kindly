@@ -29,6 +29,10 @@ let worker: RunningWorker
 
 beforeAll(async () => {
   db = createDb({ connectionString: process.env.DATABASE_URL! })
+  // Jobs enqueued by the test files that ran before (API journeys enqueue emails and events)
+  // would make the worker chew through a backlog before reaching this file's own jobs: the
+  // wait below would then depend on how many tests ran earlier.
+  await db.$executeRaw`DELETE FROM pgboss.job`
   worker = await startWorker({
     env: loadEnv({
       ...process.env,

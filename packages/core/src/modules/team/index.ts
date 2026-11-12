@@ -15,7 +15,13 @@ export {
   updatePosition,
   setPositionArchived,
 } from './positions.ts'
-export { listTeam, updateMemberProfile, updateMyProfile, fullName } from './profiles.ts'
+export {
+  listTeam,
+  updateMemberProfile,
+  updateMyProfile,
+  fullName,
+  displayNamesOf,
+} from './profiles.ts'
 export type { TeamMember } from './profiles.ts'
 export {
   createOrganizationWithTeam,

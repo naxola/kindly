@@ -3786,3 +3786,34 @@ resolver en M8a.
 tabla `invitations` de la plantilla (obligaba a modificar una tabla ajena); columnas
 nuevas en `users` (global); un cargo con atributos de comportamiento (descartado por
 el usuario en Q1).
+
+## 2026-11-13 — CRM sobre la plantilla: contactos, asignación, afiliación y actividad (M4a)
+
+**Contexto:** primera pieza de dominio de Kindly sobre la plantilla (fase M4a).
+
+**Decisiones:**
+
+1. **`Affiliation`, no `Membership`.** La plantilla ya tiene «miembro» (`OrganizationMember`);
+   llamar «membresía» a la afiliación de un contacto confunde ambos conceptos.
+2. **Referencias a personas siempre a `organization_members`** (delegado de referencia,
+   quien asigna, autor de una actividad), con clave compuesta `(organization_id, id)` para
+   que la base impida mezclar organizaciones. Nunca a `auth_users` (ADR 0003).
+3. **Visibilidad como fragmento `where`** de Prisma (`contactVisibilityWhere`) basado en el
+   permiso `contacts.read_all` (ADMIN). Sustituye al predicado SQL con `exists` del código
+   anterior; la regla de «acceso temporal» se añadirá ahí mismo en M6a, cuando existan los
+   mensajes de los que se deriva (sin estado adicional que pueda desincronizarse).
+4. **Invariantes en la base de datos**, no solo en la aplicación: una asignación y una
+   afiliación abiertas por contacto (índices únicos parciales), `ACTIVE` ⇔ sin fecha de
+   fin, teléfono E.164, `activities` append-only para el rol de la aplicación.
+5. **Actividad y auditoría son dos cosas** (D7): la actividad es producto (lo que se ve en
+   la ficha) y no tiene autorización propia —la decide el módulo dueño de la entidad—; la
+   auditoría es seguridad y guarda solo ids.
+6. **Cuota vencida calculada en el servidor** (`feeOverdue`), regla fija y nunca
+   inferencia de la IA, como ya estaba decidido (UI-10b).
+7. **El delegado de referencia puede ser cualquier miembro activo**, como en el código
+   anterior; la restricción a `MEMBER` es de visibilidad y de responsable de un caso.
+
+**Alternativas consideradas:** mantener el predicado SQL crudo con `exists` (obliga a
+SQL manual en cada módulo y se salta los tipos); un filtro posterior en memoria (los
+datos ajenos saldrían de la base de datos); un rol «DELEGATE» en la base (descartado en
+D4).

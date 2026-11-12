@@ -168,8 +168,11 @@ docs/ project/    Documentación y seguimiento de Kindly
   email de contacto, notas; 1:1 con `organization_members`, del tenant) y
   `member_positions` (cargo configurable por organización: delegado,
   presidente…; **es solo un nombre**: ninguna regla ni permiso lee el cargo).
-- «Delegado» en las reglas de negocio de Kindly (delegado de referencia, responsable
-  de un caso, visibilidad restringida) significa `role = MEMBER`.
+- «Delegado» en las reglas de negocio de Kindly significa `role = MEMBER`: es quien tiene
+  la visibilidad restringida a sus afiliados y quien puede ser responsable de un caso. El
+  **delegado de referencia** de un afiliado puede ser cualquier miembro activo (un ADMIN
+  que crea un contacto es el primero). Las reglas piden permisos (`contacts.read_all`,
+  `contacts.assign`…), no cargos.
 - Todas las tablas de negocio referencian `users.id` u
   `organization_members.id`, **nunca** `auth_users.id`.
 - El alta solo crea `auth_users`. El `users` de negocio nace cuando la persona

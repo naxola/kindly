@@ -14,6 +14,9 @@ export * from './modules/events/index.ts'
 export * from './modules/identity/index.ts'
 export * from './modules/billing/index.ts'
 export * from './modules/team/index.ts'
+export * from './modules/activity/index.ts'
+export * from './modules/contacts/index.ts'
+export * from './modules/affiliations/index.ts'
 
 import {
   BILLING_SCHEDULES,

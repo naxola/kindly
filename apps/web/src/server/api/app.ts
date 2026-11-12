@@ -4,6 +4,7 @@ import { auth } from '../auth.ts'
 import { errorBody, handleError, validationError } from './errors.ts'
 import { requestContext } from './middleware.ts'
 import { billingRoutes } from './routes/billing.ts'
+import { contactRoutes } from './routes/contacts.ts'
 import { healthRoutes } from './routes/health.ts'
 import { invitationRoutes } from './routes/invitations.ts'
 import { memberRoutes } from './routes/members.ts'
@@ -35,6 +36,7 @@ v1.route('/', organizationRoutes)
 v1.route('/', memberRoutes)
 v1.route('/', invitationRoutes)
 v1.route('/', teamRoutes)
+v1.route('/', contactRoutes)
 v1.route('/', billingRoutes)
 
 export const api = newApp().basePath('/api')

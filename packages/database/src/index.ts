@@ -28,4 +28,8 @@ export type {
   MemberPosition,
   MemberProfile,
   InvitationProfile,
+  Contact,
+  ContactAssignment,
+  Affiliation,
+  Activity,
 } from './generated/prisma/client.ts'
