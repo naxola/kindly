@@ -7,13 +7,13 @@ decida, desplegará **las mismas imágenes** ya probadas en staging.
 
 1. Merge en `staging` → el CI pasa las pruebas y construye cinco imágenes con el `Dockerfile`:
 
-   | Imagen     | Qué es                                                                 |
-   | ---------- | ---------------------------------------------------------------------- |
-   | `postgres` | Postgres 18.6 con los roles `app_migrator`, `app_user`, `app_platform` |
-   | `migrate`  | Paso único de cada despliegue: migraciones + tablas de la cola         |
-   | `web`      | La aplicación (Next standalone), puerto 3000                           |
-   | `worker`   | Cola, correos, eventos y alertas; salud en el puerto 3002              |
-   | `site`     | La web pública, puerto 3001. Sus URLs van dentro de la imagen          |
+   | Imagen     | Qué es                                                                            |
+   | ---------- | --------------------------------------------------------------------------------- |
+   | `postgres` | Postgres 18.6 con pgvector y los roles `app_migrator`, `app_user`, `app_platform` |
+   | `migrate`  | Paso único de cada despliegue: migraciones + tablas de la cola                    |
+   | `web`      | La aplicación (Next standalone), puerto 3000                                      |
+   | `worker`   | Cola, correos, eventos y alertas; salud en el puerto 3002                         |
+   | `site`     | La web pública, puerto 3001. Sus URLs van dentro de la imagen                     |
 
 2. El CI las arranca con `infra/staging/compose.yml` (prueba de humo: `/api/ready`, `/ready`
    del worker, la portada) y, si todo responde, las publica en
@@ -114,3 +114,19 @@ documentación de Paddle, pero no está probado contra Paddle hasta que hagas es
   datos (`docs/operations.md`).
 - **Copias de seguridad:** los datos de staging son sintéticos y no se respaldan. Las copias de
   producción se definen en su ADR.
+
+## pgvector en una base de datos que ya existía
+
+El script de inicio (`infra/postgres/init/00-roles.sh`) crea la extensión `vector` en el esquema
+`extensions` solo cuando se **crea** la base de datos (volumen nuevo). Si el volumen es anterior a
+pgvector, la migración `pgvector` falla con «permission denied to create extension»; se crea una
+vez como superusuario y se vuelve a lanzar `migrate`:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS extensions AUTHORIZATION app_migrator;
+CREATE EXTENSION vector SCHEMA extensions;
+GRANT USAGE ON SCHEMA extensions TO app_user, app_platform;
+ALTER ROLE app_migrator SET search_path = public, extensions;
+ALTER ROLE app_user SET search_path = public, extensions;
+ALTER ROLE app_platform SET search_path = public, extensions;
+```

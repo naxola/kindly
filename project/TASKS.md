@@ -737,7 +737,7 @@ solo la vista de conjunto.
 - [x] M1a — app movida a `legacy/` (2026-11-12).
 - [x] M1b — plantilla `v1.0.0` fusionada y `legacy/` fuera del tooling (2026-11-12).
 - [x] M1c — marca de Kindly; format/lint/tipos/unitarias/integración/build/E2E en verde en local (2026-11-12).
-- [ ] M2 — pgvector y variables de entorno de Kindly.
+- [x] M2 — pgvector (imagen, init, migración, test) (2026-11-12). Variables de entorno de Kindly: en M6b/M8a/M10 (se añaden donde se leen).
 - [ ] M3a — Permisos de Kindly sobre `core/identity`.
 - [ ] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`).
 - [ ] M4a/b — Contactos, asignaciones, afiliación y actividad.

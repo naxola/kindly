@@ -3719,3 +3719,40 @@ de la plantilla); cargo como enum fijo (no configurable por organización);
 renombrar `MEMBER` a `DELEGATE` (mezcla permisos con cargo).
 
 **Supersede a:** D4 de la entrada anterior.
+
+## 2026-11-12 — pgvector sobre la imagen de Postgres de la plantilla (ACEPTADO, fase M2)
+
+**Contexto:** el conocimiento de Kindly (RAG híbrido, fases M8a/M8b) necesita
+pgvector. La plantilla usa `postgres:18.6-trixie` y Kindly usaba
+`pgvector/pgvector:pg16`.
+
+**Decisión:**
+
+1. **Opción A (elegida por el usuario):** instalar `postgresql-${PG_MAJOR}-pgvector`
+   (repositorio PGDG, ya configurado en la imagen oficial) en el target `postgres` del
+   `Dockerfile`. El `docker-compose.yml` local construye ese mismo target, así que
+   desarrollo, CI y staging usan la misma imagen. Sin fijar la versión de pgvector:
+   es la que PGDG publica para esa versión de Postgres.
+2. **La extensión la crea el script de inicio, no la migración.** `vector` no es una
+   extensión «de confianza»: `app_migrator` no puede crearla (comprobado). El script
+   `00-roles.sh` la crea como superusuario al crear cada base de datos; la migración
+   `20261112210000_pgvector` es `CREATE EXTENSION IF NOT EXISTS`, que no hace nada si
+   existe y falla con un error claro si no.
+3. **En el esquema `extensions`, no en `public`.** Prisma vacía `public` al reconstruir la
+   base sombra (`db:check`, `migrate dev`) y se llevaría la extensión por delante (el primer
+   intento falló exactamente así). Los tres roles de la aplicación llevan
+   `search_path = public, extensions` para usar `vector` y sus operadores sin cualificar.
+4. **No se añaden todavía las variables de Kindly** (`OPENAI_API_KEY`, Meta/WhatsApp,
+   `FACEBOOK_DOMAIN_VERIFICATION`) que el plan asignaba a M2: una variable sin código que la
+   lea es configuración muerta (regla 7). Se añaden en la fase que las consume: OpenAI en
+   M8a, Meta/WhatsApp en M6b, verificación de dominio en M10, cada una en `.env.example`,
+   `infra/staging/compose.yml` y `infra/staging/.env.example`.
+
+**Alternativas consideradas:** partir de `pgvector/pgvector` (opción B: queda por detrás de
+la versión de Postgres de la plantilla); crear la extensión en `public` (Prisma la borra);
+migración que la cree (necesita superusuario, rompe «migraciones desde cero» con
+`app_migrator`); dar `SUPERUSER` al migrador (rompe ADR 0002).
+
+**Consecuencias:** un volumen de Postgres anterior debe crear la extensión a mano una vez
+(`docs/deploy.md`). Columnas `vector` en Prisma: `Unsupported("vector(N)")` y SQL crudo, a
+resolver en M8a.

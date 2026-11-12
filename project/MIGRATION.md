@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M1c hecha: marca, CI local en verde).
+Última actualización: 2026-11-12 (M2 hecha: pgvector).
 
 ## 1. Objetivo
 
@@ -126,7 +126,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M1a  | Crear `migration/saas-template`. Mover la app a `legacy/` (`git mv` mecánico: `src`, `tests`, `scripts`, `drizzle`, `docker`, `tokens`, configs de raíz). `docs/` y `project/` se quedan en la raíz                                                                                                                                                                                                                                                     | Todo pasa a `legacy/`                                                                            | ✅     |
 | M1b  | Remoto `template`; `git merge --allow-unrelated-histories v1.0.0`. Resolver: `CLAUDE.md` fusionado (reglas de la plantilla + reglas de producto de Kindly, sin contradicciones: Prisma, API, jobs), `README.md` («parte de saas-template v1.0.0»), `.gitignore`. Excluir `legacy/` de pnpm, ESLint, Prettier, tsc y Vitest                                                                                                                              | —                                                                                                | ✅     |
 | M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                                                                                                                                                                                             | `legacy/tokens` (parte)                                                                          | ✅     |
-| M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                                                                                                                                                                                   | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ⬜     |
+| M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                                                                                                                                                                                   | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ✅     |
 | M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos                                                                                                                                               | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ⬜     |
 | M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization`            | ⬜     |
 | M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                                                                                                                                                                                                    | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ⬜     |
@@ -311,3 +311,36 @@ Al terminar (haya acabado la fase o no):
   Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example`
   y `compose.yml`. Aquí el Postgres local es el 16 sin pgvector: para probar
   M2 habrá que instalar `postgresql-16-pgvector` o usar otro Postgres.
+
+### 2026-11-12 — M2
+
+- Hecho (opción A, `docs/DECISIONS.md` «pgvector sobre la imagen…»): target
+  `postgres` del `Dockerfile` con `postgresql-${PG_MAJOR}-pgvector`;
+  `docker-compose.yml` local construye ese target (`kindly-postgres:local`);
+  `infra/postgres/init/00-roles.sh` crea el esquema `extensions` y la extensión
+  como superusuario y fija `search_path = public, extensions` en los tres roles;
+  migración `20261112210000_pgvector`; test de integración
+  `packages/database/test/extensions.int.test.ts`; nota en `docs/deploy.md` para
+  bases ya existentes.
+- **Descubierto por el camino:** `vector` no es extensión de confianza (el
+  migrador no puede crearla) y Prisma vacía `public` al reconstruir la sombra,
+  por eso va en el esquema `extensions` y la crea el script de inicio.
+- **Desviación del plan:** las variables de entorno de Kindly (OpenAI, Meta,
+  verificación de dominio) **no** se añaden en M2, sino en la fase que las lee
+  (M8a, M6b, M10), para no dejar configuración sin código.
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector 0.6.0 locales, sin
+  Docker): un clúster **nuevo** creado con el script de inicio (puerto 5442)
+  aplica las migraciones desde cero, `queue:install` y 80/80 de integración; en
+  el clúster principal (5441) `db:deploy`, `db:check` («No difference
+  detected»), `test:integration` 82/82 (incluye el test de pgvector), `lint`
+  y `typecheck` en verde. **No verificado:** `docker build --target postgres`
+  (no hay Docker aquí: el paquete `postgresql-18-pgvector` de PGDG para trixie
+  se da por existente, sin comprobar), el compose local ni el CI en GitHub.
+  Si el primer CI falla en el paso «Start Postgres», empezar por ahí.
+- Entorno: el Postgres local ahora lleva pgvector instalado con
+  `apt-get install postgresql-16-pgvector`; hay un segundo clúster de prueba
+  en 5442 (`/var/lib/pg-kindly2`) que no hace falta conservar.
+- **Próximo paso concreto:** M3a — permisos de Kindly en `ROLE_PERMISSIONS`
+  (`core/identity/permissions.ts`), textos de ajustes de organización y miembros
+  con los de Kindly y navegación vacía de módulos. Después M3b (ficha del
+  miembro y cargos).

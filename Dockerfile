@@ -92,6 +92,11 @@ ENV NODE_ENV=production
 USER node
 CMD ["sh", "infra/docker/migrate.sh"]
 
-# Postgres with the application roles created on first start (ADR 0002).
+# Postgres with the application roles created on first start (ADR 0002) and pgvector
+# (Kindly, docs/DECISIONS.md "pgvector"). The package comes from the PGDG repository that the
+# official image already configures; its version is the one PGDG publishes for this Postgres.
 FROM ${POSTGRES_IMAGE} AS postgres
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-${PG_MAJOR}-pgvector \
+    && rm -rf /var/lib/apt/lists/*
 COPY infra/postgres/init/ /docker-entrypoint-initdb.d/
