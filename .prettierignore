@@ -1,0 +1,17 @@
+pnpm-lock.yaml
+**/generated/**
+**/.next/**
+**/dist/**
+docs/api/openapi.json
+legacy/
+
+# Documentación histórica de Kindly (anterior a la plantilla): no se reformatea para no
+# ensuciar el historial; se revisa en la fase M12 de project/MIGRATION.md.
+docs/ARCHITECTURE.md
+docs/DATABASE.md
+docs/DECISIONS.md
+docs/INTEGRATIONS.md
+docs/ui/
+project/CURRENT_TASK.md
+project/TASKS.md
+project/PROGRESS.md

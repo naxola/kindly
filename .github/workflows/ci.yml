@@ -1,0 +1,169 @@
+# Mandatory checks on every pull request and on the integration branches.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Format, lint, types, unit, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Enable pnpm
+        run: corepack enable
+      - name: pnpm store path
+        id: pnpm
+        run: echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ steps.pnpm.outputs.store }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - run: pnpm db:generate
+      - name: OpenAPI contract is up to date
+        run: |
+          pnpm api:generate
+          git diff --exit-code -- docs/api/openapi.json || (echo "::error::docs/api/openapi.json is outdated: run 'pnpm api:generate' and commit it" && exit 1)
+      - run: pnpm format:check
+      # Typed lint of the whole monorepo exceeds Node's default heap on the runner.
+      - run: pnpm lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  integration:
+    name: Integration (Postgres) and migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Enable pnpm
+        run: corepack enable
+      - name: pnpm store path
+        id: pnpm
+        run: echo "store=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ${{ steps.pnpm.outputs.store }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: cp .env.example .env
+      - name: Start Postgres
+        run: pnpm infra:up
+      - run: pnpm db:generate
+      - name: Migrations apply cleanly from zero (dev database)
+        run: pnpm db:deploy
+      - name: Queue tables install on a fresh database
+        run: pnpm queue:install
+      - name: Schema and migrations are in sync
+        run: pnpm db:check
+      - run: pnpm test:integration
+      - name: Generate the typed API client (needed by the web build)
+        run: pnpm api:generate
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: E2E (Playwright, production build against the test database)
+        run: pnpm test:e2e
+      - name: Infra logs on failure
+        if: failure()
+        run: docker compose logs --tail 200
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - run: corepack enable
+      - name: Audit production dependencies (high and critical)
+        run: pnpm audit --prod --audit-level high
+
+  images:
+    name: Docker images (build, smoke test, publish)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [checks, integration]
+    permissions:
+      contents: read
+      packages: write
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository }}
+      # The public site is prerendered: its staging URLs are repository variables.
+      SITE_URL: ${{ vars.STAGING_SITE_URL || 'https://www.example.com' }}
+      APP_URL_BUILD: ${{ vars.STAGING_APP_URL || 'https://app.example.com' }}
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/staging' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the images
+        run: |
+          for target in postgres migrate web worker; do
+            docker build --target "$target" -t "local/$target:ci" .
+          done
+          docker build --target site -t local/site:ci \
+            --build-arg SITE_URL="$SITE_URL" --build-arg APP_URL="$APP_URL_BUILD" \
+            --build-arg PLAUSIBLE_DOMAIN="${{ vars.STAGING_PLAUSIBLE_DOMAIN }}" .
+          docker image ls local/*
+      - name: Smoke test with the staging compose
+        run: |
+          {
+            echo "IMAGE_PREFIX=local"
+            echo "IMAGE_TAG=ci"
+            echo "APP_URL=http://localhost:3000"
+            echo "BETTER_AUTH_SECRET=$(openssl rand -base64 48)"
+            for v in POSTGRES_PASSWORD APP_MIGRATOR_PASSWORD APP_USER_PASSWORD APP_PLATFORM_PASSWORD; do
+              echo "$v=$(openssl rand -hex 24)"
+            done
+            echo 'EMAIL_FROM=CI <ci@example.com>'
+            echo "RESEND_API_KEY=re_ci_not_used"
+          } > smoke.env
+          docker compose -f infra/staging/compose.yml --env-file smoke.env up -d --wait --wait-timeout 180
+          probe() { docker compose -f infra/staging/compose.yml --env-file smoke.env exec -T "$1" \
+            node -e "fetch('$2').then(async r=>{console.log('$1', r.status, await r.text());process.exit(r.ok?0:1)},e=>{console.error(e);process.exit(1)})"; }
+          probe web http://127.0.0.1:3000/api/ready
+          probe worker http://127.0.0.1:3002/ready
+          probe site http://127.0.0.1:3001/es
+          probe web http://127.0.0.1:3000/sign-in
+      - name: Compose logs
+        if: always()
+        run: test -f smoke.env && docker compose -f infra/staging/compose.yml --env-file smoke.env logs --tail 100 || true
+      - name: Publish to ghcr.io (staging branch)
+        if: env.PUBLISH == 'true'
+        run: |
+          if [ -z "${{ vars.STAGING_SITE_URL }}" ] || [ -z "${{ vars.STAGING_APP_URL }}" ]; then
+            echo "::warning::Images not published: set the repository variables STAGING_SITE_URL and STAGING_APP_URL (docs/deploy.md)"
+            exit 0
+          fi
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          sha="sha-${GITHUB_SHA::7}"
+          for target in postgres migrate web worker site; do
+            for tag in staging "$sha"; do
+              docker tag "local/$target:ci" "$REGISTRY_PREFIX/$target:$tag"
+              docker push -q "$REGISTRY_PREFIX/$target:$tag"
+            done
+          done
+          echo "Published $REGISTRY_PREFIX/{postgres,migrate,web,worker,site}:{staging,$sha}"

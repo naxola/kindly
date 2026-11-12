@@ -1,63 +1,46 @@
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# deps
+node_modules/
+.pnpm-store/
 
-# testing
-/coverage
+# build
+.next/
+out/
+dist/
+build/
+.turbo/
+coverage/
+*.tsbuildinfo
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (never commit real secrets — see docs/DECISIONS.md / CLAUDE.md sección 5)
+# env
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
 
-# vercel
-.vercel
+# tests
+playwright-report/
+test-results/
 
-# typescript
-*.tsbuildinfo
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+*.log
+
+# local data
+.data/
+backups/
+
+# generated code (prisma generate)
+**/src/generated/
 next-env.d.ts
 
-# drizzle-kit local cache
-/drizzle/.drizzle
-
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-
-# legacy/ (app anterior a la migración, ver project/MIGRATION.md): mismas exclusiones, ancladas
-/legacy/node_modules
+# legacy/ (app anterior a la migración, ver project/MIGRATION.md): dependencias y salidas propias
+/legacy/node_modules/
 /legacy/.next/
-/legacy/out/
-/legacy/build
-/legacy/coverage
-/legacy/drizzle/.drizzle
+/legacy/coverage/
 /legacy/test-results/
 /legacy/playwright-report/
-/legacy/blob-report/
-/legacy/playwright/.cache/
+/legacy/drizzle/.drizzle

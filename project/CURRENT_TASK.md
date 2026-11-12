@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M1a hecha. Siguiente: M1b
+## Paquete activo: Migración a `saas-template` — M1b hecha. Siguiente: M1c
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -26,9 +26,11 @@ un nombre (las reglas de «delegado» dependen de `MEMBER`), uno por miembro, y
 solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (M13).
 **M1a hecha (rama `migration/saas-template`):** app movida a `legacy/`
 (typecheck y 381 unitarias en verde allí; integración/E2E no ejecutadas).
-**Próximo paso concreto:** M1b — remoto `template` y
-`git merge --allow-unrelated-histories v1.0.0`; detalle en
-`project/MIGRATION.md` §8.
+**M1b hecha:** plantilla `v1.0.0` fusionada (conflictos de `CLAUDE.md`,
+`README.md` y `.gitignore` resueltos en Kindly), `legacy/` fuera del tooling;
+format/lint/typecheck/76 unitarias en verde (Node 24). **Próximo paso
+concreto:** M1c — marca de Kindly y CI de la plantilla en verde (integración,
+E2E y build con Postgres); detalle en `project/MIGRATION.md` §8.
 
 ---
 

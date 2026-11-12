@@ -735,7 +735,7 @@ solo la vista de conjunto.
 - [x] Validación del usuario de las decisiones (2026-11-12; D4 rehecha, D14–D15 nuevas).
 - [x] Q1–Q3 resueltas (2026-11-12): cargo solo nombre, uno por miembro, solo nombre obligatorio.
 - [x] M1a — app movida a `legacy/` (2026-11-12).
-- [ ] M1b — fusión de la plantilla `v1.0.0` y exclusión de `legacy/` del tooling.
+- [x] M1b — plantilla `v1.0.0` fusionada y `legacy/` fuera del tooling (2026-11-12).
 - [ ] M1c — marca de Kindly y CI de la plantilla en verde.
 - [ ] M2 — pgvector y variables de entorno de Kindly.
 - [ ] M3a — Permisos de Kindly sobre `core/identity`.
