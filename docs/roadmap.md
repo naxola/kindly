@@ -1,8 +1,8 @@
 # Roadmap de la plantilla
 
-**Fase actual: 6, despliegue (entregada, pendiente de validar).** Fases 0 a 4c validadas (2026-11-06/07). La 5 se validará en staging, con GlitchTip, ntfy y Uptime Kuma autoalojados (ADR 0011). Newsletter: listmonk (formulario pendiente). La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
+**Versión actual: `v1.0.0` (2026-11-12).** Fases 0 a 4c validadas (2026-11-06/07); fases 5 y 6 y cobros entregadas, con lo pendiente de probar en staging anotado abajo. La fase 5 se valida en staging con GlitchTip, ntfy y Uptime Kuma autoalojados (ADR 0011). Newsletter: listmonk (formulario pendiente). La fase 4 se divide en 4a, 4b y 4c para que cada entrega sea revisable.
 
-`main` creada el 2026-11-09 desde `staging` por decisión del usuario. Siguen pendientes de validar en staging la observabilidad (fase 5) y los pagos con el sandbox de Paddle; la etiqueta `v1.0.0` queda a decisión del usuario.
+`main` creada el 2026-11-09 desde `staging` y etiquetada `v1.0.0` el 2026-11-12, por decisión del usuario. **Al etiquetar seguían sin probarse en staging**: la observabilidad (fase 5: GlitchTip, ntfy y Uptime Kuma) y los pagos con el sandbox de Paddle (el adaptador sigue la documentación, pero no está probado contra Paddle). Los productos que partan de la plantilla deben tenerlo en cuenta.
 
 | Fase                        | Contenido                                                                                                 | Estado                                      |
 | --------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
@@ -15,9 +15,9 @@
 | 4c. Web pública (`site`)    | `packages/content`, portada, precios, blog MDX, legales, sitemap, RSS, newsletter                         | ✅ Validada (2026-11-07)                    |
 | 5. Observabilidad           | Errores, logs, health/ready, alertas                                                                      | 🟡 Validar en staging                       |
 | 6. Despliegue               | Imágenes, compose local y staging, Coolify en el homelab (producción: ADR aparte)                         | 🟡                                          |
-| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                            | 🟡 `main` creada; etiqueta pendiente        |
+| 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                            | ✅ `v1.0.0` (2026-11-12)                    |
 | B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                                 | 🟡 Entregadas; Paddle sin probar en sandbox |
-| D1–D2. Sin Next.js          | Nivel 1: puertos de presentación y regla de fronteras. Nivel 2 (opcional): Hono + Vite + Astro (ADR 0013) | 📝 Propuesto                                |
+| D1–D2. Sin Next.js          | Nivel 1: puertos de presentación y regla de fronteras. Nivel 2 (opcional): Hono + Vite + Astro (ADR 0013) | ⏸ Pospuesto por el usuario                  |
 
 ## Fase 1 — entregado
 
