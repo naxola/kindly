@@ -49,3 +49,15 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# legacy/ (app anterior a la migración, ver project/MIGRATION.md): mismas exclusiones, ancladas
+/legacy/node_modules
+/legacy/.next/
+/legacy/out/
+/legacy/build
+/legacy/coverage
+/legacy/drizzle/.drizzle
+/legacy/test-results/
+/legacy/playwright-report/
+/legacy/blob-report/
+/legacy/playwright/.cache/

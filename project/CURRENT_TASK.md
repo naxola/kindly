@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M0 hecha y validada. Siguiente: M1a
+## Paquete activo: Migración a `saas-template` — M1a hecha. Siguiente: M1b
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -24,8 +24,11 @@ configurable por organización (`member_positions`: delegado, presidente…)
 son tres cosas distintas; fase nueva M3b. Q1–Q3 resueltas: el cargo es solo
 un nombre (las reglas de «delegado» dependen de `MEMBER`), uno por miembro, y
 solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (M13).
-**Próximo paso concreto:** M1a — crear la rama `migration/saas-template`
-desde `master` y mover la app actual a `legacy/`.
+**M1a hecha (rama `migration/saas-template`):** app movida a `legacy/`
+(typecheck y 381 unitarias en verde allí; integración/E2E no ejecutadas).
+**Próximo paso concreto:** M1b — remoto `template` y
+`git merge --allow-unrelated-histories v1.0.0`; detalle en
+`project/MIGRATION.md` §8.
 
 ---
 

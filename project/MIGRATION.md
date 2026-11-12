@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M0: decisiones validadas; D4 rehecha, D14–D15 añadidas, Q1–Q3 resueltas).
+Última actualización: 2026-11-12 (M1a hecha: la app está en `legacy/`).
 
 ## 1. Objetivo
 
@@ -123,7 +123,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | Fase | Contenido                                                                                                                                                                                                                                                                       | Legacy que porta / borra                                                                         | Estado |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------ |
 | M0   | Este plan, decisiones propuestas, enlaces desde `CURRENT_TASK`/`TASKS`/`PROGRESS`/`DECISIONS`                                                                                                                                                                                   | —                                                                                                | ✅      |
-| M1a  | Crear `migration/saas-template`. Mover la app a `legacy/` (`git mv` mecánico: `src`, `tests`, `scripts`, `drizzle`, `docker`, `tokens`, configs de raíz). `docs/` y `project/` se quedan en la raíz                                                                                | Todo pasa a `legacy/`                                                                            | ⬜      |
+| M1a  | Crear `migration/saas-template`. Mover la app a `legacy/` (`git mv` mecánico: `src`, `tests`, `scripts`, `drizzle`, `docker`, `tokens`, configs de raíz). `docs/` y `project/` se quedan en la raíz                                                                                | Todo pasa a `legacy/`                                                                            | ✅      |
 | M1b  | Remoto `template`; `git merge --allow-unrelated-histories v1.0.0`. Resolver: `CLAUDE.md` fusionado (reglas de la plantilla + reglas de producto de Kindly, sin contradicciones: Prisma, API, jobs), `README.md` («parte de saas-template v1.0.0»), `.gitignore`. Excluir `legacy/` de pnpm, ESLint, Prettier, tsc y Vitest | —                                                                                                | ⬜      |
 | M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                     | `legacy/tokens` (parte)                                                                          | ⬜      |
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                 | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ⬜      |
@@ -210,3 +210,29 @@ Al terminar (haya acabado la fase o no):
   `master` y mover la app a `legacy/`). Q1–Q3 resueltas (sección 3.1).
 - **Respuestas del usuario a Q1–Q3:** el cargo es solo un nombre (las reglas
   dependen de `MEMBER`), un cargo por miembro, solo el nombre obligatorio.
+
+### 2026-11-12 — M1a
+
+- Hecho: rama `migration/saas-template` creada desde la rama de trabajo
+  `claude/intelligent-einstein-64alkm` (= `master` @ `d03543e` + los tres
+  commits de documentación de M0, para que el plan viva en la rama de
+  integración). Con `git mv` (sin tocar contenido) la app pasa a `legacy/`:
+  `src`, `tests`, `scripts`, `drizzle`, `docker`, `tokens`, `.github`,
+  `docker-compose.yml`, `.env.example`, `package*.json` y configs de
+  herramientas. En la raíz quedan `docs/`, `project/`, `CLAUDE.md`,
+  `README.md` y `.gitignore` (estos tres últimos se fusionan con los de la
+  plantilla en M1b). `.gitignore` con exclusiones de `legacy/` ancladas;
+  `legacy/README.md` explica su papel.
+- Verificación real (en `legacy/`): `npm install --no-package-lock`,
+  `tsc --noEmit` limpio y `vitest run tests/unit`: 381/381. **No se
+  ejecutaron** integración ni E2E (necesitan Postgres/Playwright; el
+  movimiento no cambia contenido).
+- Observación: `npm ci` falla en `legacy/` con npm de este entorno
+  (`@emnapi/*` ausentes del lockfile). Ya ocurría en `master`, no es del
+  movimiento; no se toca (legacy no se modifica). Se usa `npm install
+  --no-package-lock`.
+- **Próximo paso concreto:** M1b — añadir el remoto `template`
+  (`naxola/saas-template`) y `git merge --allow-unrelated-histories v1.0.0`;
+  resolver conflictos en `CLAUDE.md`, `README.md` y `.gitignore`; excluir
+  `legacy/` de pnpm, ESLint, Prettier, `tsc` y Vitest. Antes comprobar que la
+  etiqueta `v1.0.0` es accesible (en el clon local solo hay `staging`).
