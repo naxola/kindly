@@ -114,7 +114,11 @@
     "ALREADY_SUBSCRIBED": "The organization already has a subscription: manage it from the portal.",
     "PLAN_NOT_FOUND": "That plan is not available.",
     "NAME_TAKEN": "A position with that name already exists (it may be archived).",
-    "INVALID_POSITION": "That position does not exist or is archived."
+    "INVALID_POSITION": "That position does not exist or is archived.",
+    "ALREADY_AFFILIATED": "This contact already has an active affiliation.",
+    "NO_ACTIVE_AFFILIATION": "This affiliation is no longer active.",
+    "INVALID_DELEGATE": "That delegate is not an active member of the organization.",
+    "CONCURRENT_ASSIGNMENT": "Someone reassigned this contact at the same time. Reload and try again."
   },
   "home": {
     "title": "Home",
@@ -124,6 +128,7 @@
   },
   "nav": {
     "home": "Home",
+    "contacts": "Contacts",
     "settings": "Settings"
   },
   "menu": {
@@ -307,5 +312,85 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "contacts": {
+    "title": "Contacts",
+    "description": "People the organization has a relationship with. They are not Kindly users.",
+    "new": "New contact",
+    "newTitle": "New contact",
+    "create": "Create contact",
+    "save": "Save",
+    "emptyTitle": "There are no contacts yet",
+    "emptyDescription": "Create the first one or wait for someone to write to you.",
+    "notFound": "This contact does not exist or you do not have access to it.",
+    "back": "Back to contacts",
+    "created": "Created on {date}",
+    "fields": {
+      "name": "Name",
+      "phone": "Phone",
+      "phoneHint": "International format, e.g. +34600111222.",
+      "email": "Email",
+      "notes": "Notes"
+    },
+    "columns": {
+      "name": "Name",
+      "phone": "Phone",
+      "email": "Email",
+      "delegate": "Reference delegate"
+    },
+    "unassigned": "Unassigned",
+    "pendingIdentification": "Not identified",
+    "edit": {
+      "title": "Contact details"
+    },
+    "delegate": {
+      "title": "Reference delegate",
+      "none": "No delegate assigned yet.",
+      "select": "Reference delegate of {name}",
+      "confirmTitle": "Reassign delegate",
+      "confirmDescription": "Make {delegate} the reference delegate of {contact}? They will see the whole history; the previous delegate stops seeing this contact.",
+      "confirm": "Reassign",
+      "history": "Delegate history",
+      "current": "current",
+      "range": "{from} to {to}",
+      "since": "since {from}"
+    },
+    "affiliation": {
+      "title": "Affiliation",
+      "none": "Not affiliated yet.",
+      "active": "Active affiliation",
+      "ended": "Affiliation ended",
+      "number": "Member number",
+      "numberPrefix": "No. {number}",
+      "startedActive": "Affiliated since",
+      "startedNew": "Start date",
+      "fee": "Fee paid until",
+      "feeHint": "Last month with the fee paid.",
+      "feePaid": "Fee paid until {month}",
+      "feeOverdue": "The fee for {month} is pending.",
+      "rejoinHint": "A good moment to suggest rejoining.",
+      "sinceDate": "since {date}",
+      "period": "from {from} to {to}",
+      "activate": "Register",
+      "rejoin": "Affiliate again",
+      "save": "Save",
+      "end": "End affiliation",
+      "endTitle": "End the affiliation",
+      "endDescription": "The contact stops being affiliated. They can rejoin later without losing this history."
+    },
+    "activity": {
+      "title": "History",
+      "empty": "No activity yet",
+      "by": "by {name}",
+      "types": {
+        "CONTACT_CREATED": "Contact created",
+        "CONTACT_UPDATED": "Contact edited",
+        "CONTACT_IDENTIFIED": "Contact identified",
+        "CONTACT_DELEGATE_ASSIGNED": "Reference delegate changed",
+        "AFFILIATION_CREATED": "Affiliation registered",
+        "AFFILIATION_UPDATED": "Affiliation edited",
+        "AFFILIATION_ENDED": "Affiliation ended"
+      }
+    }
   }
 }

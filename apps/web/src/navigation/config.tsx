@@ -1,6 +1,6 @@
 import type { Permission } from '@saas/core'
 import type { ProductMenuConfig, RailItem } from '@saas/ui/shell'
-import { House, Settings } from 'lucide-react'
+import { House, Settings, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /**
@@ -24,6 +24,7 @@ export interface ModuleDef {
 
 export const MODULES: ModuleDef[] = [
   { key: 'home', href: '/', icon: <House />, railGroup: 0 },
+  { key: 'contacts', href: '/contacts', icon: <Users />, railGroup: 0 },
   {
     key: 'settings',
     href: '/settings',

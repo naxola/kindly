@@ -114,7 +114,11 @@
     "ALREADY_SUBSCRIBED": "La organización ya tiene una suscripción: gestiónala desde el portal.",
     "PLAN_NOT_FOUND": "Ese plan no está disponible.",
     "NAME_TAKEN": "Ya existe un cargo con ese nombre (puede estar archivado).",
-    "INVALID_POSITION": "Ese cargo no existe o está archivado."
+    "INVALID_POSITION": "Ese cargo no existe o está archivado.",
+    "ALREADY_AFFILIATED": "Este contacto ya tiene una afiliación activa.",
+    "NO_ACTIVE_AFFILIATION": "Esta afiliación ya no está activa.",
+    "INVALID_DELEGATE": "Ese delegado no es un miembro activo de la organización.",
+    "CONCURRENT_ASSIGNMENT": "Alguien reasignó este contacto a la vez. Recarga e inténtalo de nuevo."
   },
   "home": {
     "title": "Inicio",
@@ -124,6 +128,7 @@
   },
   "nav": {
     "home": "Inicio",
+    "contacts": "Contactos",
     "settings": "Ajustes"
   },
   "menu": {
@@ -307,5 +312,85 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "contacts": {
+    "title": "Contactos",
+    "description": "Personas con las que la organización tiene una relación. No son usuarios de Kindly.",
+    "new": "Nuevo contacto",
+    "newTitle": "Nuevo contacto",
+    "create": "Crear contacto",
+    "save": "Guardar",
+    "emptyTitle": "Todavía no hay contactos",
+    "emptyDescription": "Crea el primero o espera a que te escriba alguien.",
+    "notFound": "Este contacto no existe o no tienes acceso a él.",
+    "back": "Volver a contactos",
+    "created": "Creado el {date}",
+    "fields": {
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "phoneHint": "Formato internacional, p. ej. +34600111222.",
+      "email": "Email",
+      "notes": "Notas"
+    },
+    "columns": {
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "email": "Email",
+      "delegate": "Delegado de referencia"
+    },
+    "unassigned": "Sin asignar",
+    "pendingIdentification": "Sin identificar",
+    "edit": {
+      "title": "Datos del contacto"
+    },
+    "delegate": {
+      "title": "Delegado de referencia",
+      "none": "Todavía no tiene delegado asignado.",
+      "select": "Delegado de referencia de {name}",
+      "confirmTitle": "Reasignar delegado",
+      "confirmDescription": "¿Hacer a {delegate} el delegado de referencia de {contact}? Verá todo su historial; el delegado anterior deja de ver este contacto.",
+      "confirm": "Reasignar",
+      "history": "Historial de delegados",
+      "current": "actual",
+      "range": "{from} a {to}",
+      "since": "desde {from}"
+    },
+    "affiliation": {
+      "title": "Afiliación",
+      "none": "Sin dar de alta.",
+      "active": "Afiliación activa",
+      "ended": "Afiliación dada de baja",
+      "number": "Número de afiliado",
+      "numberPrefix": "Nº {number}",
+      "startedActive": "Afiliado desde",
+      "startedNew": "Fecha de alta",
+      "fee": "Cuota pagada hasta",
+      "feeHint": "Último mes con la cuota abonada.",
+      "feePaid": "Cuota pagada hasta {month}",
+      "feeOverdue": "Cuota de {month} pendiente.",
+      "rejoinHint": "Buen momento para proponer que vuelva a afiliarse.",
+      "sinceDate": "desde el {date}",
+      "period": "de {from} a {to}",
+      "activate": "Dar de alta",
+      "rejoin": "Volver a afiliar",
+      "save": "Guardar",
+      "end": "Dar de baja",
+      "endTitle": "Dar de baja la afiliación",
+      "endDescription": "El contacto deja de estar afiliado. Puede volver a afiliarse más adelante sin perder este historial."
+    },
+    "activity": {
+      "title": "Historial",
+      "empty": "Sin actividad todavía",
+      "by": "por {name}",
+      "types": {
+        "CONTACT_CREATED": "Contacto creado",
+        "CONTACT_UPDATED": "Contacto editado",
+        "CONTACT_IDENTIFIED": "Contacto identificado",
+        "CONTACT_DELEGATE_ASSIGNED": "Delegado de referencia cambiado",
+        "AFFILIATION_CREATED": "Afiliación dada de alta",
+        "AFFILIATION_UPDATED": "Afiliación editada",
+        "AFFILIATION_ENDED": "Afiliación dada de baja"
+      }
+    }
   }
 }
