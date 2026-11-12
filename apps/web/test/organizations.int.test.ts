@@ -104,8 +104,24 @@ describe('organizations, members and invitations through the API', () => {
 
     // Invite a guest: the email job carries the token in the URL fragment.
     const guest = await person('guest')
-    res = await owner.browser.call('POST', '/api/v1/invitations', { email: guest.email })
+    // A new organization starts with its default position.
+    res = await owner.browser.call('GET', '/api/v1/positions')
+    expect(res.body.items.map((p: { name: string }) => p.name)).toEqual(['Delegado'])
+    const delegateId = res.body.items[0].id as string
+    res = await owner.browser.call('POST', '/api/v1/invitations', {
+      email: guest.email,
+      firstName: 'Luis',
+      lastName: 'Pérez',
+      phone: '+34 600 111 222',
+      positionId: delegateId,
+    })
     expect(res.status).toBe(201)
+    expect(res.body.profile).toEqual({
+      firstName: 'Luis',
+      lastName: 'Pérez',
+      phone: '+34600111222',
+      position: { id: delegateId, name: 'Delegado' },
+    })
     const invitationId = res.body.id as string
     expect((await owner.browser.call('GET', '/api/v1/invitations')).body.items).toHaveLength(1)
     const token = await invitationToken(guest.email)
@@ -132,6 +148,11 @@ describe('organizations, members and invitations through the API', () => {
     expect(members.map((m) => m.email).sort()).toEqual([owner.email, guest.email].sort())
     const ownerMember = members.find((m) => m.email === owner.email)!
     const guestMember = members.find((m) => m.email === guest.email)!
+    // The profile chosen in the invitation became the member's profile.
+    expect(res.body.items.find((m: { id: string }) => m.id === guestMember.id)).toMatchObject({
+      displayName: 'Luis Pérez',
+      profile: { phone: '+34600111222', position: { name: 'Delegado', archived: false } },
+    })
     res = await owner.browser.call('PUT', `/api/v1/members/${ownerMember.id}/role`, {
       role: 'MEMBER',
     })
@@ -139,7 +160,10 @@ describe('organizations, members and invitations through the API', () => {
     expect(res.body.error.details).toEqual([{ code: 'LAST_ADMIN' }])
 
     // A MEMBER cannot invite.
-    res = await guest.browser.call('POST', '/api/v1/invitations', { email: 'x@example.com' })
+    res = await guest.browser.call('POST', '/api/v1/invitations', {
+      email: 'x@example.com',
+      firstName: 'X',
+    })
     expect(res.status).toBe(403)
 
     // A disabled member loses access and the stale active cookie is cleared.
@@ -171,6 +195,7 @@ describe('organizations, members and invitations through the API', () => {
     // Revoking: the link stops working.
     res = await owner.browser.call('POST', '/api/v1/invitations', {
       email: `late-${newId()}@example.com`,
+      firstName: 'Tarde',
     })
     const lateId = res.body.id as string
     expect((await owner.browser.call('POST', `/api/v1/invitations/${lateId}/revoke`)).status).toBe(
@@ -194,7 +219,9 @@ describe('sign-up from an invitation link', () => {
       name: 'Acme',
       slug: `acme-${newId().slice(-12)}`,
     })
-    expect((await owner.browser.call('POST', '/api/v1/invitations', { email })).status).toBe(201)
+    expect(
+      (await owner.browser.call('POST', '/api/v1/invitations', { email, firstName: 'Ana' })).status,
+    ).toBe(201)
     return { owner, token: await invitationToken(email) }
   }
 
@@ -287,7 +314,11 @@ describe('billing through the API', () => {
     expect(plans.body.items.map((p: { key: string }) => p.key)).toEqual(['free'])
 
     const guest = await person('billing-guest')
-    await owner.browser.call('POST', '/api/v1/invitations', { email: guest.email, role: 'MEMBER' })
+    await owner.browser.call('POST', '/api/v1/invitations', {
+      email: guest.email,
+      role: 'MEMBER',
+      firstName: 'Gus',
+    })
     const token = await invitationToken(guest.email)
     expect((await guest.browser.call('POST', '/api/v1/invitations/accept', { token })).status).toBe(
       200,
@@ -295,5 +326,111 @@ describe('billing through the API', () => {
     const refused = await guest.browser.call('GET', '/api/v1/billing')
     expect(refused.status).toBe(403)
     expect(refused.body.error.details[0].code).toBe('MISSING_PERMISSION')
+  })
+})
+
+describe('positions and profiles through the API', () => {
+  it('an ADMIN manages positions and profiles; a MEMBER only their own data', async () => {
+    const owner = await person('owner')
+    let res = await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Acme',
+      slug: `acme-${newId().slice(-12)}`,
+    })
+    expect(res.status).toBe(201)
+
+    // Positions: create, unique name, rename, archive and restore.
+    res = await owner.browser.call('POST', '/api/v1/positions', { name: 'Presidente' })
+    expect(res.status).toBe(201)
+    const presidentId = res.body.id as string
+    res = await owner.browser.call('POST', '/api/v1/positions', { name: 'presidente' })
+    expect(res.status).toBe(409)
+    expect(res.body.error.details).toEqual([{ path: 'name', code: 'NAME_TAKEN' }])
+    res = await owner.browser.call('PUT', `/api/v1/positions/${presidentId}`, {
+      name: 'Presidencia',
+    })
+    expect(res.body).toMatchObject({ name: 'Presidencia', archived: false })
+    expect((await owner.browser.call('POST', '/api/v1/positions', { name: '  ' })).status).toBe(400)
+
+    // The guest joins with a position and is only a MEMBER.
+    const guest = await person('guest')
+    res = await owner.browser.call('POST', '/api/v1/invitations', {
+      email: guest.email,
+      firstName: 'Eva',
+      positionId: presidentId,
+    })
+    expect(res.status).toBe(201)
+    const token = await invitationToken(guest.email)
+    expect((await guest.browser.call('POST', '/api/v1/invitations/accept', { token })).status).toBe(
+      200,
+    )
+
+    // A MEMBER reads the catalog but cannot change it, nor anyone's profile.
+    expect((await guest.browser.call('GET', '/api/v1/positions')).status).toBe(200)
+    expect((await guest.browser.call('POST', '/api/v1/positions', { name: 'Otro' })).status).toBe(
+      403,
+    )
+    expect(
+      (await guest.browser.call('POST', `/api/v1/positions/${presidentId}/archive`)).status,
+    ).toBe(403)
+    res = await owner.browser.call('GET', '/api/v1/members')
+    const guestMember = res.body.items.find((m: { email: string }) => m.email === guest.email)
+    const ownerMember = res.body.items.find((m: { email: string }) => m.email === owner.email)
+    expect(
+      (
+        await guest.browser.call('PUT', `/api/v1/members/${ownerMember.id}/profile`, {
+          firstName: 'Hack',
+        })
+      ).status,
+    ).toBe(403)
+
+    // Their own data: yes; a malformed phone is a normalized 400.
+    res = await guest.browser.call('PUT', '/api/v1/me/profile', {
+      firstName: 'Eva',
+      phone: '600111222',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe('VALIDATION_FAILED')
+    res = await guest.browser.call('PUT', '/api/v1/me/profile', {
+      firstName: 'Eva',
+      lastName: 'Ruiz',
+      phone: '+34611222333',
+    })
+    expect(res.status).toBe(204)
+
+    // The ADMIN edits the profile, position and private notes; the MEMBER does not see the notes.
+    res = await owner.browser.call('PUT', `/api/v1/members/${guestMember.id}/profile`, {
+      firstName: 'Eva',
+      lastName: 'Ruiz',
+      positionId: presidentId,
+      notes: 'Solo de la junta',
+    })
+    expect(res.status).toBe(204)
+    res = await owner.browser.call('GET', '/api/v1/members')
+    expect(
+      res.body.items.find((m: { id: string }) => m.id === guestMember.id).profile,
+    ).toMatchObject({
+      notes: 'Solo de la junta',
+      position: { name: 'Presidencia' },
+    })
+    res = await guest.browser.call('GET', '/api/v1/members')
+    expect(
+      res.body.items.find((m: { id: string }) => m.id === guestMember.id).profile.notes,
+    ).toBeNull()
+
+    // Archiving hides it from the default list but the member keeps it.
+    expect(
+      (await owner.browser.call('POST', `/api/v1/positions/${presidentId}/archive`)).status,
+    ).toBe(204)
+    res = await owner.browser.call('GET', '/api/v1/positions')
+    expect(res.body.items.map((p: { name: string }) => p.name)).toEqual(['Delegado'])
+    res = await owner.browser.call('GET', '/api/v1/positions?includeArchived=true')
+    expect(res.body.items).toHaveLength(2)
+    res = await owner.browser.call('GET', '/api/v1/members')
+    expect(
+      res.body.items.find((m: { id: string }) => m.id === guestMember.id).profile.position,
+    ).toMatchObject({ name: 'Presidencia', archived: true })
+    expect(
+      (await owner.browser.call('POST', `/api/v1/positions/${presidentId}/restore`)).status,
+    ).toBe(204)
   })
 })

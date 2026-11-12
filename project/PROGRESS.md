@@ -1,13 +1,13 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-11-12 (Migración a `saas-template`: M2 hecha: pgvector; M1 completa: `legacy/`, plantilla fusionada, marca).
+Última actualización: 2026-11-12 (Migración a `saas-template`: M3b hecha: ficha del miembro y cargos; M2: pgvector; M1: `legacy/`, plantilla fusionada, marca).
 
 ## Migración a `saas-template` (activa desde 2026-11-12)
 
 Kindly pasa a construirse sobre `naxola/saas-template` `v1.0.0` (monorepo,
 Prisma + RLS, API Hono, worker pg-boss, `packages/ui`, `apps/site`). Plan por
 fases M0–M13 en `project/MIGRATION.md`. Estado: **M0 hecha y validada**
-(con ficha del miembro y cargos configurables como fase M3b); **M1 (a/b/c) y M2 hechas, M3a absorbida** (rama `migration/saas-template`); siguiente, M3b. La app actual
+(con ficha del miembro y cargos configurables como fase M3b); **M1, M2 y M3 (3a absorbida, 3b hecha) completas** (rama `migration/saas-template`); siguiente, M4a. La app actual
 sigue en `master` sin cambios hasta el corte (M13).
 
 ## Resumen en una línea

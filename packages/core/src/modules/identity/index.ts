@@ -5,6 +5,7 @@ export { can, authorize, permissionsOf } from './authorization.ts'
 export type { Actor } from './authorization.ts'
 export { ensureUser, findUserByAuthId, listMyOrganizations } from './users.ts'
 export { CreateOrganizationInput, createOrganization } from './organizations.ts'
+export type { CreateOrganizationHooks } from './organizations.ts'
 export { resolveActor } from './actor.ts'
 export {
   ChangeRoleInput,
@@ -31,4 +32,4 @@ export {
   getInvitationByToken,
   acceptInvitation,
 } from './invitations.ts'
-export type { InvitationStatus, InvitationView } from './invitations.ts'
+export type { InvitationStatus, InvitationView, InvitationHooks } from './invitations.ts'

@@ -1,4 +1,11 @@
-import { newId, Prisma, withTenant } from '@saas/database'
+import {
+  newId,
+  Prisma,
+  withTenant,
+  type Organization,
+  type OrganizationMember,
+  type TenantTx,
+} from '@saas/database'
 import { z } from 'zod'
 import { nowOf, type BaseCtx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
@@ -18,6 +25,17 @@ export const CreateOrganizationInput = z.object({
 export type CreateOrganizationInput = z.input<typeof CreateOrganizationInput>
 
 /**
+ * Extension point for products: runs inside the creation transaction, so whatever it writes
+ * exists if and only if the organization does (e.g. default catalogs, the creator's profile).
+ */
+export interface CreateOrganizationHooks {
+  onCreated?: (
+    tx: TenantTx,
+    created: { organization: Organization; member: OrganizationMember },
+  ) => Promise<void>
+}
+
+/**
  * Creates an organization and makes its creator the first ADMIN, in one transaction.
  * `userId` is the business user (users.id); call ensureUser first.
  */
@@ -25,6 +43,7 @@ export async function createOrganization(
   ctx: BaseCtx,
   userId: string,
   input: CreateOrganizationInput,
+  hooks: CreateOrganizationHooks = {},
 ) {
   const data = CreateOrganizationInput.parse(input)
   const id = newId()
@@ -56,6 +75,7 @@ export async function createOrganization(
           ownerEmail: await accessEmailOf(tx, userId),
         },
       })
+      await hooks.onCreated?.(tx, { organization, member })
       return { organization, member }
     })
   } catch (error) {

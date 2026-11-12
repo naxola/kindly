@@ -52,6 +52,11 @@ export function handleError(err: unknown, c: Context<ApiEnv>) {
     }
     return c.json(errorBody(c, err), err.httpStatus as ContentfulStatusCode)
   }
+  // A use case validated its input again (normalizing phones, blanks...) and rejected it: that
+  // is the caller's mistake, not a failure of ours.
+  if (err instanceof z.ZodError) {
+    return c.json(errorBody(c, validationError(err.issues)), 400)
+  }
   // Unhandled: logged in detail, reported and answered without leaking internal information.
   logOf(c).error({ err }, 'unhandled error')
   captureError(err, {

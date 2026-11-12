@@ -739,7 +739,7 @@ solo la vista de conjunto.
 - [x] M1c — marca de Kindly; format/lint/tipos/unitarias/integración/build/E2E en verde en local (2026-11-12).
 - [x] M2 — pgvector (imagen, init, migración, test) (2026-11-12). Variables de entorno de Kindly: en M6b/M8a/M10 (se añaden donde se leen).
 - [x] M3a — absorbida: los permisos de Kindly se añaden en cada fase de módulo (2026-11-12).
-- [ ] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`).
+- [x] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`) (2026-11-12).
 - [ ] M4a/b — Contactos, asignaciones, afiliación y actividad.
 - [ ] M5a/b — Casos y tareas.
 - [ ] M6a/b — Mensajería (núcleo + WhatsApp/coexistence) con webhooks como jobs.

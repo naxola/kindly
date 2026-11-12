@@ -25,4 +25,7 @@ export type {
   UsageEvent,
   BillingPeriod,
   BillingPeriodLine,
+  MemberPosition,
+  MemberProfile,
+  InvitationProfile,
 } from './generated/prisma/client.ts'

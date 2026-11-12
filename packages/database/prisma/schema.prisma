@@ -35,6 +35,10 @@ model Organization {
   subscription   Subscription?
   usageEvents    UsageEvent[]
   billingPeriods BillingPeriod[]
+  // Kindly (team): positions and member profiles of the organization.
+  memberPositions    MemberPosition[]
+  memberProfiles     MemberProfile[]
+  invitationProfiles InvitationProfile[]
 
   @@map("organizations")
 }
@@ -182,6 +186,7 @@ model OrganizationMember {
   organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   invitationsCreated Invitation[] @relation("InvitedBy")
+  profile            MemberProfile?
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -206,6 +211,7 @@ model Invitation {
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   invitedBy    OrganizationMember @relation("InvitedBy", fields: [organizationId, invitedById], references: [organizationId, id], onDelete: Restrict)
   acceptedBy   User?              @relation("AcceptedInvitations", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  profile      InvitationProfile?
 
   @@unique([organizationId, id])
   @@index([organizationId, email])
@@ -331,4 +337,78 @@ model BillingPeriodLine {
   @@unique([periodId, metric])
   @@index([organizationId])
   @@map("billing_period_lines")
+}
+
+// ============================================================================
+// TEAM (Kindly, docs/DECISIONS.md D4/D14/D15). Access (auth_*) and the access role
+// (organization_members.role) are the template's; the person's data and their position
+// inside the organization are Kindly's, per tenant.
+// ============================================================================
+
+/// Position (cargo) of a member inside an organization: delegate, president... Just a name:
+/// no rule or permission reads it. Archived instead of deleted when in use.
+model MemberPosition {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.Citext
+  sortOrder      Int       @default(0) @map("sort_order")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  profiles           MemberProfile[]
+  invitationProfiles InvitationProfile[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, name])
+  @@map("member_positions")
+}
+
+/// Data of a person as a member of one organization (1:1 with organization_members).
+/// Only the first name is required. The phone is contact data, NOT the WhatsApp identity
+/// (that lives in messaging accounts).
+model MemberProfile {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  memberId       String   @map("member_id") @db.Uuid
+  firstName      String   @map("first_name")
+  lastName       String?  @map("last_name")
+  /// E.164, e.g. +34600111222.
+  phone          String?
+  contactEmail   String?  @map("contact_email") @db.Citext
+  positionId     String?  @map("position_id") @db.Uuid
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  member       OrganizationMember @relation(fields: [organizationId, memberId], references: [organizationId, id], onDelete: Restrict)
+  position     MemberPosition?    @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, memberId])
+  @@index([organizationId, positionId])
+  @@map("member_profiles")
+}
+
+/// Profile data chosen by the ADMIN when inviting; copied to member_profiles when the
+/// invitation is accepted, in the same transaction.
+model InvitationProfile {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  invitationId   String   @map("invitation_id") @db.Uuid
+  firstName      String   @map("first_name")
+  lastName       String?  @map("last_name")
+  phone          String?
+  positionId     String?  @map("position_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invitation   Invitation      @relation(fields: [organizationId, invitationId], references: [organizationId, id], onDelete: Restrict)
+  position     MemberPosition? @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, invitationId])
+  @@map("invitation_profiles")
 }

@@ -11,6 +11,9 @@ export const PERMISSIONS = [
   'members.read',
   'members.invite',
   'members.manage',
+  // Kindly (team): positions catalog and any member's profile. Editing one's own is free.
+  'positions.manage',
+  'member_profiles.manage',
   'billing.read',
   'billing.manage',
 ] as const

@@ -112,7 +112,9 @@
     "NO_SUBSCRIPTION": "The organization has no paid plan.",
     "PAYMENTS_DISABLED": "Payments are not configured.",
     "ALREADY_SUBSCRIBED": "The organization already has a subscription: manage it from the portal.",
-    "PLAN_NOT_FOUND": "That plan is not available."
+    "PLAN_NOT_FOUND": "That plan is not available.",
+    "NAME_TAKEN": "A position with that name already exists (it may be archived).",
+    "INVALID_POSITION": "That position does not exist or is archived."
   },
   "home": {
     "title": "Home",
@@ -128,7 +130,8 @@
     "settings": {
       "title": "Settings",
       "members": "Members",
-      "billing": "Plan and usage"
+      "billing": "Plan and usage",
+      "positions": "Positions"
     }
   },
   "orgSwitcher": {
@@ -214,7 +217,22 @@
       "role": "Role",
       "roleOf": "Role of {name}",
       "roleHint": "An administrator manages members and invitations.",
-      "enableDescription": "{name} will regain access with their current role."
+      "enableDescription": "{name} will regain access with their current role.",
+      "position": "Position",
+      "noPosition": "No position",
+      "positionArchived": "{name} (archived)",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "phone": "Phone",
+      "phoneHint": "International format, e.g. +34600111222.",
+      "contactEmail": "Contact email",
+      "notes": "Internal notes",
+      "notesHint": "Only administrators can see them.",
+      "editProfile": "Edit profile",
+      "profileTitle": "Profile of {name}",
+      "profileDescription": "The person's data in this organization. Access (email and password) is managed separately.",
+      "saveProfile": "Save",
+      "inviteProfileHint": "This data goes to their profile when they accept the invitation."
     },
     "billing": {
       "title": "Plan and usage",
@@ -264,6 +282,23 @@
       "choosePlan": "Choose a plan",
       "subscribe": "Subscribe",
       "afterCheckout": "After payment, the plan becomes active as soon as the provider confirms it (a few seconds)."
+    },
+    "positions": {
+      "title": "Positions",
+      "description": "Positions describe each person's role in the organization (delegate, president…). They are just a name: they do not change what anyone can do.",
+      "name": "Name",
+      "status": "Status",
+      "active": "Active",
+      "archived": "Archived",
+      "add": "Add position",
+      "rename": "Rename",
+      "archive": "Archive",
+      "restore": "Restore",
+      "createTitle": "New position",
+      "renameTitle": "Rename position",
+      "save": "Save",
+      "empty": "There are no positions yet.",
+      "archiveDescription": "\"{name}\" will no longer be offered when inviting or editing. People who already have it keep it."
     }
   },
   "billing": {

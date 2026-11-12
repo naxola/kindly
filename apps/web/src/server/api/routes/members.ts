@@ -4,7 +4,7 @@ import {
   changeMemberRole,
   disableMember,
   enableMember,
-  listMembers,
+  listTeam,
 } from '@saas/core'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
 import { actorCtx } from '../session.ts'
@@ -20,6 +20,18 @@ const MemberSchema = z
     role: Role,
     status: z.enum(['ACTIVE', 'DISABLED']),
     joinedAt: z.iso.datetime(),
+    /** Null for a member without a profile (created before the team module existed). */
+    profile: z
+      .object({
+        firstName: z.string(),
+        lastName: z.string().nullable(),
+        phone: z.string().nullable(),
+        contactEmail: z.string().nullable(),
+        position: z.object({ id: z.uuid(), name: z.string(), archived: z.boolean() }).nullable(),
+        /** Only for whoever manages profiles. */
+        notes: z.string().nullable(),
+      })
+      .nullable(),
   })
   .openapi('Member')
 
@@ -60,7 +72,7 @@ const setStatus = createRoute({
 
 export const memberRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(list, async (c) => {
-    const items = await listMembers(await actorCtx(c))
+    const items = await listTeam(await actorCtx(c))
     return c.json({ items: items.map((m) => ({ ...m, joinedAt: m.joinedAt.toISOString() })) }, 200)
   })
   .openapi(changeRole, async (c) => {

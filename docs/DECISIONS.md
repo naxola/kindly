@@ -3756,3 +3756,33 @@ migración que la cree (necesita superusuario, rompe «migraciones desde cero» 
 **Consecuencias:** un volumen de Postgres anterior debe crear la extensión a mano una vez
 (`docs/deploy.md`). Columnas `vector` en Prisma: `Unsupported("vector(N)")` y SQL crudo, a
 resolver en M8a.
+
+## 2026-11-12 — Ficha y cargos: implementación (M3b) y refinamientos de D14/D15
+
+**Contexto:** M3b implementa lo aceptado en «Acceso, ficha de la persona y cargo».
+
+**Decisiones de implementación:**
+
+1. **Atomicidad por callbacks, no por estado global.** `core/identity` admite callbacks
+   opcionales (`onCreated`, `onAccepted`) dentro de su transacción; el módulo `team`
+   los usa para sembrar el cargo por defecto, crear la ficha del creador y copiar los
+   datos de la invitación. Descartado: un registro global de hooks (estado mutable
+   compartido) y llamar a `team` desde `identity` (acoplaría la plantilla a Kindly).
+2. **`users.display_name` no se modifica desde la ficha** (corrige D14): `users` es
+   global y la ficha es de una organización; con dos organizaciones el nombre sería
+   ambiguo. Se muestra el de la ficha y, si no hay, el de la cuenta.
+3. **Los cargos nunca se borran**: se archivan; su nombre sigue ocupado (único sin
+   distinguir mayúsculas por organización). Un cargo archivado no se puede asignar
+   a nadie nuevo pero lo conservan quienes ya lo tienen.
+4. **Notas internas** solo para quien gestiona fichas; la auditoría registra los
+   campos cambiados, no los valores (nombre, teléfono y email son datos personales).
+5. **Validación**: la API declara cuerpos simples para el contrato y `core` valida y
+   normaliza (vacío = sin valor, teléfono a E.164 quitando separadores). Un `ZodError`
+   de un caso de uso se responde como 400 normalizado.
+6. **Nombre obligatorio** al invitar (Q3): sin él no habría ficha con la que mostrar a
+   la persona. Las invitaciones anteriores a esta fase caen al nombre de la cuenta.
+
+**Alternativas consideradas:** guardar los datos de la invitación como JSON en la
+tabla `invitations` de la plantilla (obligaba a modificar una tabla ajena); columnas
+nuevas en `users` (global); un cargo con atributos de comportamiento (descartado por
+el usuario en Q1).

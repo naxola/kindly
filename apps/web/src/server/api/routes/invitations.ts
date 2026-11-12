@@ -1,13 +1,12 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { createInvitedAccount, PASSWORD_MAX_LENGTH } from '@saas/adapters/auth'
 import {
-  acceptInvitation,
-  createInvitation,
-  CreateInvitationInput,
+  acceptInvitationWithProfile,
   DomainError,
   ensureUser,
   getInvitationByToken,
-  listPendingInvitations,
+  inviteMember,
+  listTeamInvitations,
   revokeInvitation,
 } from '@saas/core'
 import { auth } from '../../auth.ts'
@@ -18,8 +17,33 @@ import type { ApiEnv } from '../types.ts'
 import { json, Role } from './schemas.ts'
 
 const InvitationSchema = z
-  .object({ id: z.uuid(), email: z.email(), role: Role, expiresAt: z.iso.datetime() })
+  .object({
+    id: z.uuid(),
+    email: z.email(),
+    role: Role,
+    expiresAt: z.iso.datetime(),
+    /** Name, phone and position the ADMIN chose; null for invitations sent without them. */
+    profile: z
+      .object({
+        firstName: z.string(),
+        lastName: z.string().nullable(),
+        phone: z.string().nullable(),
+        position: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+      })
+      .nullable(),
+  })
   .openapi('Invitation')
+
+const InviteBody = z
+  .object({
+    email: z.email(),
+    role: Role.default('MEMBER'),
+    firstName: z.string().min(1).max(80),
+    lastName: z.string().max(120).nullish(),
+    phone: z.string().max(40).nullish().describe('International format, e.g. +34600111222'),
+    positionId: z.uuid().nullish(),
+  })
+  .openapi('InviteInput')
 
 const PreviewSchema = z
   .object({
@@ -53,7 +77,7 @@ const create = createRoute({
   tags: ['invitations'],
   summary: 'Invite someone by email (the worker sends the email)',
   security: cookieAuth,
-  request: { body: { required: true, ...json(CreateInvitationInput) } },
+  request: { body: { required: true, ...json(InviteBody) } },
   responses: {
     201: { description: 'Created', ...json(InvitationSchema) },
     ...errorResponses(400, 401, 403, 409),
@@ -129,21 +153,32 @@ const accept = createRoute({
   },
 })
 
-const toJson = (i: { id: string; email: string; role: 'ADMIN' | 'MEMBER'; expiresAt: Date }) => ({
+type Profile = z.infer<typeof InvitationSchema>['profile']
+const toJson = (i: {
+  id: string
+  email: string
+  role: 'ADMIN' | 'MEMBER'
+  expiresAt: Date
+  profile: Profile
+}) => ({
   id: i.id,
   email: i.email,
   role: i.role,
   expiresAt: i.expiresAt.toISOString(),
+  profile: i.profile,
 })
 
 export const invitationRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(list, async (c) => {
-    const items = await listPendingInvitations(await actorCtx(c))
+    const items = await listTeamInvitations(await actorCtx(c))
     return c.json({ items: items.map(toJson) }, 200)
   })
   .openapi(create, async (c) => {
-    const { invitation } = await createInvitation(await actorCtx(c), c.req.valid('json'))
-    return c.json(toJson(invitation), 201)
+    const ctx = await actorCtx(c)
+    const input = c.req.valid('json')
+    const { invitation } = await inviteMember(ctx, input)
+    const [created] = (await listTeamInvitations(ctx)).filter((i) => i.id === invitation.id)
+    return c.json(toJson(created ?? { ...invitation, profile: null }), 201)
   })
   .openapi(revoke, async (c) => {
     await revokeInvitation(await actorCtx(c), c.req.valid('param').id)
@@ -195,7 +230,7 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
     for (const cookie of signIn.headers.getSetCookie())
       c.header('set-cookie', cookie, { append: true })
     const user = await ensureUser(ctx, created.authUserId)
-    const member = await acceptInvitation(ctx, { token, userId: user.id })
+    const member = await acceptInvitationWithProfile(ctx, { token, userId: user.id })
     setActiveOrganization(c, member.organizationId)
     return c.json({ organizationId: member.organizationId }, 201)
   })
@@ -203,7 +238,7 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
     const ctx = await accessCtx(c)
     // Accepting an invitation is also a first entry into the product (ADR 0003).
     const user = ctx.user ?? (await ensureUser(ctx, ctx.access.authUserId))
-    const member = await acceptInvitation(ctx, {
+    const member = await acceptInvitationWithProfile(ctx, {
       token: c.req.valid('json').token,
       userId: user.id,
     })

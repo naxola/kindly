@@ -13,6 +13,7 @@ export * from './modules/audit/index.ts'
 export * from './modules/events/index.ts'
 export * from './modules/identity/index.ts'
 export * from './modules/billing/index.ts'
+export * from './modules/team/index.ts'
 
 import {
   BILLING_SCHEDULES,

@@ -1,3 +1,4 @@
+import { z } from '@hono/zod-openapi'
 import { DomainError } from '@saas/core'
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
@@ -20,6 +21,10 @@ app.get('/boom', () => {
 app.get('/forbidden', () => {
   throw new DomainError('FORBIDDEN', 'No')
 })
+app.get('/invalid', () => {
+  z.object({ phone: z.string().regex(/^\+/) }).parse({ phone: '600' })
+  return new Response('unreachable')
+})
 app.onError(handleError)
 
 describe('API error handling', () => {
@@ -39,6 +44,16 @@ describe('API error handling', () => {
     captureError.mockClear()
     const res = await app.request('/forbidden')
     expect(res.status).toBe(403)
+    expect(captureError).not.toHaveBeenCalled()
+  })
+
+  it('a use case rejecting its input with zod is a normalized 400, not reported', async () => {
+    captureError.mockClear()
+    const res = await app.request('/invalid')
+    expect(res.status).toBe(400)
+    const body = (await res.json()) as { error: { code: string; details: { path: string }[] } }
+    expect(body.error.code).toBe('VALIDATION_FAILED')
+    expect(body.error.details[0]?.path).toBe('phone')
     expect(captureError).not.toHaveBeenCalled()
   })
 })

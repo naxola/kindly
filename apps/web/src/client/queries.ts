@@ -8,6 +8,7 @@ import { unwrap } from './errors.ts'
 export const keys = {
   members: (orgId: string) => ['org', orgId, 'members'] as const,
   invitations: (orgId: string) => ['org', orgId, 'invitations'] as const,
+  positions: (orgId: string) => ['org', orgId, 'positions'] as const,
 }
 
 export function useMembers(orgId: string) {
@@ -22,6 +23,19 @@ export function useInvitations(orgId: string, enabled = true) {
     queryKey: keys.invitations(orgId),
     enabled,
     queryFn: async () => unwrap(await apiClient.GET('/api/v1/invitations')).items,
+  })
+}
+
+/** Positions (cargos). Archived ones only for whoever manages them. */
+export function usePositions(orgId: string, includeArchived = false) {
+  return useQuery({
+    queryKey: [...keys.positions(orgId), { includeArchived }],
+    queryFn: async () =>
+      unwrap(
+        await apiClient.GET('/api/v1/positions', {
+          params: { query: includeArchived ? { includeArchived: 'true' } : {} },
+        }),
+      ).items,
   })
 }
 

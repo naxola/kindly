@@ -1,5 +1,10 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
-import { createOrganization, CreateOrganizationInput, ensureUser, resolveActor } from '@saas/core'
+import {
+  createOrganizationWithTeam,
+  CreateOrganizationInput,
+  ensureUser,
+  resolveActor,
+} from '@saas/core'
 import { cookieAuth, errorResponses } from '../openapi.ts'
 import { accessCtx, actorCtx, setActiveOrganization, userCtx } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
@@ -52,7 +57,7 @@ export const organizationRoutes = new OpenAPIHono<ApiEnv>()
     const ctx = await accessCtx(c)
     // First entry into the product: the business user is created here (ADR 0003).
     const user = ctx.user ?? (await ensureUser(ctx, ctx.access.authUserId))
-    const { organization } = await createOrganization(ctx, user.id, c.req.valid('json'))
+    const { organization } = await createOrganizationWithTeam(ctx, user.id, c.req.valid('json'))
     setActiveOrganization(c, organization.id)
     return c.json({ id: organization.id, name: organization.name, slug: organization.slug }, 201)
   })

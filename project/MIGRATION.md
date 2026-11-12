@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M3a absorbida por las fases de módulo; siguiente M3b).
+Última actualización: 2026-11-12 (M3b hecha: ficha del miembro y cargos).
 
 ## 1. Objetivo
 
@@ -128,7 +128,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                                                                                                                                                                                             | `legacy/tokens` (parte)                                                                          | ✅             |
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                                                                                                                                                                                   | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ✅             |
 | M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos                                                                                                                                               | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ✅ (absorbida) |
-| M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization`            | ⬜             |
+| M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization`            | ✅             |
 | M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                                                                                                                                                                                                    | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ⬜             |
 | M4b  | Contactos (UI + E2E): `/contacts`, `/contacts/[id]`, reasignar, afiliación                                                                                                                                                                                                                                                                                                                                                                              | `app/(app)/contacts`, E2E `crm`, `membership`, `contact-assignments` (parte)                     | ⬜             |
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                                                                                                                                                                                                | `modules/cases`, `tasks` + tests                                                                 | ⬜             |
@@ -358,3 +358,59 @@ Al terminar (haya acabado la fase o no):
   su test de permisos. M3a se da por cumplida sin commit propio; M3b es el primer
   trabajo real de identidad. La separación de roles de acceso (`ADMIN`/`MEMBER`)
   de D4 no cambia.
+
+### 2026-11-12 — M3b (ficha del miembro y cargos)
+
+- Hecho, de extremo a extremo en un solo paso (datos, `core`, API, UI, tests):
+  - **Datos**: modelos `MemberPosition`, `MemberProfile`, `InvitationProfile`
+    (migración `20261112220000_team`, RLS forzado por organización, CHECK E.164 del
+    teléfono). Cargo con nombre único sin distinguir mayúsculas (`citext`).
+  - **`core/team`** (módulo nuevo): `createOrganizationWithTeam`, `inviteMember`,
+    `acceptInvitationWithProfile`, `listTeam`, `listTeamInvitations`,
+    `updateMemberProfile` (ADMIN), `updateMyProfile` (cada persona), cargos
+    (`listPositions`, `createPosition`, `updatePosition`, `setPositionArchived`).
+    Permisos nuevos `positions.manage` y `member_profiles.manage` (solo ADMIN).
+  - **Puntos de extensión en `core/identity`**: `createOrganization(…, hooks)`,
+    `createInvitation(…, { hooks })` y `acceptInvitation(…, hooks)` aceptan callbacks
+    opcionales que corren **dentro de su transacción** (atomicidad: si el cargo no es
+    válido, no queda invitación). Compatibles hacia atrás; candidatos a subir a la
+    plantilla.
+  - **API** `/api/v1`: `GET|POST /positions`, `PUT /positions/{id}`,
+    `POST /positions/{id}/archive|restore`, `PUT /members/{id}/profile`,
+    `PUT /me/profile`; `GET /members` e `/invitations` devuelven ficha y cargo;
+    `POST /invitations` exige `firstName` (Q3). `handleError` convierte un
+    `ZodError` de un caso de uso en 400 normalizado (antes sería 500).
+  - **UI**: invitación con nombre, apellidos, teléfono y cargo; columna Cargo y
+    «Editar ficha» en Ajustes → Miembros; Ajustes → **Cargos** (crear, renombrar,
+    archivar, restaurar); es/en.
+- **Refinamientos de D14/D15 que conviene tener presentes:**
+  - **No se escribe `users.display_name` desde la ficha.** `users` es global y una
+    persona en dos organizaciones tendría nombres en conflicto; el nombre de la
+    organización es el de su ficha y, sin ficha, el de la cuenta.
+  - El nombre de un cargo archivado **sigue ocupado** (único por organización): hay
+    que restaurarlo, no reutilizarlo.
+  - Las **notas internas** solo las devuelve la API a quien tiene
+    `member_profiles.manage`; la auditoría de la ficha guarda qué campos cambiaron,
+    no sus valores (datos personales).
+  - Cada persona edita nombre, apellidos, teléfono y email de contacto propios; el
+    cargo y las notas solo el ADMIN. El cargo no concede ni quita nada (Q1).
+- **Archivos de la plantilla tocados** (a vigilar en el próximo `git merge template/…`):
+  `packages/database/prisma/schema.prisma` (relaciones inversas en `Organization`,
+  `OrganizationMember`, `Invitation`), `core/identity/{organizations,invitations,
+permissions,index}.ts`, `core/src/index.ts`, `apps/web/src/server/api/{app,errors}.ts`,
+  rutas `{members,invitations,organizations}.ts`, `navigation/config.tsx`,
+  `features/settings/members.tsx`, `messages/{es,en}.json`, `docs/api/openapi.json`.
+  Lo demás es nuevo y no genera conflictos.
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`,
+  `lint`, `typecheck` (11/11), `test` (77), `test:integration` (100; incluye 19 nuevos
+  de `team.int.test.ts`, el recorrido de la API con cargos y el RLS de las tablas
+  nuevas), `db:check` sin diferencias, contrato OpenAPI regenerado, `build` (5/5) y
+  `test:e2e` (13/13, con el escenario nuevo de cargos). Un test del worker
+  (`sends the invitation email…`) agotó una vez el tiempo mientras fallaba otro test
+  en la misma pasada y no volvió a fallar; se anota por si reaparece intermitente.
+- **Próximo paso concreto:** M4a — contactos y afiliación (datos + `core` + API):
+  `contacts`, `contact_assignments` (delegado de referencia y acceso temporal),
+  predicado único de visibilidad por delegado (`role = MEMBER`), `memberships` y el
+  módulo `activity`. Aquí se añaden los permisos `contacts.*` a `ROLE_PERMISSIONS`
+  y la entrada de navegación del módulo. Antes, releer en `legacy/src/modules/
+{contacts,memberships,audit}` y sus tests.

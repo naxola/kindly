@@ -1,4 +1,12 @@
-import { Prisma, withInvitationToken, withTenant, type OrganizationRole } from '@saas/database'
+import {
+  Prisma,
+  withInvitationToken,
+  withTenant,
+  type Invitation,
+  type OrganizationMember,
+  type OrganizationRole,
+  type TenantTx,
+} from '@saas/database'
 import { z } from 'zod'
 import { nowOf, type BaseCtx, type Ctx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
@@ -27,6 +35,18 @@ export const invitationUrl = (appUrl: string, token: string) =>
   `${appUrl.replace(/\/$/, '')}/invite#${token}`
 
 /**
+ * Extension points for products: they run inside the transaction of the invitation, so what
+ * they write exists if and only if the invitation (or the membership) does.
+ */
+export interface InvitationHooks {
+  onCreated?: (tx: TenantTx, invitation: Invitation) => Promise<void>
+  onAccepted?: (
+    tx: TenantTx,
+    accepted: { invitation: { id: string; organizationId: string }; member: OrganizationMember },
+  ) => Promise<void>
+}
+
+/**
  * Creates an invitation and, in the same transaction, enqueues its email and the
  * `invitation.created` event. The raw token is returned once (for tests and tools);
  * only its hash is stored.
@@ -34,7 +54,7 @@ export const invitationUrl = (appUrl: string, token: string) =>
 export async function createInvitation(
   ctx: Ctx,
   input: CreateInvitationInput,
-  { ttlDays = INVITATION_TTL_DAYS }: { ttlDays?: number } = {},
+  { ttlDays = INVITATION_TTL_DAYS, hooks = {} }: { ttlDays?: number; hooks?: InvitationHooks } = {},
 ) {
   authorize(ctx.actor, 'members.invite')
   const { email, role } = CreateInvitationInput.parse(input)
@@ -99,6 +119,7 @@ export async function createInvitation(
       subjectId: created.id,
       data: { invitationId: created.id, role },
     })
+    await hooks.onCreated?.(tx, created)
     return created
   })
   return { invitation, token }
@@ -195,6 +216,7 @@ export async function getInvitationByToken(
 export async function acceptInvitation(
   ctx: BaseCtx,
   { token, userId }: { token: string; userId: string },
+  hooks: Pick<InvitationHooks, 'onAccepted'> = {},
 ) {
   const view = await getInvitationByToken(ctx, token)
   if (!view) throw new DomainError('NOT_FOUND', 'Invitation not found')
@@ -236,6 +258,10 @@ export async function acceptInvitation(
         organizationId: view.organizationId,
         subjectId: member.id,
         data: { memberId: member.id, userId, role: view.role },
+      })
+      await hooks.onAccepted?.(tx, {
+        invitation: { id: view.id, organizationId: view.organizationId },
+        member,
       })
       return member
     })

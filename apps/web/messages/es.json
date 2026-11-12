@@ -112,7 +112,9 @@
     "NO_SUBSCRIPTION": "La organización no tiene un plan de pago.",
     "PAYMENTS_DISABLED": "Los pagos no están configurados.",
     "ALREADY_SUBSCRIBED": "La organización ya tiene una suscripción: gestiónala desde el portal.",
-    "PLAN_NOT_FOUND": "Ese plan no está disponible."
+    "PLAN_NOT_FOUND": "Ese plan no está disponible.",
+    "NAME_TAKEN": "Ya existe un cargo con ese nombre (puede estar archivado).",
+    "INVALID_POSITION": "Ese cargo no existe o está archivado."
   },
   "home": {
     "title": "Inicio",
@@ -128,7 +130,8 @@
     "settings": {
       "title": "Ajustes",
       "members": "Miembros",
-      "billing": "Plan y consumo"
+      "billing": "Plan y consumo",
+      "positions": "Cargos"
     }
   },
   "orgSwitcher": {
@@ -214,7 +217,22 @@
       "role": "Rol",
       "roleOf": "Rol de {name}",
       "roleHint": "Un administrador gestiona miembros e invitaciones.",
-      "enableDescription": "{name} recuperará el acceso con su rol actual."
+      "enableDescription": "{name} recuperará el acceso con su rol actual.",
+      "position": "Cargo",
+      "noPosition": "Sin cargo",
+      "positionArchived": "{name} (archivado)",
+      "firstName": "Nombre",
+      "lastName": "Apellidos",
+      "phone": "Teléfono",
+      "phoneHint": "Formato internacional, p. ej. +34600111222.",
+      "contactEmail": "Email de contacto",
+      "notes": "Notas internas",
+      "notesHint": "Solo las ven los administradores.",
+      "editProfile": "Editar ficha",
+      "profileTitle": "Ficha de {name}",
+      "profileDescription": "Datos de la persona en esta organización. El acceso (email y contraseña) se gestiona aparte.",
+      "saveProfile": "Guardar",
+      "inviteProfileHint": "Estos datos se guardan en su ficha cuando acepte la invitación."
     },
     "billing": {
       "title": "Plan y consumo",
@@ -264,6 +282,23 @@
       "choosePlan": "Contratar un plan",
       "subscribe": "Contratar",
       "afterCheckout": "Tras el pago, el plan se activa en cuanto el proveedor lo confirma (unos segundos)."
+    },
+    "positions": {
+      "title": "Cargos",
+      "description": "Los cargos describen la función de cada persona en la organización (delegado, presidente…). Son solo un nombre: no cambian lo que cada uno puede hacer.",
+      "name": "Nombre",
+      "status": "Estado",
+      "active": "Activo",
+      "archived": "Archivado",
+      "add": "Añadir cargo",
+      "rename": "Renombrar",
+      "archive": "Archivar",
+      "restore": "Restaurar",
+      "createTitle": "Nuevo cargo",
+      "renameTitle": "Renombrar cargo",
+      "save": "Guardar",
+      "empty": "Todavía no hay cargos.",
+      "archiveDescription": "«{name}» dejará de ofrecerse al invitar o editar. Quienes ya lo tienen lo conservan."
     }
   },
   "billing": {
