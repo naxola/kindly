@@ -4,9 +4,31 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Fase 7f (subida de documentos desde UI) cerrada. Siguiente: UI-10c o Fase 8
+## Paquete activo: Migración a `saas-template` — M0 (plan) hecho, pendiente de validar
 
-Último commit: ver `git log` (este commit incluye el registro).
+Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
+
+### Migración a `saas-template` (2026-11-12)
+
+El usuario pidió tomar `naxola/saas-template` (`v1.0.0`) como base y montar
+sobre ella la lógica de negocio de Kindly, por fases de commits y retomable
+entre sesiones. **Plan completo, equivalencias, protocolo de sesión y
+registro: `project/MIGRATION.md`** (leerlo entero antes de seguir).
+
+Hecho (M0): plan de fases M1–M13, decisiones D1–D13 propuestas
+(`docs/DECISIONS.md`, entrada 2026-11-12). Solo documentación.
+
+**Pendiente:** validación del usuario de D1–D13 (estrategia Git con
+`legacy/`, sin migración de datos, `DELEGATE`→`MEMBER`, multiorganización,
+`packages/ui`, despliegue en homelab…). UI-10c y Fase 8 quedan aparcadas hasta
+el corte (M13).
+**Próximo paso concreto:** con las decisiones validadas, M1a — crear la rama
+`migration/saas-template` desde `master` y mover la app actual a `legacy/`.
+
+---
+
+## Paquete anterior: Fase 7f (subida de documentos desde UI) cerrada
+
 
 ### Fase 7f — Subida de documentos de Knowledge desde la UI (2026-09-30)
 

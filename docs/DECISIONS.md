@@ -3621,3 +3621,58 @@ integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
 +51/51 E2E (49 previos + 2 de subida: texto+nueva versión+búsqueda con cita,
 PDF real/PDF falso/URL privada, y DELEGATE sin botón).
 
+
+## 2026-11-12 — Migración de Kindly a `saas-template` (PROPUESTO, pendiente de validar)
+
+**Contexto:** el usuario pidió tomar `naxola/saas-template` (`v1.0.0`) como
+base de Kindly y montar encima su lógica de negocio, por fases de commits
+retomables entre sesiones. La plantilla cambia piezas que Kindly había
+decidido distinto: Prisma en vez de Drizzle, RLS real, acceso (`auth_*`)
+separado de negocio (`users`, `organization_members`), API Hono en vez de
+Server Actions, jobs pg-boss en vez de `after()`, `packages/ui` en vez del
+sistema de `docs/ui/`, `apps/site` para la web pública y despliegue con Docker
+en el homelab en vez de Vercel. El ADR 0007 de la plantilla ya preveía esta
+migración «por partes, no como reescritura completa».
+
+**Decisión (propuesta):** migrar por fases M1–M13 según
+`project/MIGRATION.md`, con estas decisiones, que el usuario debe validar
+antes de empezar M1:
+
+- **D1 Git:** rama `migration/saas-template`; la plantilla entra con
+  `git merge --allow-unrelated-histories` de `v1.0.0` para poder traer sus
+  versiones futuras con un merge normal. `master` no cambia hasta el corte.
+- **D2 `legacy/`:** la app actual se mueve a `legacy/` (fuera del tooling) y
+  cada fase borra lo que porta.
+- **D3 Datos:** sin migración de datos (no hay clientes reales).
+- **D4 Roles:** `DELEGATE` = `MEMBER` de la plantilla, mostrado como «Delegado».
+- **D5:** multiorganización de la plantilla (se elimina la restricción de una
+  organización por usuario).
+- **D6 UI:** `packages/ui` + `brand.css`; lo que falte se porta a `apps/web`.
+- **D7:** `activities` sigue como módulo de negocio; `audit_logs` para seguridad.
+- **D8:** conocimiento GLOBAL con `organization_id` nulo, legible por todos
+  los tenants vía RLS y escrito solo por el script de operador (`app_platform`).
+- **D9:** webhooks e ingesta de conocimiento como jobs de pg-boss.
+- **D10:** despliegue de la plantilla (Docker + homelab); Vercel no aloja el worker.
+- **D11:** cobros de la plantilla presentes pero inactivos.
+- **D12:** `master` congelado durante la migración.
+- **D13:** textos en `messages/{es,en}.json` con traducción inglesa real.
+
+**Alternativas consideradas:**
+
+- *Reescribir Kindly desde cero sobre la plantilla* sin `legacy/`: se pierde la
+  referencia directa y la medida de lo que falta.
+- *Leer el código antiguo con `git show master:…`* en vez de `legacy/`: válido,
+  pero no deja ver de un vistazo qué queda por portar.
+- *Copiar los archivos de la plantilla sin fusionar historiales*: más simple,
+  pero cada actualización de la plantilla sería manual.
+- *Mantener Drizzle/Server Actions en Kindly*: contradice ADR 0007 de la
+  plantilla y anula el sentido de compartir base con el resto del portafolio.
+- *Renombrar `MEMBER` a `DELEGATE` en la plantilla de Kindly*: más fiel al
+  dominio, pero diverge de la plantilla y complica actualizarla.
+
+**Por qué:** fases pequeñas y siempre en verde, sin perder funcionalidad ni
+tests, y con un camino limpio para recibir las mejoras futuras de la plantilla.
+
+**Supersede a:** cuando se valide, las partes de `CLAUDE.md` §7 (stack:
+Drizzle, Server Actions implícitas, Vercel) y las decisiones de «sin colas» de
+Fase 7f quedan sustituidas; `CLAUDE.md` se reescribe en M1b.

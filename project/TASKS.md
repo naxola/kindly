@@ -726,6 +726,27 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
       profesional) con política de retención explícita.
 - [ ] Garantía de que ninguna sugerencia se envía sin acción humana.
 
+## Migración a `saas-template` (plan: `project/MIGRATION.md`)
+
+Detalle, alcance de cada fase y estado real en `project/MIGRATION.md`; aquí
+solo la vista de conjunto.
+
+- [x] M0 — Plan y decisiones propuestas (2026-11-12).
+- [ ] Validación del usuario de las decisiones D1–D13.
+- [ ] M1a/b/c — `legacy/`, fusión de la plantilla `v1.0.0`, marca y CI.
+- [ ] M2 — pgvector y variables de entorno de Kindly.
+- [ ] M3 — Permisos y roles de Kindly sobre `core/identity`.
+- [ ] M4a/b — Contactos, asignaciones, afiliación y actividad.
+- [ ] M5a/b — Casos y tareas.
+- [ ] M6a/b — Mensajería (núcleo + WhatsApp/coexistence) con webhooks como jobs.
+- [ ] M7a/b/c — Inbox, espacio de conversación y canales.
+- [ ] M8a/b — Conocimiento (ingesta como job, recuperación híbrida, UI).
+- [ ] M9 — Trámites.
+- [ ] M10 — Web pública y legales en `apps/site`.
+- [ ] M11 — Accesibilidad, pulido y `docs/ui/`.
+- [ ] M12 — Documentación al nuevo stack.
+- [ ] M13 — Corte: borrar `legacy/`, staging, fusión en `master`.
+
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
 Microservicios, Kubernetes, Elasticsearch/OpenSearch, vector DB externa, apps

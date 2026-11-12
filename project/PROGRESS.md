@@ -1,6 +1,14 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-09-30 (Fase 7f: subida de documentos de Knowledge desde la UI, solo ADMIN).
+Última actualización: 2026-11-12 (Migración a `saas-template`: plan M0 redactado, decisiones pendientes de validar).
+
+## Migración a `saas-template` (activa desde 2026-11-12)
+
+Kindly pasa a construirse sobre `naxola/saas-template` `v1.0.0` (monorepo,
+Prisma + RLS, API Hono, worker pg-boss, `packages/ui`, `apps/site`). Plan por
+fases M0–M13 en `project/MIGRATION.md`. Estado: **M0 hecha** (plan y
+decisiones propuestas); M1 espera la validación del usuario. La app actual
+sigue en `master` sin cambios hasta el corte (M13).
 
 ## Resumen en una línea
 
