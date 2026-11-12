@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M0: plan redactado, decisiones pendientes de validar).
+Última actualización: 2026-11-12 (M0: decisiones validadas por el usuario; D4 rehecha y D14–D15 añadidas).
 
 ## 1. Objetivo
 
@@ -48,17 +48,19 @@ partes, no como reescritura completa».
 | Despliegue             | Vercel (staging)                                      | Imágenes Docker + compose de staging en el homelab (ADR 0006)                     |
 | Postgres               | `pgvector/pgvector:pg16`                              | `postgres:18.6-trixie` → **hay que añadirle pgvector** (fase M2)                   |
 
-## 3. Decisiones que debe validar el usuario antes de M1
+## 3. Decisiones de la migración
 
-Estado de todas: **Propuesto** (registradas en `docs/DECISIONS.md`, entrada
-2026-11-12). No se empieza M1 hasta que el usuario las valide o cambie.
+Estado: **Aceptadas por el usuario el 2026-11-12** (registradas en
+`docs/DECISIONS.md`). D4 se rehízo a petición suya y D14–D15 se añadieron
+(acceso ≠ persona ≠ cargo). Quedan abiertas solo las preguntas de la
+sección 3.1, que no bloquean M1–M2.
 
 | #   | Decisión                       | Recomendación                                                                                                                                                                                                                                                                                                                 |
 | --- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | D1  | Estrategia Git                 | Rama de larga duración `migration/saas-template` desde `master`. `master` sigue sirviendo la app actual hasta el corte (M13). El primer commit mueve la app actual a `legacy/`; el segundo **fusiona la etiqueta `v1.0.0` de la plantilla con `--allow-unrelated-histories`**, de modo que las futuras versiones de la plantilla se traen con un `git merge` normal (remoto `template`). |
 | D2  | Código antiguo durante la migración | En `legacy/` dentro del árbol, fuera del workspace, del lint y del CI. Sirve de referencia para portar y **cada fase borra lo que ya portó**: lo que queda en `legacy/` es exactamente lo que falta. Se borra entero en M13.                                                                                               |
 | D3  | Datos existentes               | **Sin migración de datos**: staging empieza con base de datos nueva (Kindly no tiene clientes reales). Si hubiera datos que conservar, se añade un script ETL de un solo uso en M13.                                                                                                                                       |
-| D4  | Roles                          | `DELEGATE` pasa a ser el rol `MEMBER` de la plantilla, mostrado como «Delegado» en los textos de Kindly. No se toca el enum de la plantilla (facilita actualizarla). Las reglas de Kindly «solo un DELEGATE puede ser responsable» se expresan como `role === 'MEMBER'`.                                                         |
+| D4  | Tres capas de identidad        | **Acceso** = `auth_users` (solo quién puede entrar: email y contraseña). **Rol de acceso** = `organization_members.role` de la plantilla (`ADMIN`/`MEMBER`), que solo decide **permisos**; no se toca el enum. **Cargo** = rol funcional dentro de la organización (delegado, presidente, secretaria…), configurable por organización (D15). El antiguo `DELEGATE` de Kindly se separa en «`MEMBER` + cargo Delegado». |
 | D5  | Una organización por usuario   | Se adopta la multiorganización de la plantilla (la restricción era del MVP). La visibilidad por delegado se calcula por membresía, así que no cambia.                                                                                                                                                                       |
 | D6  | Sistema de diseño              | Se adopta `packages/ui` + `brand.css`. Los componentes de Kindly que no existan en `packages/ui` (DataList, FilterBar, SegmentedControl, RelativeTime, Sheet de conversación, Tabs, Popover…) se portan a `apps/web/src/components/` (genéricos) o a `apps/web/src/features/<módulo>/` (de negocio). `docs/ui/` se actualiza para apuntar a `packages/ui`. Los genéricos que valgan para todos los productos se proponen después a la plantilla. |
 | D7  | Actividad frente a auditoría   | `activities` de Kindly (línea de tiempo visible en contacto/caso) se mantiene como módulo de negocio `activity`; además cada caso de uso relevante escribe en `audit_logs` de la plantilla. Son cosas distintas: una es producto, otra es seguridad.                                                                       |
@@ -67,6 +69,8 @@ Estado de todas: **Propuesto** (registradas en `docs/DECISIONS.md`, entrada
 | D10 | Despliegue                     | Se adopta el de la plantilla (Docker + homelab con Coolify). Vercel no puede alojar el worker. Producción sigue sin decidir (igual que en la plantilla).                                                                                                                                                                    |
 | D11 | Cobros                         | Se mantiene la fontanería de la plantilla con `CATALOG` mínimo y sin proveedor activo. «Billing avanzado» sigue fuera del MVP (`CLAUDE.md` §8).                                                                                                                                                                             |
 | D12 | Congelación de `master`        | Mientras dure la migración no se añaden funcionalidades a `master`. Si fuera imprescindible, se anota en la sección 8 para portarlo.                                                                                                                                                                                         |
+| D14 | Ficha del miembro              | Tabla de producto `member_profiles` (1:1 con `organization_members`, con `organization_id` y RLS): nombre, apellidos, teléfono (`phone_e164`), email de contacto opcional, `position_id` (cargo), notas. Es del tenant y no global porque la gestiona el ADMIN de cada organización (RGPD: cada organización es responsable de sus datos). `users.display_name` de la plantilla se sigue usando para mostrar; se rellena desde nombre + apellidos. El teléfono de la ficha es dato de contacto, **no** la identidad de WhatsApp (esa sigue siendo `messaging_accounts`). No se añaden columnas a las tablas de la plantilla. |
+| D15 | Cargos configurables           | Tabla `member_positions` (`organization_id`, nombre único por organización, descripción, orden, `archived_at`; RLS). Se gestiona en **Ajustes → Cargos** (solo ADMIN, permiso `positions.manage`). Al crear la organización se siembra «Delegado» por defecto. Al invitar a un miembro se eligen rol de acceso + cargo + nombre/teléfono (se guardan en `invitation_profiles`, del tenant, y se copian a `member_profiles` al aceptar, en la misma transacción). Un cargo en uso no se borra: se archiva. Para engancharse a crear organización / aceptar invitación se añade a `core/identity` un punto de extensión genérico (`onOrganizationCreated`, `onMemberJoined`), candidato a subir a la plantilla. |
 | D13 | Textos en inglés               | Se rellenan `en.json` con traducciones reales (el test de claves lo exige). Español sigue siendo el idioma por defecto de la organización.                                                                                                                                                                                  |
 
 ## 4. Equivalencias para portar código
@@ -94,6 +98,21 @@ Estado de todas: **Propuesto** (registradas en `docs/DECISIONS.md`, entrada
 
 ## 5. Fases (cada una = uno o pocos commits revisables, siempre en verde)
 
+### 3.1 Preguntas abiertas (no bloquean M1–M2; resolver antes de M3b/M4a)
+
+- **Q1 ¿El cargo da comportamiento?** Propuesta: en M3b el cargo es
+  informativo (se muestra y se filtra) y las reglas de Kindly que hoy dicen
+  «solo un DELEGATE» (delegado de referencia de un afiliado, responsable de un
+  caso, visibilidad restringida) pasan a depender de un atributo del cargo:
+  `member_positions.handles_contacts` («puede tener afiliados asignados»),
+  verdadero en «Delegado». Así un «Presidente» `ADMIN` ve todo y un
+  «Presidente» `MEMBER` sin ese atributo no recibe afiliados. Alternativa:
+  que dependa solo de `role = MEMBER`.
+- **Q2 ¿Uno o varios cargos por miembro?** Propuesta: uno (columna
+  `position_id`); si hiciera falta varios, tabla puente más adelante.
+- **Q3 ¿Datos obligatorios de la ficha?** Propuesta: nombre obligatorio;
+  apellidos, teléfono y cargo opcionales en la invitación y editables después.
+
 Leyenda: ⬜ pendiente · 🟡 en curso · ✅ hecha · ⏸ bloqueada.
 
 Cada fase de dominio sigue el mismo orden y **no se da por cerrada** sin:
@@ -112,7 +131,8 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M1b  | Remoto `template`; `git merge --allow-unrelated-histories v1.0.0`. Resolver: `CLAUDE.md` fusionado (reglas de la plantilla + reglas de producto de Kindly, sin contradicciones: Prisma, API, jobs), `README.md` («parte de saas-template v1.0.0»), `.gitignore`. Excluir `legacy/` de pnpm, ESLint, Prettier, tsc y Vitest | —                                                                                                | ⬜      |
 | M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                     | `legacy/tokens` (parte)                                                                          | ⬜      |
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                 | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ⬜      |
-| M3   | Identidad de Kindly: permisos (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`) en `ROLE_PERMISSIONS` (D4); «Delegado» en los textos; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `members`, `organization`, `login`, `forgot/reset-password`, `invite` | ⬜      |
+| M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ⬜      |
+| M3b  | **Ficha del miembro y cargos** (D14, D15, Q1–Q3): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization` | ⬜      |
 | M4a  | **Contactos y afiliación** (datos + core + API): `contacts`, `contact_assignments` (delegado de referencia y acceso temporal), predicado único de visibilidad, `memberships`, módulo `activity` (D7)                                                                              | `modules/contacts`, `memberships`, `audit` + sus tests                                           | ⬜      |
 | M4b  | Contactos (UI + E2E): `/contacts`, `/contacts/[id]`, reasignar, afiliación                                                                                                                                                                                                       | `app/(app)/contacts`, E2E `crm`, `membership`, `contact-assignments` (parte)                     | ⬜      |
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                        | `modules/cases`, `tasks` + tests                                                                 | ⬜      |
@@ -185,5 +205,10 @@ Al terminar (haya acabado la fase o no):
   `TASKS.md` y `PROGRESS.md`.
 - Commit: el de este registro (`docs(M0): …`).
 - Verificación: solo documentación; no se ejecutaron lint/typecheck/tests.
-- **Próximo paso concreto:** el usuario valida (o cambia) D1–D13; después,
-  M1a (crear `migration/saas-template` y mover la app a `legacy/`).
+- **Revisión del usuario (misma fecha):** acepta D1–D13 salvo D4. Pide
+  separar acceso (`auth_users`) de los datos de la persona (nombre, teléfono…)
+  y de su rol funcional en la organización (delegado, presidente…), con una
+  tabla de cargos configurable en ajustes y elegible al crear un miembro. D4
+  rehecha, D14–D15 y fase M3b añadidas, preguntas Q1–Q3 abiertas.
+- **Próximo paso concreto:** M1a (crear `migration/saas-template` desde
+  `master` y mover la app a `legacy/`). Q1–Q3 se resuelven antes de M3b.

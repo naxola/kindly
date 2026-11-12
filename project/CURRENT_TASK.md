@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M0 (plan) hecho, pendiente de validar
+## Paquete activo: Migración a `saas-template` — M0 hecha y validada. Siguiente: M1a
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -18,12 +18,14 @@ registro: `project/MIGRATION.md`** (leerlo entero antes de seguir).
 Hecho (M0): plan de fases M1–M13, decisiones D1–D13 propuestas
 (`docs/DECISIONS.md`, entrada 2026-11-12). Solo documentación.
 
-**Pendiente:** validación del usuario de D1–D13 (estrategia Git con
-`legacy/`, sin migración de datos, `DELEGATE`→`MEMBER`, multiorganización,
-`packages/ui`, despliegue en homelab…). UI-10c y Fase 8 quedan aparcadas hasta
-el corte (M13).
-**Próximo paso concreto:** con las decisiones validadas, M1a — crear la rama
-`migration/saas-template` desde `master` y mover la app actual a `legacy/`.
+El usuario aceptó D1–D13 salvo D4, que se rehízo: acceso (`auth_users`),
+ficha de la persona (`member_profiles`: nombre, teléfono…) y cargo
+configurable por organización (`member_positions`: delegado, presidente…)
+son tres cosas distintas; fase nueva M3b. Abiertas Q1–Q3 (si el cargo da
+comportamiento, uno o varios cargos, datos obligatorios), a resolver antes
+de M3b. UI-10c y Fase 8 quedan aparcadas hasta el corte (M13).
+**Próximo paso concreto:** M1a — crear la rama `migration/saas-template`
+desde `master` y mover la app actual a `legacy/`.
 
 ---
 

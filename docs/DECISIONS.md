@@ -3622,7 +3622,7 @@ integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
 PDF real/PDF falso/URL privada, y DELEGATE sin botón).
 
 
-## 2026-11-12 — Migración de Kindly a `saas-template` (PROPUESTO, pendiente de validar)
+## 2026-11-12 — Migración de Kindly a `saas-template` (ACEPTADO por el usuario el 2026-11-12; D4 sustituida, ver entrada siguiente)
 
 **Contexto:** el usuario pidió tomar `naxola/saas-template` (`v1.0.0`) como
 base de Kindly y montar encima su lógica de negocio, por fases de commits
@@ -3676,3 +3676,42 @@ tests, y con un camino limpio para recibir las mejoras futuras de la plantilla.
 **Supersede a:** cuando se valide, las partes de `CLAUDE.md` §7 (stack:
 Drizzle, Server Actions implícitas, Vercel) y las decisiones de «sin colas» de
 Fase 7f quedan sustituidas; `CLAUDE.md` se reescribe en M1b.
+
+## 2026-11-12 — Acceso, ficha de la persona y cargo: tres cosas distintas (ACEPTADO)
+
+**Contexto:** al revisar el plan de migración, el usuario corrigió D4
+(«`DELEGATE` = `MEMBER`»). `auth_users` es solo el acceso a la plataforma;
+hace falta otra tabla con los datos de la persona (nombre, teléfono…) y un
+rol funcional dentro de la organización (delegado, presidente…) que no es
+lo mismo que ser miembro: `MEMBER` solo dice que pertenece a la
+organización. Los cargos se crean en ajustes y se eligen al dar de alta a un
+miembro.
+
+**Decisión:**
+
+1. **Acceso** (`auth_users`, plantilla): solo credenciales.
+2. **Rol de acceso** (`organization_members.role`, `ADMIN`/`MEMBER`,
+   plantilla): solo permisos. No se modifica.
+3. **Ficha del miembro** (`member_profiles`, Kindly, del tenant con RLS, 1:1
+   con `organization_members`): nombre, apellidos, teléfono, email de
+   contacto, cargo, notas. Del tenant y no global: la gestiona el ADMIN de
+   cada organización. El teléfono no es la identidad de WhatsApp.
+4. **Cargo** (`member_positions`, Kindly, del tenant con RLS): catálogo por
+   organización gestionado en Ajustes → Cargos (ADMIN); «Delegado» sembrado
+   al crear la organización; archivar en vez de borrar si está en uso.
+5. **Alta**: la invitación lleva rol de acceso + cargo + datos de la ficha
+   (`invitation_profiles`), copiados a `member_profiles` al aceptarla en la
+   misma transacción, mediante puntos de extensión genéricos en
+   `core/identity` (`onOrganizationCreated`, `onMemberJoined`).
+
+**Abierto (antes de M3b, `project/MIGRATION.md` §3.1):** si el cargo da
+comportamiento (propuesta: atributo `handles_contacts` que sustituye a las
+reglas «solo un DELEGATE»), uno o varios cargos por miembro (propuesta: uno),
+y qué datos son obligatorios (propuesta: solo el nombre).
+
+**Alternativas consideradas:** columnas nuevas en `users` de la plantilla
+(global: los datos de una organización serían visibles para otra y diverge
+de la plantilla); cargo como enum fijo (no configurable por organización);
+renombrar `MEMBER` a `DELEGATE` (mezcla permisos con cargo).
+
+**Supersede a:** D4 de la entrada anterior.

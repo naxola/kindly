@@ -732,10 +732,12 @@ Detalle, alcance de cada fase y estado real en `project/MIGRATION.md`; aquí
 solo la vista de conjunto.
 
 - [x] M0 — Plan y decisiones propuestas (2026-11-12).
-- [ ] Validación del usuario de las decisiones D1–D13.
+- [x] Validación del usuario de las decisiones (2026-11-12; D4 rehecha, D14–D15 nuevas).
+- [ ] Resolver Q1–Q3 (comportamiento del cargo, uno o varios, datos obligatorios) antes de M3b.
 - [ ] M1a/b/c — `legacy/`, fusión de la plantilla `v1.0.0`, marca y CI.
 - [ ] M2 — pgvector y variables de entorno de Kindly.
-- [ ] M3 — Permisos y roles de Kindly sobre `core/identity`.
+- [ ] M3a — Permisos de Kindly sobre `core/identity`.
+- [ ] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`).
 - [ ] M4a/b — Contactos, asignaciones, afiliación y actividad.
 - [ ] M5a/b — Casos y tareas.
 - [ ] M6a/b — Mensajería (núcleo + WhatsApp/coexistence) con webhooks como jobs.
