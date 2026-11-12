@@ -1,6 +1,8 @@
 # 0013 — Desacoplar la plantilla del framework web (Next.js)
 
-**Estado:** Propuesto (2026-11-09). No se implementa nada hasta que el usuario lo valide.
+**Estado:** Pospuesto (2026-11-12). El usuario decidió, de momento, no desacoplar la plantilla
+de Next.js; la plantilla se etiqueta `v1.0.0` con Next.js 16. El ADR queda como referencia por
+si cambia de opinión: no se implementa ni el nivel 1 ni el 2 sin una nueva validación.
 
 ## Contexto
 

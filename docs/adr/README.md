@@ -14,7 +14,7 @@
 | [0010](0010-eventos-de-negocio.md)           | Contrato de eventos de negocio (webhook firmado)                         | Aceptado  |
 | [0011](0011-servicios-autoalojados.md)       | Servicios de apoyo autoalojados (GlitchTip, ntfy, Uptime Kuma, listmonk) | Aceptado  |
 | [0012](0012-cobros-suscripcion-y-uso.md)     | Cobros: suscripción, uso medido y proveedor de pago                      | Aceptado  |
-| [0013](0013-desacoplar-del-framework-web.md) | Desacoplar la plantilla del framework web (Next.js)                      | Propuesto |
+| [0013](0013-desacoplar-del-framework-web.md) | Desacoplar la plantilla del framework web (Next.js)                      | Pospuesto |
 
 **Aceptado**: validado por el usuario. **Propuesto**: pendiente de validar; no se implementa hasta entonces.
 Una decisión nunca se borra: se marca como _Sustituida por NNNN_.
