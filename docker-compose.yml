@@ -1,5 +1,5 @@
 # Local development and tests. Staging (homelab) gets its own compose in phase 6.
-name: saas-template
+name: kindly
 
 services:
   postgres:

@@ -1,5 +1,5 @@
 {
-  "name": "saas-template",
+  "name": "kindly",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.34.6",

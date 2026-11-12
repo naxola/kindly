@@ -33,11 +33,11 @@ corepack enable
 ### 1. Código y dependencias
 
 ```bash
-git checkout staging
+git checkout migration/saas-template
 ```
 
 ```bash
-git pull origin staging
+git pull origin migration/saas-template
 ```
 
 ```bash

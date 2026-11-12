@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-12 (M1b hecha: plantilla `v1.0.0` fusionada).
+Última actualización: 2026-11-12 (M1c hecha: marca, CI local en verde).
 
 ## 1. Objetivo
 
@@ -125,7 +125,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M0   | Este plan, decisiones propuestas, enlaces desde `CURRENT_TASK`/`TASKS`/`PROGRESS`/`DECISIONS`                                                                                                                                                                                                                                                                                                                                                           | —                                                                                                | ✅     |
 | M1a  | Crear `migration/saas-template`. Mover la app a `legacy/` (`git mv` mecánico: `src`, `tests`, `scripts`, `drizzle`, `docker`, `tokens`, configs de raíz). `docs/` y `project/` se quedan en la raíz                                                                                                                                                                                                                                                     | Todo pasa a `legacy/`                                                                            | ✅     |
 | M1b  | Remoto `template`; `git merge --allow-unrelated-histories v1.0.0`. Resolver: `CLAUDE.md` fusionado (reglas de la plantilla + reglas de producto de Kindly, sin contradicciones: Prisma, API, jobs), `README.md` («parte de saas-template v1.0.0»), `.gitignore`. Excluir `legacy/` de pnpm, ESLint, Prettier, tsc y Vitest                                                                                                                              | —                                                                                                | ✅     |
-| M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                                                                                                                                                                                             | `legacy/tokens` (parte)                                                                          | ⬜     |
+| M1c  | Marca: `brand.css` (acento y radio de Kindly desde `legacy/tokens`), `app.name` «Kindly», nombre del producto en `site.config.ts`. CI de la plantilla en verde en este repo                                                                                                                                                                                                                                                                             | `legacy/tokens` (parte)                                                                          | ✅     |
 | M2   | Infra: pgvector en la imagen `postgres` del `Dockerfile` y en `docker-compose.yml`/staging/CI; migración `CREATE EXTENSION vector`. Variables de Kindly (`OPENAI_API_KEY`, Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example` y `compose.yml`                                                                                                                                                                                   | `legacy/docker`, `legacy/docker-compose.yml`                                                     | ⬜     |
 | M3a  | Permisos de Kindly (`contacts.*`, `conversations.*`, `cases.*`, `tasks.*`, `knowledge.*`, `procedures.*`, `channels.*`, `positions.manage`, `member_profiles.manage`) en `ROLE_PERMISSIONS`; ajustes de organización y miembros de la plantilla con los textos de Kindly; navegación vacía de los módulos                                                                                                                                               | `legacy/src/modules/organizations`, `auth`, `email`; páginas de `login`, `forgot/reset-password` | ⬜     |
 | M3b  | **Ficha del miembro y cargos** (D14, D15, §3.1): `member_profiles`, `member_positions`, `invitation_profiles` con RLS; puntos de extensión en `core/identity`; siembra de «Delegado»; **Ajustes → Cargos** (crear, renombrar, ordenar, archivar); invitación con cargo, nombre y teléfono; ficha del miembro editable (ADMIN; cada persona edita su teléfono); cargo visible en la lista de miembros. Tests de RLS, permisos y aceptación de invitación | páginas de `members`, `organization/members`, `invite`; E2E `members`, `organization`            | ⬜     |
@@ -273,3 +273,41 @@ Al terminar (haya acabado la fase o no):
   «Kindly», `site.config.ts`; actualizar en el README los pasos de rama
   (`git checkout staging` ya no aplica); levantar Postgres (puerto 5441) y
   ejecutar integración, E2E y build para tener el CI de la plantilla en verde.
+
+### 2026-11-12 — M1c
+
+- Hecho: marca de Kindly. `packages/ui/src/brand.css` con el «verde sello» de
+  la app anterior (claro `#15654a`, oscuro `#34a37a`, radio 6 px; tomado de
+  `legacy/src/styles`); `app.name` «Kindly» en `apps/{web,site}/messages/{es,en}.json`;
+  `package.json` raíz `kindly`; proyecto compose `kindly`; imágenes
+  `ghcr.io/naxola/kindly/*` (el CI publica con `github.repository`);
+  `EMAIL_FROM` de ejemplo «Kindly <…>». El README deja de decir
+  `git checkout staging`. CI (`.github/workflows/ci.yml`) también en
+  `master` y `migration/saas-template` (publica imágenes solo desde `staging`,
+  que Kindly aún no usa: decidir en M13).
+- Se mantienen **sin renombrar** las bases de datos `saas`, `saas_test`,
+  `saas_shadow` y los paquetes `@saas/*` (nombres de fontanería de la plantilla;
+  renombrarlos dificultaría traer sus versiones nuevas).
+- Pendiente de marca (no es de M1c): datos legales y portada de Kindly en
+  `apps/site` (M10); `docs/ui/` a `packages/ui` (M11).
+- Verificación real (Node 24.22.1; **Postgres 16 local en el puerto 5441**
+  con el script de roles de la plantilla, porque este entorno no tiene
+  Docker): `format:check`, `lint` (+fronteras), `typecheck` (11/11), `test`
+  (76), `db:deploy` + `queue:install` + `db:check` (sin diferencias),
+  `test:integration` (80/80), `build` (5/5) y `test:e2e` (12/12, Chromium
+  preinstalado). **No verificado:** el CI en GitHub (se comprueba con el push),
+  el arranque con `docker compose` y la imagen `postgres` (M2 la cambia por una
+  con pgvector).
+- Cómo repetir el Postgres local sin Docker: `initdb` y `pg_ctl -o '-p 5441'`
+  con `/usr/lib/postgresql/16/bin`, y `infra/postgres/init/*.sh` con
+  `POSTGRES_USER=postgres`, `APP_*_PASSWORD` (migrator/app/platform) y
+  `APP_DATABASES="saas saas_test saas_shadow"`. Tras reiniciar el entorno hay
+  que recrearlo (vive fuera del repositorio).
+- **Próximo paso concreto:** M2 — pgvector: imagen `postgres` del `Dockerfile`
+  (partir de `pgvector/pgvector` con la versión de Postgres de la plantilla,
+  o instalarlo sobre `postgres:18.6-trixie`; elegir y registrar en
+  `docs/DECISIONS.md`), `docker-compose.yml`, `infra/staging/compose.yml`, CI y
+  migración `CREATE EXTENSION vector`; variables de Kindly (`OPENAI_API_KEY`,
+  Meta/WhatsApp, `FACEBOOK_DOMAIN_VERIFICATION`…) en los tres `.env.example`
+  y `compose.yml`. Aquí el Postgres local es el 16 sin pgvector: para probar
+  M2 habrá que instalar `postgresql-16-pgvector` o usar otro Postgres.

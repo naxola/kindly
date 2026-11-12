@@ -736,7 +736,7 @@ solo la vista de conjunto.
 - [x] Q1–Q3 resueltas (2026-11-12): cargo solo nombre, uno por miembro, solo nombre obligatorio.
 - [x] M1a — app movida a `legacy/` (2026-11-12).
 - [x] M1b — plantilla `v1.0.0` fusionada y `legacy/` fuera del tooling (2026-11-12).
-- [ ] M1c — marca de Kindly y CI de la plantilla en verde.
+- [x] M1c — marca de Kindly; format/lint/tipos/unitarias/integración/build/E2E en verde en local (2026-11-12).
 - [ ] M2 — pgvector y variables de entorno de Kindly.
 - [ ] M3a — Permisos de Kindly sobre `core/identity`.
 - [ ] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`).

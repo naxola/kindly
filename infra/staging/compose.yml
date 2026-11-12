@@ -23,7 +23,7 @@ x-app-env: &app-env
 
 services:
   postgres:
-    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/postgres:${IMAGE_TAG:-staging}
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/kindly}/postgres:${IMAGE_TAG:-staging}
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -42,7 +42,7 @@ services:
 
   # One-shot: migrations + queue tables. Web and worker wait for it to succeed.
   migrate:
-    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/migrate:${IMAGE_TAG:-staging}
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/kindly}/migrate:${IMAGE_TAG:-staging}
     restart: 'no'
     environment:
       DATABASE_MIGRATOR_URL: postgresql://app_migrator:${APP_MIGRATOR_PASSWORD:?}@postgres:5432/saas
@@ -52,7 +52,7 @@ services:
         condition: service_healthy
 
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/web:${IMAGE_TAG:-staging}
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/kindly}/web:${IMAGE_TAG:-staging}
     restart: unless-stopped
     environment:
       <<: *app-env
@@ -65,7 +65,7 @@ services:
         condition: service_completed_successfully
 
   worker:
-    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/worker:${IMAGE_TAG:-staging}
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/kindly}/worker:${IMAGE_TAG:-staging}
     restart: unless-stopped
     stop_grace_period: 40s
     environment:
@@ -91,7 +91,7 @@ services:
 
   # Public site: static pages, its URLs are baked into the image by CI.
   site:
-    image: ${IMAGE_PREFIX:-ghcr.io/naxola/saas-template}/site:${IMAGE_TAG:-staging}
+    image: ${IMAGE_PREFIX:-ghcr.io/naxola/kindly}/site:${IMAGE_TAG:-staging}
     restart: unless-stopped
     expose:
       - '3001'

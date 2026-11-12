@@ -2,20 +2,22 @@
  * Brand of the product: the ONLY file a product edits to get its identity (accent colour
  * and radius). Everything else in the design system stays shared. Imported after
  * styles.css, so these values win.
+ *
+ * Kindly: "stamp green" (the legacy app's single accent, tokens checked for WCAG AA there).
  */
 :root {
-  --brand: #3b5bdb;
-  --brand-hover: #3451c4;
+  --brand: #15654a;
+  --brand-hover: #0f5540;
   --brand-foreground: #ffffff;
-  --brand-subtle: #e8edfc;
-  --ring: #3b5bdb;
+  --brand-subtle: #eef6f2;
+  --ring: #1f7a5a;
   --radius: 6px;
 }
 
 .dark {
-  --brand: #7b93f5;
-  --brand-hover: #91a5f7;
-  --brand-foreground: #0f1426;
-  --brand-subtle: #1c2340;
-  --ring: #7b93f5;
+  --brand: #34a37a;
+  --brand-hover: #3bb090;
+  --brand-foreground: #0a1222;
+  --brand-subtle: #0f2a20;
+  --ring: #34a37a;
 }

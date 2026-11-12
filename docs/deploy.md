@@ -17,7 +17,7 @@ decida, desplegará **las mismas imágenes** ya probadas en staging.
 
 2. El CI las arranca con `infra/staging/compose.yml` (prueba de humo: `/api/ready`, `/ready`
    del worker, la portada) y, si todo responde, las publica en
-   `ghcr.io/naxola/saas-template/<imagen>` con dos etiquetas: `staging` y `sha-<commit>`.
+   `ghcr.io/naxola/kindly/<imagen>` con dos etiquetas: `staging` y `sha-<commit>`.
 3. Coolify vuelve a desplegar el compose: arranca Postgres, ejecuta `migrate` y, solo si termina
    bien, arranca la web y el worker.
 
