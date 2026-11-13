@@ -1,5 +1,5 @@
 import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
-import { buildMessagingRegistry } from '@saas/adapters/messaging'
+import { messagingRegistryFromEnv } from '@saas/adapters/messaging'
 import { createPaymentProvider } from '@saas/adapters/payments'
 import { loadPaymentEnv } from '@saas/config/env'
 import { createEmailSender } from '@saas/adapters/email'
@@ -75,7 +75,7 @@ export async function startWorker({
   const observability = loadObservabilityEnv()
   initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
   const alerts = overrides.alerts ?? createAlertSender(observability, log)
-  const messaging = overrides.messaging ?? buildMessagingRegistry()
+  const messaging = overrides.messaging ?? messagingRegistryFromEnv()
   const payments =
     overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
 

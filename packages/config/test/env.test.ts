@@ -6,6 +6,7 @@ import {
   emailEnv,
   EnvError,
   eventsEnv,
+  loadMessagingEnv,
   observabilityEnv,
   parseEnv,
 } from '../src/env.ts'
@@ -67,5 +68,45 @@ describe('parseEnv', () => {
     expect(env.SENTRY_DSN).toBeUndefined()
     expect(env.ALERT_PROVIDER).toBe('none')
     expect(() => parseEnv(baseEnv, { APP_URL: '' })).toThrow(/APP_URL/)
+  })
+})
+
+describe('messaging env', () => {
+  const complete = {
+    WHATSAPP_TEST_ADAPTER_ENABLED: 'true',
+    WHATSAPP_TEST_PHONE_NUMBER_ID: '123',
+    WHATSAPP_TEST_ACCESS_TOKEN: 'secret-token',
+    WHATSAPP_TEST_APP_SECRET: 'secret-app',
+    WHATSAPP_TEST_VERIFY_TOKEN: 'secret-verify',
+  }
+
+  it('is all off by default, blanks counting as unset', () => {
+    expect(loadMessagingEnv({})).toMatchObject({ WHATSAPP_TEST_ADAPTER_ENABLED: false })
+    expect(
+      loadMessagingEnv({
+        WHATSAPP_TEST_ADAPTER_ENABLED: '',
+        WHATSAPP_UNSUPPORTED_COUNTRY_CODES: '',
+      }),
+    ).toMatchObject({ WHATSAPP_TEST_ADAPTER_ENABLED: false })
+  })
+
+  it('needs every credential once the test adapter is enabled, naming them without their values', () => {
+    expect(loadMessagingEnv({ ...complete, APP_ENV: 'staging' })).toMatchObject({
+      WHATSAPP_TEST_ADAPTER_ENABLED: true,
+    })
+    const partial: Record<string, string> = { ...complete }
+    delete partial.WHATSAPP_TEST_APP_SECRET
+    expect(() => loadMessagingEnv(partial)).toThrow(/WHATSAPP_TEST_APP_SECRET/)
+    try {
+      loadMessagingEnv({ ...partial, WHATSAPP_TEST_ACCESS_TOKEN: '' })
+    } catch (error) {
+      expect((error as Error).message).not.toContain('secret-verify')
+    }
+  })
+
+  it('refuses the Meta test number in production', () => {
+    expect(() => loadMessagingEnv({ ...complete, APP_ENV: 'production' })).toThrow(
+      /not allowed in production/,
+    )
   })
 })

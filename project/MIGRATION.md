@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M6a hecha: mensajería, núcleo y webhook; sin casos).
+Última actualización: 2026-11-13 (M6b hecha: envío con guardarraíl de identidad y adaptador de prueba de Meta).
 
 ## 1. Objetivo
 
@@ -134,7 +134,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                                                                                                                                                                                                | `modules/cases`, `tasks` + tests                                                                 | ✅ (solo tareas) |
 | M5b  | Casos y tareas (UI + E2E)                                                                                                                                                                                                                                                                                                                                                                                                                               | `app/(app)/cases`, `tasks`, `dashboard`; E2E `cases`                                             | ✅ (solo tareas) |
 | M6a  | **Mensajería, núcleo**: `messaging_accounts`, `webhook_events`, `conversations`, `messages`, `conversation_cases`; puerto `MessagingAdapter` + registro; webhook público con firma → job idempotente `messaging.process-webhook` (D9)                                                                                                                                                                                                                   | `modules/messaging` (núcleo), `conversations`, `app/api/webhooks` + tests                        | ✅               |
-| M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ⬜               |
+| M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ✅               |
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ⬜               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ⬜               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ⬜               |
@@ -614,3 +614,56 @@ permissions,index}.ts`, `core/src/index.ts`, `apps/web/src/server/api/{app,error
   (`sendOutboundMessage`, `getConversationServiceWindow`), `docs/INTEGRATIONS.md` §2 y las
   entradas de `docs/DECISIONS.md` de PKG-005/008/011. **Antes de tocar nada de Meta, comprobar
   si la capacidad sigue vigente en la documentación oficial** (`CLAUDE.md`, integraciones).
+
+### 2026-11-13 — M6b (envío, ventana de servicio, adaptador de prueba de Meta, reglas de alta)
+
+- Hecho:
+  - **`sendMessage`** (`core/messaging`): **solo el delegado dueño de la cuenta responde, siempre
+    por esa cuenta** (`NOT_ACCOUNT_OWNER`, también para un ADMIN: nadie contesta desde el
+    número de otro). Rechaza canal sin adaptador, cuenta no operativa y **ventana de servicio
+    cerrada** (`SERVICE_WINDOW_CLOSED`); un envío que el proveedor rechaza se guarda como
+    `FAILED` y devuelve el motivo sin persistirlo. Si el eco del propio mensaje llegó antes del
+    insert, se corrige solo «enviado desde el móvil» y no se toca el estado de entrega.
+    Actividad `MESSAGE_SENT` y auditoría sin el texto. Permiso `messages.send`.
+  - **Ventana de servicio** (`getConversationServiceWindow`): se cuenta desde el último mensaje
+    **entrante** del contacto (lo que escribe el delegado, ni siquiera el eco desde el móvil,
+    no la abre) y contra lo que declara el adaptador, nunca contra un nombre de proveedor.
+  - **Reglas de alta de WhatsApp** (`whatsapp-onboarding.ts`, puras): las tres vías (solo
+    coexistence disponible), los seis requisitos que se reconocen (el servidor revalida los
+    ids) y la comprobación de país, que responde `UNKNOWN` mientras no haya lista oficial
+    configurada (`WHATSAPP_UNSUPPORTED_COUNTRY_CODES`). **Solo ids y estructura:** los textos van
+    a `messages` en M7c.
+  - **Adaptador de la Cloud API de Meta contra el número de prueba**
+    (`packages/adapters/messaging/whatsapp-test.ts`, canal `whatsapp-test`): HMAC real sobre el
+    cuerpo crudo, handshake de suscripción, parseo del JSON real de Meta, envío, indicador de
+    escritura y conexión que valida las credenciales. Port fiel del adaptador ya validado por el
+    usuario contra Meta en staging; **no se cambió ningún comportamiento ni se tocó una
+    capacidad de Meta, por eso no hizo falta revalidar la documentación**. Sigue siendo
+    herramienta de ingeniería, no una vía de conexión para delegados.
+  - **Configuración** (`messagingEnv` en `packages/config`): variables `WHATSAPP_TEST_*` y
+    `WHATSAPP_UNSUPPORTED_COUNTRY_CODES`, todo apagado por defecto, **rechazado con
+    `APP_ENV=production`** y con error que nombra las variables sin sus valores. En
+    `.env.example`, `infra/staging/.env.example` y `infra/staging/compose.yml`. Web y worker
+    construyen el registro con `messagingRegistryFromEnv`.
+- **Sigue bloqueado y fuera de alcance:** el adaptador real de **coexistence** (`PKG-009`,
+  Embedded Signup): depende del alta como Tech Provider de Meta y de la decisión sobre el
+  Business Manager (`project/TASKS.md`). Ninguna fase de la migración lo desbloquea.
+- **Pendiente anotado:** el motivo de un envío fallido solo se devuelve (no hay columna): la
+  capa API/UI de M7b decide si lo registra en el log con `correlationId`. El texto de
+  «mensaje de tipo X no soportado» sigue en inglés dentro del adaptador; pasa a los mensajes
+  cuando el hilo lo muestre.
+- **`legacy/`:** no se borra nada aún. `messaging/whatsapp-onboarding.ts` se queda hasta portar
+  sus textos (M7c); el resto del envío/hilo, a M7. El adaptador de prueba y sus tests se
+  borrarán con `instrumentation.ts` al cerrar M7.
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`, `lint`,
+  `typecheck` (11/11), `test` (115; 9 nuevas de adaptador, 4 de dominio de mensajería y 3 de
+  entorno), `test:integration` (173; 10 nuevas de envío), `build` (5/5), contrato sin cambios y
+  `test:e2e` (18/18, sin cambios de interfaz).
+- **Próximo paso concreto:** M7a — Bandeja (API + UI): lista única de conversaciones con vistas
+  (pendientes, sin leer, sin asignar, todas), contadores, búsqueda y filtros en la URL, último
+  mensaje por conversación (`LEFT JOIN LATERAL` con `$queryRaw` dentro de `withTenant`),
+  caché de TanStack Query y teclado. Cablear el **canal falso de E2E** (variable que solo pone
+  `playwright.config.ts`) y un utilitario para inyectar webhooks firmados en los E2E. Releer
+  `legacy/src/app/(app)/inbox`, `legacy/src/app/api/inbox`, `docs/ui/INBOX.md` y
+  `legacy/src/modules/conversations/service.ts` (líneas 545-830). Visibilidad siempre por
+  `contactVisibilityWhere`.

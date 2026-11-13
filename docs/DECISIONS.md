@@ -3853,3 +3853,23 @@ compartido, difícil de probar); procesar cada evento de un webhook en su propia
 (un fallo a medias dejaría el lote parcialmente aplicado y el reintento duplicaría trabajo).
 
 **Pendiente:** política de retención del cuerpo crudo de `webhook_events` (datos personales).
+
+## 2026-11-13 — Envío saliente, ventana de servicio y adaptador de prueba de Meta (M6b)
+
+**Decisiones (portadas sin cambiar el comportamiento aceptado en PKG-005/011/014):**
+
+1. **El guardarraíl de identidad vive en el caso de uso, no en la interfaz**: `sendMessage`
+   exige que quien envía sea el delegado dueño de la cuenta de la conversación y envía siempre
+   por esa cuenta. Un ADMIN tampoco responde por el número de otro.
+2. **Ventana de servicio contra capacidades, no proveedores**, contada desde el último mensaje
+   entrante: ni lo que escribe el delegado ni el eco desde su móvil la abren o extienden.
+3. **Un envío rechazado no es una excepción**: se guarda `FAILED` en el hilo y el motivo se
+   devuelve al llamador, que decide si registrarlo; no se persiste (sin columna ni datos
+   personales de más).
+4. **Una cuenta no operativa no envía** (`ACCOUNT_NOT_OPERATIONAL`): endurece el código
+   anterior, que dejaba que el proveedor lo rechazase.
+5. **El adaptador de prueba de Meta se configura por entorno, apagado por defecto y prohibido
+   en producción**, con validación que nombra las variables sin sus valores. Sigue sin ser una
+   vía de conexión para delegados (principio 1).
+6. **Las reglas de alta de WhatsApp en `core` son ids y estructura**; el copy va en los
+   mensajes de la aplicación (es/en), no en el dominio.

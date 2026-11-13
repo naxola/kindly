@@ -127,6 +127,49 @@ export const paymentEnv = z.discriminatedUnion('PAYMENT_PROVIDER', [
   }),
 ])
 
+/**
+ * Messaging channels. The WhatsApp TEST adapter talks to Meta's free test number: an engineering tool
+ * to validate the real webhook pipeline (real payloads, real HMAC signatures) while the Tech Provider
+ * paperwork runs. It is NOT a connection option for delegates (the test number is a shared Cloud API
+ * number with no phone behind it) and is refused in production. Everything is optional.
+ */
+export const messagingEnv = z
+  .object({
+    APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+    WHATSAPP_TEST_ADAPTER_ENABLED: bool.default(false),
+    WHATSAPP_TEST_PHONE_NUMBER_ID: z.string().min(1).optional(),
+    WHATSAPP_TEST_WABA_ID: z.string().min(1).optional(),
+    WHATSAPP_TEST_ACCESS_TOKEN: z.string().min(1).optional(),
+    WHATSAPP_TEST_APP_SECRET: z.string().min(1).optional(),
+    WHATSAPP_TEST_VERIFY_TOKEN: z.string().min(1).optional(),
+    /** ISO country codes where coexistence is not offered; empty = "cannot check" (never guessed). */
+    WHATSAPP_UNSUPPORTED_COUNTRY_CODES: z.string().optional(),
+  })
+  .superRefine((e, ctx) => {
+    if (!e.WHATSAPP_TEST_ADAPTER_ENABLED) return
+    if (e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['WHATSAPP_TEST_ADAPTER_ENABLED'],
+        message: 'The WhatsApp test adapter is not allowed in production',
+      })
+    }
+    for (const key of [
+      'WHATSAPP_TEST_PHONE_NUMBER_ID',
+      'WHATSAPP_TEST_ACCESS_TOKEN',
+      'WHATSAPP_TEST_APP_SECRET',
+      'WHATSAPP_TEST_VERIFY_TOKEN',
+    ] as const) {
+      if (!e[key]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'Required with WHATSAPP_TEST_ADAPTER_ENABLED=true',
+        })
+      }
+    }
+  })
+
 export type BaseEnv = z.infer<typeof baseEnv>
 export type DatabaseEnv = z.infer<typeof databaseEnv>
 export type AuthEnv = z.infer<typeof authEnv>
@@ -135,6 +178,11 @@ export type EventsEnv = z.infer<typeof eventsEnv>
 export type SiteEnv = z.infer<typeof siteEnv>
 export type ObservabilityEnv = z.infer<typeof observabilityEnv>
 export type PaymentEnv = z.infer<typeof paymentEnv>
+export type MessagingEnv = z.infer<typeof messagingEnv>
+
+/** Messaging configuration; everything off by default. */
+export const loadMessagingEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(messagingEnv, source)
 
 /** Payment configuration; without PAYMENT_PROVIDER there is no provider (`none`). */
 export const loadPaymentEnv = (source: Record<string, string | undefined> = process.env) =>

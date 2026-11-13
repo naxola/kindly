@@ -26,6 +26,21 @@ export {
   disconnectMessagingAccount,
 } from './accounts.ts'
 export type { MessagingAccountView } from './accounts.ts'
+export { sendMessage, getConversationServiceWindow, SendMessageInput } from './send.ts'
+export {
+  ONBOARDING_PATHS,
+  PREFLIGHT_CHECK_IDS,
+  getOnboardingPath,
+  allChecksAcknowledged,
+  checkCountrySupport,
+  parseCountryCodes,
+} from './whatsapp-onboarding.ts'
+export type {
+  OnboardingPath,
+  OnboardingPathId,
+  PreflightCheckId,
+  CountryCheckStatus,
+} from './whatsapp-onboarding.ts'
 export {
   processWebhookJob,
   processWebhookHandler,
