@@ -972,6 +972,13 @@
               "name"
             ]
           },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
           "assignee": {
             "type": [
               "object",
@@ -1001,6 +1008,7 @@
           "createdAt",
           "updatedAt",
           "contact",
+          "conversationId",
           "assignee"
         ]
       },
@@ -1025,6 +1033,14 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "conversationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Conversation the task comes from; it must be about the same contact. On an edit, leaving it out keeps the link while the contact stays the same."
           },
           "assigneeId": {
             "type": [
@@ -1232,6 +1248,15 @@
             ],
             "format": "uuid"
           },
+          "referenceDelegateName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supportsTyping": {
+            "type": "boolean"
+          },
           "serviceWindow": {
             "type": "object",
             "properties": {
@@ -1266,6 +1291,8 @@
           "contact",
           "account",
           "referenceDelegateId",
+          "referenceDelegateName",
+          "supportsTyping",
           "serviceWindow",
           "canReply"
         ]
@@ -4203,6 +4230,15 @@
             "required": false,
             "name": "status",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "contactId",
+            "in": "query"
           }
         ],
         "responses": {
@@ -5184,6 +5220,75 @@
           },
           "409": {
             "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/typing": {
+      "post": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Show \"typing…\" to the contact while the person writes (own account only; never fatal)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {

@@ -497,9 +497,47 @@
         "SENT": "Enviado",
         "DELIVERED": "Entregado",
         "READ": "Leído",
-        "FAILED": "No se pudo enviar"
+        "FAILED": "No se pudo enviar",
+        "SENDING": "Enviando"
       },
-      "fromDevice": "Escrito desde el móvil"
+      "fromDevice": "Escrito desde el móvil",
+      "close": "Cerrar conversación",
+      "showFicha": "Mostrar la ficha",
+      "hideFicha": "Ocultar la ficha",
+      "tabs": {
+        "label": "Secciones de la conversación",
+        "chat": "Chat",
+        "ficha": "Ficha"
+      },
+      "attendedBy": "Ahora lo atiende {name}, pero esta conversación está en el número de {owner}.",
+      "redirect": "Ahora lo atiende {name}. Redirígele los mensajes de este contacto.",
+      "newMessages": "Mensajes nuevos",
+      "retry": "Reintentar",
+      "notSent": "No enviado",
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "composerHint": "Intro para enviar · Mayús+Intro para un salto de línea",
+      "attendedByYou": "Ahora lo atiendes tú, pero esta conversación está en el número de {owner}."
+    },
+    "ficha": {
+      "title": "Ficha del afiliado",
+      "affiliation": "Afiliación",
+      "contact": "Contacto",
+      "phone": "Teléfono",
+      "email": "Email",
+      "channel": "Canal",
+      "unassigned": "Sin identificar",
+      "openFull": "Abrir la ficha completa",
+      "referenceDelegate": "Delegado de referencia",
+      "since": "Desde el {date}",
+      "noReference": "Sin delegado de referencia",
+      "tasks": "Tareas pendientes",
+      "noTasks": "Sin tareas pendientes",
+      "fromThisConversation": "De esta conversación",
+      "noDue": "Sin fecha",
+      "others": "Otras conversaciones",
+      "noOthers": "No hay otras conversaciones",
+      "noMessages": "Sin mensajes"
     }
   }
 }

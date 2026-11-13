@@ -543,6 +543,8 @@ model Task {
   id             String    @id @default(uuid(7)) @db.Uuid
   organizationId String    @map("organization_id") @db.Uuid
   contactId      String?   @map("contact_id") @db.Uuid
+  /// The conversation the task came from (always about the same contact; enforced in core).
+  conversationId String?   @map("conversation_id") @db.Uuid
   assigneeId     String?   @map("assignee_id") @db.Uuid
   title          String
   description    String?
@@ -553,11 +555,13 @@ model Task {
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   contact      Contact?            @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  conversation Conversation?       @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict)
   assignee     OrganizationMember? @relation("TaskAssignee", fields: [organizationId, assigneeId], references: [organizationId, id], onDelete: Restrict)
 
   @@unique([organizationId, id])
   @@index([organizationId, completedAt, createdAt])
   @@index([organizationId, contactId])
+  @@index([organizationId, conversationId])
   @@index([organizationId, assigneeId])
   @@map("tasks")
 }
@@ -666,6 +670,7 @@ model Conversation {
   messagingAccount MessagingAccount @relation(fields: [organizationId, messagingAccountId], references: [organizationId, id], onDelete: Restrict)
   contact          Contact          @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
   messages         Message[]
+  tasks            Task[]
 
   @@unique([organizationId, id])
   @@unique([messagingAccountId, externalConversationId])

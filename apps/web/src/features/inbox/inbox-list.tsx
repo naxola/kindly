@@ -1,7 +1,7 @@
 'use client'
 
 import { Badge, Button, Callout, cn, EmptyState, Input, Select } from '@saas/ui'
-import { PageContainer, PageHeader } from '@saas/ui/shell'
+import { useQueryClient } from '@tanstack/react-query'
 import { Inbox } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -11,6 +11,8 @@ import { errorText } from '@/client/errors.ts'
 import { useMembers } from '@/client/queries.ts'
 import { useCan, useOrganizationId } from '@/components/workspace-context.tsx'
 import {
+  conversationQuery,
+  threadQuery,
   useConversations,
   useInboxChannels,
   useInboxCounts,
@@ -23,14 +25,22 @@ const isView = (v: string | null): v is InboxView => !!v && (VIEWS as string[]).
 
 /**
  * The inbox: one list of conversations with four views, counters, search and filters. The state
- * lives in the URL (shareable, survives a reload and the back button).
+ * lives in the URL (shareable, survives a reload and the back button). The open conversation is
+ * `?conversation=<id>`: the list stays beside it, with its row marked.
  */
-export function InboxList() {
+export function InboxList({
+  selectedId,
+  onOpen,
+}: {
+  selectedId: string | null
+  onOpen: (id: string) => void
+}) {
   const t = useTranslations('inbox')
   const all = useTranslations()
   const format = useFormatter()
   const orgId = useOrganizationId()
   const canSeeAll = useCan()('channels.read_all')
+  const qc = useQueryClient()
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
@@ -78,10 +88,21 @@ export function InboxList() {
       : format.dateTime(d, { dateStyle: 'medium' })
   }
 
+  // Hovering or focusing a row warms the conversation, so opening it is instant. It never marks it
+  // read: that is the open thread's job.
+  const warm = (id: string) => {
+    void qc.prefetchQuery(conversationQuery(orgId, id))
+    void qc.prefetchQuery(threadQuery(orgId, id))
+  }
+  const hrefOf = (id: string) => {
+    const next = new URLSearchParams(params.toString())
+    next.set('conversation', id)
+    return `${pathname}?${next.toString()}`
+  }
+
   return (
     <>
-      <PageHeader title={t('title')} description={t('description')} />
-      <PageContainer className="space-y-4">
+      <div className="space-y-4 p-4 lg:px-6">
         <div role="group" aria-label={t('title')} className="flex flex-wrap gap-1">
           {VIEWS.map((v) => (
             <Button
@@ -105,7 +126,7 @@ export function InboxList() {
             placeholder={t('search')}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="w-72"
+            className="w-full max-w-72"
           />
           {(channels.data?.length ?? 0) > 1 ? (
             <Select
@@ -156,8 +177,22 @@ export function InboxList() {
               return (
                 <li key={c.id}>
                   <Link
-                    href={`/inbox/${c.id}`}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-surface-100"
+                    href={hrefOf(c.id)}
+                    prefetch={false}
+                    aria-current={c.id === selectedId ? 'true' : undefined}
+                    onPointerEnter={() => warm(c.id)}
+                    onFocus={() => warm(c.id)}
+                    onClick={(e) => {
+                      // The same page with another query: no server trip. A modified click keeps
+                      // its normal meaning (new tab).
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                      e.preventDefault()
+                      if (c.id !== selectedId) onOpen(c.id)
+                    }}
+                    className={cn(
+                      'flex items-start gap-3 px-4 py-3 hover:bg-surface-100',
+                      c.id === selectedId && 'bg-brand-subtle hover:bg-brand-subtle',
+                    )}
                   >
                     <span
                       aria-label={c.unread ? t('row.unread') : undefined}
@@ -197,7 +232,7 @@ export function InboxList() {
             })}
           </ul>
         )}
-      </PageContainer>
+      </div>
     </>
   )
 }

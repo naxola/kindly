@@ -747,8 +747,8 @@ solo la vista de conjunto.
 - [x] M6a — Mensajería: núcleo, tubería de webhook como job, acceso temporal, canal falso para tests (2026-11-13).
 - [x] M6b — Envío con guardarraíl de identidad, ventana de servicio, reglas de alta y adaptador de prueba de Meta (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
 - [x] M7a — Bandeja (API + UI), conversación básica con envío y canal falso de E2E (2026-11-13).
-- [ ] M7b — Espacio de conversación (dos columnas, ficha, envío optimista, `tasks.conversation_id`).
-- [ ] M7c — Canales (por delegado, estado, alta de WhatsApp en tres vías con sus textos).
+- [x] M7b — Espacio de conversación: panel de dos columnas (chat + ficha de solo lectura), envío optimista con marcas, «escribiendo…», aviso de «ahora lo atiende X», panel plegable con preferencia recordada y `tasks.conversation_id` (2026-11-13). Sin casos.
+- [ ] M7c — Canales (por delegado, estado, alta de WhatsApp en tres vías con sus textos). **Siguiente.**
 - [ ] M8a/b — Conocimiento (ingesta como job, recuperación híbrida, UI).
 - [ ] M9 — Trámites.
 - [ ] M10 — Web pública y legales en `apps/site`.

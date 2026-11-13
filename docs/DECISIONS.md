@@ -3896,3 +3896,36 @@ compartido, difícil de probar); procesar cada evento de un webhook en su propia
    la ruta pública real y los procesan con el mismo caso de uso que el worker.
 6. **El limitador de los endpoints públicos respeta `AUTH_RATE_LIMIT_ENABLED=false`** (solo
    E2E), como los de Better Auth.
+
+## 2026-11-13 — Espacio de conversación: panel en la URL, ficha de solo lectura y tareas ligadas (M7b)
+
+**Decisiones:**
+
+1. **La conversación abierta vive en la URL** (`/inbox?conversation=<id>`) y se cambia con
+   `router.push`, no con la API de historial a mano: Atrás la cierra, el enlace se puede compartir y
+   recargar. `/inbox/<id>` (enlaces anteriores) redirige. Supersede el diseño de rutas por conversación
+   de M7a.
+2. **La ficha del afiliado es de solo lectura y se compone con los endpoints que ya existen**
+   (contacto con su delegado de referencia, afiliación, tareas del contacto, conversaciones del
+   contacto). No se creó una ruta «workspace» a medida: cada pieza conserva su autorización y su clave
+   de caché (editar el contacto o su afiliación la refresca). **Sin casos**: siguen aplazados.
+3. **Por debajo de `xl` el panel sustituye a la lista** y la ficha es una pestaña; no hay `Sheet`
+   modal intermedio (el `SidePanel` de `packages/ui` es otro patrón) ni animación de anchura: el
+   beneficio no justifica portarlo ahora; queda para M11 si se echa en falta.
+4. **«Ahora lo atiende X» es un aviso, no un permiso.** Quién puede responder no cambia con la
+   reasignación (principio 1: solo el dueño de la cuenta, por su cuenta); el aviso solo dice quién es
+   el delegado de referencia cuando no es el dueño del número.
+5. **«Escribiendo…» es para el contacto**, no para el delegado: lo emite el adaptador
+   (`sendTypingIndicator`) mientras el delegado escribe, como mucho cada 20 s, solo el dueño de la
+   cuenta y nunca con la ventana cerrada. Un fallo del proveedor no es un error de la petición.
+6. **El envío optimista vive en el cliente.** Un fallo de red deja la burbuja con el motivo y
+   «Reintentar»; un mensaje que el proveedor rechazó se guarda como `FAILED` y reintentarlo envía
+   un mensaje nuevo con el mismo texto (no se «reenvía» el fallido).
+7. **`tasks.conversation_id`**: una tarea puede nacer de una conversación, que ha de ser visible y del
+   mismo contacto (la clave compuesta impide además cruzar organizaciones). Editar sin indicarla
+   mantiene el vínculo mientras el contacto no cambie.
+8. **Límite de envíos** (`CLAUDE.md` §5): 30 mensajes/min y 12 señales de «escribiendo»/min por
+   conversación, en memoria como los demás limitadores (con varias réplicas habría que moverlos).
+
+**Pendiente:** «Sin identificar» no tiene hoy ninguna acción en la interfaz (ni marcar como
+identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.md` §8, M7b.

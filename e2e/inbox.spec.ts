@@ -89,7 +89,7 @@ test('a delegate cannot open the conversation of someone else', async ({ browser
   await deliverFakeMessage(page, own, { from: 'Del admin', text: 'Hola admin' })
   await page.goto('/inbox')
   await press(page.getByRole('link', { name: /Del admin/ }))
-  await page.waitForURL(/\/inbox\/[0-9a-f-]{36}$/)
+  await page.waitForURL(/\/inbox\?conversation=[0-9a-f-]{36}$/)
   const url = page.url()
 
   await luis.goto('/inbox?view=all')

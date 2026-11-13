@@ -8,10 +8,12 @@ import {
   listThreadMessages,
   markConversationRead,
   sendMessage,
+  signalTyping,
   type ConversationPreview,
 } from '@saas/core'
 import { messaging } from '../../messaging.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
+import { rateLimit } from '../rate-limit.ts'
 import { actorCtx } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json } from './schemas.ts'
@@ -90,6 +92,8 @@ const DetailSchema = z
       ]),
     }),
     referenceDelegateId: z.uuid().nullable(),
+    referenceDelegateName: z.string().nullable(),
+    supportsTyping: z.boolean(),
     serviceWindow: z.object({
       status: z.enum(['OPEN', 'CLOSED', 'NOT_APPLICABLE']),
       expiresAt: z.iso.datetime().nullable(),
@@ -97,6 +101,14 @@ const DetailSchema = z
     canReply: z.boolean(),
   })
   .openapi('ConversationDetail')
+
+// Outbound sending is rate limited (CLAUDE.md §5): per conversation, whoever writes in it.
+const conversationKey = (c: { req: { param: (name: string) => string | undefined } }) => [
+  c.req.param('id') ?? null,
+]
+const sendLimit = rateLimit({ limit: 30, windowMs: 60_000, keys: conversationKey })
+// The composer asks at most once every 20 s; this only stops a misbehaving client.
+const typingLimit = rateLimit({ limit: 12, windowMs: 60_000, keys: conversationKey })
 
 const list = createRoute({
   method: 'get',
@@ -190,6 +202,7 @@ const send = createRoute({
   tags: ['conversations'],
   summary: "Reply from the person's OWN account (a rejected send is stored as FAILED)",
   security: cookieAuth,
+  middleware: [sendLimit] as const,
   request: {
     params: IdParam,
     body: { required: true, ...json(z.object({ text: z.string().min(1).max(4096) })) },
@@ -198,6 +211,17 @@ const send = createRoute({
     201: { description: 'Sent', ...json(MessageSchema) },
     ...errorResponses(400, 401, 403, 404, 409),
   },
+})
+
+const typing = createRoute({
+  method: 'post',
+  path: '/conversations/{id}/typing',
+  tags: ['conversations'],
+  summary: 'Show "typing…" to the contact while the person writes (own account only; never fatal)',
+  security: cookieAuth,
+  middleware: [typingLimit] as const,
+  request: { params: IdParam },
+  responses: { 204: { description: 'Accepted' }, ...errorResponses(401, 403, 404, 429) },
 })
 
 const read = createRoute({
@@ -273,6 +297,13 @@ export const conversationRoutes = new OpenAPIHono<ApiEnv>()
     if (failureReason)
       c.get('log').warn({ conversationId: id, failureReason }, 'message send failed')
     return c.json(toMessage(message), 201)
+  })
+  .openapi(typing, async (c) => {
+    const { id } = c.req.valid('param')
+    const result = await signalTyping(await actorCtx(c), messaging(), id)
+    if (result.status === 'FAILED')
+      c.get('log').warn({ conversationId: id, error: result.error }, 'typing indicator failed')
+    return c.body(null, 204)
   })
   .openapi(read, async (c) => {
     await markConversationRead(await actorCtx(c), c.req.valid('param').id)

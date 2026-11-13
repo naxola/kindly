@@ -1,12 +1,7 @@
-import type { Metadata } from 'next'
-import { getTranslations } from 'next-intl/server'
-import { ConversationView } from '@/features/inbox/conversation-view.tsx'
+import { redirect } from 'next/navigation'
 
-export async function generateMetadata(): Promise<Metadata> {
-  return { title: (await getTranslations())('inbox.title') }
-}
-
+/** Old links to a conversation (`/inbox/<id>`) open it in the inbox's panel. */
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  return <ConversationView conversationId={id} />
+  redirect(`/inbox?conversation=${encodeURIComponent(id)}`)
 }

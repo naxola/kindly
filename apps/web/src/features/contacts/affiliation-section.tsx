@@ -18,6 +18,22 @@ const firstUnpaid = (iso: string) => {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))
 }
 
+/** Dates of an affiliation are days and months, not instants: shown in UTC so they never shift. */
+function useAffiliationFormat() {
+  const format = useFormatter()
+  return {
+    day: (iso: string) => format.dateTime(new Date(iso), { dateStyle: 'medium', timeZone: 'UTC' }),
+    month: (d: Date | string) =>
+      format.dateTime(new Date(d), { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+  }
+}
+
+/** The status of an affiliation with its two fixed-rule notices, read only (the conversation's ficha). */
+export function AffiliationSummary({ current }: { current: Current | null }) {
+  const { day, month } = useAffiliationFormat()
+  return <Status current={current} day={day} month={month} />
+}
+
 /**
  * Affiliation of the contact: status with its two fixed-rule notices (fee overdue, a good moment
  * to suggest rejoining; never an AI inference) and the form to register, edit, end or rejoin.
@@ -26,7 +42,6 @@ const firstUnpaid = (iso: string) => {
 export function AffiliationSection({ contactId }: { contactId: string }) {
   const t = useTranslations('contacts.affiliation')
   const all = useTranslations()
-  const format = useFormatter()
   const orgId = useOrganizationId()
   const canManage = useCan()('affiliations.manage')
   const qc = useQueryClient()
@@ -58,10 +73,7 @@ export function AffiliationSection({ contactId }: { contactId: string }) {
     },
   })
 
-  const day = (iso: string) =>
-    format.dateTime(new Date(iso), { dateStyle: 'medium', timeZone: 'UTC' })
-  const month = (d: Date | string) =>
-    format.dateTime(new Date(d), { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const { day, month } = useAffiliationFormat()
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()

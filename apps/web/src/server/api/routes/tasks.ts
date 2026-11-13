@@ -29,6 +29,8 @@ const TaskSchema = z
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     contact: z.object({ id: z.uuid(), name: z.string() }).nullable(),
+    /** The conversation the task came from (always about the same contact). */
+    conversationId: z.uuid().nullable(),
     assignee: z.object({ memberId: z.uuid(), name: z.string() }).nullable(),
   })
   .openapi('Task')
@@ -42,6 +44,7 @@ const toTask = (t: TaskView) => ({
   createdAt: t.createdAt.toISOString(),
   updatedAt: t.updatedAt.toISOString(),
   contact: t.contact,
+  conversationId: t.conversationId,
   assignee: t.assignee,
 })
 
@@ -50,6 +53,12 @@ const TaskBody = z
     title: z.string().min(1).max(200),
     description: z.string().max(4000).nullish(),
     contactId: z.uuid().nullish(),
+    conversationId: z
+      .uuid()
+      .nullish()
+      .describe(
+        'Conversation the task comes from; it must be about the same contact. On an edit, leaving it out keeps the link while the contact stays the same.',
+      ),
     /** organization_members.id of whoever has to do it. */
     assigneeId: z.uuid().nullish(),
     dueDate: z.string().max(40).nullish().describe('Date (2026-12-01) or instant'),
@@ -64,7 +73,12 @@ const list = createRoute({
   tags: ['tasks'],
   summary: 'Tasks the person may see (general ones and those of contacts they may see)',
   security: cookieAuth,
-  request: { query: z.object({ status: z.enum(['all', 'pending', 'done']).optional() }) },
+  request: {
+    query: z.object({
+      status: z.enum(['all', 'pending', 'done']).optional(),
+      contactId: z.uuid().optional(),
+    }),
+  },
   responses: {
     200: { description: 'Tasks', ...json(z.object({ items: z.array(TaskSchema) })) },
     ...errorResponses(400, 401, 403),
@@ -155,8 +169,10 @@ const activity = createRoute({
 
 export const taskRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(list, async (c) => {
+    const q = c.req.valid('query')
     const items = await listTasks(await actorCtx(c), {
-      status: c.req.valid('query').status ?? 'all',
+      status: q.status ?? 'all',
+      contactId: q.contactId,
     })
     return c.json({ items: items.map(toTask) }, 200)
   })

@@ -28,7 +28,14 @@ export {
 export type { MessagingAccountView } from './accounts.ts'
 export { getConversationDetail, listThreadMessages } from './thread.ts'
 export type { ConversationDetail, ThreadMessage } from './thread.ts'
-export { sendMessage, getConversationServiceWindow, SendMessageInput } from './send.ts'
+export {
+  sendMessage,
+  signalTyping,
+  getConversationServiceWindow,
+  SendMessageInput,
+  TYPING_INDICATOR_THROTTLE_MS,
+} from './send.ts'
+export type { TypingSignalResult } from './send.ts'
 export {
   ONBOARDING_PATHS,
   PREFLIGHT_CHECK_IDS,

@@ -157,3 +157,71 @@ export async function sendMessage(
     return { message, failureReason: result.failureReason ?? null }
   })
 }
+
+/** How often the composer may ask for a "typing…" signal: the provider shows it for a few seconds. */
+export const TYPING_INDICATOR_THROTTLE_MS = 20_000
+
+export type TypingSignalResult =
+  | { status: 'SENT' }
+  /** Nothing to do: the channel has no indicator, the window is closed or the contact has not written. */
+  | { status: 'SKIPPED'; reason: 'UNSUPPORTED' | 'WINDOW_CLOSED' | 'NO_INBOUND_MESSAGE' }
+  /** The provider rejected it. Never fatal: the indicator is a courtesy. */
+  | { status: 'FAILED'; error: string }
+
+/**
+ * Shows "typing…" to the contact while the delegate writes a reply, anchored to the contact's latest
+ * inbound message. Same rule as sending: only the owner of the account, from their own account. A
+ * provider error does not fail the call (it is returned so the caller can log it).
+ */
+export async function signalTyping(
+  ctx: Ctx,
+  registry: MessagingRegistry,
+  conversationId: string,
+): Promise<TypingSignalResult> {
+  authorize(ctx.actor, 'messages.send')
+  const now = ctx.now?.() ?? new Date()
+  const found = await withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
+    const conversation = await tx.conversation.findUnique({
+      where: { id: conversationId },
+      include: { messagingAccount: true },
+    })
+    if (!conversation) throw new DomainError('NOT_FOUND', 'Conversation not found')
+    const account = conversation.messagingAccount
+    if (account.delegateId !== ctx.actor.memberId) {
+      throw new DomainError('FORBIDDEN', 'Only the delegate who owns this channel can reply', [
+        { code: 'NOT_ACCOUNT_OWNER' },
+      ])
+    }
+    const adapter = registry.get(conversation.channel)
+    if (!adapter?.sendTypingIndicator || !describeAccountStatus(account.status).operational) {
+      return { kind: 'skip' as const, reason: 'UNSUPPORTED' as const }
+    }
+    // Outside the window the provider would reject it, and no reply is on its way: the composer is
+    // not offered then either.
+    const window = await getConversationServiceWindow(tx, registry, conversation, now)
+    if (window.status === 'CLOSED')
+      return { kind: 'skip' as const, reason: 'WINDOW_CLOSED' as const }
+    const lastInbound = await tx.message.findFirst({
+      where: { conversationId, direction: 'INBOUND' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { externalMessageId: true },
+    })
+    if (!lastInbound) return { kind: 'skip' as const, reason: 'NO_INBOUND_MESSAGE' as const }
+    return {
+      kind: 'go' as const,
+      conversation,
+      account,
+      adapter,
+      replyTo: lastInbound.externalMessageId,
+    }
+  })
+  if (found.kind === 'skip') return { status: 'SKIPPED', reason: found.reason }
+
+  try {
+    // Outside any transaction: a network call.
+    await found.adapter.sendTypingIndicator!(found.account, found.conversation, found.replyTo)
+    return { status: 'SENT' }
+  } catch (error) {
+    return { status: 'FAILED', error: error instanceof Error ? error.message : String(error) }
+  }
+}

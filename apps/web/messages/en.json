@@ -497,9 +497,47 @@
         "SENT": "Sent",
         "DELIVERED": "Delivered",
         "READ": "Read",
-        "FAILED": "Could not be sent"
+        "FAILED": "Could not be sent",
+        "SENDING": "Sending"
       },
-      "fromDevice": "Written from the phone"
+      "fromDevice": "Written from the phone",
+      "close": "Close conversation",
+      "showFicha": "Show the profile",
+      "hideFicha": "Hide the profile",
+      "tabs": {
+        "label": "Conversation sections",
+        "chat": "Chat",
+        "ficha": "Profile"
+      },
+      "attendedBy": "{name} is now attending this contact, but this conversation is on {owner}'s number.",
+      "redirect": "{name} is now attending this contact. Redirect their messages to them.",
+      "newMessages": "New messages",
+      "retry": "Retry",
+      "notSent": "Not sent",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "composerHint": "Enter to send · Shift+Enter for a new line",
+      "attendedByYou": "You are now attending this contact, but this conversation is on {owner}'s number."
+    },
+    "ficha": {
+      "title": "Member profile",
+      "affiliation": "Affiliation",
+      "contact": "Contact",
+      "phone": "Phone",
+      "email": "Email",
+      "channel": "Channel",
+      "unassigned": "Unidentified",
+      "openFull": "Open the full profile",
+      "referenceDelegate": "Reference delegate",
+      "since": "Since {date}",
+      "noReference": "No reference delegate",
+      "tasks": "Open tasks",
+      "noTasks": "No open tasks",
+      "fromThisConversation": "From this conversation",
+      "noDue": "No date",
+      "others": "Other conversations",
+      "noOthers": "No other conversations",
+      "noMessages": "No messages"
     }
   }
 }

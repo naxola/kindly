@@ -186,3 +186,54 @@ describe('inbox and thread through the API', () => {
     ])
   })
 })
+
+describe('the conversation workspace through the API', () => {
+  it('signals typing only from the own account, and links tasks to the conversation and its contact', async () => {
+    const t = await team()
+    const luisAccount = await t.accountFor(t.luisId)
+    await t.inbound(luisAccount.id, 'Marta', 'Necesito ayuda')
+    const marta = (await t.delegate.browser.call('GET', '/api/v1/conversations')).body.items[0]
+
+    // Typing: the owner's call is accepted and reaches the adapter anchored to Marta's message;
+    // an administrator cannot signal from Luis's number; a stranger's id is a 404.
+    const before = fake.typingSignals.length
+    expect(
+      (await t.delegate.browser.call('POST', `/api/v1/conversations/${marta.id}/typing`)).status,
+    ).toBe(204)
+    expect(fake.typingSignals.length).toBe(before + 1)
+    const denied = await t.admin.browser.call('POST', `/api/v1/conversations/${marta.id}/typing`)
+    expect(denied.status).toBe(403)
+    expect(denied.body.error.details).toEqual([{ code: 'NOT_ACCOUNT_OWNER' }])
+    expect(
+      (await t.delegate.browser.call('POST', `/api/v1/conversations/${newId()}/typing`)).status,
+    ).toBe(404)
+
+    // The detail says who attends the contact and whether "typing…" is available.
+    const detail = (await t.delegate.browser.call('GET', `/api/v1/conversations/${marta.id}`)).body
+    expect(detail).toMatchObject({ supportsTyping: true, referenceDelegateName: 'Luis' })
+
+    // A task created from the conversation is about its contact and shows up in that contact's list.
+    const created = await t.delegate.browser.call('POST', '/api/v1/tasks', {
+      title: 'Pedir el justificante',
+      conversationId: marta.id,
+    })
+    expect(created.status).toBe(201)
+    expect(created.body).toMatchObject({
+      conversationId: marta.id,
+      contact: { id: marta.contactId },
+    })
+    await t.delegate.browser.call('POST', '/api/v1/tasks', { title: 'General' })
+    const mine = await t.delegate.browser.call(
+      'GET',
+      `/api/v1/tasks?status=pending&contactId=${marta.contactId}`,
+    )
+    expect(mine.body.items.map((x: { title: string }) => x.title)).toEqual([
+      'Pedir el justificante',
+    ])
+    const bad = await t.delegate.browser.call('POST', '/api/v1/tasks', {
+      title: 'X',
+      conversationId: newId(),
+    })
+    expect(bad.status).toBe(400)
+  })
+})

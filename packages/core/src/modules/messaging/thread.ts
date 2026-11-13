@@ -15,6 +15,10 @@ export interface ConversationDetail {
   account: { id: string; delegateId: string; delegateName: string; status: MessagingAccountStatus }
   /** The contact's current reference delegate (may differ from the account's owner). */
   referenceDelegateId: string | null
+  /** Name of the reference delegate (who "now attends" the contact), when there is one. */
+  referenceDelegateName: string | null
+  /** Whether the channel can show "typing…" to the contact (only meaningful if `canReply`). */
+  supportsTyping: boolean
   serviceWindow: ServiceWindowState
   /**
    * Whether THIS person can reply right now: they own the account, it is connected, its channel has
@@ -40,7 +44,11 @@ export async function getConversationDetail(
       },
     })
     const account = conversation.messagingAccount
-    const names = await displayNamesOf(tx, [account.delegateId])
+    const referenceDelegateId = conversation.contact.assignments[0]?.delegateId ?? null
+    const names = await displayNamesOf(
+      tx,
+      referenceDelegateId ? [account.delegateId, referenceDelegateId] : [account.delegateId],
+    )
     const serviceWindow = await getConversationServiceWindow(
       tx,
       registry,
@@ -63,7 +71,9 @@ export async function getConversationDetail(
         delegateName: names.get(account.delegateId) ?? '',
         status: account.status,
       },
-      referenceDelegateId: conversation.contact.assignments[0]?.delegateId ?? null,
+      referenceDelegateId,
+      referenceDelegateName: referenceDelegateId ? (names.get(referenceDelegateId) ?? null) : null,
+      supportsTyping: !!registry.get(conversation.channel)?.sendTypingIndicator,
       serviceWindow,
       canReply:
         owns &&

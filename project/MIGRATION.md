@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M7a hecha: bandeja y conversación básica; canal falso de E2E).
+Última actualización: 2026-11-13 (M7b hecha: espacio de conversación con ficha, envío optimista y «escribiendo…»).
 
 ## 1. Objetivo
 
@@ -136,7 +136,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M6a  | **Mensajería, núcleo**: `messaging_accounts`, `webhook_events`, `conversations`, `messages`, `conversation_cases`; puerto `MessagingAdapter` + registro; webhook público con firma → job idempotente `messaging.process-webhook` (D9)                                                                                                                                                                                                                   | `modules/messaging` (núcleo), `conversations`, `app/api/webhooks` + tests                        | ✅               |
 | M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ✅               |
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ✅               |
-| M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ⬜               |
+| M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ✅               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ⬜               |
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ⬜               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ⬜               |
@@ -726,3 +726,82 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   aviso de «ahora lo atiende X» y solo lectura para otro delegado, plegable con preferencia
   recordada, y `tasks.conversation_id`. Releer `legacy/src/app/(app)/inbox/[id]`,
   `docs/ui/CONVERSATION_WORKSPACE.md` y `docs/ui/CHAT.md`.
+
+### 2026-11-13 — M7b (espacio de conversación: chat + ficha de solo lectura)
+
+- Hecho:
+  - **Datos** (migración `20261113140000_task_conversation`): `tasks.conversation_id` con clave
+    compuesta `(organization_id, conversation_id)` → `conversations` (una tarea no puede apuntar a una
+    conversación de otra organización, haga lo que haga el código) e índice. `tasks` ya tenía RLS
+    forzado con su política; la migración lo deja dicho y un test de integración comprueba la clave.
+  - **`core/tasks`**: `conversationId` en `TaskInput` (la conversación debe ser visible y del **mismo
+    contacto**; si solo se da la conversación, el contacto sale de ella; `INVALID_CONVERSATION` /
+    `CONVERSATION_CONTACT_MISMATCH`). Al editar, no enviarla **mantiene** el vínculo mientras el
+    contacto no cambie; `null` lo quita. `listTasks` filtra por `contactId`. No hay UI para crear
+    tareas desde la conversación todavía (la ficha es de solo lectura): la columna y el caso de uso
+    quedan listos, y la ficha marca las tareas «de esta conversación».
+  - **`core/messaging`**: `signalTyping` (solo el dueño de la cuenta, por su cuenta; se omite si el
+    canal no tiene indicador, la ventana está cerrada o el contacto no ha escrito; un fallo del
+    proveedor **no** falla la llamada, se devuelve para loguearlo). `ConversationDetail` suma
+    `referenceDelegateName` y `supportsTyping`.
+  - **API** `/api/v1`: `POST /conversations/{id}/typing` (204), `contactId` en `GET /tasks`,
+    `conversationId` en el cuerpo y la vista de tarea; contrato regenerado. **Límite de envíos**
+    (`CLAUDE.md` §5, que faltaba): `POST …/messages` 30/min y `…/typing` 12/min **por conversación**
+    (en memoria, como los demás; respeta `AUTH_RATE_LIMIT_ENABLED=false` de E2E).
+  - **UI** (`apps/web/src/features/inbox/`): `/inbox?conversation=<id>` abre el **panel de dos columnas**
+    junto a la lista (chat + `ContactFicha`); `/inbox/<id>` redirige a esa URL. Chat: envío
+    **optimista** (burbuja con reloj, el mensaje guardado la sustituye sin parpadeo; fallo → motivo y
+    «Reintentar»), marcas ✓/✓✓/✓✓ de color/fallo, separadores de día, «Mensajes nuevos» si el lector
+    subió, borrador por conversación en `sessionStorage`, Intro envía, «escribiendo…» al contacto
+    (como mucho cada 20 s), precarga al pasar por la fila, `Esc` cierra, Atrás cierra. Avisos:
+    «ahora lo atiende X» (tres variantes: eres el dueño del número, lo atiendes tú, lo atiende otro) y
+    solo lectura para quien no es dueño de la cuenta. Ficha (`<aside>`, solo lectura): afiliación con
+    sus dos avisos de regla fija, contacto, delegado de referencia, tareas pendientes, otras
+    conversaciones del contacto (abren en el mismo panel). **Plegable** con preferencia en la cookie
+    `kindly_ficha` que lee el servidor (primer pintado correcto). Bajo `xl` el panel ocupa la pantalla
+    y la ficha es una pestaña. **Sin casos** (ni mostrados ni nombrados). es/en.
+  - 4 E2E nuevos (`e2e/conversation-workspace.spec.ts`) y `inbox.spec.ts` adaptado a la URL nueva.
+- **Decisiones** (también en `docs/DECISIONS.md`): el estado del panel va en la URL con
+  `router.push`; la ficha se compone con los endpoints que ya existen (contacto, afiliación,
+  tareas, conversaciones por contacto), **sin** una ruta `/workspace` a medida; bajo `xl` el panel
+  sustituye a la lista en vez de ser un `Sheet` modal; **sin animación de anchura** del panel.
+- **Pendiente anotado (no es de M7b, pero conviene no perderlo):**
+  1. **«Sin identificar» no tiene acción en ninguna pantalla.** El código anterior ofrecía «Marcar como
+     identificado» y «Reasignar la conversación a otro contacto» en la ficha; en la plantilla el caso de
+     uso `markContactIdentified` y su ruta existen (M4a) pero ni la ficha del contacto (M4b) ni este
+     panel lo llaman, y mover una conversación a otro contacto no existe en `core`. La ficha solo muestra
+     la insignia y enlaza a la ficha completa. Decidir con el usuario dónde va.
+  2. Del código anterior **no se portó**: la animación de anchura de apertura/cierre, `F6`/`Alt+↑↓`, el
+     `Sheet` modal entre `md` y `xl`, y los E2E de «el panel no recarga la página» y «error de carga con
+     reintento» (el reintento sí existe en la UI, sin E2E propio). Va a M11 (accesibilidad y pulido).
+  3. Paginación del hilo y de la lista (500 / 100) y la **política de retención** de `webhook_events`
+     siguen como estaban.
+- **`legacy/` — borrado:** `inbox/[id]/conversation-thread.tsx`, `inbox/[id]/delivery-ticks.tsx`,
+  `inbox/ficha-cookie.ts`, `inbox/ficha-preference.ts` y `api/conversations/[id]/thread/route.ts`
+  (lo único completamente portado). **Se conserva** el resto de `inbox/` y `api/conversations/[id]/workspace`
+  (contienen casos e identificación, sin portar), y las specs `inbox`, `conversation-workspace` y
+  `contact-assignments` (cubren escenarios que aún no tienen equivalente: dos conversaciones del mismo
+  contacto con acceso temporal, ecos del móvil, ventana cerrada, aislamiento entre organizaciones).
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): línea base antes de tocar nada
+  (115 unitarias, 185 de integración, 21 E2E; la primera pasada de `pnpm lint` dio errores de tipos
+  y la repetición salió limpia, como ya se anotó en M1b) y al final `format:check`, `lint`,
+  `typecheck` (11/11), `test` (115), `test:integration` (196; 10 nuevas de `core` —escribiendo,
+  detalle, tareas con conversación, clave de base de datos— y 1 de la API), `db:check` sin
+  diferencias, contrato regenerado, `build` (5/5) y `test:e2e` (25/25, 4 nuevas). Revisadas a ojo las
+  capturas de 1280 px (anclado, solo lectura) y 800 px (pestañas). **No verificado:** 1536 px y móvil de
+  320 px, el comportamiento con un proveedor real (solo el adaptador falso), ni el CI de GitHub.
+- Entorno (no se conserva entre sesiones): sin Docker; Postgres 16 local en 5441 creado con
+  `infra/postgres/init/00-roles.sh` (`APP_MIGRATOR_PASSWORD=migrator`, `APP_USER_PASSWORD=app`,
+  `APP_PLATFORM_PASSWORD=platform`, `APP_DATABASES="saas saas_test saas_shadow"`), tras
+  `apt-get update && apt-get install postgresql-16-pgvector`.
+- **Próximo paso concreto:** M7c — **canales**: pantalla Organización → Canales con la vista por
+  delegado (cada uno ve y gestiona sus cuentas; el ADMIN ve todas, `channels.read_all`), la máquina de
+  estados de la cuenta (`describeAccountStatus`, ya en `core`) con sus textos es/en, y el **alta de
+  WhatsApp en tres vías** (`getOnboardingPath`, `allChecksAcknowledged`, `checkCountrySupport` de
+  `core/messaging/whatsapp-onboarding.ts`; hoy solo la vía de coexistence está disponible), más
+  desconexión. Releer `legacy/src/app/(app)/channels`, `legacy/src/app/(app)/organization/channels`,
+  los E2E `channels` y `whatsapp-onboarding`, `docs/INTEGRATIONS.md` §2 y las entradas de
+  `docs/DECISIONS.md` de PKG-008/PKG-011. **Antes de tocar nada de Meta, comprobar que la capacidad
+  sigue vigente** (`CLAUDE.md` §3); el adaptador real de coexistence (PKG-009) sigue bloqueado, así
+  que la pantalla debe decir con honestidad qué se puede conectar hoy. Al cerrar M7c se pueden borrar
+  de `legacy/` `messaging/whatsapp-onboarding.ts` y las páginas de canales.

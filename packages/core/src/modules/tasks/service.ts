@@ -4,6 +4,7 @@ import { DomainError } from '../../errors.ts'
 import { listActivitiesForEntity, recordActivity } from '../activity/index.ts'
 import { writeAudit } from '../audit/index.ts'
 import { assertContactVisible } from '../contacts/index.ts'
+import { assertConversationVisible } from '../conversations/index.ts'
 import { authorize } from '../identity/index.ts'
 import { displayNamesOf } from '../team/index.ts'
 import { TaskInput, UpdateTaskInput } from './schemas.ts'
@@ -29,16 +30,20 @@ async function views(tx: TenantTx, rows: WithContact[]): Promise<TaskView[]> {
   }))
 }
 
-/** Tasks the actor may see, newest first. */
+/** Tasks the actor may see, newest first (optionally only those about one contact). */
 export async function listTasks(
   ctx: Ctx,
-  { status = 'all' }: { status?: 'all' | 'pending' | 'done' } = {},
+  {
+    status = 'all',
+    contactId,
+  }: { status?: 'all' | 'pending' | 'done'; contactId?: string | undefined } = {},
 ): Promise<TaskView[]> {
   authorize(ctx.actor, 'tasks.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const rows = await tx.task.findMany({
       where: {
         ...(await taskVisibilityWhere(tx, ctx.actor)),
+        ...(contactId ? { contactId } : {}),
         ...(status === 'pending' ? { completedAt: null } : {}),
         ...(status === 'done' ? { completedAt: { not: null } } : {}),
       },
@@ -66,15 +71,34 @@ export async function getTask(ctx: Ctx, taskId: string): Promise<TaskView> {
   })
 }
 
-/** The contact must be visible to the actor and the assignee an active member. */
+/**
+ * The contact must be visible to the actor, the conversation too and about that same contact, and
+ * the assignee an active member. Returns the contact the task ends up with: the one given, or
+ * (when only a conversation is given) the conversation's.
+ */
 async function assertRelated(
   tx: TenantTx,
   ctx: Ctx,
-  data: { contactId?: string | null; assigneeId?: string | null },
-) {
-  if (data.contactId) {
+  data: { contactId?: string | null; conversationId?: string | null; assigneeId?: string | null },
+): Promise<{ contactId: string | null }> {
+  let contactId = data.contactId ?? null
+  if (data.conversationId) {
+    authorize(ctx.actor, 'conversations.read')
+    const conversation = await assertConversationVisible(tx, ctx, data.conversationId).catch(() => {
+      throw new DomainError('VALIDATION_FAILED', 'Unknown conversation', [
+        { path: 'conversationId', code: 'INVALID_CONVERSATION' },
+      ])
+    })
+    if (contactId && contactId !== conversation.contactId) {
+      throw new DomainError('VALIDATION_FAILED', 'The conversation is about another contact', [
+        { path: 'conversationId', code: 'CONVERSATION_CONTACT_MISMATCH' },
+      ])
+    }
+    contactId = conversation.contactId
+  }
+  if (contactId) {
     try {
-      await assertContactVisible(tx, ctx.actor, data.contactId)
+      await assertContactVisible(tx, ctx.actor, contactId)
     } catch {
       throw new DomainError('VALIDATION_FAILED', 'Unknown contact', [
         { path: 'contactId', code: 'INVALID_CONTACT' },
@@ -92,19 +116,21 @@ async function assertRelated(
       ])
     }
   }
+  return { contactId }
 }
 
 export async function createTask(ctx: Ctx, input: TaskInput): Promise<TaskView> {
   authorize(ctx.actor, 'tasks.write')
   const data = TaskInput.parse(input)
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-    await assertRelated(tx, ctx, data)
+    const { contactId } = await assertRelated(tx, ctx, data)
     const task = await tx.task.create({
       data: {
         organizationId: ctx.actor.organizationId,
         title: data.title,
         description: data.description ?? null,
-        contactId: data.contactId ?? null,
+        contactId,
+        conversationId: data.conversationId ?? null,
         assigneeId: data.assigneeId ?? null,
         dueDate: data.dueDate ?? null,
       },
@@ -130,14 +156,23 @@ export async function updateTask(
   const data = UpdateTaskInput.parse(input)
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const existing = await findVisible(tx, ctx, taskId)
-    await assertRelated(tx, ctx, data)
+    // Leaving the conversation out keeps the link, as long as the task is still about the same
+    // contact; a task moved to another contact (or none) cannot keep a conversation of the old one.
+    const conversationId =
+      data.conversationId === undefined
+        ? (data.contactId ?? null) === existing.contactId
+          ? existing.conversationId
+          : null
+        : data.conversationId
+    const { contactId } = await assertRelated(tx, ctx, { ...data, conversationId })
     const justCompleted = data.completed && existing.completedAt === null
     const task = await tx.task.update({
       where: { id: taskId },
       data: {
         title: data.title,
         description: data.description ?? null,
-        contactId: data.contactId ?? null,
+        contactId,
+        conversationId,
         assigneeId: data.assigneeId ?? null,
         dueDate: data.dueDate ?? null,
         completedAt: data.completed ? (existing.completedAt ?? ctx.now?.() ?? new Date()) : null,
