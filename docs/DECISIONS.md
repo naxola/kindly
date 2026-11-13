@@ -3929,3 +3929,23 @@ compartido, difícil de probar); procesar cada evento de un webhook en su propia
 
 **Pendiente:** «Sin identificar» no tiene hoy ninguna acción en la interfaz (ni marcar como
 identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.md` §8, M7b.
+
+## 2026-11-13 — Canales: el asistente se impone en el servidor (M7c)
+
+**Decisiones:**
+
+1. **Un canal con onboarding guiado no se conecta de un paso**: `connectMessagingAccount` lo rechaza
+   (`ONBOARDING_REQUIRED`) y solo `connectWithOnboarding` lo conecta, tras comprobar vía disponible,
+   los seis puntos confirmados y, si hay lista configurada, el país. Que el botón esté desactivado es
+   cortesía; la garantía está en el caso de uso (los puntos hablan de lo que pierde el móvil de la
+   persona).
+2. **Los canales viven en Ajustes → Canales** (`/settings/channels`), no en una sección «Organización»
+   aparte: la plantilla ya agrupa ahí lo que se configura. Cada persona ve y conecta lo suyo; ver todo
+   y desconectar a otro sigue siendo `channels.read_all`/`channels.disconnect_any` (principio 1: nadie
+   conecta una cuenta en nombre de otro).
+3. **La pantalla dice lo que hay.** Sin adaptadores registrados (producción hoy) muestra que no hay
+   proveedor disponible; el asistente existe pero solo se alcanza para un canal que declare onboarding
+   guiado. No se sustituye el adaptador real de coexistence (PKG-009, bloqueado) por nada no oficial,
+   y el aviso final no promete una redirección a Facebook que nadie hace.
+4. **El canal falso de E2E incluye una variante con onboarding guiado** (`fake-coexistence`, sin
+   desconexión desde Kindly) para probar el asistente sin Meta; sigue prohibido en producción.

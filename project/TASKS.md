@@ -748,8 +748,8 @@ solo la vista de conjunto.
 - [x] M6b — Envío con guardarraíl de identidad, ventana de servicio, reglas de alta y adaptador de prueba de Meta (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
 - [x] M7a — Bandeja (API + UI), conversación básica con envío y canal falso de E2E (2026-11-13).
 - [x] M7b — Espacio de conversación: panel de dos columnas (chat + ficha de solo lectura), envío optimista con marcas, «escribiendo…», aviso de «ahora lo atiende X», panel plegable con preferencia recordada y `tasks.conversation_id` (2026-11-13). Sin casos.
-- [ ] M7c — Canales (por delegado, estado, alta de WhatsApp en tres vías con sus textos). **Siguiente.**
-- [ ] M8a/b — Conocimiento (ingesta como job, recuperación híbrida, UI).
+- [x] M7c — Canales: vista por delegado, estados, alta de WhatsApp en tres vías con comprobaciones en servidor y desconexión (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
+- [ ] M8a/b — Conocimiento (ingesta como job, recuperación híbrida, UI). **Siguiente: M8a.**
 - [ ] M9 — Trámites.
 - [ ] M10 — Web pública y legales en `apps/site`.
 - [ ] M11 — Accesibilidad, pulido y `docs/ui/`.

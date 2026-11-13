@@ -39,6 +39,7 @@ export const MODULES: ModuleDef[] = [
           items: [
             { key: 'members', path: 'members', anyOf: ['members.read'] },
             { key: 'positions', path: 'positions', anyOf: ['members.read'] },
+            { key: 'channels', path: 'channels', anyOf: ['channels.read'] },
             { key: 'billing', path: 'billing', anyOf: ['billing.read'] },
           ],
         },

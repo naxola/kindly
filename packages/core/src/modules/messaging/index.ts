@@ -22,10 +22,12 @@ export { describeAccountStatus } from './domain.ts'
 export type { AccountStatusDescriptor, AccountStatusTone } from './domain.ts'
 export {
   listMessagingAccounts,
+  listConnectableChannels,
   connectMessagingAccount,
   disconnectMessagingAccount,
 } from './accounts.ts'
-export type { MessagingAccountView } from './accounts.ts'
+export type { MessagingAccountView, ConnectableChannel } from './accounts.ts'
+export { connectWithOnboarding, OnboardingInput } from './onboarding.ts'
 export { getConversationDetail, listThreadMessages } from './thread.ts'
 export type { ConversationDetail, ThreadMessage } from './thread.ts'
 export {

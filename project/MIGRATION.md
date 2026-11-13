@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M7b hecha: espacio de conversación con ficha, envío optimista y «escribiendo…»).
+Última actualización: 2026-11-13 (M7c hecha: canales y alta de WhatsApp en tres vías).
 
 ## 1. Objetivo
 
@@ -137,7 +137,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ✅               |
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ✅               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ✅               |
-| M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ⬜               |
+| M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ✅               |
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ⬜               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ⬜               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ⬜               |
@@ -805,3 +805,61 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   sigue vigente** (`CLAUDE.md` §3); el adaptador real de coexistence (PKG-009) sigue bloqueado, así
   que la pantalla debe decir con honestidad qué se puede conectar hoy. Al cerrar M7c se pueden borrar
   de `legacy/` `messaging/whatsapp-onboarding.ts` y las páginas de canales.
+
+### 2026-11-13 — M7c (canales y alta de WhatsApp en tres vías)
+
+- Hecho:
+  - **`core/messaging`**: `listConnectableChannels` (los canales con adaptador en este proceso y cómo
+    se conectan), `connectWithOnboarding` (nuevo `onboarding.ts`) y una regla más en
+    `connectMessagingAccount`: **un canal que declara onboarding guiado ya no se conecta de un
+    paso** (`ONBOARDING_REQUIRED`), así que la lista de confirmaciones no se salta llamando a la API
+    directamente. `connectWithOnboarding` exige, en el servidor: canal con onboarding guiado, vía
+    disponible (hoy solo coexistence), **los seis puntos confirmados** (los ids sobrantes se ignoran) y,
+    solo si hay lista configurada de países no soportados, el país (obligatorio y comprobado; sin
+    lista, Kindly dice que no puede comprobarlo y no adivina).
+  - **API** `/api/v1/channels` (lista de cuentas visibles + canales + reglas del asistente),
+    `POST /channels/accounts` (un paso), `POST /channels/accounts/onboarding` y
+    `POST /channels/accounts/{id}/disconnect`. La vista de la cuenta lleva `tone`/`needsAttention`
+    (calculados en `core`), `canDisconnect` y, para proveedores con handshake de suscripción, la ruta
+    del webhook; **nunca** `credentialsReference` ni `metadata`.
+  - **UI** en **Ajustes → Canales** (`/settings/channels`, entrada de menú para quien tenga
+    `channels.read`, es decir, todos): «Conectados a tu nombre», «Conectar un canal» (un clic o asistente
+    según el canal), «Canales del resto de la organización» solo con `channels.read_all`, estados con
+    su texto, desconexión con confirmación y, donde no se puede desde Kindly, la explicación de que se
+    hace desde el móvil. Asistente: `/settings/channels/connect/[channel]` (las tres vías; las no
+    adoptadas, deshabilitadas con su motivo) y `…/coexistence` (los seis puntos, botón desactivado
+    hasta marcarlos todos, país). Textos del código anterior, es/en. **Cambio de texto deliberado:** el
+    aviso final ya no dice «te llevaremos a Facebook» (no hay adaptador real que lo haga): dice que
+    Kindly pedirá la conexión al proveedor.
+  - **Canal falso de E2E** ampliado: con la misma variable se registra también `fake-coexistence`
+    (onboarding guiado, sin desconexión desde Kindly), para recorrer el asistente sin Meta.
+  - Tests: 8 de integración nuevos (7 de `core`, 1 de la API) y 3 E2E (`e2e/channels.spec.ts`).
+  - Por el camino: la primera versión puso la entrada del menú bajo `menu.canales` y no bajo
+    `menu.settings`; salió en pantalla como «menu.settings.channels» y lo cazó la captura. Ahora el
+    E2E llega a la pantalla **por el menú**.
+- **Verdad sobre lo que se puede conectar hoy:** en producción el registro de adaptadores está vacío
+  (el real de coexistence, PKG-009, depende del alta como Tech Provider y de la decisión sobre el
+  Business Manager) y el de pruebas de Meta está prohibido en producción. La pantalla lo dice («No hay
+  ningún proveedor de mensajería disponible en este entorno todavía»); no se construyó nada no
+  oficial. No se tocó ninguna capacidad de Meta, por eso no hizo falta revalidar su documentación.
+- **`legacy/` — borrado** (todo lo de canales): páginas `channels/` y `organization/channels/`,
+  `modules/messaging/actions.ts`, `whatsapp-onboarding.ts` y sus tests (`unit/whatsapp-onboarding`,
+  E2E `channels`, `whatsapp-onboarding`). Los tres escenarios del E2E del asistente (vías no disponibles,
+  botón bloqueado, servidor que rechaza un preflight a medias) están cubiertos entre el E2E nuevo y los
+  tests de `core`.
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`, `lint`, `typecheck`
+  (11/11), `test` (115), `test:integration` (204), `db:check` sin diferencias, contrato regenerado,
+  `build` (5/5) y `test:e2e` (28/28). Revisada a ojo la captura del asistente a 1280 px.
+  **No verificado:** responsive, `docker compose`, un proveedor real, el CI de GitHub.
+- **Próximo paso concreto:** M8a — **conocimiento, datos e ingesta**: `documents`, `document_versions`,
+  `knowledge_chunks` (columna `vector` como `Unsupported` + SQL crudo; el esquema `extensions` ya existe
+  y `search_path` lo incluye), RLS con conocimiento GLOBAL (`organization_id` nulo, D8: lectura
+  `IS NULL OR = actual`, escritura de lo global solo con `app_platform`, declarado con su justificación
+  en `rls.int.test.ts`), puerto `EmbeddingProvider` (OpenAI en `packages/adapters` + falso para tests;
+  variable `OPENAI_API_KEY` en los tres `.env.example` y `compose.yml` **en esta fase**, no antes),
+  extracción de PDF/web, guardia SSRF, troceado e **ingesta como job de pg-boss** (subida asíncrona con
+  estado, D9) y `pnpm knowledge:ingest`. Releer `legacy/src/modules/knowledge` (todo salvo
+  `retrieval*`), `legacy/scripts/ingest-knowledge.ts`, `docs/DATABASE.md` §15, `docs/ARCHITECTURE.md` §9
+  y las entradas de `docs/DECISIONS.md` de las Fases 7a–7f. Principio 3 (conocimiento verificable:
+  fuente, versión, vigencia, `EvidenceLevel`) no se rompe. Es grande: partir en datos+RLS, proveedores,
+  ingesta/job.

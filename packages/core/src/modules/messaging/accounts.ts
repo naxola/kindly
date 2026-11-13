@@ -53,8 +53,59 @@ function toView(account: MessagingAccount, delegateName: string): MessagingAccou
   return { ...(safe as Omit<MessagingAccount, 'credentialsReference' | 'metadata'>), delegateName }
 }
 
-/** Connects an account for the actor themselves through the channel's adapter. */
+/** What a delegate can connect here: the channels this process has an adapter for. */
+export interface ConnectableChannel {
+  channel: string
+  /** DIRECT connects in one step; the others need the guided onboarding (acknowledgements first). */
+  onboarding: 'DIRECT' | 'WHATSAPP_COEXISTENCE'
+  /** False when the connection can only be ended from the delegate's own device. */
+  canDisconnect: boolean
+  /** Whether the provider needs the webhook URL registered by hand (subscription handshake). */
+  hasWebhookHandshake: boolean
+}
+
+export function listConnectableChannels(
+  ctx: Ctx,
+  registry: MessagingRegistry,
+): ConnectableChannel[] {
+  authorize(ctx.actor, 'channels.read')
+  return registry.channels().flatMap((channel) => {
+    const adapter = registry.get(channel)
+    return adapter
+      ? [
+          {
+            channel,
+            onboarding: adapter.capabilities.onboarding,
+            canDisconnect: adapter.capabilities.canDisconnect,
+            hasWebhookHandshake: !!adapter.verifyWebhookChallenge,
+          },
+        ]
+      : []
+  })
+}
+
+/**
+ * Connects an account for the actor themselves through the channel's adapter, in one step. Channels
+ * that need the guided onboarding (what the delegate must acknowledge about their phone first) are
+ * refused here: they go through `connectWithOnboarding`, so the checklist cannot be skipped by
+ * calling this directly.
+ */
 export async function connectMessagingAccount(
+  ctx: Ctx,
+  registry: MessagingRegistry,
+  input: { channel: string; authorizationPayload?: Record<string, unknown> },
+): Promise<MessagingAccountView> {
+  const adapter = registry.get(input.channel)
+  if (adapter && adapter.capabilities.onboarding !== 'DIRECT') {
+    authorize(ctx.actor, 'channels.connect')
+    throw new DomainError('CONFLICT', 'This channel needs the guided onboarding', [
+      { code: 'ONBOARDING_REQUIRED' },
+    ])
+  }
+  return connectAccount(ctx, registry, input)
+}
+
+export async function connectAccount(
   ctx: Ctx,
   registry: MessagingRegistry,
   input: { channel: string; authorizationPayload?: Record<string, unknown> },

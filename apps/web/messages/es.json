@@ -124,7 +124,17 @@
     "NOT_ACCOUNT_OWNER": "Solo el delegado dueño de este canal puede responder desde Kindly.",
     "SERVICE_WINDOW_CLOSED": "La ventana de mensajes del proveedor está cerrada.",
     "ACCOUNT_NOT_OPERATIONAL": "El canal no está conectado.",
-    "UNKNOWN_CHANNEL": "Este canal no está disponible."
+    "UNKNOWN_CHANNEL": "Este canal no está disponible.",
+    "ONBOARDING_REQUIRED": "Este canal se conecta con el asistente: hay que confirmar antes cada punto.",
+    "PREFLIGHT_INCOMPLETE": "Faltan puntos por confirmar antes de conectar.",
+    "PATH_UNAVAILABLE": "Esa vía todavía no está disponible.",
+    "UNKNOWN_PATH": "Esa vía no existe.",
+    "COUNTRY_REQUIRED": "Indica el país del número (dos letras).",
+    "COUNTRY_UNSUPPORTED": "Coexistence no está disponible para números de ese país. Tendrías que usar un número de otra región.",
+    "CANNOT_DISCONNECT_FROM_KINDLY": "Este canal solo se desconecta desde el móvil del propio delegado, no desde Kindly.",
+    "ACCOUNT_ALREADY_CONNECTED": "Esa cuenta ya está conectada.",
+    "INVALID_CONVERSATION": "La conversación no existe o no tienes acceso a ella.",
+    "CONVERSATION_CONTACT_MISMATCH": "La conversación es de otro contacto."
   },
   "home": {
     "title": "Inicio",
@@ -144,7 +154,8 @@
       "title": "Ajustes",
       "members": "Miembros",
       "billing": "Plan y consumo",
-      "positions": "Cargos"
+      "positions": "Cargos",
+      "channels": "Canales"
     }
   },
   "orgSwitcher": {
@@ -538,6 +549,121 @@
       "others": "Otras conversaciones",
       "noOthers": "No hay otras conversaciones",
       "noMessages": "Sin mensajes"
+    }
+  },
+  "channels": {
+    "title": "Canales",
+    "description": "Cada profesional conecta su propia cuenta de WhatsApp o Telegram. Kindly sincroniza esa conversación, no la sustituye ni la centraliza en un número de la organización.",
+    "mine": "Conectados a tu nombre",
+    "noneMine": "Todavía no has conectado ningún canal.",
+    "connect": "Conectar un canal",
+    "noChannels": "No hay ningún proveedor de mensajería disponible en este entorno todavía.",
+    "alreadyConnected": "Ya tienes una cuenta conectada en este canal.",
+    "willConnect": "Se conectará con tu propia cuenta, a tu nombre.",
+    "connectButton": "Conectar {channel}",
+    "connecting": "Conectando…",
+    "others": "Canales del resto de la organización",
+    "noneOthers": "Ningún otro miembro ha conectado un canal todavía.",
+    "attention": "revisar",
+    "connectedOn": "Conectado el {date}.",
+    "lastSync": "Última sincronización: {date}.",
+    "noSync": "Sin sincronizaciones registradas todavía.",
+    "lastError": "Último error",
+    "webhook": "URL del webhook (regístrala en el panel del proveedor, precedida del dominio público)",
+    "disconnect": "Desconectar",
+    "disconnectTitle": "Desconectar canal",
+    "disconnectDescription": "Este canal dejará de sincronizar mensajes.",
+    "deviceOnlyOwn": "Este canal se desconecta desde tu propio móvil, no desde Kindly.",
+    "deviceOnlyOther": "Solo el propio delegado puede desconectarlo, desde su móvil.",
+    "status": {
+      "PENDING": {
+        "label": "Pendiente",
+        "detail": "La conexión está iniciada pero aún no autorizada. Termina el proceso con el proveedor."
+      },
+      "CONNECTING": {
+        "label": "Conectando",
+        "detail": "Esperando confirmación del proveedor. Puede tardar unos segundos."
+      },
+      "CONNECTED": {
+        "label": "Conectado",
+        "detail": "Los mensajes se sincronizan con normalidad."
+      },
+      "DEGRADED": {
+        "label": "Con incidencias",
+        "detail": "Los mensajes siguen llegando, pero algo no va fino. Conviene revisarlo antes de que se corte."
+      },
+      "ERROR": {
+        "label": "Con error",
+        "detail": "La sincronización está detenida. Hay que resolver el error para volver a enviar y recibir."
+      },
+      "REVOKED": {
+        "label": "Permiso retirado",
+        "detail": "El proveedor ha retirado la autorización. Hay que volver a conectar el canal."
+      },
+      "DISCONNECTED": {
+        "label": "Desconectado",
+        "detail": "Este canal ya no sincroniza. Puedes volver a conectarlo cuando quieras."
+      }
+    },
+    "onboarding": {
+      "back": "← Canales",
+      "notFound": "Este canal no tiene un asistente de conexión.",
+      "pathsTitle": "Conectar WhatsApp",
+      "pathsDescription": "Elige cómo quieres conectar. Solo puedes seguir una de las tres vías, y no se puede cambiar después sin desconectar.",
+      "next": "Siguiente",
+      "unavailable": "No disponible todavía.",
+      "paths": {
+        "COEXISTENCE": {
+          "title": "Conectar mi número actual de WhatsApp Business",
+          "description": "Sigues usando tu número en la app de WhatsApp Business del móvil, y Kindly sincroniza esas conversaciones por detrás."
+        },
+        "NEW_ACCOUNT": {
+          "title": "Crear una cuenta de WhatsApp Business nueva",
+          "description": "Un número nuevo, dedicado a Kindly, sin relación con el que usas hoy en el móvil.",
+          "unavailable": "Todavía no está disponible. Kindly ha adoptado de momento solo la vía de coexistence; esta requiere una decisión de producto que aún no se ha tomado."
+        },
+        "MIGRATE_BSP": {
+          "title": "Migrar desde otro proveedor (BSP)",
+          "description": "Traer a Kindly un número que ya opera con otro proveedor de la API de WhatsApp.",
+          "unavailable": "Todavía no está disponible. La migración entre proveedores tiene reglas propias de Meta que hay que verificar antes de ofrecerla."
+        }
+      },
+      "preflightBack": "← Elegir otra vía",
+      "preflightTitle": "Antes de conectar tu número",
+      "preflightDescription": "Esto no son condiciones de Kindly: cada punto es un requisito de Meta o una consecuencia real para el móvil que llevas encima. Confírmalos todos para continuar.",
+      "checks": {
+        "business-app": {
+          "title": "El número está en la app de WhatsApp Business",
+          "detail": "Tiene que ser WhatsApp Business (versión 2.24.17 o superior), no la app de WhatsApp normal. Si usas la app de consumo, esta vía no es posible con ese número."
+        },
+        "not-on-cloud-api": {
+          "title": "El número no está ya registrado en la Cloud API",
+          "detail": "Un número que ya se registró en la API de WhatsApp por su cuenta no puede entrar por coexistence."
+        },
+        "business-manager": {
+          "title": "El número está añadido al Business Manager de la organización",
+          "detail": "Meta exige que el número forme parte del Business Manager desde el que se autoriza la conexión."
+        },
+        "history": {
+          "title": "Se sincronizarán hasta 180 días de historial",
+          "detail": "Solo conversaciones individuales, nunca grupos. Los archivos adjuntos solo llegan para los mensajes de los últimos 14 días."
+        },
+        "disabled-features": {
+          "title": "Perderás algunas funciones en el móvil",
+          "detail": "Se desactivan los mensajes temporales, «ver una vez», la ubicación en directo y las listas de difusión. WhatsApp para Windows y para WearOS se desvinculan durante el proceso."
+        },
+        "cost": {
+          "title": "Los mensajes enviados desde Kindly se facturan",
+          "detail": "Lo que envíes desde tu móvil sigue siendo gratis. Lo que se envíe desde Kindly va por la Cloud API y tiene el coste estándar de Meta."
+        }
+      },
+      "country": "País del número",
+      "countryHint": "Código de dos letras. Comprobamos que coexistence esté disponible en ese país antes de empezar.",
+      "countryUnknown": "Todavía no podemos comprobar automáticamente si coexistence está disponible en tu país: Meta no publica la lista de regiones excluidas en un formato que podamos consultar, y copiarla de una fuente no oficial sería peor que no comprobarla. Confírmalo con Meta si tienes dudas.",
+      "whatNext": "Qué pasa al continuar",
+      "whatNextBody": "Kindly pedirá la conexión al proveedor con tu cuenta. Sigue las instrucciones del proveedor si te las pide y vuelve aquí: el estado del canal se verá en esta pantalla.",
+      "continue": "Continuar",
+      "connectFailed": "No se pudo conectar el canal"
     }
   }
 }

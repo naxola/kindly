@@ -12,7 +12,7 @@ export type { WhatsAppTestAdapterConfig } from './whatsapp-test.ts'
 
 export interface MessagingRegistryOptions {
   /**
-   * Registers the fake channel (signature = a shared secret). Only the E2E configuration turns it
+   * Registers the fake channels (signature = a shared secret). Only the E2E configuration turns it
    * on; a real deployment never does.
    */
   fake?: { secret: string }
@@ -26,7 +26,18 @@ export interface MessagingRegistryOptions {
  */
 export function buildMessagingRegistry(options: MessagingRegistryOptions = {}): MessagingRegistry {
   const adapters: MessagingAdapter[] = []
-  if (options.fake) adapters.push(new FakeMessagingAdapter(options.fake.secret))
+  if (options.fake) {
+    adapters.push(new FakeMessagingAdapter(options.fake.secret))
+    // A second fake that behaves like WhatsApp coexistence: guided onboarding, cannot be
+    // disconnected from Kindly. It lets the end-to-end tests walk that flow without Meta.
+    adapters.push(
+      new FakeMessagingAdapter(options.fake.secret, {
+        channel: 'fake-coexistence',
+        onboarding: 'WHATSAPP_COEXISTENCE',
+        canDisconnect: false,
+      }),
+    )
+  }
   if (options.whatsappTest) adapters.push(new WhatsAppTestAdapter(options.whatsappTest))
   return createMessagingRegistry(adapters)
 }

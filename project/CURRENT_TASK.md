@@ -4,7 +4,7 @@
 > con otro modelo. Se actualiza al terminar cada sesión, haya terminado o no
 > el paquete.
 
-## Paquete activo: Migración a `saas-template` — M7b hecha. Siguiente: M7c (canales)
+## Paquete activo: Migración a `saas-template` — M7c hecha. Siguiente: M8a (conocimiento: datos e ingesta)
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
@@ -29,7 +29,7 @@ solo el nombre es obligatorio. UI-10c y Fase 8 quedan aparcadas hasta el corte (
 **M1b hecha:** plantilla `v1.0.0` fusionada (conflictos de `CLAUDE.md`,
 `README.md` y `.gitignore` resueltos en Kindly), `legacy/` fuera del tooling;
 format/lint/typecheck/76 unitarias en verde (Node 24). **Próximo paso
-concreto:** M7c — canales (vista por delegado, máquina de estados, alta de WhatsApp en tres vías en Organización → Canales; ver el «Próximo paso concreto» de M7b en `project/MIGRATION.md` §8); **M7b hecha** (196 de integración, 115 unitarias, 25 E2E); **M7a hecha** (185 de integración, 21 E2E); **M6b hecha** (173 de integración, 115 unitarias, 18 E2E); **M6a hecha** (163 de integración, 18 E2E); **casos aplazados** por el usuario; **M5 (tareas) hecha** (135 de integración y 18 E2E en verde); **M4b hecha** (UI de contactos, 16 E2E en verde); **M4a hecha** (126 de integración, 13 E2E en verde); **M3b hecha** (ficha del miembro y cargos: 100 de integración y 13 E2E en verde); **M2 hecha**
+concreto:** M8a — conocimiento, datos e ingesta (ver el «Próximo paso concreto» de M7c en `project/MIGRATION.md` §8); **M7c hecha** (204 de integración, 115 unitarias, 28 E2E); **M7b hecha** (196 de integración, 115 unitarias, 25 E2E); **M7a hecha** (185 de integración, 21 E2E); **M6b hecha** (173 de integración, 115 unitarias, 18 E2E); **M6a hecha** (163 de integración, 18 E2E); **casos aplazados** por el usuario; **M5 (tareas) hecha** (135 de integración y 18 E2E en verde); **M4b hecha** (UI de contactos, 16 E2E en verde); **M4a hecha** (126 de integración, 13 E2E en verde); **M3b hecha** (ficha del miembro y cargos: 100 de integración y 13 E2E en verde); **M2 hecha**
 (pgvector en imagen, init y migración; 82 de integración en verde; Docker
 no verificado). Detalle en `project/MIGRATION.md` §8.
 

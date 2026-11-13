@@ -124,7 +124,17 @@
     "NOT_ACCOUNT_OWNER": "Only the delegate who owns this channel can reply from Kindly.",
     "SERVICE_WINDOW_CLOSED": "The provider's messaging window is closed.",
     "ACCOUNT_NOT_OPERATIONAL": "The channel is not connected.",
-    "UNKNOWN_CHANNEL": "This channel is not available."
+    "UNKNOWN_CHANNEL": "This channel is not available.",
+    "ONBOARDING_REQUIRED": "This channel connects through the guided flow: every point must be confirmed first.",
+    "PREFLIGHT_INCOMPLETE": "Some points are still to be confirmed before connecting.",
+    "PATH_UNAVAILABLE": "That option is not available yet.",
+    "UNKNOWN_PATH": "That option does not exist.",
+    "COUNTRY_REQUIRED": "Enter the number's country (two letters).",
+    "COUNTRY_UNSUPPORTED": "Coexistence is not available for numbers from that country. You would need a number from another region.",
+    "CANNOT_DISCONNECT_FROM_KINDLY": "This channel can only be disconnected from the delegate's own phone, not from Kindly.",
+    "ACCOUNT_ALREADY_CONNECTED": "That account is already connected.",
+    "INVALID_CONVERSATION": "The conversation does not exist or you do not have access to it.",
+    "CONVERSATION_CONTACT_MISMATCH": "The conversation belongs to another contact."
   },
   "home": {
     "title": "Home",
@@ -144,7 +154,8 @@
       "title": "Settings",
       "members": "Members",
       "billing": "Plan and usage",
-      "positions": "Positions"
+      "positions": "Positions",
+      "channels": "Channels"
     }
   },
   "orgSwitcher": {
@@ -538,6 +549,121 @@
       "others": "Other conversations",
       "noOthers": "No other conversations",
       "noMessages": "No messages"
+    }
+  },
+  "channels": {
+    "title": "Channels",
+    "description": "Each professional connects their own WhatsApp or Telegram account. Kindly syncs that conversation; it neither replaces it nor centralizes it on an organization number.",
+    "mine": "Connected in your name",
+    "noneMine": "You have not connected any channel yet.",
+    "connect": "Connect a channel",
+    "noChannels": "No messaging provider is available in this environment yet.",
+    "alreadyConnected": "You already have an account connected on this channel.",
+    "willConnect": "It will connect with your own account, in your name.",
+    "connectButton": "Connect {channel}",
+    "connecting": "Connecting…",
+    "others": "Channels of the rest of the organization",
+    "noneOthers": "No other member has connected a channel yet.",
+    "attention": "review",
+    "connectedOn": "Connected on {date}.",
+    "lastSync": "Last sync: {date}.",
+    "noSync": "No syncs recorded yet.",
+    "lastError": "Last error",
+    "webhook": "Webhook URL (register it in the provider's panel, after the public domain)",
+    "disconnect": "Disconnect",
+    "disconnectTitle": "Disconnect channel",
+    "disconnectDescription": "This channel will stop syncing messages.",
+    "deviceOnlyOwn": "This channel is disconnected from your own phone, not from Kindly.",
+    "deviceOnlyOther": "Only the delegate can disconnect it, from their phone.",
+    "status": {
+      "PENDING": {
+        "label": "Pending",
+        "detail": "The connection was started but not authorized yet. Finish the process with the provider."
+      },
+      "CONNECTING": {
+        "label": "Connecting",
+        "detail": "Waiting for the provider's confirmation. It can take a few seconds."
+      },
+      "CONNECTED": {
+        "label": "Connected",
+        "detail": "Messages sync normally."
+      },
+      "DEGRADED": {
+        "label": "With issues",
+        "detail": "Messages keep arriving, but something is off. Worth checking before it stops."
+      },
+      "ERROR": {
+        "label": "Error",
+        "detail": "Syncing is stopped. The error must be resolved to send and receive again."
+      },
+      "REVOKED": {
+        "label": "Permission withdrawn",
+        "detail": "The provider withdrew the authorization. The channel must be connected again."
+      },
+      "DISCONNECTED": {
+        "label": "Disconnected",
+        "detail": "This channel no longer syncs. You can connect it again whenever you want."
+      }
+    },
+    "onboarding": {
+      "back": "← Channels",
+      "notFound": "This channel has no guided connection flow.",
+      "pathsTitle": "Connect WhatsApp",
+      "pathsDescription": "Choose how you want to connect. You can only follow one of the three options, and it cannot be changed later without disconnecting.",
+      "next": "Next",
+      "unavailable": "Not available yet.",
+      "paths": {
+        "COEXISTENCE": {
+          "title": "Connect my current WhatsApp Business number",
+          "description": "You keep using your number in the WhatsApp Business app on your phone, and Kindly syncs those conversations behind the scenes."
+        },
+        "NEW_ACCOUNT": {
+          "title": "Create a new WhatsApp Business account",
+          "description": "A new number, dedicated to Kindly, unrelated to the one you use on your phone today.",
+          "unavailable": "Not available yet. Kindly has only adopted the coexistence option for now; this one needs a product decision that has not been made."
+        },
+        "MIGRATE_BSP": {
+          "title": "Migrate from another provider (BSP)",
+          "description": "Bring to Kindly a number that already runs with another WhatsApp API provider.",
+          "unavailable": "Not available yet. Migrating between providers has its own Meta rules that must be verified before offering it."
+        }
+      },
+      "preflightBack": "← Choose another option",
+      "preflightTitle": "Before connecting your number",
+      "preflightDescription": "These are not Kindly's terms: each point is a Meta requirement or a real consequence for the phone you carry. Confirm all of them to continue.",
+      "checks": {
+        "business-app": {
+          "title": "The number is on the WhatsApp Business app",
+          "detail": "It must be WhatsApp Business (version 2.24.17 or later), not the regular WhatsApp app. If you use the consumer app, this option is not possible with that number."
+        },
+        "not-on-cloud-api": {
+          "title": "The number is not already registered on the Cloud API",
+          "detail": "A number that was already registered on the WhatsApp API on its own cannot join through coexistence."
+        },
+        "business-manager": {
+          "title": "The number is added to the organization's Business Manager",
+          "detail": "Meta requires the number to belong to the Business Manager from which the connection is authorized."
+        },
+        "history": {
+          "title": "Up to 180 days of history will sync",
+          "detail": "Individual conversations only, never groups. Attachments only arrive for messages from the last 14 days."
+        },
+        "disabled-features": {
+          "title": "You will lose some features on your phone",
+          "detail": "Disappearing messages, view once, live location and broadcast lists are turned off. WhatsApp for Windows and WearOS are unlinked during the process."
+        },
+        "cost": {
+          "title": "Messages sent from Kindly are billed",
+          "detail": "What you send from your phone stays free. What is sent from Kindly goes through the Cloud API at Meta's standard cost."
+        }
+      },
+      "country": "Number's country",
+      "countryHint": "Two-letter code. We check that coexistence is available in that country before starting.",
+      "countryUnknown": "We cannot yet check automatically whether coexistence is available in your country: Meta does not publish the list of excluded regions in a format we can query, and copying it from an unofficial source would be worse than not checking. Confirm with Meta if in doubt.",
+      "whatNext": "What happens next",
+      "whatNextBody": "Kindly will ask the provider to connect with your account. Follow the provider's instructions if it asks for any and come back: the channel's status shows on this screen.",
+      "continue": "Continue",
+      "connectFailed": "Could not connect the channel"
     }
   }
 }

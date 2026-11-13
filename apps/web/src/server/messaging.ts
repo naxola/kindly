@@ -1,5 +1,6 @@
 import { messagingRegistryFromEnv } from '@saas/adapters/messaging'
-import type { MessagingRegistry } from '@saas/core'
+import { loadMessagingEnv } from '@saas/config/env'
+import { parseCountryCodes, type MessagingRegistry } from '@saas/core'
 
 let registry: MessagingRegistry | undefined
 
@@ -10,3 +11,10 @@ export const messaging = (): MessagingRegistry => (registry ??= messagingRegistr
 export const setMessagingForTests = (next: MessagingRegistry | undefined) => {
   registry = next
 }
+
+/**
+ * Countries where coexistence is not offered, from configuration. Empty (the default) means "cannot
+ * check": the list is never guessed (docs/DECISIONS.md, 2026-09-19).
+ */
+export const unsupportedCountryCodes = (): string[] =>
+  parseCountryCodes(loadMessagingEnv().WHATSAPP_UNSUPPORTED_COUNTRY_CODES)
