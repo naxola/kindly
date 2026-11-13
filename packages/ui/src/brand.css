@@ -12,9 +12,24 @@
   --brand-subtle: #eef6f2;
   --ring: #1f7a5a;
   --radius: 6px;
+  /*
+   * The template's #737373 gives 4.42:1 on the light alternate background (#f7f7f7): under the 4.5:1
+   * of WCAG AA. A little darker passes (about 5:1) and the axe E2E keeps it that way.
+   */
+  --foreground-lighter: #6b6b6b;
+  /* Warning text on its subtle background: the template's #b86b00 gives 3.7:1; this gives 5:1. */
+  --warning: #9a5a00;
+  /* Same for success and destructive text on their subtle backgrounds (3.9:1 -> 4.8:1). */
+  --success: #177a41;
+  --destructive: #c2331f;
 }
 
 .dark {
+  /* Back to the template's dark value: brand.css loads after styles.css and `:root` above would win. */
+  --foreground-lighter: #8f8f8f;
+  --warning: #e6a23c;
+  --success: #4cc38a;
+  --destructive: #ef6a57;
   --brand: #34a37a;
   --brand-hover: #3bb090;
   --brand-foreground: #0a1222;

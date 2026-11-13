@@ -4,7 +4,9 @@ import { cn } from '../lib/cn.ts'
 /** Data table in the shell style. Large tables will use TanStack Table. */
 export function Table({ className, ...props }: ComponentProps<'table'>) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    // `relative`: the sr-only cells of a table are absolutely positioned; without a positioned
+    // ancestor they escape the scroll box and widen the whole page on a narrow screen.
+    <div className="relative overflow-x-auto rounded-lg border border-border">
       <table className={cn('w-full border-collapse text-sm', className)} {...props} />
     </div>
   )

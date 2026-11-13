@@ -10,7 +10,7 @@ export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = await getTranslations({ locale })
   return (
     <footer className="border-t border-border bg-background-alt">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-8 text-sm text-foreground-lighter">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-8 text-sm text-foreground-light">
         <span>
           {t('footer.rights', { year: new Date().getFullYear(), company: site.legal.companyName })}
         </span>

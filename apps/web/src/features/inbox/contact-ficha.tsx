@@ -66,7 +66,11 @@ export function ContactFicha({
   const c = contact.data
 
   return (
-    <aside aria-label={t('title')} className={cn('overflow-y-auto bg-surface-100', className)}>
+    <aside
+      aria-label={t('title')}
+      data-f6
+      className={cn('overflow-y-auto bg-surface-100', className)}
+    >
       {contact.error ? (
         <div className="p-4">
           <Callout variant="destructive">{errorText(all, contact.error)}</Callout>

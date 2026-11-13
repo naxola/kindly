@@ -753,8 +753,8 @@ solo la vista de conjunto.
 - [x] M8b — Conocimiento: recuperación híbrida con citas verificables, API, pantallas `/knowledge` con estado de la ingesta y E2E (2026-11-13).
 - [x] M9 — Trámites: versionados, con pasos y documentos requeridos, lectura para todos y escritura solo ADMIN (2026-11-13).
 - [x] M10 — Web pública: portada de Kindly, cinco documentos legales es/en (incluida la eliminación de datos que exige Meta), datos de empresa y verificación de dominio (2026-11-13). **Los legales siguen como borrador sin revisar** (`legal.reviewed = false`).
-- [ ] M11 — Accesibilidad y pulido. **Siguiente.**
-- [ ] M12 — Documentación al nuevo stack.
+- [x] M11 — Accesibilidad y pulido: axe en claro y oscuro, 320 px, F6, contraste, `docs/ui/` al nuevo stack (2026-11-13).
+- [ ] M12 — Documentación al nuevo stack. **Siguiente.**
 - [ ] M13 — Corte: borrar `legacy/`, staging, fusión en `master`.
 
 ## Backlog explícitamente fuera del MVP (no planificar todavía)

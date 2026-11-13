@@ -7,6 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState, type ReactNode } from 'react'
 import { findModule, MODULES, productMenu, railGroups } from '@/navigation/config.tsx'
 import { AppLink } from './link.tsx'
+import { RegionShortcut } from './region-shortcut.tsx'
 import { Logo } from './logo.tsx'
 import { PreferencesMenu } from './preferences-menu.tsx'
 import { WorkspaceProvider } from './workspace-context.tsx'
@@ -66,6 +67,7 @@ export function AppFrame({ user, organizations, active, permissions, children }:
       >
         {t('shell.skipToContent')}
       </a>
+      <RegionShortcut />
       <AppShell
         topBar={
           <TopBar

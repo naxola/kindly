@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm env:check && turbo run dev",
     "build": "turbo run build",
-    "lint": "eslint . --max-warnings=0 && pnpm check:boundaries",
+    "lint": "node --max-old-space-size=4096 node_modules/eslint/bin/eslint.js . --max-warnings=0 && pnpm check:boundaries",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
     "typecheck": "turbo run typecheck",
     "test": "vitest run --project unit",
@@ -30,6 +30,7 @@
     "knowledge:ingest": "tsx scripts/ingest-knowledge.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@saas/adapters": "workspace:*",

@@ -40,7 +40,11 @@ export function InboxWorkspace({ initialFichaCollapsed }: { initialFichaCollapse
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader title={t('title')} description={t('description')} />
       <div className="flex min-h-0 flex-1">
-        <div className={cn('min-w-0 flex-1 overflow-y-auto', conversationId && 'hidden xl:block')}>
+        <div
+          data-f6
+          aria-label={t('title')}
+          className={cn('min-w-0 flex-1 overflow-y-auto', conversationId && 'hidden xl:block')}
+        >
           <InboxList selectedId={conversationId} onOpen={go} />
         </div>
         {conversationId ? (

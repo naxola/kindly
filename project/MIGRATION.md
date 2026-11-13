@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M10 hecha: web pública y legales, como borrador marcado).
+Última actualización: 2026-11-13 (M11 hecha: accesibilidad y pulido).
 
 ## 1. Objetivo
 
@@ -142,7 +142,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ✅               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ✅               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ✅               |
-| M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ⬜               |
+| M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ✅               |
 | M12  | Documentación: `ARCHITECTURE.md`, `DATABASE.md`, `INTEGRATIONS.md`, `tests/README` al nuevo stack; `CLAUDE.md` definitivo; `PROGRESS.md`                                                                                                                                                                                                                                                                                                                | —                                                                                                | ⬜               |
 | M13  | **Corte**: `legacy/` vacío y borrado; despliegue en staging (homelab) con `db:deploy` + `queue:install`; datos (D3); el usuario fusiona `migration/saas-template` en `master`; etiqueta `kindly-v0.2.0`                                                                                                                                                                                                                                                 | Resto de `legacy/`                                                                               | ⬜               |
 
@@ -1091,3 +1091,38 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
 - Verificación real: `lint`, `typecheck`, `test`, `build` y el E2E de la web pública (7/7). La batería completa se pasa
   al cerrar M11.
 - **Próximo paso concreto:** M11 — accesibilidad y pulido.
+
+### 2026-11-13 — M11 (accesibilidad y pulido)
+
+- Hecho:
+  - **axe en los E2E** (`e2e/accessibility.spec.ts`, `@axe-core/playwright` 4.13.0, nueva dependencia de desarrollo):
+    WCAG 2.x AA, impacto serio o crítico, sobre 10 pantallas de la app (inicio, bandeja con conversación abierta,
+    contactos y ficha, tareas, conocimiento con resultados, trámites, canales, miembros, cargos) y 5 de la web pública,
+    **en claro y en oscuro**. El informe indica el nodo y los colores y la razón de contraste.
+  - **320 px**: ninguna de nueve pantallas provoca desplazamiento horizontal (la prueba nombra los elementos que se salen).
+  - **Atajos**: `F6` / `Mayús+F6` mueven el foco entre regiones (`RegionShortcut`, `data-f6`): en la bandeja, lista → chat →
+    ficha. E2E propio. Enlace «Saltar al contenido», tema y menú móvil con E2E (`e2e/shell.spec.ts`).
+  - **Docs**: `docs/ui/README.md` con la equivalencia del código anterior al nuevo (tokens, componentes, rutas, textos) y el
+    estado de la accesibilidad y de lo pendiente.
+- **Hallazgos reales que salieron al montarlo (y estaban sin ver):**
+  1. **El test «claro» del código anterior no probaba el claro**: la app arranca en **oscuro** (`next-themes`,
+     `defaultTheme="dark"`, de la plantilla) sea cual sea el sistema. Hay que fijar el tema en `localStorage`. Al hacerlo,
+     aparecieron los fallos de contraste de claro: `--foreground-lighter`, `--warning`, `--success` y `--destructive` de la
+     plantilla (3,7–4,4:1) bajo el 4,5:1. Se ajustan en `packages/ui/src/brand.css` (≈4,8–5:1) y se restituye el valor
+     oscuro de la plantilla en `.dark` (`brand.css` carga después y su `:root` ganaría, empeorando el oscuro: lo vi fallar).
+  2. **Las tablas escapaban de su caja** por las celdas `sr-only` (absolutas, sin ancestro posicionado), ensanchando la página a
+     320 px. `Table` es ahora `relative`. Es un cambio en `packages/ui` (candidato a subir a la plantilla, junto con el ajuste
+     de contraste).
+  3. **`eslint` se quedaba sin memoria** con el tamaño actual del repo (cayó con 28 «errores» de tipos la primera vez y
+     `FATAL ERROR: heap out of memory` después). El script `lint` lleva ahora `--max-old-space-size=4096`.
+- **Archivos de la plantilla tocados (a vigilar en el próximo `git merge template/…`):** `packages/ui/src/components/table.tsx`,
+  `packages/ui/src/brand.css` (ya era de Kindly), `package.json` (script `lint`, `@axe-core/playwright`), `playwright.config.ts`.
+- **No hecho (anotado en `docs/ui/README.md`):** animación de anchura del panel de conversación, `Alt+↑/↓`, `Sheet` modal
+  entre `md` y `xl`, revisión manual con lector de pantalla y pasada visual a 1536 px y en móvil real: axe no sustituye a una
+  persona. Los hallazgos de impacto «moderado» no bloquean y no se han revisado.
+- **`legacy/` — borrado:** `tests/e2e/{accessibility,shell}.spec.ts` y `axe-helpers.ts`.
+- Verificación real: `format:check`, `lint`, `typecheck`, `test` (207), `test:integration` (246), `db:check`, `build` y
+  `test:e2e` (42/42).
+- **Próximo paso concreto:** M12 — documentación al nuevo stack: `docs/ARCHITECTURE.md`, `DATABASE.md`,
+  `INTEGRATIONS.md`, `tests/README.md` (hoy el del código anterior, en `legacy/tests/README.md`), `README.md` raíz y revisión de
+  `CLAUDE.md`; `docs/DECISIONS.md` ya está al día.

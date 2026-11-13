@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
 import {
   adminWithOrganization,
@@ -125,6 +126,35 @@ test('the panel shows chat and a read-only ficha; sending is optimistic and typi
   // Back closes it, Forward reopens it.
   await page.goBack()
   await expect(page.getByLabel('Mensaje')).toHaveCount(0)
+})
+
+test('F6 moves the focus between the list, the chat and the ficha', async ({ page }) => {
+  await adminWithOrganization(page, 'Teclado')
+  const account = await fakeAccount(page)
+  await deliverFakeMessage(page, account, { from: 'Marta Gil', text: 'Hola' })
+  const { id } = await firstConversation(page)
+  await page.goto(`/inbox?conversation=${id}`)
+  await expect(page.getByLabel('Mensaje')).toBeFocused() // opening puts the cursor where the reply goes
+  const where = () =>
+    page.evaluate(() => {
+      const a = document.activeElement
+      return (
+        a?.closest('aside')?.getAttribute('aria-label') ??
+        (a?.closest('section[aria-labelledby]')
+          ? 'chat'
+          : a?.closest('[data-f6]')
+            ? 'list'
+            : 'other')
+      )
+    })
+  await page.keyboard.press('F6')
+  await expect.poll(where).toBe('Ficha del afiliado')
+  await page.keyboard.press('F6')
+  await expect.poll(where).toBe('list')
+  await page.keyboard.press('F6')
+  await expect.poll(where).toBe('chat')
+  await page.keyboard.press('Shift+F6')
+  await expect.poll(where).toBe('list')
 })
 
 test('the ficha can be folded and the preference is remembered', async ({ page }) => {
