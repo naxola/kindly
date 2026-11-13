@@ -410,6 +410,10 @@
         "AFFILIATION_UPDATED": "Afiliación editada",
         "AFFILIATION_ENDED": "Afiliación dada de baja"
       }
+    },
+    "identify": {
+      "notice": "Este contacto lo creó Kindly con el nombre que trae el canal. Confirma que es quien parece.",
+      "action": "Marcar como identificado"
     }
   },
   "tasks": {

@@ -863,3 +863,14 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   y las entradas de `docs/DECISIONS.md` de las Fases 7a–7f. Principio 3 (conocimiento verificable:
   fuente, versión, vigencia, `EvidenceLevel`) no se rompe. Es grande: partir en datos+RLS, proveedores,
   ingesta/job.
+
+### 2026-11-13 — «Marcar como identificado» (cierre del pendiente de M7b)
+
+- Decidido por el usuario: la acción va en la ficha de la conversación y en la página del contacto;
+  **fusionar con un contacto existente queda como paso aparte** (no existe en `core`; sigue pendiente).
+- Hecho: `UnidentifiedNotice` (aviso + botón para quien tenga `contacts.write`) en ambas pantallas;
+  `markContactIdentified` pasa a ser idempotente (confirmar dos veces no repite actividad ni auditoría);
+  textos es/en; test de integración y el E2E de la ficha ampliado. Esto **sustituye** la insignia
+  de solo lectura de la ficha (la bandeja y la cabecera conservan la suya).
+- Verificación real: `lint`, `typecheck`, 115 unitarias, 204 de integración, `build` y 28 E2E en verde.
+  (A mitad se reinició el entorno y Postgres había caído: se relanzó el clúster de `/var/lib/pg-kindly`.)

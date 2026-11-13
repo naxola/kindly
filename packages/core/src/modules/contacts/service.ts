@@ -170,7 +170,17 @@ export async function updateContact(
 export async function markContactIdentified(ctx: Ctx, contactId: string): Promise<ContactView> {
   authorize(ctx.actor, 'contacts.write')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-    await assertContactVisible(tx, ctx.actor, contactId)
+    const existing = await assertContactVisible(tx, ctx.actor, contactId)
+    if (!existing.isUnassigned) {
+      // Idempotent: confirming twice records nothing twice.
+      const [view] = await withReference(tx, [
+        await tx.contact.findUniqueOrThrow({
+          where: { id: contactId },
+          include: { assignments: openAssignment },
+        }),
+      ])
+      return view!
+    }
     const contact = await tx.contact.update({
       where: { id: contactId },
       data: { isUnassigned: false },

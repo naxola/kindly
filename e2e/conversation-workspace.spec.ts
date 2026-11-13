@@ -58,10 +58,15 @@ test('the panel shows chat and a read-only ficha; sending is optimistic and typi
   await expect(ficha.getByText(/Cuota de .* pendiente/)).toBeVisible()
   await expect(ficha.getByText('Pedir el justificante')).toBeVisible()
   await expect(ficha.getByText('Ana Admin')).toBeVisible() // reference delegate
+  await expect(ficha.getByText(/Este contacto lo creó Kindly/)).toBeVisible()
   await expect(ficha.getByText('No hay otras conversaciones')).toBeVisible()
   await expect(ficha.getByRole('link', { name: 'Abrir la ficha completa' })).toBeVisible()
   // Read only: nothing to edit in it, and no cases (they are not part of Kindly yet).
   await expect(ficha.getByRole('textbox')).toHaveCount(0)
+  // The one action it has: confirm who the contact is (the notice and the list badge go away).
+  await press(ficha.getByRole('button', { name: 'Marcar como identificado' }))
+  await expect(ficha.getByText(/Este contacto lo creó Kindly/)).toHaveCount(0)
+  await expect(page.getByRole('list').getByText('Sin identificar')).toHaveCount(0)
   await expect(page.getByText(/Casos/)).toHaveCount(0)
   await shot(page, 'workspace')
 

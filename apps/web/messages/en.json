@@ -410,6 +410,10 @@
         "AFFILIATION_UPDATED": "Affiliation edited",
         "AFFILIATION_ENDED": "Affiliation ended"
       }
+    },
+    "identify": {
+      "notice": "Kindly created this contact with the name the channel provides. Confirm it is who it seems to be.",
+      "action": "Mark as identified"
     }
   },
   "tasks": {

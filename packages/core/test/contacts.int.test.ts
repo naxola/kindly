@@ -76,6 +76,10 @@ describe('creating and editing contacts', () => {
     expect((await markContactIdentified(admin.ctx, c.id)).isUnassigned).toBe(false)
     const types = (await listContactActivity(admin.ctx, c.id)).map((a) => a.type)
     expect(types).toContain('CONTACT_IDENTIFIED')
+    // Confirming again changes and records nothing.
+    expect((await markContactIdentified(admin.ctx, c.id)).isUnassigned).toBe(false)
+    const again = (await listContactActivity(admin.ctx, c.id)).map((a) => a.type)
+    expect(again.filter((t) => t === 'CONTACT_IDENTIFIED')).toHaveLength(1)
   })
 })
 

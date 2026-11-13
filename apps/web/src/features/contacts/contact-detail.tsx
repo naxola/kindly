@@ -13,6 +13,7 @@ import { useCan, useOrganizationId } from '@/components/workspace-context.tsx'
 import { ActivityFeed } from './activity-feed.tsx'
 import { AffiliationSection } from './affiliation-section.tsx'
 import { ContactFields, readContactForm } from './contact-fields.tsx'
+import { UnidentifiedNotice } from './unidentified-notice.tsx'
 import { DelegateSection } from './delegate-section.tsx'
 import { contactKeys, useContact } from './queries.ts'
 
@@ -68,6 +69,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
         })}
       />
       <PageContainer className="max-w-3xl space-y-6">
+        {c.isUnassigned ? <UnidentifiedNotice contactId={c.id} /> : null}
         <form onSubmit={onSubmit}>
           <Panel
             title={t('edit.title')}

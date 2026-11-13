@@ -8,6 +8,7 @@ import { errorText } from '@/client/errors.ts'
 import { useMembers } from '@/client/queries.ts'
 import { useOrganizationId } from '@/components/workspace-context.tsx'
 import { AffiliationSummary } from '../contacts/affiliation-section.tsx'
+import { UnidentifiedNotice } from '../contacts/unidentified-notice.tsx'
 import { useContact, useContactAffiliation } from '../contacts/queries.ts'
 import { useContactConversations, useContactOpenTasks } from './queries.ts'
 
@@ -88,7 +89,7 @@ export function ContactFicha({
                   <Row label={t('email')}>{c.email ?? '—'}</Row>
                   <Row label={t('channel')}>{channel}</Row>
                 </dl>
-                {c.isUnassigned ? <Badge variant="warning">{t('unassigned')}</Badge> : null}
+                {c.isUnassigned ? <UnidentifiedNotice contactId={c.id} /> : null}
                 {c.notes ? (
                   <p className="whitespace-pre-wrap text-xs text-foreground-lighter">{c.notes}</p>
                 ) : null}
