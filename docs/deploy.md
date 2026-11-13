@@ -23,7 +23,7 @@ decida, desplegará **las mismas imágenes** ya probadas en staging.
 
 > La web pública está prerenderizada: sus URLs se fijan al construirla. Para publicar imágenes,
 > el repositorio necesita las variables (GitHub → Settings → Secrets and variables → Actions →
-> Variables) `STAGING_SITE_URL`, `STAGING_APP_URL` y, opcionalmente, `STAGING_PLAUSIBLE_DOMAIN`.
+> Variables) `STAGING_SITE_URL`, `STAGING_APP_URL` y, opcionalmente, `STAGING_PLAUSIBLE_DOMAIN` y `STAGING_FACEBOOK_DOMAIN_VERIFICATION` (token de verificación de dominio de Meta, que va a una etiqueta `<meta>` de la web pública y se hornea en la imagen).
 > Sin ellas el CI construye y prueba, pero no publica (deja un aviso).
 
 ## Primera puesta en marcha

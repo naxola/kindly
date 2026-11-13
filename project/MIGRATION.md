@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M9 hecha: trámites).
+Última actualización: 2026-11-13 (M10 hecha: web pública y legales, como borrador marcado).
 
 ## 1. Objetivo
 
@@ -141,7 +141,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ✅               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ✅               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ✅               |
-| M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ⬜               |
+| M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ✅               |
 | M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ⬜               |
 | M12  | Documentación: `ARCHITECTURE.md`, `DATABASE.md`, `INTEGRATIONS.md`, `tests/README` al nuevo stack; `CLAUDE.md` definitivo; `PROGRESS.md`                                                                                                                                                                                                                                                                                                                | —                                                                                                | ⬜               |
 | M13  | **Corte**: `legacy/` vacío y borrado; despliegue en staging (homelab) con `db:deploy` + `queue:install`; datos (D3); el usuario fusiona `migration/saas-template` en `master`; etiqueta `kindly-v0.2.0`                                                                                                                                                                                                                                                 | Resto de `legacy/`                                                                               | ⬜               |
@@ -1055,3 +1055,39 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   `legacy/src/config/company.ts`, `tests/e2e/public-site.spec.ts` y el E2E `site.spec.ts` de la plantilla.
   **Necesitaré del usuario los datos reales de la empresa** (razón social, NIF, domicilio, correo de
   privacidad, responsable del tratamiento): sin ellos los legales quedan como borrador marcado.
+
+### 2026-11-13 — M10 (web pública y legales)
+
+- Datos de empresa, dados por el usuario y **confirmados** por él tras una búsqueda en directorios (no en un registro
+  oficial): razón social **Hayat Iberia S.L.**, NIF **B42637348**, domicilio **Calle Rambla Baja, 97, 1.º I, 03360
+  Callosa de Segura (Alicante)** (escrito entero: Meta compara literalmente y rechaza abreviaturas), correo de
+  contacto y de privacidad `privacy@daedaluscognitio.com`, responsable del tratamiento: la propia sociedad.
+- **Discrepancia que conviene resolver antes de publicar:** el `company.ts` del código anterior (ya borrado; está en el
+  historial de git) tenía el NIF **B53487885**, no el B42637348; el domicilio y la razón social coincidían. Se usó el
+  confirmado por el usuario (B42637348), pero **debe contrastarse con la nota simple del Registro Mercantil o la AEAT**.
+  El teléfono del código anterior no se ha incluido: el usuario solo dio el correo.
+- Hecho:
+  - `apps/site/src/site.config.ts` con los datos de arriba y `reviewed: false`: mientras lo sea, cada página legal lleva el
+    aviso de «pendiente de revisión legal» y **no se indexa ni entra en el sitemap**. Los datos que no están confirmados
+    llevan `REVISAR:` a la vista: datos registrales, proveedor de alojamiento y su región, proveedor de correo, región y
+    contrato de OpenAI, plazo de conservación de las notificaciones originales.
+  - **Cinco documentos legales en es/en** (`content/legal/<idioma>/`): privacidad, términos, aviso legal, **eliminación de
+    datos** (la URL que exige Meta) y cookies, enlazados desde el pie. Portados de los del código anterior y **corregidos
+    para decir solo lo que el producto hace hoy**: sin Telegram, sin copiloto de IA (no existe), sin «expedientes»
+    (los casos están aplazados), con OpenAI nombrado como encargado de los embeddings y con la afirmación de que no se
+    guardan archivos de afiliados.
+  - Portada de Kindly (es/en) sin promesas de funciones inexistentes; el CTA pasa de «Empezar gratis» (no hay plan
+    gratuito decidido) a «Crear cuenta».
+  - **Verificación de dominio de Meta**: `FACEBOOK_DOMAIN_VERIFICATION` se publica como `<meta name="facebook-domain-verification">`.
+    Como la web es estática, es una variable **de construcción** (como `SITE_URL`): `ARG` en el `Dockerfile`,
+    `--build-arg` en el CI desde la variable de repositorio `STAGING_FACEBOOK_DOMAIN_VERIFICATION` y nota en
+    `docs/deploy.md`. En `.env.example` para desarrollo.
+  - E2E: portada y CTA, los cinco legales y el pie en ambos idiomas, datos de empresa y marcas `REVISAR` visibles,
+    noindex, la etiqueta de Meta.
+- **Cosas que dice el texto y que son compromisos de la empresa, no del código:** eliminar los datos en un máximo de 30
+  días tras cancelar y confirmar la recepción en 72 horas (portados del código anterior; hoy el borrado es manual por correo,
+  no hay botón). Revisarlos con la asesoría antes de marcar `reviewed`.
+- **`legacy/` — borrado:** `app/(public)/`, `config/company.ts`, `tests/e2e/public-site.spec.ts`.
+- Verificación real: `lint`, `typecheck`, `test`, `build` y el E2E de la web pública (7/7). La batería completa se pasa
+  al cerrar M11.
+- **Próximo paso concreto:** M11 — accesibilidad y pulido.

@@ -4,7 +4,7 @@ import type { Locale } from '@/i18n/routing.ts'
 import { site } from '@/site.config.ts'
 import { LanguageSwitch } from './language-switch.tsx'
 
-export const LEGAL_DOCS = ['privacy', 'terms', 'cookies'] as const
+export const LEGAL_DOCS = ['privacy', 'terms', 'legal-notice', 'data-deletion', 'cookies'] as const
 
 export async function SiteFooter({ locale }: { locale: Locale }) {
   const t = await getTranslations({ locale })

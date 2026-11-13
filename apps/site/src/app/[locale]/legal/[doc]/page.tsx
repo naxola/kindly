@@ -43,6 +43,8 @@ export default async function LegalPage({ params }: Props) {
       taxId: site.legal.taxId,
       address: site.legal.address,
       email: site.legal.email,
+      privacyEmail: site.legal.privacyEmail,
+      registryDetails: site.legal.registryDetails,
       productName: t('site.name'),
       siteUrl: site.url,
       appUrl: site.appUrl,

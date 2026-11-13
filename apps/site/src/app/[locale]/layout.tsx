@@ -27,6 +27,9 @@ export async function generateMetadata({
     metadataBase: new URL(site.url),
     title: { default: t('site.name'), template: `%s · ${t('site.name')}` },
     description: t('site.tagline'),
+    ...(site.facebookDomainVerification
+      ? { other: { 'facebook-domain-verification': site.facebookDomainVerification } }
+      : {}),
     openGraph: { siteName: t('site.name'), locale, type: 'website' },
     alternates: {
       types: { 'application/rss+xml': `${site.url}/${locale}/blog/rss.xml` },

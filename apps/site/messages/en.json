@@ -1,49 +1,49 @@
 {
   "site": {
     "name": "Kindly",
-    "tagline": "Describe here, in one sentence, what your product solves."
+    "tagline": "Your members' conversations, organized and in each delegate's own name."
   },
   "nav": {
     "pricing": "Pricing",
     "blog": "Blog",
     "signIn": "Sign in",
-    "signUp": "Start for free",
+    "signUp": "Create account",
     "language": "Language",
     "main": "Main navigation"
   },
   "home": {
-    "title": "Describe here the outcome your customer gets",
-    "subtitle": "One or two sentences on who the product is for and why it beats the alternative. Change it in apps/site/messages.",
-    "primaryCta": "Start for free",
+    "title": "Your members' conversations, organized and in your own name",
+    "subtitle": "Kindly gathers in one inbox the conversations each delegate holds from their own WhatsApp, links them to each member's profile and puts the regulations in front of you, with their source and validity.",
+    "primaryCta": "Create account",
     "secondaryCta": "See pricing",
     "featuresTitle": "What you can do",
     "features": {
       "one": {
-        "title": "First benefit",
-        "body": "Explain a concrete benefit, not a feature."
+        "title": "Each delegate, with their own number",
+        "body": "Kindly syncs each professional's WhatsApp account. It does not replace it nor centralize it on an organization number."
       },
       "two": {
-        "title": "Second benefit",
-        "body": "Better with a figure or a real customer example."
+        "title": "The member's profile, next to the chat",
+        "body": "Affiliation and fee, reference delegate, open tasks and the contact's other conversations, in view while you reply."
       },
       "three": {
-        "title": "Third benefit",
-        "body": "And what sets you apart from the competition."
+        "title": "Regulations with source and validity",
+        "body": "A knowledge base where each text states its document, version and validity dates, and procedures with the documents to ask for."
       }
     },
     "faqTitle": "Frequently asked questions",
     "faq": {
       "one": {
         "q": "Who is it for?",
-        "a": "Answer here your visitors' most common question."
+        "a": "For unions, associations and firms whose delegates serve their members over messaging."
       },
       "two": {
-        "q": "How much does it cost?",
-        "a": "Link to the pricing page or summarize the plans."
+        "q": "Does an AI reply for me?",
+        "a": "No. Nothing is sent to a contact unless a person writes or accepts it. Kindly does not give advice: it shows the loaded regulations, with their source and validity, for you to review."
       },
       "three": {
         "q": "Where is my data?",
-        "a": "Explain where it is hosted and who can see it."
+        "a": "Each organization only sees its own: the database enforces that isolation. The detail, with the providers involved, is in the privacy policy. Kindly does not keep your members' files."
       }
     },
     "ctaTitle": "Shall we start?",
@@ -53,7 +53,7 @@
     "title": "Pricing",
     "description": "Plans and terms.",
     "comingSoon": "We are preparing our prices.",
-    "contact": "Write to {email} and we will tell you.",
+    "contact": "Write to us at {email} and we will tell you.",
     "choose": "Start",
     "featured": "Recommended",
     "plans": {}
@@ -73,7 +73,9 @@
     "terms": "Terms",
     "cookies": "Cookies",
     "reviewWarning": "Template pending legal review: this text must not be published as is. Review it with your adviser and set legal.reviewed in site.config.ts.",
-    "updated": "Last updated: {date}"
+    "updated": "Last updated: {date}",
+    "legal-notice": "Legal notice",
+    "data-deletion": "Delete my data"
   },
   "footer": {
     "rights": "© {year} {company}",

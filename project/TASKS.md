@@ -752,8 +752,8 @@ solo la vista de conjunto.
 - [x] M8a — Conocimiento: datos con GLOBAL y RLS, `EmbeddingProvider`, extracción PDF/web con guardia SSRF, troceado, ingesta como job y `pnpm knowledge:ingest` (2026-11-13).
 - [x] M8b — Conocimiento: recuperación híbrida con citas verificables, API, pantallas `/knowledge` con estado de la ingesta y E2E (2026-11-13).
 - [x] M9 — Trámites: versionados, con pasos y documentos requeridos, lectura para todos y escritura solo ADMIN (2026-11-13).
-- [ ] M10 — Web pública y legales en `apps/site`. **Siguiente.**
-- [ ] M11 — Accesibilidad, pulido y `docs/ui/`.
+- [x] M10 — Web pública: portada de Kindly, cinco documentos legales es/en (incluida la eliminación de datos que exige Meta), datos de empresa y verificación de dominio (2026-11-13). **Los legales siguen como borrador sin revisar** (`legal.reviewed = false`).
+- [ ] M11 — Accesibilidad y pulido. **Siguiente.**
 - [ ] M12 — Documentación al nuevo stack.
 - [ ] M13 — Corte: borrar `legacy/`, staging, fusión en `master`.
 

@@ -1,29 +1,95 @@
 ---
 title: Privacy policy
+updated: 2026-11-13
 ---
 
-## Controller
+{{productName}} handles conversations between organizations and the people they serve. Here is what we keep, why, for how long and what you can ask of us.
 
-{{companyName}}, tax ID {{taxId}}, registered at {{address}}. Contact: {{email}}.
+## 1. Who is responsible for your data
 
-## What data we process and why
+**{{companyName}}** (tax ID {{taxId}}), based at {{address}}, is the controller of the data of the people who use {{productName}} as professionals: their account, their membership of an organization and their activity on the platform.
 
-- **User account** of {{productName}}: name, email and password (never stored in clear), to give you access to the service.
-- **Your organization's data** that you enter in the service, to provide it.
-- **Communications**: your email, to send you the notices the service needs (verification, invitations, security).
+To write to us about privacy: {{privacyEmail}}.
 
-## Legal basis
+## 2. Two different roles
 
-Performance of the service contract and, where applicable, your consent or legitimate interest, which you may object to.
+- **Data of the professionals who use {{productName}}** (name, email, encrypted password, organization, role and member profile). We are the **controller**.
+- **Data of the people each organization serves** (contacts, affiliation and conversations). The controller is **the organization**; {{productName}} acts as **processor** and only handles it on the organization's instructions and to provide the service.
 
-## Retention
+If you are a member or client of an organization that uses {{productName}} and want to exercise your rights, contact that organization: it decides what is done with your data. If you write to us, we will put you in touch with it.
 
-While you keep your account and, afterwards, for the applicable legal periods.
+## 3. What data we handle
 
-## Recipients
+**From the professional account**
 
-Providers that serve us (hosting, email delivery) as processors. We do not sell your data.
+- Name, surname, phone and email, and the position the organization assigns.
+- The password, always encrypted, never in clear.
+- The organization they belong to and their access role.
+- Activity and audit log: what was created, sent, assigned or connected, and when. The audit log keeps identifiers, not message content.
 
-## Your rights
+**From contacts and conversations**
 
-You can request access, rectification, erasure, objection, restriction and portability by writing to {{email}}. You may also complain to your data protection authority.
+- Name and phone in international format, when the provider supplies them, and the messaging provider's technical identifiers.
+- Content of the messages sent and received, with their date and delivery status.
+- Affiliation data (number, dates and the month up to which the fee is paid), notes and tasks the organization attaches to the contact.
+- When WhatsApp coexistence is enabled, the history before the connection: up to 180 days of individual conversations. Never groups.
+
+**From the knowledge base**
+
+- The text an administrator uploads (PDF, text or web page), split into pieces. **We do not keep the uploaded file**: only the extracted text. To search by meaning, that text is sent to an embeddings provider (see section 6).
+
+**Technical data**
+
+- The original content of the notifications messaging providers send us, which we keep to be able to reprocess a message if something fails and to audit what was received.
+- Access and error logs, without passwords or message content.
+
+{{productName}} **does not store members' files** (documents, images, attachments). We do not deliberately request or process special categories of data; if the content of a conversation includes them, they are handled on the instructions of the responsible organization.
+
+## 4. What we use it for and the legal basis
+
+- **Providing the service** (syncing conversations, organizing contacts, affiliations and tasks, searching the knowledge base): performance of the contract with the organization.
+- **Security and traceability** (activity log, abuse detection): legitimate interest in keeping the service secure and auditable.
+- **Support and service communications** (account verification, invitations, security notices): performance of the contract.
+- **Legal obligations** (invoicing, requirements): compliance with a legal obligation.
+
+**We do not use your members' data to train models**, our own or third parties'.
+
+## 5. WhatsApp
+
+Each professional connects their own account. When they do, Meta sends us that account's messages so they appear in {{productName}}, through its official authorization process. From WhatsApp we receive the new messages the professional receives and those they send from their phone, the earlier history when coexistence is enabled, and delivery and read statuses.
+
+We use that information for a single purpose: to show the conversation in the organization's inbox and allow replying from the professional's own account. We do not pass it to third parties for advertising nor cross it between different organizations.
+
+We do not use unofficial mechanisms to access these platforms.
+
+## 6. Who we share it with
+
+Only with providers that supply services needed for {{productName}} to work, under a data processing agreement:
+
+- **Meta Platforms Ireland Ltd.**: syncing WhatsApp Business messages. European Union, with possible transfers to the United States. Only when a professional connects their account.
+- **OpenAI**: generating the vectors (embeddings) of the knowledge base text and of search queries. Not used to train models. REVISAR: processing region and the processing agreement in force.
+- **REVISAR: hosting provider** (application and database) and **region**.
+- **REVISAR: email delivery provider** (verification, invitations and notices).
+
+When a provider processes data outside the European Economic Area, the transfer relies on the European Commission's standard contractual clauses or an adequacy decision. We do not sell personal data nor pass it to advertisers.
+
+## 7. How long we keep it
+
+- **Conversations, contacts and tasks**: while the organization keeps its account active. When it cancels, they are deleted within a maximum of 30 days, unless the law requires keeping them longer.
+- **Original provider notifications**: REVISAR: retention period. There is currently no automatic purge and it must be defined before this text is published.
+- **Activity and audit log**: while the account is active.
+- **Billing data**: the period required by tax law.
+
+## 8. Your rights
+
+You can ask us to access, rectify or erase your data, restrict its processing, object to it and request its portability. Write to {{privacyEmail}} and we will answer within the legal period of one month. Instructions to delete your account are in [data deletion](/en/legal/data-deletion).
+
+If you believe we have not handled your request properly, you can complain to the Spanish Data Protection Agency ([www.aepd.es](https://www.aepd.es)).
+
+## 9. Security
+
+Passwords are stored encrypted. Messaging providers' credentials are not kept in the database: it only holds a reference to a secret store. Incoming notifications are verified by signature before being processed, and the database enforces isolation between organizations on top of each query: one organization's data is not reachable from another.
+
+## 10. Changes to this policy
+
+If it changes in a relevant way, we will notify organizations with an active account before the new version applies. The date of the last update appears at the top of this page.

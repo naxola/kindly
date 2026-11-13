@@ -126,7 +126,8 @@ jobs:
           done
           docker build --target site -t local/site:ci \
             --build-arg SITE_URL="$SITE_URL" --build-arg APP_URL="$APP_URL_BUILD" \
-            --build-arg PLAUSIBLE_DOMAIN="${{ vars.STAGING_PLAUSIBLE_DOMAIN }}" .
+            --build-arg PLAUSIBLE_DOMAIN="${{ vars.STAGING_PLAUSIBLE_DOMAIN }}" \
+            --build-arg FACEBOOK_DOMAIN_VERIFICATION="${{ vars.STAGING_FACEBOOK_DOMAIN_VERIFICATION }}" .
           docker image ls local/*
       - name: Smoke test with the staging compose
         run: |

@@ -55,7 +55,13 @@ export default defineConfig({
       url: `${SITE_URL}/robots.txt`,
       timeout: 240_000,
       reuseExistingServer: false,
-      env: { NODE_ENV: 'production', SITE_URL, APP_URL: BASE_URL },
+      env: {
+        NODE_ENV: 'production',
+        SITE_URL,
+        APP_URL: BASE_URL,
+        // Baked at build time, like the URLs (Meta's domain verification tag).
+        FACEBOOK_DOMAIN_VERIFICATION: 'e2e-verification-token',
+      },
     },
   ],
 })

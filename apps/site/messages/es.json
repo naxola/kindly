@@ -1,49 +1,49 @@
 {
   "site": {
     "name": "Kindly",
-    "tagline": "Describe aquí, en una frase, qué resuelve tu producto."
+    "tagline": "Las conversaciones de tus afiliados, ordenadas y a nombre de cada delegado."
   },
   "nav": {
     "pricing": "Precios",
     "blog": "Blog",
     "signIn": "Entrar",
-    "signUp": "Empezar gratis",
+    "signUp": "Crear cuenta",
     "language": "Idioma",
     "main": "Navegación principal"
   },
   "home": {
-    "title": "Describe aquí el resultado que consigue tu cliente",
-    "subtitle": "Una o dos frases sobre para quién es el producto y por qué es mejor que la alternativa. Cámbialo en apps/site/messages.",
-    "primaryCta": "Empezar gratis",
+    "title": "Las conversaciones de tus afiliados, ordenadas y a tu nombre",
+    "subtitle": "Kindly reúne en una bandeja las conversaciones que cada delegado mantiene desde su propio WhatsApp, las une a la ficha de cada afiliado y pone la normativa delante, con su fuente y su vigencia.",
+    "primaryCta": "Crear cuenta",
     "secondaryCta": "Ver precios",
     "featuresTitle": "Qué puedes hacer",
     "features": {
       "one": {
-        "title": "Primera ventaja",
-        "body": "Explica un beneficio concreto, no una función."
+        "title": "Cada delegado, con su propio número",
+        "body": "Kindly sincroniza la cuenta de WhatsApp de cada profesional. No la sustituye ni la centraliza en un número de la organización."
       },
       "two": {
-        "title": "Segunda ventaja",
-        "body": "Mejor con un dato o un ejemplo real de un cliente."
+        "title": "La ficha del afiliado, junto al chat",
+        "body": "Afiliación y cuota, delegado de referencia, tareas pendientes y el resto de conversaciones del contacto, a la vista mientras respondes."
       },
       "three": {
-        "title": "Tercera ventaja",
-        "body": "Y lo que te diferencia de la competencia."
+        "title": "Normativa con fuente y vigencia",
+        "body": "Una base de conocimiento donde cada texto indica documento, versión y fechas de vigencia, y trámites con los documentos que hay que pedir."
       }
     },
     "faqTitle": "Preguntas frecuentes",
     "faq": {
       "one": {
         "q": "¿Para quién es?",
-        "a": "Responde aquí a la duda más habitual de tus visitantes."
+        "a": "Para sindicatos, asociaciones y despachos con delegados que atienden a sus afiliados por mensajería."
       },
       "two": {
-        "q": "¿Cuánto cuesta?",
-        "a": "Enlaza con la página de precios o resume los planes."
+        "q": "¿Responde una IA por mí?",
+        "a": "No. Nada se envía a un contacto sin que una persona lo escriba o lo acepte. Kindly no presta asesoramiento: muestra la normativa cargada, con su fuente y su vigencia, para que la revises."
       },
       "three": {
         "q": "¿Dónde están mis datos?",
-        "a": "Explica dónde se alojan y quién puede verlos."
+        "a": "Cada organización solo ve los suyos: la base de datos aplica ese aislamiento. El detalle, con los proveedores que intervienen, está en la política de privacidad. Kindly no guarda los archivos de tus afiliados."
       }
     },
     "ctaTitle": "¿Empezamos?",
@@ -73,7 +73,9 @@
     "terms": "Términos",
     "cookies": "Cookies",
     "reviewWarning": "Plantilla pendiente de revisión legal: este texto no debe publicarse tal cual. Revísalo con tu asesoría y marca legal.reviewed en site.config.ts.",
-    "updated": "Última actualización: {date}"
+    "updated": "Última actualización: {date}",
+    "legal-notice": "Aviso legal",
+    "data-deletion": "Eliminar mis datos"
   },
   "footer": {
     "rights": "© {year} {company}",

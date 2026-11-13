@@ -69,6 +69,8 @@ export const siteEnv = z.object({
   APP_URL: z.url(),
   /** Plausible domain. Empty: no analytics script at all. */
   PLAUSIBLE_DOMAIN: z.string().min(3).optional(),
+  /** Token of Meta's domain verification, published as a <meta> tag. Empty: none. */
+  FACEBOOK_DOMAIN_VERIFICATION: z.string().min(3).optional(),
 })
 
 /**
