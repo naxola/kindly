@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M11 hecha: accesibilidad y pulido).
+Última actualización: 2026-11-13 (M12 hecha: documentación al nuevo stack; solo falta el corte, M13).
 
 ## 1. Objetivo
 
@@ -143,7 +143,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ✅               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ✅               |
 | M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ✅               |
-| M12  | Documentación: `ARCHITECTURE.md`, `DATABASE.md`, `INTEGRATIONS.md`, `tests/README` al nuevo stack; `CLAUDE.md` definitivo; `PROGRESS.md`                                                                                                                                                                                                                                                                                                                | —                                                                                                | ⬜               |
+| M12  | Documentación: `ARCHITECTURE.md`, `DATABASE.md`, `INTEGRATIONS.md`, `tests/README` al nuevo stack; `CLAUDE.md` definitivo; `PROGRESS.md`                                                                                                                                                                                                                                                                                                                | —                                                                                                | ✅               |
 | M13  | **Corte**: `legacy/` vacío y borrado; despliegue en staging (homelab) con `db:deploy` + `queue:install`; datos (D3); el usuario fusiona `migration/saas-template` en `master`; etiqueta `kindly-v0.2.0`                                                                                                                                                                                                                                                 | Resto de `legacy/`                                                                               | ⬜               |
 
 Lo que sigue **después** de la migración (no es parte de este plan): UI-10c,
@@ -1126,3 +1126,26 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
 - **Próximo paso concreto:** M12 — documentación al nuevo stack: `docs/ARCHITECTURE.md`, `DATABASE.md`,
   `INTEGRATIONS.md`, `tests/README.md` (hoy el del código anterior, en `legacy/tests/README.md`), `README.md` raíz y revisión de
   `CLAUDE.md`; `docs/DECISIONS.md` ya está al día.
+
+### 2026-11-13 — M12 (documentación al nuevo stack)
+
+- Hecho: bloque **«Estado actual»** al principio de `docs/ARCHITECTURE.md` (forma del monorepo, flujo de una petición, aislamiento, módulos,
+  jobs, mensajería, conocimiento, frontend, stack real), `docs/DATABASE.md` (las 32 tablas, diferencias con el diseño original, RLS y
+  excepciones, lo que Prisma no ve) y `docs/INTEGRATIONS.md` (lo construido y lo bloqueado). Los bloques **mandan sobre el resto** del
+  documento, que conserva el diseño original y sus porqués (no se reescribió: se habría perdido el razonamiento).
+  Nuevos: `tests/README.md` (guía de tests del repositorio nuevo). `README.md` (prefijo de imágenes de staging, base de conocimiento y script
+  de operador) y `CLAUDE.md` (comando `pnpm knowledge:ingest`). `docs/DECISIONS.md` ya estaba al día fase a fase.
+- **No revalidado:** `docs/INTEGRATIONS.md` sigue contando lo investigado en septiembre sobre Meta y Telegram; el bloque nuevo lo dice. Antes de
+  construir el adaptador real hay que contrastarlo con la documentación vigente (regla de `CLAUDE.md`).
+- **Sin cambios de código** en esta fase; las comprobaciones se limitaron a `format:check` (la batería completa pasó en M11 y nada de código cambió).
+- **Próximo paso concreto — M13, el corte, con el usuario** (lo que no puede hacer una sesión sola):
+  1. **Decidir qué queda de `legacy/`:** hoy contiene lo no portado a propósito (**casos**: `modules/cases`, `app/(app)/cases`, `dashboard`; la
+     autenticación y organizaciones del código anterior, ya sustituidas; migraciones de Drizzle; componentes) más lo que se conserva como
+     referencia (E2E de bandeja y de conocimiento con escenarios sin equivalente). Como los casos están aplazados, hay que decidir si se
+     borra `legacy/` entero (el historial de git lo conserva) o se guarda la parte de casos fuera del árbol.
+  2. **Staging en el homelab** (docs/deploy.md): variables de repositorio `STAGING_SITE_URL`, `STAGING_APP_URL`, `STAGING_FACEBOOK_DOMAIN_VERIFICATION`;
+     `db:deploy` + `queue:install`; **comprobar la imagen `postgres` con pgvector y `docker build`/compose, que no se han podido probar aquí (sin Docker)**; el CI de GitHub tampoco se ha visto correr.
+  3. **Datos (D3):** staging empieza con base nueva; confirmar que no hay nada que conservar.
+  4. **Antes de publicar:** contrastar el **NIF** (B42637348 frente al B53487885 del código anterior) con el Registro Mercantil, rellenar los
+     `REVISAR` de los legales, definir la **retención de `webhook_events`**, revisar los textos con una asesoría y solo entonces `reviewed: true`.
+  5. **El usuario fusiona `migration/saas-template` en `master`** y se etiqueta `kindly-v0.2.0`. No fusiono yo en `master`.

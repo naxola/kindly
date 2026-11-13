@@ -1,5 +1,41 @@
 # DATABASE.md — Modelo de datos
 
+> **Estado actual (migración a `saas-template`, M12).** El modelo está en `packages/database/prisma/schema.prisma` (Prisma 7, no
+> Drizzle) y es la **fuente de verdad**; las migraciones llevan a mano lo que Prisma no expresa (RLS, índices parciales, CHECK,
+> `tsvector` generado). Este bloque manda sobre el resto, que conserva el diseño conceptual.
+>
+> **Tablas hoy (32):**
+>
+> | Área | Tablas |
+> |---|---|
+> | Plantilla | `organizations`, `users`, `organization_members`, `invitations`, `audit_logs`, `subscriptions`, `usage_events`, `billing_periods`, `billing_period_lines` |
+> | Acceso (sin negocio) | `auth_users`, `auth_sessions`, `auth_accounts`, `auth_verifications` |
+> | Equipo | `member_profiles`, `member_positions`, `invitation_profiles` |
+> | CRM | `contacts`, `contact_assignments`, `affiliations`, `activities`, `tasks` (con `contact_id` y `conversation_id`) |
+> | Mensajería | `messaging_accounts`, `webhook_events`, `conversations`, `messages` |
+> | Conocimiento | `knowledge_documents`, `knowledge_document_versions`, `knowledge_chunks` |
+> | Trámites | `procedures`, `procedure_versions`, `procedure_steps`, `procedure_required_documents` |
+>
+> **Diferencias con el diseño original de abajo:** `Membership` se llama `affiliations`; `documents`/`document_versions` son
+> `knowledge_documents`/`knowledge_document_versions`; la afiliación, el delegado de referencia (`contact_assignments`: uno abierto por
+> contacto) y la ficha del miembro son tablas propias; **no existen** `cases`, `conversation_cases` (casos aplazados), `ai_suggestions`
+> ni `ai_sources` (Fase 8). Las referencias a personas son a `organization_members`, nunca a `auth_users`.
+>
+> **RLS:** toda tabla del tenant tiene `organization_id` y política forzada (`tenant_isolation`); `rls.int.test.ts` falla si una tabla
+> nueva no la tiene. Excepciones declaradas: las tablas `auth_*` y `users` (globales por ADR 0003) y el conocimiento, con política
+> propia (lectura `organization_id IS NULL OR = actual`; escritura solo de la organización actual; GLOBAL solo con `app_platform`). La
+> resolución del webhook usa un contexto de una sola fila (`app.current_messaging_account_id()`), no el rol de plataforma.
+>
+> **Cosas que Prisma no ve y `db:check` no detecta:** índices únicos parciales (una asignación o afiliación abierta por contacto, una
+> versión CURRENT por documento y por trámite), CHECK (E.164, `ACTIVE` ⇔ sin fecha de fin, GLOBAL ⇔ sin organización), `activities`
+> solo-añadir para `app_user`. El tipo `vector` vive en el esquema `extensions` (lo crea el script de inicio de Postgres).
+>
+> **Convenciones:** UUID v7; fechas con zona; claves compuestas con la organización para impedir referencias cruzadas entre tenants
+> (salvo en conocimiento, donde la organización puede ser nula y se usan claves simples); los secretos nunca en la base
+> (`credentials_reference`). Retención: `webhook_events` guarda el cuerpo del mensaje y **no tiene purga todavía** (pendiente, decisión del
+> usuario antes de producción).
+
+
 PostgreSQL + pgvector. Drizzle ORM. Este documento describe el modelo
 conceptual; la estructura exacta de columnas/índices puede evolucionar
 durante la implementación (se actualiza este archivo cuando cambie, no se

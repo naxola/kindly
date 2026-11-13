@@ -219,6 +219,7 @@ Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en e
 | `pnpm db:deploy` / `pnpm db:check`                       | Aplica migraciones / verifica que esquema y migraciones coinciden                                                                              |
 | `pnpm queue:install`                                     | Crea o actualiza las tablas de pg-boss. **Va siempre junto a `db:deploy`** (la web solo encola y no las crea)                                  |
 | `pnpm ops:queue` / `pnpm ops:queue retry <cola> <id>`    | Estado de las colas y últimos fallos definitivos / reintenta un job fallido (runbook: `docs/operations.md`)                                    |
+| `pnpm knowledge:ingest`                                  | Carga conocimiento GLOBAL (PDF, URL o texto) con el rol de plataforma; no es para uso de una organización (`docs/DECISIONS.md`, M8a)           |
 | `pnpm lint`                                              | ESLint + `scripts/check-boundaries.ts`                                                                                                         |
 | `pnpm typecheck` · `pnpm test` · `pnpm test:integration` | Tipos · unitarias · integración (requiere `infra:up`)                                                                                          |
 | `pnpm format` / `pnpm format:check`                      | Prettier                                                                                                                                       |

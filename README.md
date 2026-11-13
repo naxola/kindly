@@ -105,6 +105,8 @@ pnpm dev
 3. Crea una organización e invita a alguien desde _Ajustes → Miembros_ (el enlace también
    sale en la terminal).
 4. _Ajustes → Plan y consumo_ muestra el plan gratuito.
+   _Contactos_, _Tareas_, _Conocimiento_ (y _Trámites_ dentro) funcionan ya. En _Ajustes → Canales_ no habrá nada que conectar
+   mientras no haya un adaptador real (en desarrollo puedes usar el número de prueba de Meta, ver `.env.example`).
 5. Estado de las colas y fallos (`docs/operations.md`):
 
 ```bash
@@ -141,6 +143,10 @@ pnpm test:e2e
 
 ### Opcional en local
 
+- **Base de conocimiento** (`OPENAI_API_KEY` en `.env`): sin ella una subida se acepta pero su ingesta termina en «no se pudo procesar»
+  (el estado lo dice) y la búsqueda responde que no está disponible. El conocimiento **GLOBAL** (leyes, guías oficiales) se carga con
+  `pnpm knowledge:ingest --title … --version … --effective-from … --pdf ./ley.pdf` (usa `DATABASE_PLATFORM_URL`; `--provider fake` solo
+  para desarrollo, sus vectores no significan nada).
 - **Errores y alertas** (ADR 0008 y 0011): `SENTRY_DSN` (GlitchTip), `ALERT_PROVIDER=ntfy` y
   `NTFY_URL` en `.env`, y reiniciar `pnpm dev`.
 - **Pagos** (ADR 0012): `PAYMENT_PROVIDER=paddle` y las variables `PADDLE_*` de
@@ -154,7 +160,7 @@ Guía completa en [`docs/deploy.md`](docs/deploy.md). En resumen:
 1. GitHub → _Settings → Secrets and variables → Actions → Variables_: `STAGING_SITE_URL` y
    `STAGING_APP_URL`. Sin ellas el CI construye y prueba las imágenes, pero no las publica.
 2. Un push a `staging` (o relanzar el CI) publica las imágenes en
-   `ghcr.io/naxola/saas-template/*` con las etiquetas `staging` y `sha-<commit>`.
+   `ghcr.io/naxola/kindly/*` con las etiquetas `staging` y `sha-<commit>`.
 3. En el servidor de Coolify, una vez, con un token de GitHub de solo lectura de paquetes
    (`read:packages`):
 

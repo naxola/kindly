@@ -754,8 +754,8 @@ solo la vista de conjunto.
 - [x] M9 — Trámites: versionados, con pasos y documentos requeridos, lectura para todos y escritura solo ADMIN (2026-11-13).
 - [x] M10 — Web pública: portada de Kindly, cinco documentos legales es/en (incluida la eliminación de datos que exige Meta), datos de empresa y verificación de dominio (2026-11-13). **Los legales siguen como borrador sin revisar** (`legal.reviewed = false`).
 - [x] M11 — Accesibilidad y pulido: axe en claro y oscuro, 320 px, F6, contraste, `docs/ui/` al nuevo stack (2026-11-13).
-- [ ] M12 — Documentación al nuevo stack. **Siguiente.**
-- [ ] M13 — Corte: borrar `legacy/`, staging, fusión en `master`.
+- [x] M12 — Documentación al nuevo stack: `ARCHITECTURE`, `DATABASE`, `INTEGRATIONS`, `tests/README`, `README` (2026-11-13).
+- [ ] M13 — Corte (con el usuario): vaciar `legacy/`, staging, datos, fusión en `master`. **Siguiente.**
 
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 

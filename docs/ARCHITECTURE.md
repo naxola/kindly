@@ -1,5 +1,58 @@
 # ARCHITECTURE.md — Cómo está construido Kindly
 
+> **Estado actual (migración a `saas-template`, M12).** Lo que sigue en este bloque **manda sobre el resto del
+> documento**, que conserva el diseño original y sus porqués. Las menciones a Drizzle, Server Actions, `after()`,
+> shadcn/ui y rutas `src/...` describen la app anterior (hoy en `legacy/`).
+>
+> **Forma:** monorepo pnpm + Turborepo, un *modular monolith* con tres procesos, sobre PostgreSQL 16+ con pgvector:
+>
+> ```
+> apps/web      Next.js: pantallas con sesión + API Hono (/api/v1, OpenAPI) + webhooks públicos
+> apps/site     Next.js estático: portada, precios, blog y textos legales (es/en)
+> apps/worker   Consumidor de pg-boss: correo, eventos de negocio, webhooks, ingesta de conocimiento
+> packages/core       Dominio y casos de uso por módulo (autorización, auditoría, reglas)
+> packages/database   Prisma 7, migraciones con RLS a mano, cliente con contexto de tenant
+> packages/adapters   Lo que toca el exterior: auth, correo, cola, mensajería, embeddings, extracción, cobros
+> packages/ui         Sistema de diseño (tokens + brand.css) · packages/config  Entorno validado con zod
+> ```
+>
+> **Flujo de una petición:** página (Server Component fino) → componente cliente con TanStack Query → ruta
+> `/api/v1/...` (valida con zod, `actorCtx(c)`) → caso de uso de `core` (`authorize(...)` primero, `withTenant` con RLS,
+> auditoría) → respuesta normalizada (`DomainError` → código estable que la interfaz traduce). No hay Server Actions de
+> negocio (ADR 0007). Las reglas viven solo en `core`; rutas, páginas y worker son capas finas.
+>
+> **Aislamiento (ADR 0002):** filtro explícito por `organization_id` **más** RLS forzada; tres roles de base de datos
+> (`app_migrator` migra, `app_user` sirve la app y el worker sin `BYPASSRLS`, `app_platform` solo para el script de
+> operador de conocimiento GLOBAL). Acceso (`auth_*`) separado de la persona (`users`) y de su pertenencia
+> (`organization_members`, ADR 0003).
+>
+> **Módulos de `core`:** `identity` (organizaciones, invitaciones, permisos), `team` (ficha del miembro y cargos), `contacts`
+> (visibilidad por delegado, delegado de referencia, acceso temporal), `affiliations`, `tasks`, `activity` y `audit`,
+> `conversations` (bandeja) y `messaging` (puerto `MessagingAdapter`, tubería de webhook, envío con guardarraíl de identidad,
+> canales y alta guiada de WhatsApp), `knowledge` (documentos versionados, ingesta, búsqueda híbrida), `procedures` (trámites),
+> `billing` y `events` (de la plantilla, cobros sin proveedor activo). **Los casos están aplazados** (no existen).
+>
+> **Trabajo en segundo plano (D9):** jobs de pg-boss idempotentes (`defineJob` en `core`, registrados en
+> `apps/worker/src/handlers.ts`; un test falla si un job no tiene consumidor). Webhook entrante: verificar firma → guardar el
+> evento y encolar en **una** transacción → 200 → el worker lo procesa (`messaging.process-webhook`). Ingesta de conocimiento:
+> `knowledge.ingest-version`. **El envío saliente no pasa por el worker**: es síncrono para dar feedback inmediato y no duplicar
+> mensajes por un reintento (riesgo y alternativa *outbox* en `project/MIGRATION.md`, M7a).
+>
+> **Mensajería:** el dominio solo conoce `MessagingAdapter`/`MessagingRegistry` (inyectado, sin global). En producción hoy **no hay
+> adaptador real registrado** (coexistence de WhatsApp, PKG-009, bloqueado); hay un adaptador falso (solo E2E) y el de pruebas de Meta
+> (prohibido en producción).
+>
+> **Conocimiento:** `knowledge_chunks` con `vector(1536)` y `tsvector` en español; GLOBAL = sin organización (lectura para todos,
+> escritura solo con `app_platform`); búsqueda FTS + coseno **exacto** (sin índice vectorial, decisión de M8a) fusionadas con RRF y
+> con los filtros duros antes de ordenar. Embeddings por `EmbeddingProvider` (OpenAI si hay `OPENAI_API_KEY`).
+>
+> **Frontend:** `apps/web/src/features/<módulo>/` + `packages/ui`; textos en `apps/web/messages/{es,en}.json`; estado de pantallas de
+> trabajo continuo en la URL (bandeja, búsqueda). Diseño en `docs/ui/`.
+>
+> **Stack real:** Next.js 16, React, Tailwind, TanStack Query, Hono + zod-openapi, Prisma 7, Better Auth, pg-boss, Vitest, Playwright
+> (+ axe), Docker, GitHub Actions. Redis y almacenamiento de objetos **no** se usan (no hay necesidad). Despliegue: `docs/deploy.md`.
+
+
 ## 1. Forma general: modular monolith + worker
 
 Kindly es un **modular monolith** (Next.js) más un **worker** para trabajo en

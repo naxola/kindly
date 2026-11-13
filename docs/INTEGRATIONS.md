@@ -1,5 +1,27 @@
 # INTEGRATIONS.md — WhatsApp, Telegram, LLM, embeddings, storage
 
+> **Estado actual (migración a `saas-template`, M12).** Lo construido y lo que sigue bloqueado; el resto del documento es la
+> investigación original de cada proveedor y **no se ha revalidado contra la documentación vigente de Meta** durante la migración
+> (regla de `CLAUDE.md`: comprobar la capacidad actual antes de construir sobre ella).
+>
+> - **Puerto `MessagingAdapter`** (`packages/core/src/modules/messaging/port.ts`): conexión, envío, indicador de escritura, verificación
+>   de firma y parseo de eventos; capacidades declaradas (ventana de servicio, si se puede desconectar desde Kindly, tipo de alta).
+>   El dominio nunca ramifica por nombre de proveedor.
+> - **Webhook público** `GET|POST /api/webhooks/messaging/{channel}/{accountId}`: firma antes de procesar, evento persistido y encolado en
+>   una transacción, procesamiento idempotente en el worker.
+> - **Envío** solo desde la cuenta del delegado dueño (`NOT_ACCOUNT_OWNER` para cualquiera, también un ADMIN), con ventana de servicio
+>   contada desde el último mensaje **entrante**; coexistence (ecos del móvil, historial, desconexión externa) modelada en el puerto.
+> - **Alta de WhatsApp** guiada (tres vías, seis confirmaciones validadas en el servidor, comprobación de país que dice «no puedo comprobarlo»
+>   si no hay lista configurada). **Solo está disponible la vía de coexistence**, y no hay adaptador real que la ejecute.
+> - **Adaptadores:** falso (solo E2E, prohibido en producción), `whatsapp-test` (número de prueba de la Cloud API, **prohibido en
+>   producción**; port del adaptador ya validado contra Meta en staging) y, en conocimiento, `OpenAIEmbeddingProvider` (`fetch` directo).
+> - **Bloqueado (PKG-009):** el adaptador real de **coexistence** (Embedded Signup) depende del alta como Tech Provider de Meta y de la
+>   decisión sobre el Business Manager (`project/TASKS.md`). Ninguna fase de la migración lo desbloquea. **Telegram no está construido.**
+> - **Sin almacenamiento de archivos de afiliados** (principio de producto): ni adjuntos ni object storage; la descarga de medios por proxy
+>   en streaming (UI-10c) sigue sin hacerse.
+> - **Sin LLM todavía** (Fase 8): `LLMProvider` no existe; el Copilot no está construido y, cuando exista, nunca autoenvía.
+
+
 Regla general (ver `CLAUDE.md` sección 3): antes de construir sobre una
 capacidad de un proveedor externo, se verifica que esa capacidad existe
 **hoy**, oficialmente, y se documenta aquí con su limitación real. No se usan

@@ -1,13 +1,13 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-11-13 (Migración a `saas-template`: M11 (accesibilidad y pulido); M10 (web pública y legales); M9 (trámites); M8b (recuperación híbrida y pantallas de conocimiento); M8a (conocimiento: datos, ingesta como job, script de operador); M7c (canales y alta de WhatsApp); M7b (espacio de conversación: chat + ficha, envío optimista, «escribiendo…»); M7a (bandeja y conversación básica, canal falso de E2E); M6 completa (6a núcleo/webhook/acceso temporal, 6b envío y adaptador de prueba de Meta); M5 (solo tareas; casos aplazados); M4 completa (4a datos/core/API, 4b UI): contactos, asignaciones, afiliación y actividad; M3b: ficha del miembro y cargos; M2: pgvector; M1: `legacy/`, plantilla fusionada, marca).
+Última actualización: 2026-11-13 (Migración a `saas-template`: M12 (documentación); M11 (accesibilidad y pulido); M10 (web pública y legales); M9 (trámites); M8b (recuperación híbrida y pantallas de conocimiento); M8a (conocimiento: datos, ingesta como job, script de operador); M7c (canales y alta de WhatsApp); M7b (espacio de conversación: chat + ficha, envío optimista, «escribiendo…»); M7a (bandeja y conversación básica, canal falso de E2E); M6 completa (6a núcleo/webhook/acceso temporal, 6b envío y adaptador de prueba de Meta); M5 (solo tareas; casos aplazados); M4 completa (4a datos/core/API, 4b UI): contactos, asignaciones, afiliación y actividad; M3b: ficha del miembro y cargos; M2: pgvector; M1: `legacy/`, plantilla fusionada, marca).
 
 ## Migración a `saas-template` (activa desde 2026-11-12)
 
 Kindly pasa a construirse sobre `naxola/saas-template` `v1.0.0` (monorepo,
 Prisma + RLS, API Hono, worker pg-boss, `packages/ui`, `apps/site`). Plan por
 fases M0–M13 en `project/MIGRATION.md`. Estado: **M0 hecha y validada**
-(con ficha del miembro y cargos configurables como fase M3b); **M1–M11 hechas (M5 solo tareas); casos aplazados** (rama `migration/saas-template`); siguiente, M12 (documentación). La app actual
+(con ficha del miembro y cargos configurables como fase M3b); **M1–M12 hechas (M5 solo tareas); casos aplazados** (rama `migration/saas-template`); siguiente, M13 (el corte, con el usuario). La app actual
 sigue en `master` sin cambios hasta el corte (M13).
 
 ## Resumen en una línea
