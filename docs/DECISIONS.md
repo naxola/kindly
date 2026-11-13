@@ -3949,3 +3949,30 @@ identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.
    y el aviso final no promete una redirección a Facebook que nadie hace.
 4. **El canal falso de E2E incluye una variante con onboarding guiado** (`fake-coexistence`, sin
    desconexión desde Kindly) para probar el asistente sin Meta; sigue prohibido en producción.
+
+## 2026-11-13 — Conocimiento: GLOBAL por RLS, ingesta asíncrona y sin índice vectorial (M8a)
+
+**Decisiones:**
+
+1. **GLOBAL ⟺ sin organización**, con CHECK en documentos y fragmentos. Lectura: GLOBAL más lo propio
+   (`organization_id IS NULL OR = actual`); escritura de un tenant: solo lo propio; **GLOBAL solo lo
+   escribe el rol `app_platform` (BYPASSRLS)** desde `pnpm knowledge:ingest`, con
+   `DATABASE_PLATFORM_URL` que no leen ni la web ni el worker. Un tenant no puede ni crear, ni cambiar,
+   ni borrar conocimiento GLOBAL (D8).
+2. **Claves simples, no compuestas, entre documento, versión y fragmento.** Con organización nula una
+   clave compuesta no se comprueba, y lo GLOBAL se quedaba sin integridad referencial. La coherencia de
+   organización entre padre e hijo la garantiza `core` (copia, nunca la da el llamante) y la RLS.
+3. **La ingesta es un job** (`knowledge.ingest-version`, D9). La versión nace `DRAFT`/`PENDING` y solo
+   al terminar recibe su estado y sustituye la CURRENT anterior: una subida a medias no quita la vigente.
+   Los bytes subidos viven solo hasta que el job acaba (éxito o fallo); el fallo guarda un **código**
+   estable, nunca el mensaje del proveedor. Sin `OPENAI_API_KEY` el resultado es `FAILED` con
+   `EMBEDDINGS_NOT_CONFIGURED`, no un fallo silencioso.
+4. **Sin índice vectorial por ahora.** Toda búsqueda filtra por organización, vigencia y ámbito antes
+   de ordenar; un índice aproximado (HNSW) pierde recall bajo esos filtros y un barrido exacto sobre lo
+   filtrado es rápido a este tamaño. Prisma tampoco puede declararlo sin marcarlo como deriva. Se
+   añade cuando el volumen lo pida (regla 7). Supersede el HNSW del código anterior.
+5. **`EmbeddingProvider` y `KnowledgeExtractor` se inyectan** (como el registro de mensajería): sin
+   global. OpenAI por `fetch` directo y PDF con `unpdf` (única dependencia nueva: local, sin red); el
+   HTML se reduce a texto con regex, sin jsdom. La guardia SSRF resuelve el host y rechaza todo lo no
+   público en cada redirección (residual conocido: rebinding de DNS entre la comprobación y la
+   descarga; aceptable para un administrador autenticado).

@@ -31,6 +31,7 @@ import {
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
+import { ingestVersionJob } from './modules/knowledge/index.ts'
 import { processWebhookJob } from './modules/messaging/index.ts'
 import {
   invitationEmailJob,
@@ -53,6 +54,7 @@ export const ALL_JOBS = [
   closePeriodsJob,
   chargePeriodJob,
   providerEventJob,
+  ingestVersionJob,
 ] as const
 
 /** Recurring jobs (cron, UTC). The worker registers them on start. */

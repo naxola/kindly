@@ -35,3 +35,17 @@ export const VersionInput = z
     message: 'The validity cannot end before it starts',
   })
 export type VersionInput = z.input<typeof VersionInput>
+
+/** The fields of a version, without its chunks (they come from the ingestion). */
+export const VersionFields = z
+  .object({
+    version: z.string().trim().min(1).max(60),
+    status: z.enum(['CURRENT', 'DRAFT']).default('CURRENT'),
+    effectiveFrom: day,
+    effectiveUntil: day.nullish(),
+    source: optionalText(600),
+  })
+  .refine((v) => !v.effectiveUntil || v.effectiveUntil >= v.effectiveFrom, {
+    path: ['effectiveUntil'],
+    message: 'The validity cannot end before it starts',
+  })

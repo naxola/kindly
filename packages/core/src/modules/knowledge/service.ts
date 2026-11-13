@@ -20,8 +20,21 @@ import { DocumentInput, VersionInput } from './schemas.ts'
  * creates here is always ORGANIZATION knowledge. The organization filter is explicit as well as RLS.
  */
 
+/** A version as it is read: never with the uploaded bytes still waiting for their job. */
+export type VersionView = Omit<KnowledgeDocumentVersion, 'sourceData'>
+
 export interface DocumentView extends KnowledgeDocument {
-  versions: KnowledgeDocumentVersion[]
+  versions: VersionView[]
+}
+
+/** Versions of the given documents, newest validity first, without the uploaded bytes. */
+async function withVersions(tx: TenantTx, docs: KnowledgeDocument[]): Promise<DocumentView[]> {
+  const versions = await tx.knowledgeDocumentVersion.findMany({
+    where: { documentId: { in: docs.map((d) => d.id) } },
+    orderBy: [{ effectiveFrom: 'desc' }, { version: 'asc' }],
+    omit: { sourceData: true },
+  })
+  return docs.map((d) => ({ ...d, versions: versions.filter((v) => v.documentId === d.id) }))
 }
 
 const own = (ctx: Ctx) => ({
@@ -32,11 +45,9 @@ const own = (ctx: Ctx) => ({
 export async function listDocuments(ctx: Ctx): Promise<DocumentView[]> {
   authorize(ctx.actor, 'knowledge.read')
   return withTenant(ctx.db, ctx.actor.organizationId, (tx) =>
-    tx.knowledgeDocument.findMany({
-      where: own(ctx),
-      include: { versions: { orderBy: [{ effectiveFrom: 'desc' }, { version: 'asc' }] } },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    }),
+    tx.knowledgeDocument
+      .findMany({ where: own(ctx), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] })
+      .then((docs) => withVersions(tx, docs)),
   )
 }
 
@@ -44,12 +55,9 @@ export async function listDocuments(ctx: Ctx): Promise<DocumentView[]> {
 export async function getDocument(ctx: Ctx, documentId: string): Promise<DocumentView> {
   authorize(ctx.actor, 'knowledge.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-    const doc = await tx.knowledgeDocument.findFirst({
-      where: { id: documentId, ...own(ctx) },
-      include: { versions: { orderBy: [{ effectiveFrom: 'desc' }, { version: 'asc' }] } },
-    })
+    const doc = await tx.knowledgeDocument.findFirst({ where: { id: documentId, ...own(ctx) } })
     if (!doc) throw new DomainError('NOT_FOUND', 'Document not found')
-    return doc
+    return (await withVersions(tx, [doc]))[0]!
   })
 }
 

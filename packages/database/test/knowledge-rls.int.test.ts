@@ -99,7 +99,12 @@ describe('reading', () => {
         expect(contents).toContain('Artículo 1')
         expect(contents).toContain(mine)
         expect(contents).not.toContain(theirs)
-        expect((await tx.knowledgeDocumentVersion.findMany()).length).toBe(2)
+        // (Other tests leave GLOBAL documents behind: count what is the organization's, and that
+        // nothing belongs to anybody else.)
+        const versions = await tx.knowledgeDocumentVersion.findMany()
+        expect(versions.some((v) => v.organizationId === null)).toBe(true)
+        expect(versions.filter((v) => v.organizationId === org)).toHaveLength(1)
+        expect(versions.filter((v) => v.organizationId && v.organizationId !== org)).toEqual([])
       })
     }
   })
@@ -173,5 +178,40 @@ describe('writing', () => {
         }),
       ).rejects.toThrow()
     })
+  })
+
+  it('deleting a GLOBAL document removes its versions and chunks, and no orphan can be created', async () => {
+    const id = newId()
+    const versionId = newId()
+    await platform.query(
+      `INSERT INTO knowledge_documents (id, organization_id, visibility, title, updated_at)
+       VALUES ($1, NULL, 'GLOBAL', 'Efímera', now())`,
+      [id],
+    )
+    await platform.query(
+      `INSERT INTO knowledge_document_versions (id, organization_id, document_id, version, status, effective_from)
+       VALUES ($1, NULL, $2, '1', 'CURRENT', '2020-01-01')`,
+      [versionId, id],
+    )
+    await platform.query(
+      `INSERT INTO knowledge_chunks (id, organization_id, visibility, document_id, document_version_id, ordinal, content, embedding)
+       VALUES ($1, NULL, 'GLOBAL', $2, $3, 0, 'x', $4::vector)`,
+      [newId(), id, versionId, VEC],
+    )
+    await platform.query('DELETE FROM knowledge_documents WHERE id = $1', [id])
+    for (const table of ['knowledge_document_versions', 'knowledge_chunks']) {
+      const { rows } = await platform.query(
+        `SELECT count(*)::int AS n FROM ${table} WHERE document_id = $1`,
+        [id],
+      )
+      expect(rows[0].n).toBe(0)
+    }
+    await expect(
+      platform.query(
+        `INSERT INTO knowledge_document_versions (id, organization_id, document_id, version, status, effective_from)
+         VALUES ($1, NULL, $2, '1', 'DRAFT', '2020-01-01')`,
+        [newId(), newId()],
+      ),
+    ).rejects.toThrow(/foreign key/i)
   })
 })

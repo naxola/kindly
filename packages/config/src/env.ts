@@ -196,6 +196,12 @@ export type MessagingEnv = z.infer<typeof messagingEnv>
 export const loadMessagingEnv = (source: Record<string, string | undefined> = process.env) =>
   parseEnv(messagingEnv, source)
 
+/** Knowledge base configuration: the embedding provider is off unless a key is given. */
+export const knowledgeEnv = z.object({ OPENAI_API_KEY: z.string().min(1).optional() })
+export type KnowledgeEnv = z.infer<typeof knowledgeEnv>
+export const loadKnowledgeEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(knowledgeEnv, source)
+
 /** Payment configuration; without PAYMENT_PROVIDER there is no provider (`none`). */
 export const loadPaymentEnv = (source: Record<string, string | undefined> = process.env) =>
   parseEnv(paymentEnv, { ...source, PAYMENT_PROVIDER: source.PAYMENT_PROVIDER || 'none' })

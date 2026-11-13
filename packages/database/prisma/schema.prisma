@@ -737,6 +737,13 @@ enum DocumentVersionStatus {
   HISTORICAL
 }
 
+/// What an upload waiting to be ingested is made of (the bytes live only until the job finishes).
+enum IngestionSourceKind {
+  PDF
+  TEXT
+  WEB
+}
+
 enum KnowledgeChunkLevel {
   CHAPTER
   SECTION
@@ -771,31 +778,37 @@ model KnowledgeDocument {
   versions     KnowledgeDocumentVersion[]
   chunks       KnowledgeChunk[]
 
-  @@unique([organizationId, id])
   @@index([organizationId, visibility])
   @@map("knowledge_documents")
 }
 
 model KnowledgeDocumentVersion {
-  id              String                @id @default(uuid(7)) @db.Uuid
+  id              String                 @id @default(uuid(7)) @db.Uuid
   /// Copied from the document (never given by the caller): the policy and the filters need it here.
-  organizationId  String?               @map("organization_id") @db.Uuid
-  documentId      String                @map("document_id") @db.Uuid
+  organizationId  String?                @map("organization_id") @db.Uuid
+  documentId      String                 @map("document_id") @db.Uuid
   version         String
-  status          DocumentVersionStatus @default(DRAFT)
+  status          DocumentVersionStatus  @default(DRAFT)
   /// Validity is per day, not per instant.
-  effectiveFrom   DateTime              @map("effective_from") @db.Date
-  effectiveUntil  DateTime?             @map("effective_until") @db.Date
+  effectiveFrom   DateTime               @map("effective_from") @db.Date
+  effectiveUntil  DateTime?              @map("effective_until") @db.Date
   source          String?
-  ingestionStatus IngestionStatus       @default(READY) @map("ingestion_status")
-  ingestionError  String?               @map("ingestion_error")
-  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  ingestionStatus IngestionStatus        @default(READY) @map("ingestion_status")
+  /// A stable code ("EXTRACTION_FAILED", "TOO_LONG"...), never a provider message or a secret.
+  ingestionError  String?                @map("ingestion_error")
+  /// The status the version takes when its ingestion finishes (until then it is DRAFT, so a pending
+  /// upload never supersedes the CURRENT version that still has its chunks).
+  requestedStatus DocumentVersionStatus? @map("requested_status")
+  /// The upload waiting for its job. Cleared when the ingestion ends, whatever the outcome.
+  sourceKind      IngestionSourceKind?   @map("source_kind")
+  sourceUrl       String?                @map("source_url")
+  sourceData      Bytes?                 @map("source_data")
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
 
   organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  document     KnowledgeDocument? @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Cascade)
+  document     KnowledgeDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
   chunks       KnowledgeChunk[]
 
-  @@unique([organizationId, id])
   @@index([documentId])
   @@map("knowledge_document_versions")
 }
@@ -815,12 +828,12 @@ model KnowledgeChunk {
   /// vector(1536): the dimension of the first provider (OpenAI text-embedding-3-small).
   embedding         Unsupported("vector(1536)")
   /// `GENERATED ALWAYS AS (to_tsvector('spanish', content)) STORED`, declared in the SQL (never written).
-  contentTsv        Unsupported("tsvector")? @default(dbgenerated("to_tsvector('spanish'::regconfig, content)")) @map("content_tsv")
+  contentTsv        Unsupported("tsvector")?    @default(dbgenerated("to_tsvector('spanish'::regconfig, content)")) @map("content_tsv")
   createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  organization Organization?             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  document     KnowledgeDocument?        @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Cascade)
-  version      KnowledgeDocumentVersion? @relation(fields: [organizationId, documentVersionId], references: [organizationId, id], onDelete: Cascade)
+  organization Organization?            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document     KnowledgeDocument        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  version      KnowledgeDocumentVersion @relation(fields: [documentVersionId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, visibility])
   @@index([documentVersionId, ordinal])

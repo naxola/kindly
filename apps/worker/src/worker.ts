@@ -1,4 +1,5 @@
 import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
+import { embeddingProviderFromEnv, knowledgeExtractor } from '@saas/adapters/knowledge'
 import { messagingRegistryFromEnv } from '@saas/adapters/messaging'
 import { createPaymentProvider } from '@saas/adapters/payments'
 import { loadPaymentEnv } from '@saas/config/env'
@@ -20,6 +21,8 @@ import {
   ALL_SCHEDULES,
   type EmailSender,
   type EventSink,
+  type EmbeddingProvider,
+  type KnowledgeExtractor,
   type MessagingRegistry,
   type PaymentProvider,
 } from '@saas/core'
@@ -38,6 +41,8 @@ export interface StartWorkerOptions {
   alerts?: AlertSender
   payments?: PaymentProvider | null
   messaging?: MessagingRegistry
+  embeddings?: EmbeddingProvider | null
+  knowledgeExtractor?: KnowledgeExtractor
   /** How often the queues are checked for stuck jobs (default 5 minutes). */
   healthCheckIntervalMs?: number
 }
@@ -76,6 +81,9 @@ export async function startWorker({
   initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
   const alerts = overrides.alerts ?? createAlertSender(observability, log)
   const messaging = overrides.messaging ?? messagingRegistryFromEnv()
+  const embeddings =
+    overrides.embeddings !== undefined ? overrides.embeddings : embeddingProviderFromEnv()
+  const extractor = overrides.knowledgeExtractor ?? knowledgeExtractor
   const payments =
     overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
 
@@ -102,7 +110,17 @@ export async function startWorker({
     await registerWorker(
       boss,
       job,
-      handler({ db, email, events, queue, appUrl: env.APP_URL, payments, messaging }),
+      handler({
+        db,
+        email,
+        events,
+        queue,
+        appUrl: env.APP_URL,
+        payments,
+        messaging,
+        embeddings,
+        knowledgeExtractor: extractor,
+      }),
       {
         log,
         concurrency: env.WORKER_CONCURRENCY,

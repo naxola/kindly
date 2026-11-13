@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M7c hecha: canales y alta de WhatsApp en tres vías).
+Última actualización: 2026-11-13 (M8a hecha: conocimiento, datos e ingesta como job).
 
 ## 1. Objetivo
 
@@ -138,7 +138,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ✅               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ✅               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ✅               |
-| M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | 🟡               |
+| M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ✅               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ⬜               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ⬜               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ⬜               |
@@ -907,3 +907,64 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
 - **Falta de M8a (parte 2):** troceado, extracción PDF/web, guardia SSRF, validación de subida,
   `EmbeddingProvider` de OpenAI (`OPENAI_API_KEY` en los tres `.env.example` y `compose.yml`), job de
   ingesta con estado y `pnpm knowledge:ingest`.
+
+### 2026-11-13 — M8a, parte 2: ingesta como job, extractores, OpenAI y script de operador (✅ fase cerrada)
+
+- Hecho:
+  - **Datos** (migraciones `…160000_knowledge_ingestion` y `…170000_knowledge_fk`): la versión guarda
+    `requested_status` y el origen pendiente (`source_kind`, `source_url`, `source_data` bytea), que se
+    **borran al terminar la ingesta, con éxito o sin él**: los bytes subidos no se conservan, solo el texto
+    troceado. **Corregido el diseño de la parte 1:** las claves compuestas `(organización, documento)` con
+    organización nula no se comprueban en Postgres (MATCH SIMPLE), así que las filas GLOBAL no tenían
+    integridad referencial (el borrado en cascada no actuaba y se podían crear huérfanas) y Prisma no
+    unía las versiones de un documento GLOBAL. Ahora son claves simples `document_id`/`document_version_id`
+    con `ON DELETE CASCADE`; la organización de versiones y fragmentos se sigue copiando del documento en
+    `core` y la RLS impide escribir en otra. Test de cascada y de no-huérfanos.
+  - **`core/knowledge`**: `submitDocument`/`submitVersion` (validan por magic bytes, crean la versión
+    `DRAFT`/`PENDING` y encolan `knowledge.ingest-version` en la misma transacción, con clave de
+    idempotencia por versión); `ingestVersion` (extrae, trocea, embebe **fuera** de la transacción, borra
+    los fragmentos de un intento previo, inserta, y **solo entonces** da a la versión su estado y
+    sustituye la CURRENT anterior: una subida pendiente nunca quita la vigente); errores permanentes
+    (`EMBEDDINGS_NOT_CONFIGURED`, `EMPTY_DOCUMENT`, `TOO_LONG`) → `FAILED` al momento; transitorios →
+    reintentos de la cola y solo el último intento marca `FAILED` (siempre un **código**, nunca el mensaje
+    del proveedor). Puertos `EmbeddingProvider` y `KnowledgeExtractor` inyectados. Troceado jerárquico y
+    reglas de subida (límites, PDF/UTF-8/URL) portados, con sus tests. `ingestGlobalDocument` para el
+    operador. Las lecturas no devuelven nunca `source_data`.
+  - **`packages/adapters/knowledge`** (nuevo): `OpenAIEmbeddingProvider` (`fetch` directo, sin SDK),
+    extracción de PDF con `unpdf` (**única dependencia nueva**, local, sin red), extracción web por regex
+    sin jsdom, y la **guardia SSRF** (resuelve el host y rechaza cualquier dirección no pública, re-comprobada
+    en cada redirección). `embeddingProviderFromEnv` (solo si hay `OPENAI_API_KEY`).
+  - **Worker**: job registrado con `embeddings` y `knowledgeExtractor` inyectables; **sin
+    `OPENAI_API_KEY` las ingestiones terminan en `FAILED` con código claro** en vez de fallar en silencio.
+  - **`pnpm knowledge:ingest`** (GLOBAL solo): PDF (ruta o URL con la misma guardia), página web o texto;
+    `--document-id` para una versión nueva; `--provider fake` solo para desarrollo. Usa
+    `DATABASE_PLATFORM_URL` (rol `app_platform`, solo para este script; en `.env.example`). Probado de
+    verdad contra Postgres con el proveedor falso (2 fragmentos, `READY`) y sin clave/argumentos (errores
+    claros). **No probado:** contra OpenAI real ni con un PDF real.
+  - **Variables**: `OPENAI_API_KEY` en `.env.example`, `infra/staging/.env.example` y `compose.yml` (la lee
+    el worker); `DATABASE_PLATFORM_URL` solo en `.env.example`.
+  - Tests: 1 de RLS más (cascada), 11 de ingesta, 1 del worker con pg-boss real (subida → `READY`, sin
+    bytes), 4 del parser del script y los portados (troceado, SSRF, web, proveedor OpenAI con `fetch`
+    simulado). Un E2E no aplica todavía: no hay pantalla (M8b).
+- **Por el camino:** una prueba dependía del número de documentos GLOBAL que dejan otras (se quedan en la
+  base de tests): ahora cuentan solo lo propio. La RLS de GLOBAL ya la cubría `knowledge-rls`.
+- **Pendiente anotado:** política de retención de `webhook_events` (M6a) y del propio texto subido siguen
+  abiertas; el límite de 4 MB de PDF era de Vercel: aquí no hay ese tope, se mantiene por prudencia y se
+  revisará al hacer la UI. Sin índice vectorial (decisión de la parte 1).
+- **`legacy/`:** no se borra nada todavía: `knowledge/service.ts`, `retrieval*`, las páginas y el resto
+  de la UI son de M8b; el script `ingest-knowledge.ts` y los módulos de extracción se borran cuando M8b
+  cierre la rebanada (siguen siendo la referencia de los E2E).
+- Verificación real: `format:check`, `lint`, `typecheck` (11/11), `test` (182), `test:integration` (230,
+  tres pasadas seguidas), `db:check` sin diferencias, `build` (5/5) y `test:e2e` (28/28).
+- **Próximo paso concreto:** M8b — **recuperación híbrida + UI**: búsqueda FTS (español) + vectorial con
+  RRF y filtros duros antes de ordenar (organización o GLOBAL, vigencia con `APPLICABLE_STATUSES`,
+  jurisdicción/territorio/ámbito), distancia coseno exacta (sin índice), con citas que lleven
+  documento, versión, vigencia y artículo (principio 3: nunca una cita inventada); API
+  `/api/v1/knowledge…` (lista, detalle, fragmentos, búsqueda, subida con `multipart`, estado de la
+  ingesta); pantallas `/knowledge` y `/knowledge/[id]` (ADMIN sube y añade versión; todos leen y buscan)
+  con el estado de la ingesta y los códigos de error en es/en; entrada en la navegación con
+  `knowledge.read`; E2E con el embedding falso (variable de E2E análoga al canal falso, prohibida en
+  producción y que haga que el worker de E2E… **ojo:** el entorno de E2E no corre worker; la ingesta se
+  procesa con el mismo caso de uso desde el helper, como en bandeja). Releer
+  `legacy/src/modules/knowledge/{retrieval,retrieval-fusion,actions}.ts`, `legacy/src/app/(app)/knowledge`,
+  `tests/e2e/knowledge.spec.ts` y las entradas de `docs/DECISIONS.md` de las Fases 7c–7f.

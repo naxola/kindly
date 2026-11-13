@@ -6,7 +6,9 @@ import {
   createMessagingRegistry,
   createOrganization,
   ensureUser,
+  FakeEmbeddingProvider,
   FakeMessagingAdapter,
+  submitDocument,
   receiveWebhook,
   resolveActor,
   type BusinessEvent,
@@ -39,6 +41,7 @@ beforeAll(async () => {
   await db.$executeRaw`DELETE FROM pgboss.job`
   worker = await startWorker({
     messaging: createMessagingRegistry([fake]),
+    embeddings: new FakeEmbeddingProvider(),
     env: loadEnv({
       ...process.env,
       APP_URL: 'https://app.example.com',
@@ -97,7 +100,7 @@ async function untilAsync<T>(read: () => Promise<T | undefined>, timeoutMs = 20_
 
 describe('worker', () => {
   it('consumes every template queue and registers the schedules', async () => {
-    expect(worker.queues).toHaveLength(10)
+    expect(worker.queues).toHaveLength(11)
     const schedules = await worker.boss.getSchedules()
     expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
       'billing.close-due-periods',
@@ -225,5 +228,48 @@ describe('worker health', () => {
     )
     expect(done.body).toBe('Hola')
     expect(done.conversation.contact.name).toBe('Desde el worker')
+  })
+
+  it('ingests an uploaded knowledge version: pending, then ready with its chunks and without the bytes', async () => {
+    const ctx = {
+      db,
+      queue: new PgBossJobQueue(producer),
+      correlationId: newId(),
+      appUrl: 'https://app.example.com',
+    }
+    const access = await db.authUser.create({
+      data: { id: newId(), email: `kb-${newId()}@example.com`, name: 'KB', emailVerified: true },
+    })
+    const user = await ensureUser(ctx, access.id)
+    const { organization } = await createOrganization(ctx, user.id, {
+      name: 'Saber',
+      slug: `saber-${newId().slice(-12)}`,
+    })
+    const { actor } = await resolveActor(db, { userId: user.id, organizationId: organization.id })
+    const { versionId } = await submitDocument(
+      { ...ctx, actor },
+      { title: 'Manual interno' },
+      { version: '1', effectiveFrom: '2026-01-01' },
+      {
+        kind: 'TEXT',
+        data: new TextEncoder().encode('Artículo 1\nLas altas se tramitan en una semana.'),
+      },
+    )
+    const done = await untilAsync(() =>
+      withTenant(db, organization.id, async (tx) => {
+        const v = await tx.knowledgeDocumentVersion.findUniqueOrThrow({ where: { id: versionId } })
+        return v.ingestionStatus === 'READY' ? v : undefined
+      }),
+    )
+    expect(done).toMatchObject({ status: 'CURRENT', sourceData: null, ingestionError: null })
+    const [row] = await withTenant(
+      db,
+      organization.id,
+      (tx) =>
+        tx.$queryRaw<
+          { n: bigint }[]
+        >`SELECT count(*) AS n FROM knowledge_chunks WHERE document_version_id = ${versionId}::uuid`,
+    )
+    expect(Number(row?.n)).toBe(1)
   })
 })

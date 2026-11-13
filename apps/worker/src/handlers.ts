@@ -13,14 +13,18 @@ import {
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
+  ingestVersionHandler,
+  ingestVersionJob,
   processWebhookHandler,
   processWebhookJob,
   quotaAlertEmailJob,
   verificationEmailJob,
   type EmailSender,
+  type EmbeddingProvider,
   type EventSink,
   type JobDefinition,
   type JobQueue,
+  type KnowledgeExtractor,
   type MessagingRegistry,
   type PaymentProvider,
 } from '@saas/core'
@@ -39,6 +43,9 @@ export interface HandlerDeps {
   payments: PaymentProvider | null
   /** Messaging adapters of this process (none in production until a real channel ships). */
   messaging: MessagingRegistry
+  /** Null when no OPENAI_API_KEY is set: knowledge ingestions then fail with a clear code. */
+  embeddings: EmbeddingProvider | null
+  knowledgeExtractor: KnowledgeExtractor
 }
 
 export interface Registration<S extends z.ZodType = z.ZodType> {
@@ -86,5 +93,10 @@ export const registrations: Registration[] = [
   register({
     job: processWebhookJob,
     handler: ({ db, messaging }) => processWebhookHandler({ db, registry: messaging }),
+  }),
+  register({
+    job: ingestVersionJob,
+    handler: ({ db, embeddings, knowledgeExtractor }) =>
+      ingestVersionHandler({ db, embeddings, extractor: knowledgeExtractor }),
   }),
 ]
