@@ -138,7 +138,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ✅               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ✅               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ✅               |
-| M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ⬜               |
+| M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | 🟡               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ⬜               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ⬜               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ⬜               |
@@ -874,3 +874,36 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   de solo lectura de la ficha (la bandeja y la cabecera conservan la suya).
 - Verificación real: `lint`, `typecheck`, 115 unitarias, 204 de integración, `build` y 28 E2E en verde.
   (A mitad se reinició el entorno y Postgres había caído: se relanzó el clúster de `/var/lib/pg-kindly`.)
+
+### 2026-11-13 — M8a, parte 1: datos, RLS con GLOBAL y casos de uso (🟡 en curso)
+
+- Hecho:
+  - **Datos** (migración `20261113150000_knowledge`): `knowledge_documents`, `knowledge_document_versions`,
+    `knowledge_chunks`. `organization_id` **nulo ⟺ GLOBAL** (CHECK en documentos y fragmentos); versiones y
+    fragmentos llevan la organización copiada del documento (clave compuesta con él) para que la política y
+    los filtros duros no necesiten un join. `embedding vector(1536)` (`Unsupported` en Prisma, esquema
+    `extensions`) y `content_tsv` generada en español (declarada en Prisma con su `dbgenerated`), índice
+    GIN, índice único parcial «una versión CURRENT por documento». `ingestion_status`/`ingestion_error`
+    en la versión para la ingesta asíncrona (parte 2).
+  - **RLS (D8)**: lectura `organization_id IS NULL OR = organización actual`; INSERT/UPDATE/DELETE solo
+    de la organización actual. **Lo GLOBAL solo lo escribe `app_platform` (BYPASSRLS)** desde el script de
+    operador. Las tres tablas siguen forzadas, así que no entran en `GLOBAL_TABLES` del test de RLS.
+    `packages/database/test/knowledge-rls.int.test.ts`: 6 tests (lectura GLOBAL+propio, nunca ajeno; un
+    tenant no crea GLOBAL ni escribe en otra organización; no cambia ni borra lo GLOBAL; el CHECK; una
+    sola CURRENT).
+  - **`core/knowledge`**: `selectApplicableVersion` (portado, con sus 7 tests), puerto `EmbeddingProvider`
+    **inyectado** (sin global, como el registro de mensajería) y `FakeEmbeddingProvider` determinista;
+    `listDocuments`, `getDocument`, `listChunks`, `createDocument`, `createDocumentVersion` (embebe
+    **antes** de abrir la transacción; una CURRENT nueva sustituye a la anterior; los fragmentos heredan
+    organización y visibilidad del documento) con auditoría solo de ids. Permisos `knowledge.read` (todos)
+    y `knowledge.write` (solo ADMIN, como en el código anterior). 7 tests de integración (escritura,
+    sustitución de CURRENT, validación, embedding que falla no guarda nada, delegado de solo lectura,
+    aislamiento entre organizaciones, GLOBAL legible y no escribible por un tenant).
+- **Decisión: sin índice vectorial por ahora.** Prisma no sabe declarar HNSW y lo marcaría como deriva en
+  `db:check`; además toda búsqueda filtra por organización, vigencia y ámbito _antes_ de ordenar, y un
+  índice aproximado pierde recall bajo esos filtros mientras un barrido exacto sobre lo filtrado es
+  rápido a este tamaño. Se añade cuando el volumen lo pida (regla 7: sin infraestructura sin necesidad).
+  El código anterior tenía HNSW; la recuperación (M8b) usará distancia coseno exacta.
+- **Falta de M8a (parte 2):** troceado, extracción PDF/web, guardia SSRF, validación de subida,
+  `EmbeddingProvider` de OpenAI (`OPENAI_API_KEY` en los tres `.env.example` y `compose.yml`), job de
+  ingesta con estado y `pnpm knowledge:ingest`.

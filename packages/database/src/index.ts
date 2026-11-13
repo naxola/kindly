@@ -18,6 +18,11 @@ export {
   MessageDirection,
   MessageDeliveryStatus,
   BillingPeriodStatus,
+  KnowledgeVisibility,
+  KnowledgeSourceType,
+  DocumentVersionStatus,
+  KnowledgeChunkLevel,
+  IngestionStatus,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -41,4 +46,7 @@ export type {
   WebhookEvent,
   Conversation,
   Message,
+  KnowledgeDocument,
+  KnowledgeDocumentVersion,
+  KnowledgeChunk,
 } from './generated/prisma/client.ts'

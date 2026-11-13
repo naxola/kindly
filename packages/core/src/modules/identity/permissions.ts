@@ -32,6 +32,9 @@ export const PERMISSIONS = [
   // Sending is always from one's OWN account (checked in the use case, not by this permission).
   'messages.send',
   'conversations.read',
+  // Kindly (knowledge): everyone reads GLOBAL and the organization's; only administrators write.
+  'knowledge.read',
+  'knowledge.write',
   'billing.read',
   'billing.manage',
 ] as const
@@ -52,6 +55,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     'channels.connect',
     'messages.send',
     'conversations.read',
+    'knowledge.read',
   ],
 }
 

@@ -49,6 +49,9 @@ model Organization {
   messagingAccounts  MessagingAccount[]
   webhookEvents      WebhookEvent[]
   conversations      Conversation[]
+  knowledgeDocuments KnowledgeDocument[]
+  knowledgeVersions  KnowledgeDocumentVersion[]
+  knowledgeChunks    KnowledgeChunk[]
   messages           Message[]
 
   @@map("organizations")
@@ -705,4 +708,122 @@ model Message {
   @@unique([messagingAccountId, externalMessageId])
   @@index([organizationId, conversationId, createdAt])
   @@map("messages")
+}
+
+// ============================================================================
+// KNOWLEDGE (Kindly): the base the AI Copilot will cite (docs/DATABASE.md §13-15). Strict
+// separation GLOBAL (public: laws, official guides) vs ORGANIZATION (private): `organization_id`
+// is null exactly when the visibility is GLOBAL. RLS (D8): everyone reads GLOBAL plus their own;
+// only the platform role writes GLOBAL. The chunk's `embedding` (pgvector) and `content_tsv`
+// (generated, Spanish full text) are created by hand in the migration.
+// ============================================================================
+
+enum KnowledgeVisibility {
+  GLOBAL
+  ORGANIZATION
+}
+
+enum KnowledgeSourceType {
+  MANUAL
+  PDF
+  WEB
+}
+
+enum DocumentVersionStatus {
+  DRAFT
+  CURRENT
+  SUPERSEDED
+  REPEALED
+  HISTORICAL
+}
+
+enum KnowledgeChunkLevel {
+  CHAPTER
+  SECTION
+  ARTICLE
+  PARAGRAPH
+  FRAGMENT
+}
+
+/// Where the ingestion of a version stands (uploads are processed by a job).
+enum IngestionStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model KnowledgeDocument {
+  id             String              @id @default(uuid(7)) @db.Uuid
+  /// Null exactly when the document is GLOBAL.
+  organizationId String?             @map("organization_id") @db.Uuid
+  visibility     KnowledgeVisibility
+  title          String
+  sourceType     KnowledgeSourceType @default(MANUAL) @map("source_type")
+  sourceUrl      String?             @map("source_url")
+  jurisdiction   String?
+  territory      String?
+  scope          String?
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization?              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     KnowledgeDocumentVersion[]
+  chunks       KnowledgeChunk[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, visibility])
+  @@map("knowledge_documents")
+}
+
+model KnowledgeDocumentVersion {
+  id              String                @id @default(uuid(7)) @db.Uuid
+  /// Copied from the document (never given by the caller): the policy and the filters need it here.
+  organizationId  String?               @map("organization_id") @db.Uuid
+  documentId      String                @map("document_id") @db.Uuid
+  version         String
+  status          DocumentVersionStatus @default(DRAFT)
+  /// Validity is per day, not per instant.
+  effectiveFrom   DateTime              @map("effective_from") @db.Date
+  effectiveUntil  DateTime?             @map("effective_until") @db.Date
+  source          String?
+  ingestionStatus IngestionStatus       @default(READY) @map("ingestion_status")
+  ingestionError  String?               @map("ingestion_error")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document     KnowledgeDocument? @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Cascade)
+  chunks       KnowledgeChunk[]
+
+  @@unique([organizationId, id])
+  @@index([documentId])
+  @@map("knowledge_document_versions")
+}
+
+model KnowledgeChunk {
+  id                String                      @id @default(uuid(7)) @db.Uuid
+  /// Denormalized from the document so the hard filter needs no join (docs/DATABASE.md §15).
+  organizationId    String?                     @map("organization_id") @db.Uuid
+  visibility        KnowledgeVisibility
+  documentId        String                      @map("document_id") @db.Uuid
+  documentVersionId String                      @map("document_version_id") @db.Uuid
+  ordinal           Int
+  level             KnowledgeChunkLevel         @default(FRAGMENT)
+  label             String?
+  path              String?
+  content           String
+  /// vector(1536): the dimension of the first provider (OpenAI text-embedding-3-small).
+  embedding         Unsupported("vector(1536)")
+  /// `GENERATED ALWAYS AS (to_tsvector('spanish', content)) STORED`, declared in the SQL (never written).
+  contentTsv        Unsupported("tsvector")? @default(dbgenerated("to_tsvector('spanish'::regconfig, content)")) @map("content_tsv")
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization?             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document     KnowledgeDocument?        @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Cascade)
+  version      KnowledgeDocumentVersion? @relation(fields: [organizationId, documentVersionId], references: [organizationId, id], onDelete: Cascade)
+
+  @@index([organizationId, visibility])
+  @@index([documentVersionId, ordinal])
+  @@index([contentTsv], type: Gin)
+  @@map("knowledge_chunks")
 }
