@@ -8,6 +8,9 @@
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
+**Después del corte:** fases de robustez R1–R5 planificadas en `project/TASKS.md` («Robustez y profesionalización»),
+sin empezar; varias necesitan una decisión del usuario antes (marcadas «Decidir antes»).
+
 ### Migración a `saas-template` (2026-11-12)
 
 El usuario pidió tomar `naxola/saas-template` (`v1.0.0`) como base y montar

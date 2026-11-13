@@ -757,6 +757,83 @@ solo la vista de conjunto.
 - [x] M12 — Documentación al nuevo stack: `ARCHITECTURE`, `DATABASE`, `INTEGRATIONS`, `tests/README`, `README` (2026-11-13).
 - [ ] M13 — Corte (con el usuario): vaciar `legacy/`, staging, datos, fusión en `master`. **Siguiente.**
 
+## Robustez y profesionalización (planificado 2026-11-13, sin empezar)
+
+Fases salidas de la revisión técnica posterior a la migración. **Ninguna está empezada**; se hacen después del
+corte (M13), en este orden salvo que el usuario diga otra cosa. Cada una cumple la Definition of Done de
+`CLAUDE.md` y registra sus decisiones en `docs/DECISIONS.md`. Las que cambian un requisito o añaden
+infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usuario lo resuelva.
+
+### R1 — Fiabilidad de los mensajes
+
+- [ ] R1a — **Envío con *outbox***: el mensaje se guarda `PENDING` y lo envía el worker; reconciliación por el id del
+      proveedor en vez de reintento ciego (hoy, si el proceso muere tras aceptar el proveedor, el mensaje sale y no se
+      registra). La UI muestra los estados intermedios. Supersede la decisión «envío síncrono» de M7a.
+- [ ] R1b — **Leído por persona**: hoy hay una marca de lectura por organización y un ADMIN que abre la conversación de
+      un delegado se la marca como leída. Tabla de lecturas por miembro; contadores de la bandeja por persona.
+- [ ] R1c — **Tiempo real** en bandeja e hilo con SSE alimentado por `LISTEN/NOTIFY` de Postgres (sin infraestructura
+      nueva), en lugar del sondeo cada 15 s / 5 s. **Decidir antes:** comprobar que el proxy de staging (Cloudflare
+      Tunnel + Coolify) mantiene conexiones largas.
+
+### R2 — Datos, cumplimiento y seguridad
+
+- [ ] R2a — **Retención de `webhook_events`**: job que purga los procesados tras N días. **Decidir antes:** N (los legales
+      tienen ese plazo como `REVISAR`).
+- [ ] R2b — **Borrado y exportación reales**: casos de uso para eliminar un contacto, un miembro y una organización, y para
+      exportar los datos de una persona (acceso y portabilidad). Hoy los legales prometen 30 días y 72 horas y el proceso es
+      manual por correo.
+- [ ] R2c — **Copias de seguridad**: `pg_dump` programado, copia cifrada fuera del servidor y un **ensayo de restauración**
+      documentado en `docs/operations.md`. **Decidir antes:** dónde se guardan.
+- [ ] R2d — **Cabeceras de seguridad** (CSP, HSTS, `frame-ancestors`, `Referrer-Policy`) en web y sitio público, con E2E.
+- [ ] R2e — **Limitador de peticiones** en Postgres (hoy en memoria: no vale con dos réplicas) e IP de cliente tomada solo
+      del proxy de confianza (hoy `x-forwarded-for` tal cual, falsificable).
+- [ ] R2f — **2FA para administradores** y lista de sesiones activas (un ADMIN ve todas las conversaciones).
+- [ ] R2g — **Guardia SSRF sin ventana de *DNS rebinding***: conectar a la IP ya comprobada.
+- [ ] R2h — **Cifrado en reposo** del cuerpo de los mensajes y de las notas. **Decidir antes:** gestión de claves y su
+      efecto en la búsqueda de la bandeja (hoy busca en el texto del último mensaje).
+
+### R3 — Robustez del backend
+
+- [ ] R3a — **Paginación por cursor** en contactos, tareas, hilo (hoy corta en 500) y bandeja (100).
+- [ ] R3b — **Evaluación de la búsqueda** con embeddings reales: conjunto de preguntas y documentos del usuario, ajuste del
+      umbral de similitud (0,2 provisional) y decisión medida sobre el índice vectorial. Requisito previo de la Fase 8.
+- [ ] R3c — **Cuota de embeddings por organización** con `recordUsage` de la plantilla (hoy una subida se embebe sin techo).
+- [ ] R3d — **PDF escaneados**: hoy fallan como «documento vacío». **Decidir antes:** OCR (dependencia y coste) o solo
+      avisarlo con claridad al subir.
+- [ ] R3e — **Fusión de contactos duplicados** (y mover una conversación a otro contacto): pendiente desde M7b.
+- [ ] R3f — **Métricas de negocio** y alertas: webhooks en cola y su latencia, envíos fallidos por canal, ingestas atascadas.
+- [ ] R3g — **Control de concurrencia optimista** (`updated_at`) al editar contactos, tareas y fichas.
+
+### R4 — Producto y experiencia
+
+- [ ] R4a — **Panel de inicio del delegado**: pendientes de respuesta, tareas que vencen, afiliados con cuota vencida
+      (hoy es el saludo vacío de la plantilla).
+- [ ] R4b — **Crear tarea desde la conversación** (la columna y el caso de uso ya existen; falta el botón) y ficha editable
+      (UI-10f).
+- [ ] R4c — **Notificaciones** de mensaje nuevo: título de la pestaña, sonido opcional y, si se decide, push.
+- [ ] R4d — **Estados de carga y de error**: `error.tsx`, `not-found.tsx` y esqueletos en vez de pantallas en blanco.
+- [ ] R4e — **Búsqueda y filtros** en Contactos y Tareas.
+- [ ] R4f — **Adjuntos sin almacenarlos** (UI-10c): metadatos en el mensaje y descarga por proxy en streaming. **Decidir
+      antes:** confirmar con la documentación actual de Meta cuánto tiempo es descargable un medio.
+- [ ] R4g — **Plantillas aprobadas de WhatsApp** para escribir con la ventana de 24 h cerrada. **Decidir antes:** depende
+      del adaptador real (PKG-009) y de la capacidad vigente de Meta.
+- [ ] R4h — **Móvil**: pasada real en teléfono y valorar PWA. Accesibilidad pendiente de M11: lector de pantalla,
+      `Alt+↑/↓`, animación del panel.
+
+### R5 — Calidad de ingeniería
+
+- [ ] R5a — **Ver correr el CI de GitHub y `docker build`/compose** (no se han podido probar en las sesiones sin Docker);
+      imagen `postgres` con pgvector incluida. Es lo primero de M13.
+- [ ] R5b — **E2E que faltan**: PDF real, ventana de servicio cerrada, ecos del móvil, dos conversaciones del mismo contacto
+      con acceso temporal, URL privada rechazada. Al tenerlos, borrar los E2E que quedan en `legacy/`.
+- [ ] R5c — **Test que falle ante una traducción ausente** (hoy solo sale en el log; se coló una en M8b).
+- [ ] R5d — **Pruebas de carga** de la bandeja y del webhook con volumen realista, y staging con datos sintéticos.
+- [ ] R5e — **Limpiar la documentación de dos épocas**: reescribir `ARCHITECTURE`/`DATABASE`/`INTEGRATIONS` y `docs/ui/` en
+      vez de mantener el bloque «Estado actual» sobre el texto antiguo.
+
+**En paralelo, no técnico:** el alta como Tech Provider de Meta y la decisión sobre el Business Manager (PKG-009). Sin el
+adaptador real de WhatsApp nada de lo anterior se usa en producción.
+
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 
 Microservicios, Kubernetes, Elasticsearch/OpenSearch, vector DB externa, apps
