@@ -83,7 +83,7 @@ export function DocumentDetail({ documentId }: { documentId: string }) {
         open={adding}
         onOpenChange={setAdding}
         title={t('newVersionTitle')}
-        closeLabel={all('common.close')}
+        closeLabel={all('shell.close')}
       >
         <UploadForm
           path={`/api/v1/knowledge/documents/${d.id}/versions`}

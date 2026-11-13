@@ -129,7 +129,8 @@ test('what is wrong with a submission is said, and a delegate reads and searches
   await panel.getByLabel('En vigor desde').fill('2024-01-01')
   await press(panel.getByRole('button', { name: 'Subir', exact: true }))
   await expect(panel.getByText('El archivo no es un PDF válido.')).toBeVisible()
-  await page.keyboard.press('Escape')
+  // The panel has a labelled close button (a missing translation once left it unnamed).
+  await press(panel.getByRole('button', { name: 'Cerrar', exact: true }))
   await expect(panel).toBeHidden()
 
   await upload(page, 'Interno', LAW)

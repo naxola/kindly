@@ -52,6 +52,10 @@ model Organization {
   knowledgeDocuments KnowledgeDocument[]
   knowledgeVersions  KnowledgeDocumentVersion[]
   knowledgeChunks    KnowledgeChunk[]
+  procedures         Procedure[]
+  procedureVersions  ProcedureVersion[]
+  procedureSteps     ProcedureStep[]
+  procedureDocuments ProcedureRequiredDocument[]
   messages           Message[]
 
   @@map("organizations")
@@ -805,8 +809,8 @@ model KnowledgeDocumentVersion {
   sourceData      Bytes?                 @map("source_data")
   createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  organization Organization?      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  document     KnowledgeDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organization Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  document     KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   chunks       KnowledgeChunk[]
 
   @@index([documentId])
@@ -839,4 +843,81 @@ model KnowledgeChunk {
   @@index([documentVersionId, ordinal])
   @@index([contentTsv], type: Gin)
   @@map("knowledge_chunks")
+}
+
+// ============================================================================
+// PROCEDURES (Kindly, "trámites"): how the organization handles a kind of request: its steps and
+// the documents it requires, versioned so editing never rewrites what a past case was handled under.
+// Private to each organization. Only the definition is stored, never a member's files.
+// ============================================================================
+
+/// No DRAFT/REPEALED: a procedure is the organization's own rule, published or replaced.
+enum ProcedureVersionStatus {
+  CURRENT
+  SUPERSEDED
+}
+
+model Procedure {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  versions     ProcedureVersion[]
+
+  @@index([organizationId, name])
+  @@map("procedures")
+}
+
+model ProcedureVersion {
+  id             String                 @id @default(uuid(7)) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  procedureId    String                 @map("procedure_id") @db.Uuid
+  /// 1, 2, 3... per procedure.
+  version        Int
+  status         ProcedureVersionStatus @default(CURRENT)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  procedure    Procedure                   @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  steps        ProcedureStep[]
+  documents    ProcedureRequiredDocument[]
+
+  @@unique([procedureId, version])
+  @@index([organizationId])
+  @@map("procedure_versions")
+}
+
+model ProcedureStep {
+  id                 String @id @default(uuid(7)) @db.Uuid
+  organizationId     String @map("organization_id") @db.Uuid
+  procedureVersionId String @map("procedure_version_id") @db.Uuid
+  ordinal            Int
+  title              String
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version      ProcedureVersion @relation(fields: [procedureVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([procedureVersionId, ordinal])
+  @@index([organizationId])
+  @@map("procedure_steps")
+}
+
+/// One row per required document; a future per-case state points at this id.
+model ProcedureRequiredDocument {
+  id                 String @id @default(uuid(7)) @db.Uuid
+  organizationId     String @map("organization_id") @db.Uuid
+  procedureVersionId String @map("procedure_version_id") @db.Uuid
+  ordinal            Int
+  name               String
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  version      ProcedureVersion @relation(fields: [procedureVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([procedureVersionId, ordinal])
+  @@index([organizationId])
+  @@map("procedure_required_documents")
 }

@@ -20,6 +20,7 @@ export * from './modules/affiliations/index.ts'
 export * from './modules/tasks/index.ts'
 export * from './modules/conversations/index.ts'
 export * from './modules/knowledge/index.ts'
+export * from './modules/procedures/index.ts'
 export * from './modules/messaging/index.ts'
 
 import {

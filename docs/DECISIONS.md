@@ -3994,3 +3994,16 @@ identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.
    Ajustar con documentos reales y OpenAI antes de apoyar en él al Copilot.
 5. **Subir es aceptar, no procesar**: 202 y estado consultable; la pantalla refresca sola mientras haya
    algo en curso. Los errores de la fuente son códigos estables que traduce la interfaz.
+
+## 2026-11-13 — Trámites: versionados, privados y sin archivos (M9)
+
+**Decisiones:**
+
+1. **Un trámite es una definición versionada** (pasos y documentos requeridos), privada de cada
+   organización; no hay trámites GLOBAL. Editar publica una versión nueva y **nunca reescribe las
+   anteriores**: lo que se gestionó con la versión 1 sigue leyéndose como era.
+2. **Publicaciones serializadas** (`SELECT … FOR UPDATE` sobre el trámite): dos administradores publicando a la
+   vez no calculan el mismo número de versión.
+3. **Lectura para todos, escritura solo ADMIN**: el delegado necesita ver qué documentos faltan por pedir.
+4. **Solo la definición**: ni archivos de afiliados ni su estado por documento (eso es la UI-10c, no aquí).
+   Sin `activities`: no hay línea de tiempo de un trámite; basta la auditoría de seguridad.

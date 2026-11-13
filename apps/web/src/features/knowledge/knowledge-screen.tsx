@@ -63,12 +63,17 @@ export function KnowledgeScreen() {
         title={t('title')}
         description={t('description')}
         actions={
-          canWrite ? (
-            <Button variant="primary" onClick={() => setUploading(true)}>
-              <Upload aria-hidden />
-              {t('upload')}
+          <>
+            <Button asChild>
+              <Link href="/knowledge/procedures">{all('procedures.link')}</Link>
             </Button>
-          ) : null
+            {canWrite ? (
+              <Button variant="primary" onClick={() => setUploading(true)}>
+                <Upload aria-hidden />
+                {t('upload')}
+              </Button>
+            ) : null}
+          </>
         }
       />
       <PageContainer className="space-y-8">
@@ -183,7 +188,7 @@ export function KnowledgeScreen() {
         open={uploading}
         onOpenChange={setUploading}
         title={t('uploadTitle')}
-        closeLabel={all('common.close')}
+        closeLabel={all('shell.close')}
       >
         <UploadForm
           path="/api/v1/knowledge/documents"

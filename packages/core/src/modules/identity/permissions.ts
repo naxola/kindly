@@ -35,6 +35,9 @@ export const PERMISSIONS = [
   // Kindly (knowledge): everyone reads GLOBAL and the organization's; only administrators write.
   'knowledge.read',
   'knowledge.write',
+  // Kindly (procedures): everyone reads (a delegate needs the required documents); administrators write.
+  'procedures.read',
+  'procedures.write',
   'billing.read',
   'billing.manage',
 ] as const
@@ -56,6 +59,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     'messages.send',
     'conversations.read',
     'knowledge.read',
+    'procedures.read',
   ],
 }
 

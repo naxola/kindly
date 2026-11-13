@@ -785,5 +785,46 @@
       "submit": "Upload",
       "optional": "optional"
     }
+  },
+  "procedures": {
+    "title": "Procedures",
+    "description": "Steps and required documents of each procedure of the organization.",
+    "back": "← Knowledge",
+    "link": "Procedures",
+    "new": "New procedure",
+    "newTitle": "New procedure",
+    "create": "Create procedure",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "version": "Current version"
+    },
+    "empty": "There are no procedures yet",
+    "emptyAdmin": "Create the first one to know which documents each request needs.",
+    "emptyMember": "An administrator can create them.",
+    "notFound": "This procedure does not exist or you do not have access to it.",
+    "backList": "Back to Procedures",
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "steps": "Steps",
+      "stepsHint": "One per line, in order.",
+      "documents": "Required documents",
+      "documentsHint": "One per line.",
+      "optional": "optional"
+    },
+    "publishTitle": "Publish a new version",
+    "publish": "Publish version",
+    "publishHint": "A new version replaces the current one; earlier ones stay as they were.",
+    "versions": "Versions",
+    "versionsHint": "Newest first",
+    "version": "Version {version}",
+    "current": "Current",
+    "superseded": "Superseded",
+    "steps": "Steps",
+    "noSteps": "No steps.",
+    "documents": "Required documents",
+    "noDocuments": "No required documents.",
+    "published": "Published on {date}"
   }
 }

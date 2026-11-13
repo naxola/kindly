@@ -23,6 +23,7 @@ export {
   DocumentVersionStatus,
   KnowledgeChunkLevel,
   IngestionStatus,
+  ProcedureVersionStatus,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -49,4 +50,8 @@ export type {
   KnowledgeDocument,
   KnowledgeDocumentVersion,
   KnowledgeChunk,
+  Procedure,
+  ProcedureVersion,
+  ProcedureStep,
+  ProcedureRequiredDocument,
 } from './generated/prisma/client.ts'

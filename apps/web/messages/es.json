@@ -785,5 +785,46 @@
       "submit": "Subir",
       "optional": "opcional"
     }
+  },
+  "procedures": {
+    "title": "Trámites",
+    "description": "Pasos y documentos requeridos de cada trámite de la organización.",
+    "back": "← Conocimiento",
+    "link": "Trámites",
+    "new": "Nuevo trámite",
+    "newTitle": "Nuevo trámite",
+    "create": "Crear trámite",
+    "columns": {
+      "name": "Nombre",
+      "description": "Descripción",
+      "version": "Versión vigente"
+    },
+    "empty": "Todavía no hay trámites",
+    "emptyAdmin": "Crea el primero para saber qué documentación hace falta en cada gestión.",
+    "emptyMember": "Un administrador puede crearlos.",
+    "notFound": "Este trámite no existe o no tienes acceso a él.",
+    "backList": "Volver a Trámites",
+    "form": {
+      "name": "Nombre",
+      "description": "Descripción",
+      "steps": "Pasos",
+      "stepsHint": "Uno por línea, en orden.",
+      "documents": "Documentos requeridos",
+      "documentsHint": "Uno por línea.",
+      "optional": "opcional"
+    },
+    "publishTitle": "Publicar nueva versión",
+    "publish": "Publicar versión",
+    "publishHint": "Una versión nueva sustituye a la vigente; las anteriores quedan como estaban.",
+    "versions": "Versiones",
+    "versionsHint": "De la más reciente a la más antigua",
+    "version": "Versión {version}",
+    "current": "Vigente",
+    "superseded": "Sustituida",
+    "steps": "Pasos",
+    "noSteps": "Sin pasos.",
+    "documents": "Documentos requeridos",
+    "noDocuments": "Sin documentos requeridos.",
+    "published": "Publicada el {date}"
   }
 }

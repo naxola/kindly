@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M8b hecha: recuperación híbrida y pantallas de conocimiento).
+Última actualización: 2026-11-13 (M9 hecha: trámites).
 
 ## 1. Objetivo
 
@@ -140,7 +140,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ✅               |
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ✅               |
 | M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ✅               |
-| M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ⬜               |
+| M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ✅               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ⬜               |
 | M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ⬜               |
 | M12  | Documentación: `ARCHITECTURE.md`, `DATABASE.md`, `INTEGRATIONS.md`, `tests/README` al nuevo stack; `CLAUDE.md` definitivo; `PROGRESS.md`                                                                                                                                                                                                                                                                                                                | —                                                                                                | ⬜               |
@@ -1018,3 +1018,40 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   `/knowledge/procedures` y `/knowledge/procedures/[id]`, E2E. Releer `legacy/src/modules/procedures`,
   `legacy/src/app/(app)/knowledge/procedures`, `tests/e2e/procedures.spec.ts` y la entrada «Fase 7d» de
   `docs/DECISIONS.md`. Un trámite no guarda archivos de afiliados (principio: Kindly no los almacena).
+
+### 2026-11-13 — M9 (trámites)
+
+- Hecho:
+  - **Datos** (migración `20261113180000_procedures`): `procedures`, `procedure_versions`, `procedure_steps`,
+    `procedure_required_documents`, todas con `organization_id` y RLS forzada; índice único parcial «una
+    versión CURRENT por trámite». Privados de cada organización (sin GLOBAL). Solo se guarda la
+    **definición**, nunca archivos de afiliados.
+  - **`core/procedures`**: `listProcedures` (A–Z con la versión vigente), `getProcedure` (todas las versiones,
+    pasos y documentos en orden), `createProcedure` y `publishProcedureVersion`. Una versión nueva sustituye a
+    la vigente y **no reescribe las anteriores**; las publicaciones simultáneas se serializan con
+    `FOR UPDATE` (un test lanza tres a la vez y no se repite ningún número). Pasos y documentos se
+    normalizan en el servidor: sin vacíos ni repetidos, orden conservado. Permisos `procedures.read` (todos:
+    el delegado necesita los documentos requeridos) y `procedures.write` (solo ADMIN). Auditoría solo de ids
+    y número de versión. Sin `activities`: un trámite no tiene línea de tiempo.
+  - **API** `/api/v1/procedures` (lista, detalle, crear, publicar versión).
+  - **UI**: `/knowledge/procedures` (lista, «Nuevo trámite» en panel lateral) y `/knowledge/procedures/[id]`
+    (formulario «Publicar nueva versión» **precargado con la vigente**, versiones con su estado); enlace
+    «Trámites» desde Conocimiento. es/en.
+  - Tests: 7 de integración de `core`, 1 de la API, unitarios portados, 1 E2E (crear, duplicados fuera,
+    publicar, la antigua queda como estaba, el delegado lee y no escribe).
+- **Bug mío de M8b, corregido aquí:** los paneles de Conocimiento usaban la clave `common.close` (no existe;
+  la buena es `shell.close`). Salía `MISSING_MESSAGE` en el log y el botón de cerrar no tenía nombre; el E2E de
+  M8b no lo vio porque cerraba con `Esc`. Corregido en los tres sitios y el E2E ahora pulsa el botón por su nombre.
+- **`legacy/` — borrado:** `modules/procedures/`, las páginas de trámites (con ellas desaparece
+  `app/(app)/knowledge/`) y sus tests unitario, de integración y E2E.
+- Verificación real: `format:check`, `lint`, `typecheck`, `test` (203 unitarias), `test:integration` (246, dos
+  pasadas), `db:check`, `build` y `test:e2e` (31/31).
+  **No verificado:** responsive de las pantallas nuevas y el CI. Las capturas de esta fase no se han revisado a ojo.
+- **Próximo paso concreto:** M10 — **web pública** (`apps/site`): textos legales de Kindly (privacidad,
+  términos, aviso legal y la **URL de eliminación de datos que exige Meta**) en
+  `apps/site/content/legal/<idioma>/`, datos de empresa en `site.config.ts` **con la banda «REVISAR»
+  mientras no estén revisados por una persona** (no se inventan datos de empresa ni de contacto legal),
+  `FACEBOOK_DOMAIN_VERIFICATION` y la portada de Kindly. Releer `legacy/src/app/(public)`,
+  `legacy/src/config/company.ts`, `tests/e2e/public-site.spec.ts` y el E2E `site.spec.ts` de la plantilla.
+  **Necesitaré del usuario los datos reales de la empresa** (razón social, NIF, domicilio, correo de
+  privacidad, responsable del tratamiento): sin ellos los legales quedan como borrador marcado.
