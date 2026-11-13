@@ -38,7 +38,7 @@ export async function listTasks(
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const rows = await tx.task.findMany({
       where: {
-        ...taskVisibilityWhere(ctx.actor),
+        ...(await taskVisibilityWhere(tx, ctx.actor)),
         ...(status === 'pending' ? { completedAt: null } : {}),
         ...(status === 'done' ? { completedAt: { not: null } } : {}),
       },
@@ -51,7 +51,7 @@ export async function listTasks(
 
 async function findVisible(tx: TenantTx, ctx: Ctx, taskId: string): Promise<WithContact> {
   const row = await tx.task.findFirst({
-    where: { id: taskId, ...taskVisibilityWhere(ctx.actor) },
+    where: { id: taskId, ...(await taskVisibilityWhere(tx, ctx.actor)) },
     include,
   })
   if (!row) throw new DomainError('NOT_FOUND', 'Task not found')

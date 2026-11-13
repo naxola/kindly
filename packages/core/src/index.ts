@@ -18,6 +18,8 @@ export * from './modules/activity/index.ts'
 export * from './modules/contacts/index.ts'
 export * from './modules/affiliations/index.ts'
 export * from './modules/tasks/index.ts'
+export * from './modules/conversations/index.ts'
+export * from './modules/messaging/index.ts'
 
 import {
   BILLING_SCHEDULES,
@@ -28,6 +30,7 @@ import {
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
+import { processWebhookJob } from './modules/messaging/index.ts'
 import {
   invitationEmailJob,
   passwordResetEmailJob,
@@ -43,6 +46,7 @@ export const ALL_JOBS = [
   passwordResetEmailJob,
   invitationEmailJob,
   deliverEventJob,
+  processWebhookJob,
   quotaAlertEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,

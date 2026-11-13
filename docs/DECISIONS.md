@@ -3817,3 +3817,39 @@ el usuario en Q1).
 SQL manual en cada módulo y se salta los tipos); un filtro posterior en memoria (los
 datos ajenos saldrían de la base de datos); un rol «DELEGATE» en la base (descartado en
 D4).
+
+## 2026-11-13 — Mensajería sobre la plantilla: tubería, webhook y registro de adaptadores (M6a)
+
+**Contexto:** el código anterior procesaba el webhook con `after()` y registraba los
+adaptadores en un `Map` global bajo `globalThis` (un apaño para que `instrumentation.ts` y las
+rutas compartieran instancia bajo Turbopack). La plantilla trae RLS real, cola y worker.
+
+**Decisiones:**
+
+1. **El webhook se procesa como job** de pg-boss (`messaging.process-webhook`), no con
+   `after()`: reintentos con espera, supervivencia a un reinicio y fallo definitivo visible
+   (resuelve también el pendiente de la subida síncrona de conocimiento, que sigue igual).
+2. **Verificar y guardar son atómicos**: firma válida → evento crudo + encolado en una sola
+   transacción; firma inválida → nada se guarda (no queda rastro de una petición falsificada).
+3. **Una transacción por webhook entero**: todos sus eventos se aplican juntos o ninguno; el
+   reintento parte de cero y la clave única `(cuenta, id externo del mensaje)` absorbe
+   duplicados. Los chats nuevos concurrentes se serializan con un bloqueo asesor
+   `(cuenta, chat)` en vez de dejar que uno aborte la transacción por la restricción única.
+4. **Resolver la cuenta antes de conocer la organización** con un contexto RLS de solo
+   lectura de esa fila (`withMessagingAccount`), no con `app_platform` (BYPASSRLS):
+   mínimo privilegio. Lo demás corre en `withTenant` de la organización de la cuenta.
+5. **Registro de adaptadores inyectado** (`MessagingRegistry`), sin estado global: cada proceso
+   (web, worker, test) tiene los adaptadores que se le dieron. Producción no tiene ninguno
+   hasta que llegue el real, y entonces todo webhook responde 404.
+6. **Visibilidad temporal derivada de los mensajes**, sin estado propio que pueda
+   desincronizarse, dentro de la función única `contactVisibilityWhere`.
+7. **Un contacto desconocido no se pierde ni se inventa**: se crea «sin identificar» con el
+   nombre que dé el proveedor (o el teléfono, o el id externo) y se asigna al delegado de la
+   cuenta que lo recibió, sin actor humano. Sin fusión automática de duplicados.
+
+**Alternativas consideradas:** `after()` (sin reintentos ni durabilidad); `app_platform` para
+resolver la cuenta (demasiado privilegio para una lectura); registro global (estado mutable
+compartido, difícil de probar); procesar cada evento de un webhook en su propia transacción
+(un fallo a medias dejaría el lote parcialmente aplicado y el reintento duplicaría trabajo).
+
+**Pendiente:** política de retención del cuerpo crudo de `webhook_events` (datos personales).

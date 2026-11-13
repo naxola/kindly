@@ -10,6 +10,7 @@ export {
   markContactIdentified,
   listContactActivity,
   assertContactVisible,
+  createContactFromInbound,
 } from './service.ts'
 export type { ContactView, ContactActivityView } from './service.ts'
 export { assignContactToDelegate, listAssignmentHistory } from './assignments.ts'

@@ -11,7 +11,8 @@
     "./events": "./src/events/index.ts",
     "./alerts": "./src/alerts/index.ts",
     "./errors": "./src/errors/index.ts",
-    "./payments": "./src/payments/index.ts"
+    "./payments": "./src/payments/index.ts",
+    "./messaging": "./src/messaging/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

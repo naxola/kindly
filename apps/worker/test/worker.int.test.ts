@@ -3,13 +3,16 @@ import { createLogger } from '@saas/adapters/logger'
 import { createBoss, PgBossJobQueue, type PgBoss } from '@saas/adapters/queue'
 import {
   createInvitation,
+  createMessagingRegistry,
   createOrganization,
   ensureUser,
+  FakeMessagingAdapter,
+  receiveWebhook,
   resolveActor,
   type BusinessEvent,
   type EmailMessage,
 } from '@saas/core'
-import { createDb, newId, type Db } from '@saas/database'
+import { createDb, newId, withTenant, type Db } from '@saas/database'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { loadEnv } from '../src/env.ts'
 import { startWorker, type RunningWorker } from '../src/worker.ts'
@@ -22,6 +25,7 @@ const sent: EmailMessage[] = []
 const delivered: BusinessEvent[] = []
 const alerts: Alert[] = []
 const HEALTH_PORT = 3902
+const fake = new FakeMessagingAdapter('s3cret')
 
 let db: Db
 let producer: PgBoss
@@ -34,6 +38,7 @@ beforeAll(async () => {
   // wait below would then depend on how many tests ran earlier.
   await db.$executeRaw`DELETE FROM pgboss.job`
   worker = await startWorker({
+    messaging: createMessagingRegistry([fake]),
     env: loadEnv({
       ...process.env,
       APP_URL: 'https://app.example.com',
@@ -80,9 +85,19 @@ async function until<T>(read: () => T | undefined, timeoutMs = 20_000): Promise<
   }
 }
 
+async function untilAsync<T>(read: () => Promise<T | undefined>, timeoutMs = 20_000): Promise<T> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const value = await read()
+    if (value !== undefined) return value
+    if (Date.now() > deadline) throw new Error('timed out waiting for the worker')
+    await new Promise((r) => setTimeout(r, 200))
+  }
+}
+
 describe('worker', () => {
   it('consumes every template queue and registers the schedules', async () => {
-    expect(worker.queues).toHaveLength(9)
+    expect(worker.queues).toHaveLength(10)
     const schedules = await worker.boss.getSchedules()
     expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
       'billing.close-due-periods',
@@ -152,5 +167,63 @@ describe('worker health', () => {
     const alert = alerts.find((a) => a.key === `queue-stuck:${name}`)
     expect(alert?.severity).toBe('warning')
     expect(alert?.body).toContain('60 min')
+  })
+
+  it('processes a stored webhook: contact, conversation and message appear', async () => {
+    const ctx = {
+      db,
+      queue: new PgBossJobQueue(producer),
+      correlationId: newId(),
+      appUrl: 'https://app.example.com',
+    }
+    const access = await db.authUser.create({
+      data: {
+        id: newId(),
+        email: `hook-${newId()}@example.com`,
+        name: 'Hook',
+        emailVerified: true,
+      },
+    })
+    const user = await ensureUser(ctx, access.id)
+    const { organization, member } = await createOrganization(ctx, user.id, {
+      name: 'Hooks',
+      slug: `hooks-${newId().slice(-12)}`,
+    })
+    const account = await withTenant(db, organization.id, (tx) =>
+      tx.messagingAccount.create({
+        data: {
+          organizationId: organization.id,
+          delegateId: member.id,
+          channel: 'fake',
+          externalAccountId: `acc-${newId()}`,
+          status: 'CONNECTED',
+        },
+      }),
+    )
+    const outcome = await receiveWebhook(
+      { db, queue: ctx.queue, registry: createMessagingRegistry([fake]), correlationId: newId() },
+      'fake',
+      account.id,
+      JSON.stringify({
+        kind: 'MESSAGE',
+        externalConversationId: 'chat-w',
+        externalMessageId: 'msg-w',
+        externalContactId: 'ext',
+        contactDisplayName: 'Desde el worker',
+        text: 'Hola',
+      }),
+      fake.signatureHeaders(),
+    )
+    expect(outcome.status).toBe(200)
+    const done = await untilAsync(() =>
+      withTenant(db, organization.id, async (tx) => {
+        const m = await tx.message.findFirst({
+          include: { conversation: { include: { contact: true } } },
+        })
+        return m ?? undefined
+      }),
+    )
+    expect(done.body).toBe('Hola')
+    expect(done.conversation.contact.name).toBe('Desde el worker')
   })
 })

@@ -24,6 +24,11 @@ export const PERMISSIONS = [
   // Kindly (tasks): visible when they have no contact or the contact is visible.
   'tasks.read',
   'tasks.write',
+  // Kindly (messaging): everyone connects and sees their OWN channels; administrators see all.
+  'channels.read',
+  'channels.read_all',
+  'channels.connect',
+  'channels.disconnect_any',
   'billing.read',
   'billing.manage',
 ] as const
@@ -40,6 +45,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     'affiliations.manage',
     'tasks.read',
     'tasks.write',
+    'channels.read',
+    'channels.connect',
   ],
 }
 

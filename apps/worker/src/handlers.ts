@@ -13,12 +13,15 @@ import {
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
+  processWebhookHandler,
+  processWebhookJob,
   quotaAlertEmailJob,
   verificationEmailJob,
   type EmailSender,
   type EventSink,
   type JobDefinition,
   type JobQueue,
+  type MessagingRegistry,
   type PaymentProvider,
 } from '@saas/core'
 import type { Db } from '@saas/database'
@@ -34,6 +37,8 @@ export interface HandlerDeps {
   appUrl: string
   /** Null when PAYMENT_PROVIDER=none. */
   payments: PaymentProvider | null
+  /** Messaging adapters of this process (none in production until a real channel ships). */
+  messaging: MessagingRegistry
 }
 
 export interface Registration<S extends z.ZodType = z.ZodType> {
@@ -77,5 +82,9 @@ export const registrations: Registration[] = [
   register({
     job: chargePeriodJob,
     handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: processWebhookJob,
+    handler: ({ db, messaging }) => processWebhookHandler({ db, registry: messaging }),
   }),
 ]

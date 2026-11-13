@@ -30,7 +30,8 @@ export interface TenantTxOptions {
   isolationLevel?: Prisma.TransactionIsolationLevel
 }
 
-type ContextSetting = 'app.org_id' | 'app.user_id' | 'app.invitation_token_hash'
+type ContextSetting =
+  'app.org_id' | 'app.user_id' | 'app.invitation_token_hash' | 'app.messaging_account_id'
 
 async function withContext<T>(
   db: Db,
@@ -89,4 +90,19 @@ export async function withInvitationToken<T>(
 ): Promise<T> {
   if (!SHA256_HEX.test(tokenHash)) throw new InvalidTenantError()
   return withContext(db, 'app.invitation_token_hash', tokenHash, fn, options)
+}
+
+/**
+ * Context to resolve a messaging account by its id from a public webhook URL, before the
+ * organization is known: RLS only lets that one row be READ. Everything that follows (events,
+ * conversations, messages) runs in the account's own `withTenant` context.
+ */
+export async function withMessagingAccount<T>(
+  db: Db,
+  accountId: string,
+  fn: (tx: TenantTx) => Promise<T>,
+  options: TenantTxOptions = {},
+): Promise<T> {
+  if (!isUuid(accountId)) throw new InvalidTenantError()
+  return withContext(db, 'app.messaging_account_id', accountId, fn, options)
 }

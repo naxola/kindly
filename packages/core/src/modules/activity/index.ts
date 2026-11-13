@@ -8,7 +8,7 @@ import type { Prisma, TenantTx } from '@saas/database'
  * It has no authorization of its own: the module that owns the entity decides who may read it
  * (a contact's timeline is as visible as the contact). Each phase adds its types and entities.
  */
-export type ActivityEntityType = 'contact' | 'task'
+export type ActivityEntityType = 'contact' | 'task' | 'conversation' | 'messaging_account'
 
 export type ActivityType =
   | 'CONTACT_CREATED'
@@ -20,6 +20,10 @@ export type ActivityType =
   | 'AFFILIATION_ENDED'
   | 'TASK_CREATED'
   | 'TASK_COMPLETED'
+  | 'MESSAGE_RECEIVED'
+  | 'MESSAGE_SENT_FROM_DEVICE'
+  | 'CHANNEL_CONNECTED'
+  | 'CHANNEL_DISCONNECTED'
 
 export interface ActivityEntry {
   organizationId: string

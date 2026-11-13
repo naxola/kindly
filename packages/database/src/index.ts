@@ -3,6 +3,7 @@ export {
   withTenant,
   withUser,
   withInvitationToken,
+  withMessagingAccount,
   InvalidTenantError,
 } from './client.ts'
 export type { Db, TenantTx, CreateDbOptions, TenantTxOptions } from './client.ts'
@@ -13,6 +14,9 @@ export {
   OrganizationRole,
   MemberStatus,
   SubscriptionStatus,
+  MessagingAccountStatus,
+  MessageDirection,
+  MessageDeliveryStatus,
   BillingPeriodStatus,
 } from './generated/prisma/client.ts'
 export type {
@@ -33,4 +37,8 @@ export type {
   Affiliation,
   Activity,
   Task,
+  MessagingAccount,
+  WebhookEvent,
+  Conversation,
+  Message,
 } from './generated/prisma/client.ts'

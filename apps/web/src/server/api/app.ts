@@ -9,6 +9,7 @@ import { healthRoutes } from './routes/health.ts'
 import { invitationRoutes } from './routes/invitations.ts'
 import { memberRoutes } from './routes/members.ts'
 import { meRoutes } from './routes/me.ts'
+import { messagingWebhookRoutes } from './routes/messaging-webhook.ts'
 import { organizationRoutes } from './routes/organizations.ts'
 import { paymentWebhookRoutes } from './routes/payments-webhook.ts'
 import { taskRoutes } from './routes/tasks.ts'
@@ -45,6 +46,7 @@ export const api = newApp().basePath('/api')
 api.use('*', requestContext)
 api.route('/', healthRoutes)
 api.route('/', paymentWebhookRoutes)
+api.route('/', messagingWebhookRoutes)
 // Better Auth (ADR 0003): sign-up, sign-in, verification, recovery and sessions.
 api.on(['GET', 'POST'], '/auth/*', (c) => auth().handler(c.req.raw))
 api.route(`/${API_VERSION}`, v1)

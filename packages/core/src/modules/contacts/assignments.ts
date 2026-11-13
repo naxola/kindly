@@ -42,7 +42,7 @@ export async function listAssignmentHistory(
   authorize(ctx.actor, 'contacts.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const visible = await tx.contact.findFirst({
-      where: { id: contactId, ...contactVisibilityWhere(ctx.actor) },
+      where: { id: contactId, ...(await contactVisibilityWhere(tx, ctx.actor)) },
       select: { id: true },
     })
     if (!visible) throw new DomainError('NOT_FOUND', 'Contact not found')

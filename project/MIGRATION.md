@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M5 reducida a tareas; casos aplazados a petición del usuario).
+Última actualización: 2026-11-13 (M6a hecha: mensajería, núcleo y webhook; sin casos).
 
 ## 1. Objetivo
 
@@ -133,7 +133,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M4b  | Contactos (UI + E2E): `/contacts`, `/contacts/[id]`, reasignar, afiliación                                                                                                                                                                                                                                                                                                                                                                              | `app/(app)/contacts`, E2E `crm`, `membership`, `contact-assignments` (parte)                     | ✅               |
 | M5a  | **Casos y tareas** (datos + core + API): máquina de estados de `Case`, responsable solo delegado, tareas                                                                                                                                                                                                                                                                                                                                                | `modules/cases`, `tasks` + tests                                                                 | ✅ (solo tareas) |
 | M5b  | Casos y tareas (UI + E2E)                                                                                                                                                                                                                                                                                                                                                                                                                               | `app/(app)/cases`, `tasks`, `dashboard`; E2E `cases`                                             | ✅ (solo tareas) |
-| M6a  | **Mensajería, núcleo**: `messaging_accounts`, `webhook_events`, `conversations`, `messages`, `conversation_cases`; puerto `MessagingAdapter` + registro; webhook público con firma → job idempotente `messaging.process-webhook` (D9)                                                                                                                                                                                                                   | `modules/messaging` (núcleo), `conversations`, `app/api/webhooks` + tests                        | ⬜               |
+| M6a  | **Mensajería, núcleo**: `messaging_accounts`, `webhook_events`, `conversations`, `messages`, `conversation_cases`; puerto `MessagingAdapter` + registro; webhook público con firma → job idempotente `messaging.process-webhook` (D9)                                                                                                                                                                                                                   | `modules/messaging` (núcleo), `conversations`, `app/api/webhooks` + tests                        | ✅               |
 | M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ⬜               |
 | M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ⬜               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ⬜               |
@@ -555,3 +555,62 @@ permissions,index}.ts`, `core/src/index.ts`, `apps/web/src/server/api/{app,error
   nuevo y la regla de **acceso temporal** en `contactVisibilityWhere`; `conversation_id` en
   `tasks`. Es una fase grande: partirla si hace falta (datos+puerto, webhook+job, visibilidad).
   Releer `legacy/src/modules/{messaging,conversations}` y `docs/INTEGRATIONS.md`.
+
+### 2026-11-13 — M6a (mensajería: núcleo, canal de pruebas y webhook)
+
+- Hecho:
+  - **Datos** (migración `20261113130000_messaging`, RLS forzado): `messaging_accounts`,
+    `webhook_events`, `conversations`, `messages`. Referencias a `organization_members`
+    y claves compuestas con la organización. Único `(canal, external_account_id)` global
+    (la URL pública del webhook lleva el id antes de conocer la organización) y
+    `(cuenta, external_message_id)` por mensaje (idempotencia). **Sin `conversation_cases`**
+    (casos aplazados).
+  - **Contexto de webhook**: función `app.current_messaging_account_id()`, política
+    `webhook_read` (solo lectura de esa fila) y `withMessagingAccount(db, id, fn)`, igual que el
+    contexto de invitación. Se descartó usar el rol `app_platform` (BYPASSRLS): lo mínimo que
+    hace falta es leer **una** fila.
+  - **`core`**: módulos `conversations` (reglas puras y persistencia idempotente) y
+    `messaging` (puerto `MessagingAdapter`, `MessagingRegistry` **inyectado**, estado de la
+    cuenta, conectar/desconectar/listar cuentas, tubería de webhook y adaptador falso).
+    `packages/adapters/messaging` construye el registro (hoy vacío en producción).
+  - **Tubería**: `receiveWebhook` (verifica firma → guarda el evento y encola, en **una**
+    transacción) y el job `messaging.process-webhook` (reintentos con espera, fallo
+    definitivo visible); registrado en el worker. Cada webhook se procesa en **una sola
+    transacción**; el error se guarda en el evento y se relanza para el reintento.
+  - **Ruta pública** `GET|POST /api/webhooks/messaging/{channel}/{accountId}` (sin sesión ni
+    CSRF; la firma autentica). Canal, cuenta o id mal formado: el mismo 404.
+  - **Acceso temporal** (regla 3 de «Delegado de referencia y acceso temporal»): ya vive en
+    `contactVisibilityWhere`, derivada de los mensajes con una consulta SQL que devuelve los
+    ids visibles. `contactVisibilityWhere` y `taskVisibilityWhere` pasan a ser `async` (reciben
+    la transacción). Probada con el escenario Marta/Luis/Ana portado del código anterior.
+  - Permisos `channels.read|connect` (todos, solo cuentas propias) y
+    `channels.read_all|disconnect_any` (ADMIN).
+- **Decisiones** (también en `docs/DECISIONS.md`): registro de adaptadores inyectado, no global
+  (el `globalThis` del código anterior era un apaño de Turbopack); contacto desconocido
+  asignado al delegado de la cuenta y marcado «sin identificar», sin duplicados automáticos;
+  un canal que no se puede desconectar desde Kindly (coexistence) se rechaza en vez de
+  marcarlo `DISCONNECTED`; la vista de la cuenta nunca expone `credentialsReference` ni
+  `metadata`; la auditoría guarda ids y canal, no teléfonos.
+- **Pendiente anotado:**
+  - `webhook_events` guarda el cuerpo del mensaje (dato personal): falta una **política de
+    retención** (purgar los procesados tras N días). Decidir con el usuario antes de producción.
+  - `tasks.conversation_id` se añade con la UI de conversaciones (M7b), no ahora.
+  - El **canal falso de E2E** (variable que solo pone `playwright.config.ts`) se cablea en M7a,
+    cuando haya una pantalla que probar; hoy solo lo usan los tests de integración.
+  - De `legacy/` **no se borra nada** todavía: el envío (`sendOutboundMessage`), el onboarding de
+    WhatsApp, el adaptador de Meta y la bandeja siguen sin portar (M6b, M7).
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`, `lint`,
+  `typecheck` (11/11), `test` (94), `test:integration` (163; 24 nuevas de núcleo de mensajería,
+  3 de la ruta del webhook y 1 del worker con pg-boss real), `db:check` sin diferencias,
+  contrato sin cambios, `build` (5/5) y `test:e2e` (18/18, sin cambios de interfaz).
+- Por el camino: una migración que crea una función en el esquema `app` debe usar
+  `CREATE OR REPLACE` (ese esquema no lo vacía Prisma al reconstruir la base sombra); lo
+  descubrió `db:check`. Se recrearon las bases locales para reaplicar la migración corregida.
+- **Próximo paso concreto:** M6b — mensajería, WhatsApp: **envío saliente con el guardarraíl
+  de identidad** (nadie responde desde el número de otro delegado), ventana de servicio,
+  desconexión externa, comprobaciones de alta de WhatsApp (PKG-008), adaptador de la nube de
+  Meta contra el número de prueba (PKG-011) con sus firmas HMAC, y plantillas de tests del
+  adaptador. Releer `legacy/src/modules/messaging/whatsapp-*`, `conversations/service.ts`
+  (`sendOutboundMessage`, `getConversationServiceWindow`), `docs/INTEGRATIONS.md` §2 y las
+  entradas de `docs/DECISIONS.md` de PKG-005/008/011. **Antes de tocar nada de Meta, comprobar
+  si la capacidad sigue vigente en la documentación oficial** (`CLAUDE.md`, integraciones).

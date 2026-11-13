@@ -1,4 +1,5 @@
 import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
+import { buildMessagingRegistry } from '@saas/adapters/messaging'
 import { createPaymentProvider } from '@saas/adapters/payments'
 import { loadPaymentEnv } from '@saas/config/env'
 import { createEmailSender } from '@saas/adapters/email'
@@ -15,7 +16,13 @@ import {
   type FinalFailure,
   type PgBoss,
 } from '@saas/adapters/queue'
-import { ALL_SCHEDULES, type EmailSender, type EventSink, type PaymentProvider } from '@saas/core'
+import {
+  ALL_SCHEDULES,
+  type EmailSender,
+  type EventSink,
+  type MessagingRegistry,
+  type PaymentProvider,
+} from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
@@ -30,6 +37,7 @@ export interface StartWorkerOptions {
   events?: EventSink
   alerts?: AlertSender
   payments?: PaymentProvider | null
+  messaging?: MessagingRegistry
   /** How often the queues are checked for stuck jobs (default 5 minutes). */
   healthCheckIntervalMs?: number
 }
@@ -67,6 +75,7 @@ export async function startWorker({
   const observability = loadObservabilityEnv()
   initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
   const alerts = overrides.alerts ?? createAlertSender(observability, log)
+  const messaging = overrides.messaging ?? buildMessagingRegistry()
   const payments =
     overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
 
@@ -93,7 +102,7 @@ export async function startWorker({
     await registerWorker(
       boss,
       job,
-      handler({ db, email, events, queue, appUrl: env.APP_URL, payments }),
+      handler({ db, email, events, queue, appUrl: env.APP_URL, payments, messaging }),
       {
         log,
         concurrency: env.WORKER_CONCURRENCY,

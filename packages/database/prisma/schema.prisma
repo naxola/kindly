@@ -45,6 +45,11 @@ model Organization {
   affiliations       Affiliation[]
   activities         Activity[]
   tasks              Task[]
+  // Kindly (messaging): connected accounts, raw webhook events, conversations and messages.
+  messagingAccounts  MessagingAccount[]
+  webhookEvents      WebhookEvent[]
+  conversations      Conversation[]
+  messages           Message[]
 
   @@map("organizations")
 }
@@ -197,6 +202,7 @@ model OrganizationMember {
   assignmentsMade    ContactAssignment[] @relation("AssignedBy")
   activities         Activity[]
   assignedTasks      Task[]              @relation("TaskAssignee")
+  messagingAccounts  MessagingAccount[]
 
   @@unique([organizationId, id])
   @@unique([organizationId, userId])
@@ -448,10 +454,11 @@ model Contact {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  assignments  ContactAssignment[]
-  affiliations Affiliation[]
-  tasks        Task[]
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignments   ContactAssignment[]
+  affiliations  Affiliation[]
+  tasks         Task[]
+  conversations Conversation[]
 
   @@unique([organizationId, id])
   @@index([organizationId, createdAt])
@@ -553,4 +560,144 @@ model Task {
   @@index([organizationId, contactId])
   @@index([organizationId, assigneeId])
   @@map("tasks")
+}
+
+// ============================================================================
+// MESSAGING (Kindly): each delegate connects their OWN account (docs/DECISIONS.md, principle 1).
+// Provider identities are external ids, never a phone number (docs/DATABASE.md §6).
+// ============================================================================
+
+enum MessagingAccountStatus {
+  PENDING
+  CONNECTING
+  CONNECTED
+  DEGRADED
+  DISCONNECTED
+  REVOKED
+  ERROR
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageDeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+/// A delegate's account on a channel (WhatsApp, Telegram...). The phone is display data; the
+/// technical identity is `externalAccountId`. Unique across the platform per channel, because
+/// the public webhook URL carries it before the organization is known.
+model MessagingAccount {
+  id                        String                 @id @default(uuid(7)) @db.Uuid
+  organizationId            String                 @map("organization_id") @db.Uuid
+  delegateId                String                 @map("delegate_id") @db.Uuid
+  channel                   String
+  phone                     String?
+  externalAccountId         String                 @map("external_account_id")
+  externalBusinessAccountId String?                @map("external_business_account_id")
+  externalConnectionId      String?                @map("external_connection_id")
+  displayName               String?                @map("display_name")
+  status                    MessagingAccountStatus @default(PENDING)
+  metadata                  Json?
+  /// Points to a secret store; never the secret itself.
+  credentialsReference      String?                @map("credentials_reference")
+  connectedAt               DateTime?              @map("connected_at") @db.Timestamptz(3)
+  disconnectedAt            DateTime?              @map("disconnected_at") @db.Timestamptz(3)
+  lastSyncAt                DateTime?              @map("last_sync_at") @db.Timestamptz(3)
+  lastError                 String?                @map("last_error")
+  createdAt                 DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  delegate      OrganizationMember @relation(fields: [organizationId, delegateId], references: [organizationId, id], onDelete: Restrict)
+  webhookEvents WebhookEvent[]
+  conversations Conversation[]
+  messages      Message[]
+
+  @@unique([organizationId, id])
+  @@unique([channel, externalAccountId])
+  @@index([organizationId, delegateId])
+  @@map("messaging_accounts")
+}
+
+/// A webhook exactly as it arrived (after its signature was verified), kept so it can be
+/// processed asynchronously and replayed. Holds message text: personal data, to be purged by a
+/// retention policy.
+model WebhookEvent {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  messagingAccountId String    @map("messaging_account_id") @db.Uuid
+  channel            String
+  rawBody            String    @map("raw_body")
+  headers            Json
+  receivedAt         DateTime  @default(now()) @map("received_at") @db.Timestamptz(3)
+  processedAt        DateTime? @map("processed_at") @db.Timestamptz(3)
+  processingError    String?   @map("processing_error")
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  messagingAccount MessagingAccount @relation(fields: [organizationId, messagingAccountId], references: [organizationId, id], onDelete: Restrict)
+  messages         Message[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, receivedAt])
+  @@map("webhook_events")
+}
+
+/// The thread of one external chat on one account, with the contact it belongs to.
+model Conversation {
+  id                     String    @id @default(uuid(7)) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
+  messagingAccountId     String    @map("messaging_account_id") @db.Uuid
+  contactId              String    @map("contact_id") @db.Uuid
+  channel                String
+  externalConversationId String    @map("external_conversation_id")
+  /// One shared read marker per organization (no per-user read state in the MVP).
+  lastReadAt             DateTime? @map("last_read_at") @db.Timestamptz(3)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  messagingAccount MessagingAccount @relation(fields: [organizationId, messagingAccountId], references: [organizationId, id], onDelete: Restrict)
+  contact          Contact          @relation(fields: [organizationId, contactId], references: [organizationId, id], onDelete: Restrict)
+  messages         Message[]
+
+  @@unique([organizationId, id])
+  @@unique([messagingAccountId, externalConversationId])
+  @@index([organizationId, contactId])
+  @@map("conversations")
+}
+
+model Message {
+  id                   String                @id @default(uuid(7)) @db.Uuid
+  organizationId       String                @map("organization_id") @db.Uuid
+  conversationId       String                @map("conversation_id") @db.Uuid
+  messagingAccountId   String                @map("messaging_account_id") @db.Uuid
+  externalMessageId    String                @map("external_message_id")
+  externalChatId       String?               @map("external_chat_id")
+  direction            MessageDirection
+  /// Outbound but written on the delegate's own phone (coexistence echo or history).
+  sentFromDevice       Boolean               @default(false) @map("sent_from_device")
+  body                 String
+  deliveryStatus       MessageDeliveryStatus @default(PENDING) @map("delivery_status")
+  sourceWebhookEventId String?               @map("source_webhook_event_id") @db.Uuid
+  editedAt             DateTime?             @map("edited_at") @db.Timestamptz(3)
+  deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(3)
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  conversation       Conversation     @relation(fields: [organizationId, conversationId], references: [organizationId, id], onDelete: Restrict)
+  messagingAccount   MessagingAccount @relation(fields: [organizationId, messagingAccountId], references: [organizationId, id], onDelete: Restrict)
+  sourceWebhookEvent WebhookEvent?    @relation(fields: [organizationId, sourceWebhookEventId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([messagingAccountId, externalMessageId])
+  @@index([organizationId, conversationId, createdAt])
+  @@map("messages")
 }

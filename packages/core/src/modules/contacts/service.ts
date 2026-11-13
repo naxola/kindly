@@ -50,7 +50,7 @@ export async function listContacts(ctx: Ctx): Promise<ContactView[]> {
   authorize(ctx.actor, 'contacts.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const rows = await tx.contact.findMany({
-      where: contactVisibilityWhere(ctx.actor),
+      where: await contactVisibilityWhere(tx, ctx.actor),
       include: { assignments: openAssignment },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     })
@@ -62,7 +62,7 @@ export async function getContact(ctx: Ctx, contactId: string): Promise<ContactVi
   authorize(ctx.actor, 'contacts.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
     const row = await tx.contact.findFirst({
-      where: { id: contactId, ...contactVisibilityWhere(ctx.actor) },
+      where: { id: contactId, ...(await contactVisibilityWhere(tx, ctx.actor)) },
       include: { assignments: openAssignment },
     })
     if (!row) throw new DomainError('NOT_FOUND', 'Contact not found')
@@ -81,7 +81,7 @@ export async function assertContactVisible(
   contactId: string,
 ): Promise<Contact> {
   const contact = await tx.contact.findFirst({
-    where: { id: contactId, ...contactVisibilityWhere(actor) },
+    where: { id: contactId, ...(await contactVisibilityWhere(tx, actor)) },
   })
   if (!contact) throw new DomainError('NOT_FOUND', 'Contact not found')
   return contact
@@ -233,4 +233,39 @@ function audit(ctx: Ctx, tx: TenantTx, action: string, contactId: string) {
     correlationId: ctx.correlationId,
     ip: ctx.ip,
   })
+}
+
+/**
+ * A contact created from the first message of an unknown sender ("a message from an unknown
+ * contact is not lost", docs/PRODUCT.md §4). Flagged `isUnassigned` until someone confirms who it
+ * is, and assigned to the delegate whose account received it, with no human actor. The name is
+ * never invented: the provider's display name, else the phone, else the external id. No fuzzy
+ * matching against existing contacts: duplicates are detected by hand (docs/DECISIONS.md).
+ */
+export async function createContactFromInbound(
+  tx: TenantTx,
+  input: {
+    organizationId: string
+    delegateMemberId: string
+    name: string
+    phone: string | null
+  },
+): Promise<Contact> {
+  const contact = await tx.contact.create({
+    data: {
+      organizationId: input.organizationId,
+      name: input.name,
+      phone: input.phone,
+      isUnassigned: true,
+    },
+  })
+  await tx.contactAssignment.create({
+    data: {
+      organizationId: input.organizationId,
+      contactId: contact.id,
+      delegateId: input.delegateMemberId,
+      assignedById: null,
+    },
+  })
+  return contact
 }
