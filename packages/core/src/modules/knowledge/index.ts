@@ -22,6 +22,9 @@ export {
   submitVersion,
 } from './ingestion.ts'
 export type { SubmittedSource, IngestDeps, IngestionErrorCode } from './ingestion.ts'
+export { combineRankedResults, DEFAULT_RRF_K } from './retrieval-fusion.ts'
+export { searchKnowledge, SearchInput } from './retrieval.ts'
+export type { KnowledgeSearchResult } from './retrieval.ts'
 export { ingestGlobalDocument } from './operator.ts'
 export type { OperatorSource } from './operator.ts'
 export { FakeEmbeddingProvider } from './testing/fake-embedding.ts'

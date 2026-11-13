@@ -1,5 +1,11 @@
 import { expect, type Browser, type Locator, type Page } from '@playwright/test'
-import { createMessagingRegistry, FakeMessagingAdapter, processWebhookEvent } from '@saas/core'
+import {
+  createMessagingRegistry,
+  FakeEmbeddingProvider,
+  FakeMessagingAdapter,
+  ingestVersion,
+  processWebhookEvent,
+} from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import pg from 'pg'
 
@@ -196,4 +202,34 @@ export async function deliverFakeMessage(
     organizationId,
     event.id,
   )
+}
+
+/**
+ * Processes the knowledge uploads still pending, exactly as the worker would (same use case): the
+ * E2E environment runs no worker. Embeddings are the deterministic fake.
+ */
+export async function ingestPendingKnowledge(page: Page) {
+  const organizationId = (await page.context().cookies()).find(
+    (c) => c.name === 'active_org',
+  )!.value
+  const { withTenant } = await import('@saas/database')
+  const pending = await withTenant(appDb(), organizationId, (tx) =>
+    tx.knowledgeDocumentVersion.findMany({
+      where: { ingestionStatus: 'PENDING' },
+      select: { id: true },
+    }),
+  )
+  const noExtractor = {
+    extractPdf: () => Promise.reject(new Error('no PDF extraction in E2E')),
+    fetchWebText: () => Promise.reject(new Error('no network in E2E')),
+  }
+  for (const { id } of pending) {
+    await ingestVersion(
+      { db: appDb(), embeddings: new FakeEmbeddingProvider(), extractor: noExtractor },
+      organizationId,
+      id,
+      { number: 3, limit: 3 },
+    )
+  }
+  return pending.length
 }

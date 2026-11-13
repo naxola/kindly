@@ -3976,3 +3976,21 @@ identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.
    HTML se reduce a texto con regex, sin jsdom. La guardia SSRF resuelve el host y rechaza todo lo no
    público en cada redirección (residual conocido: rebinding de DNS entre la comprobación y la
    descarga; aceptable para un administrador autenticado).
+
+## 2026-11-13 — Recuperación de conocimiento: umbral, citas y sin respuesta a medias (M8b)
+
+**Decisiones:**
+
+1. **Todos los filtros duros van antes de ordenar** (organización o GLOBAL, estado y vigencia a la fecha de
+   consulta, versión lista, ámbito). Jurisdicción, territorio y ámbito son igualdad sin distinguir
+   mayúsculas, con los comodines escapados: un `%` no es un patrón.
+2. **Un resultado es una cita completa**: documento, versión, vigencia, nota de fuente y ubicación. El
+   `EvidenceLevel` no lo calcula la recuperación sino el Copilot (Fase 8): lo recuperado puede no sostener
+   la respuesta y eso solo lo sabe quien la redacta. Nunca se inventa una cita (principio 3).
+3. **Sin proveedor de embeddings, la búsqueda responde 503** (`EMBEDDINGS_NOT_CONFIGURED`) y no cae a solo
+   texto: una respuesta parcial se leería como completa.
+4. **Umbral de similitud de 0,2 en la parte vectorial**, **provisional y sin validar con embeddings
+   reales**: sin umbral, el vecino más cercano siempre aparece aunque no tenga relación con la consulta.
+   Ajustar con documentos reales y OpenAI antes de apoyar en él al Copilot.
+5. **Subir es aceptar, no procesar**: 202 y estado consultable; la pantalla refresca sola mientras haya
+   algo en curso. Los errores de la fuente son códigos estables que traduce la interfaz.

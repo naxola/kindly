@@ -6,6 +6,7 @@ import { requestContext } from './middleware.ts'
 import { billingRoutes } from './routes/billing.ts'
 import { contactRoutes } from './routes/contacts.ts'
 import { channelRoutes } from './routes/channels.ts'
+import { knowledgeRoutes } from './routes/knowledge.ts'
 import { conversationRoutes } from './routes/conversations.ts'
 import { healthRoutes } from './routes/health.ts'
 import { invitationRoutes } from './routes/invitations.ts'
@@ -44,6 +45,7 @@ v1.route('/', contactRoutes)
 v1.route('/', taskRoutes)
 v1.route('/', conversationRoutes)
 v1.route('/', channelRoutes)
+v1.route('/', knowledgeRoutes)
 v1.route('/', billingRoutes)
 
 export const api = newApp().basePath('/api')

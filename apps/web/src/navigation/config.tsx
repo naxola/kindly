@@ -1,6 +1,6 @@
 import type { Permission } from '@saas/core'
 import type { ProductMenuConfig, RailItem } from '@saas/ui/shell'
-import { House, Inbox, ListChecks, Settings, Users } from 'lucide-react'
+import { BookOpen, House, Inbox, ListChecks, Settings, Users } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 /**
@@ -27,6 +27,7 @@ export const MODULES: ModuleDef[] = [
   { key: 'inbox', href: '/inbox', icon: <Inbox />, railGroup: 0 },
   { key: 'contacts', href: '/contacts', icon: <Users />, railGroup: 0 },
   { key: 'tasks', href: '/tasks', icon: <ListChecks />, railGroup: 0 },
+  { key: 'knowledge', href: '/knowledge', icon: <BookOpen />, railGroup: 0 },
   {
     key: 'settings',
     href: '/settings',

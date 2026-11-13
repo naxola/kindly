@@ -45,6 +45,8 @@ export default defineConfig({
         AUTH_RATE_LIMIT_ENABLED: 'false',
         // A fake messaging channel so the tests can deliver signed webhooks (never set elsewhere).
         E2E_FAKE_MESSAGING_SECRET: 'e2e-fake-secret',
+        // Deterministic embeddings so search works without OpenAI (refused in production).
+        E2E_FAKE_EMBEDDINGS: 'true',
         LOG_LEVEL: 'warn',
       },
     },

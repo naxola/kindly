@@ -134,7 +134,16 @@
     "CANNOT_DISCONNECT_FROM_KINDLY": "This channel can only be disconnected from the delegate's own phone, not from Kindly.",
     "ACCOUNT_ALREADY_CONNECTED": "That account is already connected.",
     "INVALID_CONVERSATION": "The conversation does not exist or you do not have access to it.",
-    "CONVERSATION_CONTACT_MISMATCH": "The conversation belongs to another contact."
+    "CONVERSATION_CONTACT_MISMATCH": "The conversation belongs to another contact.",
+    "NOT_A_PDF": "The file is not a valid PDF.",
+    "PDF_TOO_LARGE": "The PDF exceeds the 4 MB limit.",
+    "TEXT_TOO_LARGE": "The text file exceeds the 2 MB limit.",
+    "SOURCE_EMPTY": "The file is missing or empty.",
+    "NOT_UTF8_TEXT": "The text file must be UTF-8 encoded.",
+    "INVALID_URL": "The web address is not valid.",
+    "URL_NOT_HTTP": "The web address must start with http:// or https://.",
+    "URL_HAS_CREDENTIALS": "The web address cannot include a user or password.",
+    "EMBEDDINGS_NOT_CONFIGURED": "The embeddings service is not configured in this environment."
   },
   "home": {
     "title": "Home",
@@ -147,7 +156,8 @@
     "inbox": "Inbox",
     "contacts": "Contacts",
     "tasks": "Tasks",
-    "settings": "Settings"
+    "settings": "Settings",
+    "knowledge": "Knowledge"
   },
   "menu": {
     "settings": {
@@ -668,6 +678,112 @@
       "whatNextBody": "Kindly will ask the provider to connect with your account. Follow the provider's instructions if it asks for any and come back: the channel's status shows on this screen.",
       "continue": "Continue",
       "connectFailed": "Could not connect the channel"
+    }
+  },
+  "knowledge": {
+    "title": "Knowledge",
+    "description": "Regulations and documents with verifiable source, version and validity.",
+    "upload": "Upload document",
+    "uploadTitle": "Upload a document",
+    "newVersion": "New version",
+    "newVersionTitle": "Upload a new version",
+    "search": "Search",
+    "searchLabel": "Search the knowledge base",
+    "searchPlaceholder": "Search the knowledge base",
+    "atDate": "Date of consultation",
+    "atDateHint": "Empty: the versions in force today.",
+    "searchHint": "Only returns versions applicable on the date of consultation.",
+    "noResults": "No results",
+    "noResultsHint": "Try other words.",
+    "resultsLabel": "Search results",
+    "searchUnavailable": "Search is not available",
+    "viewSource": "View original source",
+    "documents": "Documents",
+    "columns": {
+      "title": "Title",
+      "origin": "Origin",
+      "scope": "Scope",
+      "visibility": "Visibility",
+      "state": "Status"
+    },
+    "empty": "There are no documents yet",
+    "emptyAdmin": "Upload the first one with “Upload document”.",
+    "emptyMember": "An administrator can upload them.",
+    "notFound": "This document does not exist or you do not have access to it.",
+    "back": "Back to Knowledge",
+    "versions": "Versions",
+    "versionsHint": "Newest first",
+    "noVersions": "This document has no versions.",
+    "version": "Version {version}",
+    "since": "Since {date}",
+    "period": "{from} – {to}",
+    "noChunks": "No fragments.",
+    "showChunks": "Show fragments",
+    "hideChunks": "Hide fragments",
+    "accepted": "Received. It is being processed; the status updates by itself.",
+    "visibility": {
+      "GLOBAL": "Public",
+      "ORGANIZATION": "The organization's"
+    },
+    "sourceType": {
+      "MANUAL": "Manual",
+      "PDF": "PDF",
+      "WEB": "Web"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "CURRENT": "In force",
+      "SUPERSEDED": "Superseded",
+      "REPEALED": "Repealed",
+      "HISTORICAL": "Historical"
+    },
+    "level": {
+      "CHAPTER": "Chapter",
+      "SECTION": "Section",
+      "ARTICLE": "Article",
+      "PARAGRAPH": "Paragraph",
+      "FRAGMENT": "Fragment"
+    },
+    "ingestion": {
+      "PENDING": "Queued",
+      "PROCESSING": "Processing…",
+      "READY": "Ready",
+      "FAILED": "Could not be processed",
+      "codes": {
+        "EMBEDDINGS_NOT_CONFIGURED": "The embeddings service is not configured in this environment.",
+        "EXTRACTION_FAILED": "The document could not be read. Check that the PDF is not protected or damaged, or that the page is public and reachable.",
+        "EMPTY_DOCUMENT": "No text was found (a PDF scanned as an image?).",
+        "TOO_LONG": "The document is too long. Split it into smaller parts.",
+        "EMBEDDING_FAILED": "The embeddings service failed."
+      }
+    },
+    "form": {
+      "title": "Title",
+      "jurisdiction": "Jurisdiction",
+      "jurisdictionHint": "For example: ES.",
+      "territory": "Territory",
+      "scope": "Scope",
+      "origin": "Origin",
+      "originPDF": "PDF file",
+      "originTEXT": "Text file (.txt, .md)",
+      "originWEB": "Web page",
+      "url": "Web address",
+      "urlHint": "Only the text is kept, not the page.",
+      "file": "File",
+      "fileHint": "PDF up to 4 MB, or UTF-8 text up to 2 MB. Only the extracted text is kept, not the file.",
+      "version": "Version",
+      "versionHint": "For example: 2024 or 1.0.",
+      "from": "In force from",
+      "until": "In force until",
+      "untilHint": "Leave empty if still in force.",
+      "sourceNote": "Source note",
+      "sourceNoteHint": "For example: BOE no. 5, of 2024-01-10.",
+      "status": "Status",
+      "statusHint": "A draft is not used in searches.",
+      "CURRENT": "In force",
+      "DRAFT": "Draft",
+      "submit": "Upload",
+      "optional": "optional"
     }
   }
 }

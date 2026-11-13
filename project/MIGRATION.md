@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M8a hecha: conocimiento, datos e ingesta como job).
+Última actualización: 2026-11-13 (M8b hecha: recuperación híbrida y pantallas de conocimiento).
 
 ## 1. Objetivo
 
@@ -139,7 +139,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ✅               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ✅               |
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ✅               |
-| M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ⬜               |
+| M8b  | Conocimiento, recuperación + UI: híbrida FTS + vector con RRF y filtros duros, `/knowledge`, detalle de versión, búsqueda con citas, subida y nueva versión (ADMIN)                                                                                                                                                                                                                                                                                     | `knowledge/retrieval*`, `app/(app)/knowledge`; E2E `knowledge`                                   | ✅               |
 | M9   | **Trámites**: `procedures` versionados con pasos y documentos requeridos, ADMIN                                                                                                                                                                                                                                                                                                                                                                         | `modules/procedures`, `knowledge/procedures`; E2E `procedures`                                   | ⬜               |
 | M10  | **Web pública**: legales de Kindly en `apps/site` (privacidad, términos, aviso legal, eliminación de datos —URL que exige Meta—), datos de empresa en `site.config.ts` con la banda «REVISAR», `FACEBOOK_DOMAIN_VERIFICATION`, portada de Kindly                                                                                                                                                                                                        | `app/(public)`, `config/company.ts`; E2E `public-site`                                           | ⬜               |
 | M11  | Accesibilidad y pulido: axe en E2E (claro/oscuro), atajos (F6), responsive 320 px, tema oscuro con `brand.css`; `docs/ui/` actualizado a `packages/ui` (D6)                                                                                                                                                                                                                                                                                             | `components/*`, `ui-kit`, E2E `accessibility`, `shell`                                           | ⬜               |
@@ -968,3 +968,53 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   procesa con el mismo caso de uso desde el helper, como en bandeja). Releer
   `legacy/src/modules/knowledge/{retrieval,retrieval-fusion,actions}.ts`, `legacy/src/app/(app)/knowledge`,
   `tests/e2e/knowledge.spec.ts` y las entradas de `docs/DECISIONS.md` de las Fases 7c–7f.
+
+### 2026-11-13 — M8b (recuperación híbrida, API y pantallas de conocimiento)
+
+- Hecho:
+  - **`core/knowledge`**: `searchKnowledge` (FTS en español + vectorial, fusionadas con RRF, **todos los filtros
+    duros antes de ordenar**: GLOBAL más lo propio, estado/vigencia a la fecha pedida con
+    `APPLICABLE_STATUSES`, versión `READY`, y jurisdicción/territorio/ámbito como igualdad sin comodines).
+    Cada resultado lleva lo que una cita necesita (documento, versión, vigencia, nota de fuente, nivel,
+    etiqueta, ruta); el `EvidenceLevel` **no** se calcula aquí: es del Copilot. Distancia coseno exacta, sin
+    índice. Sin proveedor de embeddings responde 503 `EMBEDDINGS_NOT_CONFIGURED` en vez de contestar a
+    medias solo con texto. `combineRankedResults` portado con sus tests.
+  - **Umbral de similitud** (`minSimilarity`, 0,2 por defecto): sin él, la parte vectorial devuelve siempre
+    sus filas más cercanas aunque no tengan relación y un texto ajeno aparece como resultado (lo vi en la
+    captura). **0,2 es un valor provisional, sin validar con vectores reales de OpenAI**: hay que ajustarlo
+    con documentos reales. Es una desviación del código anterior, que no tenía umbral.
+  - **API** `/api/v1/knowledge`: lista, detalle, fragmentos, búsqueda y subida `multipart` de documento y de
+    versión (**202**: la versión queda pendiente y el estado lo da `ingestionStatus`). El tamaño se comprueba
+    antes de leer los bytes. Los errores de la fuente salen como **códigos** que la pantalla traduce.
+    `errorResponses` admite 503.
+  - **UI** (`apps/web/src/features/knowledge/`, entrada «Conocimiento» en la barra): `/knowledge` (búsqueda con
+    fecha de consulta en la URL, citas, lista de documentos con vigencia y estado de la ingesta que **se
+    refresca sola** mientras algo esté en cola o procesando, panel «Subir documento» solo para quien tiene
+    `knowledge.write`) y `/knowledge/[id]` (versiones, fragmentos bajo demanda, «Nueva versión» solo en
+    documentos de la organización). Textos es/en, incluidos los códigos de fallo de la ingesta.
+  - **E2E**: variable `E2E_FAKE_EMBEDDINGS` (solo la pone Playwright; **prohibida con `APP_ENV=production`**) para
+    buscar sin OpenAI; el entorno de E2E no corre worker, así que un helper procesa las subidas pendientes con
+    el mismo caso de uso. 2 E2E nuevos (subir → en cola → listo → buscar con cita → fecha anterior sin
+    resultados → fragmentos → versión nueva que solo sustituye cuando está lista; y errores de la fuente /
+    delegado que lee y busca pero no sube).
+  - Tests: 1 de API (multipart, 202, códigos, aislamiento, 503), 7 de búsqueda, unitarios de reglas de
+    subida y del embedding falso.
+- **Hallazgo por el camino:** una vez listados los GLOBAL (que se quedan en la base de tests) varias pruebas
+  dejaron de ser deterministas (colisiones del embedding de bolsa de palabras, conteos): las aserciones
+  miran ya solo lo propio.
+- **No portado (anotado):** el E2E anterior subía un **PDF real** y comprobaba que una **URL privada** se
+  rechazaba con mensaje; aquí el PDF se cubre con el extractor falso y la guardia SSRF con sus tests
+  unitarios, pero no hay E2E con PDF real, y una URL privada falla en la ingesta (`EXTRACTION_FAILED`) no al
+  subir. `legacy/tests/e2e/knowledge.spec.ts` se queda hasta que se decida.
+- **`legacy/` — borrado:** `modules/knowledge/` entero, `scripts/ingest-knowledge.ts` (+ su parser), las páginas
+  de `/knowledge` salvo `procedures/` (M9) y los tests unitarios/integración de conocimiento. `db/schema.ts`,
+  `instrumentation.ts` y `audit/service.ts` aún los mencionan: son compartidos y se borran con el último
+  consumidor (no se compilan).
+- Verificación real: `format:check`, `lint`, `typecheck`, `test`, `test:integration` (238, tres pasadas seguidas),
+  `db:check`, `build` y `test:e2e` (30/30). Revisada a ojo la captura de la búsqueda a 1280 px.
+  **No verificado:** OpenAI real, un PDF real, el comportamiento responsive de las pantallas nuevas y el CI.
+- **Próximo paso concreto:** M9 — **trámites**: `procedures` versionados con pasos y documentos requeridos
+  (solo ADMIN escribe, todos leen), tablas con RLS, casos de uso, `/api/v1/procedures`, pantallas
+  `/knowledge/procedures` y `/knowledge/procedures/[id]`, E2E. Releer `legacy/src/modules/procedures`,
+  `legacy/src/app/(app)/knowledge/procedures`, `tests/e2e/procedures.spec.ts` y la entrada «Fase 7d» de
+  `docs/DECISIONS.md`. Un trámite no guarda archivos de afiliados (principio: Kindly no los almacena).

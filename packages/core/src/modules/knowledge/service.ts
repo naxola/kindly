@@ -1,6 +1,7 @@
 import {
   withTenant,
   type DocumentVersionStatus,
+  type KnowledgeChunkLevel,
   type KnowledgeDocument,
   type KnowledgeDocumentVersion,
   type TenantTx,
@@ -64,7 +65,7 @@ export async function getDocument(ctx: Ctx, documentId: string): Promise<Documen
 export interface ChunkView {
   id: string
   ordinal: number
-  level: string
+  level: KnowledgeChunkLevel
   label: string | null
   path: string | null
   content: string

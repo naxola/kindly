@@ -35,9 +35,13 @@ export class Browser {
       headers: {
         origin: ORIGIN,
         cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join('; '),
-        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(body !== undefined && !(body instanceof FormData)
+          ? { 'content-type': 'application/json' }
+          : {}),
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined
+        ? { body: body instanceof FormData ? body : JSON.stringify(body) }
+        : {}),
     })
     for (const raw of res.headers.getSetCookie()) {
       const [pair] = raw.split(';')

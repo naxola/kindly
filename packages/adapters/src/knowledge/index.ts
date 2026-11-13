@@ -1,4 +1,4 @@
-import type { EmbeddingProvider, KnowledgeExtractor } from '@saas/core'
+import { FakeEmbeddingProvider, type EmbeddingProvider, type KnowledgeExtractor } from '@saas/core'
 import { loadKnowledgeEnv } from '@saas/config/env'
 import { extractPdfText } from './extract-pdf.ts'
 import { fetchWebText } from './extract-web.ts'
@@ -18,6 +18,7 @@ export function embeddingProviderFromEnv(
   source: Record<string, string | undefined> = process.env,
 ): EmbeddingProvider | null {
   const env = loadKnowledgeEnv(source)
+  if (env.E2E_FAKE_EMBEDDINGS) return new FakeEmbeddingProvider()
   return env.OPENAI_API_KEY ? new OpenAIEmbeddingProvider({ apiKey: env.OPENAI_API_KEY }) : null
 }
 

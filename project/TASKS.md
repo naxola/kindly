@@ -750,8 +750,8 @@ solo la vista de conjunto.
 - [x] M7b — Espacio de conversación: panel de dos columnas (chat + ficha de solo lectura), envío optimista con marcas, «escribiendo…», aviso de «ahora lo atiende X», panel plegable con preferencia recordada y `tasks.conversation_id` (2026-11-13). Sin casos.
 - [x] M7c — Canales: vista por delegado, estados, alta de WhatsApp en tres vías con comprobaciones en servidor y desconexión (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
 - [x] M8a — Conocimiento: datos con GLOBAL y RLS, `EmbeddingProvider`, extracción PDF/web con guardia SSRF, troceado, ingesta como job y `pnpm knowledge:ingest` (2026-11-13).
-- [ ] M8b — Conocimiento: recuperación híbrida y UI. **Siguiente.**
-- [ ] M9 — Trámites.
+- [x] M8b — Conocimiento: recuperación híbrida con citas verificables, API, pantallas `/knowledge` con estado de la ingesta y E2E (2026-11-13).
+- [ ] M9 — Trámites. **Siguiente.**
 - [ ] M10 — Web pública y legales en `apps/site`.
 - [ ] M11 — Accesibilidad, pulido y `docs/ui/`.
 - [ ] M12 — Documentación al nuevo stack.

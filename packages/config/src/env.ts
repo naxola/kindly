@@ -197,7 +197,22 @@ export const loadMessagingEnv = (source: Record<string, string | undefined> = pr
   parseEnv(messagingEnv, source)
 
 /** Knowledge base configuration: the embedding provider is off unless a key is given. */
-export const knowledgeEnv = z.object({ OPENAI_API_KEY: z.string().min(1).optional() })
+export const knowledgeEnv = z
+  .object({
+    APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+    OPENAI_API_KEY: z.string().min(1).optional(),
+    /** Deterministic embeddings with no meaning, so the end-to-end tests can search. Refused in production. */
+    E2E_FAKE_EMBEDDINGS: bool.default(false),
+  })
+  .superRefine((e, ctx) => {
+    if (e.E2E_FAKE_EMBEDDINGS && e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['E2E_FAKE_EMBEDDINGS'],
+        message: 'Fake embeddings are not allowed in production',
+      })
+    }
+  })
 export type KnowledgeEnv = z.infer<typeof knowledgeEnv>
 export const loadKnowledgeEnv = (source: Record<string, string | undefined> = process.env) =>
   parseEnv(knowledgeEnv, source)

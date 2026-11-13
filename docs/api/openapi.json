@@ -1503,6 +1503,336 @@
           "countryCheckAvailable"
         ]
       },
+      "KnowledgeSearchResult": {
+        "type": "object",
+        "properties": {
+          "chunkId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "documentTitle": {
+            "type": "string"
+          },
+          "documentSourceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "GLOBAL",
+              "ORGANIZATION"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "CURRENT",
+              "SUPERSEDED",
+              "REPEALED",
+              "HISTORICAL"
+            ]
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveUntil": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jurisdiction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "territory": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceNote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "CHAPTER",
+              "SECTION",
+              "ARTICLE",
+              "PARAGRAPH",
+              "FRAGMENT"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "chunkId",
+          "documentId",
+          "documentVersionId",
+          "documentTitle",
+          "documentSourceUrl",
+          "visibility",
+          "version",
+          "status",
+          "effectiveFrom",
+          "effectiveUntil",
+          "jurisdiction",
+          "territory",
+          "scope",
+          "sourceNote",
+          "level",
+          "label",
+          "path",
+          "content",
+          "score"
+        ]
+      },
+      "KnowledgeDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "GLOBAL",
+              "ORGANIZATION"
+            ]
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "MANUAL",
+              "PDF",
+              "WEB"
+            ]
+          },
+          "sourceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "jurisdiction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "territory": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scope": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeVersion"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "visibility",
+          "sourceType",
+          "sourceUrl",
+          "jurisdiction",
+          "territory",
+          "scope",
+          "createdAt",
+          "versions"
+        ]
+      },
+      "KnowledgeVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "CURRENT",
+              "SUPERSEDED",
+              "REPEALED",
+              "HISTORICAL"
+            ]
+          },
+          "effectiveFrom": {
+            "type": "string"
+          },
+          "effectiveUntil": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ingestionStatus": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "READY",
+              "FAILED"
+            ]
+          },
+          "ingestionError": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "effectiveFrom",
+          "effectiveUntil",
+          "source",
+          "ingestionStatus",
+          "ingestionError",
+          "createdAt"
+        ]
+      },
+      "KnowledgeAccepted": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "documentId",
+          "versionId"
+        ]
+      },
+      "KnowledgeChunk": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ordinal": {
+            "type": "integer"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "CHAPTER",
+              "SECTION",
+              "ARTICLE",
+              "PARAGRAPH",
+              "FRAGMENT"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ordinal",
+          "level",
+          "label",
+          "path",
+          "content"
+        ]
+      },
       "BillingOverview": {
         "type": "object",
         "properties": {
@@ -5838,6 +6168,614 @@
           },
           "409": {
             "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/search": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Hybrid search (full text + vector). Only versions applicable at the date asked (default today)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "required": true,
+            "name": "q",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 10,
+              "description": "YYYY-MM-DD"
+            },
+            "required": false,
+            "description": "YYYY-MM-DD",
+            "name": "atDate",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "required": false,
+            "name": "jurisdiction",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "required": false,
+            "name": "territory",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            },
+            "required": false,
+            "name": "scope",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KnowledgeSearchResult"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A service this needs is not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/documents": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Documents the organization may read (its own and GLOBAL), newest first",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documents",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KnowledgeDocument"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Upload a new document of the organization (administrators). Processed in the background",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "jurisdiction": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "territory": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "scope": {
+                    "type": "string",
+                    "maxLength": 120
+                  },
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "PDF",
+                      "TEXT",
+                      "WEB"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The PDF or text file (origin PDF or TEXT)"
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "The page (origin WEB)"
+                  },
+                  "version": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "CURRENT",
+                      "DRAFT"
+                    ]
+                  },
+                  "effectiveFrom": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "YYYY-MM-DD"
+                  },
+                  "effectiveUntil": {
+                    "type": "string",
+                    "maxLength": 10
+                  },
+                  "sourceNote": {
+                    "type": "string",
+                    "maxLength": 600
+                  }
+                },
+                "required": [
+                  "title",
+                  "origin",
+                  "version",
+                  "effectiveFrom"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted: the version is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/documents/{id}": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "A document with its versions",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeDocument"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/documents/{id}/versions": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Upload a new version of a document of the organization (administrators)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "PDF",
+                      "TEXT",
+                      "WEB"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The PDF or text file (origin PDF or TEXT)"
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "The page (origin WEB)"
+                  },
+                  "version": {
+                    "type": "string",
+                    "maxLength": 60
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "CURRENT",
+                      "DRAFT"
+                    ]
+                  },
+                  "effectiveFrom": {
+                    "type": "string",
+                    "maxLength": 10,
+                    "description": "YYYY-MM-DD"
+                  },
+                  "effectiveUntil": {
+                    "type": "string",
+                    "maxLength": 10
+                  },
+                  "sourceNote": {
+                    "type": "string",
+                    "maxLength": 600
+                  }
+                },
+                "required": [
+                  "origin",
+                  "version",
+                  "effectiveFrom"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted: the version is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "versionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "required": [
+                    "versionId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/versions/{id}/chunks": {
+      "get": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "The fragments of a version, in reading order",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fragments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KnowledgeChunk"
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
             "content": {
               "application/json": {
                 "schema": {

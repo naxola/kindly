@@ -134,7 +134,16 @@
     "CANNOT_DISCONNECT_FROM_KINDLY": "Este canal solo se desconecta desde el móvil del propio delegado, no desde Kindly.",
     "ACCOUNT_ALREADY_CONNECTED": "Esa cuenta ya está conectada.",
     "INVALID_CONVERSATION": "La conversación no existe o no tienes acceso a ella.",
-    "CONVERSATION_CONTACT_MISMATCH": "La conversación es de otro contacto."
+    "CONVERSATION_CONTACT_MISMATCH": "La conversación es de otro contacto.",
+    "NOT_A_PDF": "El archivo no es un PDF válido.",
+    "PDF_TOO_LARGE": "El PDF supera el máximo de 4 MB.",
+    "TEXT_TOO_LARGE": "El archivo de texto supera el máximo de 2 MB.",
+    "SOURCE_EMPTY": "Falta el archivo o está vacío.",
+    "NOT_UTF8_TEXT": "El archivo de texto debe estar codificado en UTF-8.",
+    "INVALID_URL": "La dirección web no es válida.",
+    "URL_NOT_HTTP": "La dirección web debe empezar por http:// o https://.",
+    "URL_HAS_CREDENTIALS": "La dirección web no puede incluir usuario ni contraseña.",
+    "EMBEDDINGS_NOT_CONFIGURED": "El servicio de embeddings no está configurado en este entorno."
   },
   "home": {
     "title": "Inicio",
@@ -147,7 +156,8 @@
     "inbox": "Bandeja",
     "contacts": "Contactos",
     "tasks": "Tareas",
-    "settings": "Ajustes"
+    "settings": "Ajustes",
+    "knowledge": "Conocimiento"
   },
   "menu": {
     "settings": {
@@ -668,6 +678,112 @@
       "whatNextBody": "Kindly pedirá la conexión al proveedor con tu cuenta. Sigue las instrucciones del proveedor si te las pide y vuelve aquí: el estado del canal se verá en esta pantalla.",
       "continue": "Continuar",
       "connectFailed": "No se pudo conectar el canal"
+    }
+  },
+  "knowledge": {
+    "title": "Conocimiento",
+    "description": "Normativa y documentación con fuente, versión y vigencia verificables.",
+    "upload": "Subir documento",
+    "uploadTitle": "Subir documento",
+    "newVersion": "Nueva versión",
+    "newVersionTitle": "Subir una versión nueva",
+    "search": "Buscar",
+    "searchLabel": "Buscar en el conocimiento",
+    "searchPlaceholder": "Buscar en el conocimiento",
+    "atDate": "Fecha de consulta",
+    "atDateHint": "Vacío: las versiones aplicables hoy.",
+    "searchHint": "Solo devuelve versiones aplicables en la fecha de consulta.",
+    "noResults": "Sin resultados",
+    "noResultsHint": "Prueba con otras palabras.",
+    "resultsLabel": "Resultados de la búsqueda",
+    "searchUnavailable": "La búsqueda no está disponible",
+    "viewSource": "Ver fuente original",
+    "documents": "Documentos",
+    "columns": {
+      "title": "Título",
+      "origin": "Origen",
+      "scope": "Ámbito",
+      "visibility": "Visibilidad",
+      "state": "Estado"
+    },
+    "empty": "Todavía no hay documentos",
+    "emptyAdmin": "Sube el primero con «Subir documento».",
+    "emptyMember": "Un administrador puede subirlos.",
+    "notFound": "Este documento no existe o no tienes acceso a él.",
+    "back": "Volver a Conocimiento",
+    "versions": "Versiones",
+    "versionsHint": "De la más reciente a la más antigua",
+    "noVersions": "Este documento no tiene versiones.",
+    "version": "Versión {version}",
+    "since": "Desde {date}",
+    "period": "{from} – {to}",
+    "noChunks": "Sin fragmentos.",
+    "showChunks": "Ver fragmentos",
+    "hideChunks": "Ocultar fragmentos",
+    "accepted": "Recibido. Se está procesando; el estado se actualiza solo.",
+    "visibility": {
+      "GLOBAL": "Público",
+      "ORGANIZATION": "De la organización"
+    },
+    "sourceType": {
+      "MANUAL": "Manual",
+      "PDF": "PDF",
+      "WEB": "Web"
+    },
+    "status": {
+      "DRAFT": "Borrador",
+      "CURRENT": "Vigente",
+      "SUPERSEDED": "Sustituida",
+      "REPEALED": "Derogada",
+      "HISTORICAL": "Histórica"
+    },
+    "level": {
+      "CHAPTER": "Capítulo",
+      "SECTION": "Sección",
+      "ARTICLE": "Artículo",
+      "PARAGRAPH": "Párrafo",
+      "FRAGMENT": "Fragmento"
+    },
+    "ingestion": {
+      "PENDING": "En cola",
+      "PROCESSING": "Procesando…",
+      "READY": "Listo",
+      "FAILED": "No se pudo procesar",
+      "codes": {
+        "EMBEDDINGS_NOT_CONFIGURED": "El servicio de embeddings no está configurado en este entorno.",
+        "EXTRACTION_FAILED": "No se pudo leer el documento. Comprueba que el PDF no está protegido ni dañado, o que la página es pública y accesible.",
+        "EMPTY_DOCUMENT": "No se encontró texto (¿un PDF escaneado como imagen?).",
+        "TOO_LONG": "El documento es demasiado largo. Divídelo en partes más pequeñas.",
+        "EMBEDDING_FAILED": "El servicio de embeddings falló."
+      }
+    },
+    "form": {
+      "title": "Título",
+      "jurisdiction": "Jurisdicción",
+      "jurisdictionHint": "Por ejemplo: ES.",
+      "territory": "Territorio",
+      "scope": "Ámbito",
+      "origin": "Origen",
+      "originPDF": "Archivo PDF",
+      "originTEXT": "Archivo de texto (.txt, .md)",
+      "originWEB": "Página web",
+      "url": "Dirección web",
+      "urlHint": "Solo se guarda el texto, no la página.",
+      "file": "Archivo",
+      "fileHint": "PDF de hasta 4 MB, o texto UTF-8 de hasta 2 MB. Solo se guarda el texto extraído, no el archivo.",
+      "version": "Versión",
+      "versionHint": "Por ejemplo: 2024 o 1.0.",
+      "from": "En vigor desde",
+      "until": "En vigor hasta",
+      "untilHint": "Déjalo vacío si sigue vigente.",
+      "sourceNote": "Nota de fuente",
+      "sourceNoteHint": "Por ejemplo: BOE núm. 5, de 2024-01-10.",
+      "status": "Estado",
+      "statusHint": "Un borrador no se usa en las búsquedas.",
+      "CURRENT": "Vigente",
+      "DRAFT": "Borrador",
+      "submit": "Subir",
+      "optional": "opcional"
     }
   }
 }
