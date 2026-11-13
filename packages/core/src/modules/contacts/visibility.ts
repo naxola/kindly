@@ -33,7 +33,7 @@ export async function contactVisibilityWhere(
 }
 
 /** Contacts the actor sees only because they were the last one the contact wrote to. */
-async function temporaryAccessContactIds(tx: TenantTx, actor: Actor): Promise<string[]> {
+export async function temporaryAccessContactIds(tx: TenantTx, actor: Actor): Promise<string[]> {
   const rows = await tx.$queryRaw<{ id: string }[]>`
     SELECT c.id FROM contacts c
     WHERE c.organization_id = ${actor.organizationId}::uuid
@@ -57,4 +57,18 @@ async function temporaryAccessContactIds(tx: TenantTx, actor: Actor): Promise<st
         '-infinity'::timestamptz
       )`
   return rows.map((r) => r.id)
+}
+
+/**
+ * The same rule as `contactVisibilityWhere`, as a list of contact ids, for the raw SQL queries that
+ * cannot take a Prisma `where` (the inbox list). `null` means "all of them": no filter at all.
+ */
+export async function visibleContactIds(tx: TenantTx, actor: Actor): Promise<string[] | null> {
+  if (can(actor, 'contacts.read_all')) return null
+  const own = await tx.contactAssignment.findMany({
+    where: { delegateId: actor.memberId, endedAt: null },
+    select: { contactId: true },
+  })
+  const temporary = await temporaryAccessContactIds(tx, actor)
+  return [...new Set([...own.map((a) => a.contactId), ...temporary])]
 }

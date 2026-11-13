@@ -5,7 +5,7 @@
 > una sesión de migración se lee este archivo entero** y, al terminarla, se
 > actualizan el estado de la fase, el hash del commit y las notas (sección 8).
 
-Última actualización: 2026-11-13 (M6b hecha: envío con guardarraíl de identidad y adaptador de prueba de Meta).
+Última actualización: 2026-11-13 (M7a hecha: bandeja y conversación básica; canal falso de E2E).
 
 ## 1. Objetivo
 
@@ -135,7 +135,7 @@ Cuando una fase es grande se parte en «a» (datos + `core` + API) y «b» (UI +
 | M5b  | Casos y tareas (UI + E2E)                                                                                                                                                                                                                                                                                                                                                                                                                               | `app/(app)/cases`, `tasks`, `dashboard`; E2E `cases`                                             | ✅ (solo tareas) |
 | M6a  | **Mensajería, núcleo**: `messaging_accounts`, `webhook_events`, `conversations`, `messages`, `conversation_cases`; puerto `MessagingAdapter` + registro; webhook público con firma → job idempotente `messaging.process-webhook` (D9)                                                                                                                                                                                                                   | `modules/messaging` (núcleo), `conversations`, `app/api/webhooks` + tests                        | ✅               |
 | M6b  | Mensajería, WhatsApp: envío saliente con guardarraíl de identidad, coexistence (ecos, historial, ventana de servicio, desconexión externa), adaptador de prueba de Meta (PKG-011), comprobaciones de alta (PKG-008), adaptadores falsos para tests                                                                                                                                                                                                      | `messaging/whatsapp-*`, `testing/*` + tests                                                      | ✅               |
-| M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ⬜               |
+| M7a  | **Inbox** (API + UI): lista única con vistas, contadores, búsqueda y filtros en la URL, `LEFT JOIN LATERAL` (SQL crudo de Prisma), caché TanStack Query, teclado                                                                                                                                                                                                                                                                                        | `app/(app)/inbox`, `app/api/inbox`; E2E `inbox`                                                  | ✅               |
 | M7b  | **Espacio de conversación**: panel de dos columnas (chat + ficha del afiliado), envío optimista, checks, sondeo, «escribiendo…», solo lectura y aviso de otro delegado                                                                                                                                                                                                                                                                                  | `inbox/[id]`, `app/api/conversations`; E2E `conversation-workspace`, `contact-assignments`       | ⬜               |
 | M7c  | **Canales**: vista por delegado, máquina de estados, alta de WhatsApp (tres vías) en Organización → Canales                                                                                                                                                                                                                                                                                                                                             | `app/(app)/channels`, `organization/channels`; E2E `channels`, `whatsapp-onboarding`             | ⬜               |
 | M8a  | **Conocimiento, datos e ingesta**: `documents`, `document_versions`, `knowledge_chunks` (`vector` como `Unsupported` + SQL crudo), RLS con GLOBAL (D8), `EmbeddingProvider` (OpenAI + falso), extracción PDF/web, guardia SSRF, troceado, ingesta como job (subida asíncrona con estado) y `pnpm knowledge:ingest`                                                                                                                                      | `modules/knowledge` (salvo retrieval), `scripts/ingest-knowledge.ts` + tests                     | ⬜               |
@@ -667,3 +667,62 @@ permissions,index}.ts`, `core/src/index.ts`, `apps/web/src/server/api/{app,error
   `legacy/src/app/(app)/inbox`, `legacy/src/app/api/inbox`, `docs/ui/INBOX.md` y
   `legacy/src/modules/conversations/service.ts` (líneas 545-830). Visibilidad siempre por
   `contactVisibilityWhere`.
+
+### 2026-11-13 — M7a (bandeja: API + UI, conversación básica y canal falso de E2E)
+
+- Respuesta a una pregunta del usuario durante la fase: **los mensajes entrantes se procesan en
+  el worker; los salientes, no**. `sendMessage` corre síncrono dentro de la petición de la web:
+  el delegado ve al instante un `FAILED` o la ventana cerrada, y reintentar un envío por la cola
+  podría duplicar el mensaje al contacto (Meta no da clave de idempotencia para texto libre).
+  **Riesgo conocido:** si el proceso muere justo tras aceptar el proveedor y antes de guardar,
+  el mensaje sale pero Kindly no lo registra. **Alternativa anotada (outbox):** guardar
+  `PENDING`, encolar un job que envíe y actualice, con reconciliación en lugar de reintento
+  ciego; la UI mostraría estados intermedios. Decisión: mantener síncrono; revisar con datos de
+  staging.
+- Hecho:
+  - **`core/conversations/inbox`**: `listConversations` (un `LEFT JOIN LATERAL` por conversación
+    en SQL crudo dentro de `withTenant`, filtros por canal, delegado de la cuenta y contacto,
+    búsqueda por nombre/teléfono/último mensaje con comodines escapados, límite, orden por
+    última actividad), `countConversations` (contadores de las cuatro vistas, que ignoran la
+    búsqueda), `listConversationChannels`, `markConversationRead`. La visibilidad usa
+    `visibleContactIds` (la misma regla que `contactVisibilityWhere`, como lista de ids para SQL
+    crudo). Vistas: pendientes (último mensaje del contacto), sin leer, sin identificar, todas.
+  - **`core/messaging/thread`**: `getConversationDetail` (contacto, cuenta, ventana de servicio y
+    `canReply`: dueño de la cuenta + conectada + canal con adaptador + ventana no cerrada) y
+    `listThreadMessages`.
+  - **API** `/api/v1/conversations` (lista, `counts`, `channels`, detalle, hilo, enviar, leer).
+  - **UI**: `/inbox` (vistas con contadores, búsqueda con pausa, filtros de canal y delegado,
+    estado en la URL, sondeo cada 15 s, «Sin identificar», «Ref.: …» cuando el delegado de
+    referencia no es el dueño de la cuenta) y `/inbox/[id]` (hilo, marcas de entrega, aviso de
+    ventana, compositor solo para quien puede responder; los demás ven una explicación de solo
+    lectura; se marca leída al abrir; sondeo cada 5 s). Entrada «Bandeja» en la navegación; es/en.
+  - **Canal falso de E2E**: variable `E2E_FAKE_MESSAGING_SECRET` (solo la pone
+    `playwright.config.ts`; **prohibida con `APP_ENV=production`**). Los E2E entregan webhooks
+    **firmados** por la ruta pública real y los procesan con el mismo caso de uso que el
+    worker (el entorno de E2E no corre worker). `@saas/core` y `@saas/database` pasan a
+    dependencias del `package.json` raíz por los helpers de E2E.
+  - 3 E2E nuevos: mensaje que llega, se abre, se responde y sale de pendientes; el ADMIN lee la
+    conversación de un delegado pero no puede responder desde su número; un delegado no abre la
+    conversación de otro.
+- **Bugs encontrados por los E2E, ambos reales:**
+  1. Un `useEffect` cuya función devolvía el resultado de `scrollIntoView`/`setState` (una
+     expresión de flecha) rompía la pantalla al navegar de la conversación a la lista (`i is not
+a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
+  2. El limitador de los endpoints públicos de invitación (5/min) saltaba al sumarse varios
+     E2E que dan de alta delegados. `rateLimit` respeta ahora `AUTH_RATE_LIMIT_ENABLED=false`
+     (solo E2E), igual que los de Better Auth.
+- **Pendiente anotado:** el motivo de un envío rechazado va al log de la petición, no a la
+  pantalla (el hilo ya muestra «No se pudo enviar»); paginación del hilo y de la lista
+  (hoy 500 y 100 por defecto); marcar «escribiendo…» (`sendTypingIndicator`) y el envío
+  optimista son de M7b.
+- **`legacy/`:** sin borrar todavía (el panel de dos columnas, la ficha y el resto de la bandeja
+  son M7b/M7c).
+- Verificación real (Node 24.22.1, Postgres 16 + pgvector local): `format:check`, `lint`,
+  `typecheck` (11/11), `test` (115), `test:integration` (185; 11 nuevas de bandeja y 1 de la API),
+  `db:check` sin diferencias, contrato regenerado, `build` (5/5) y `test:e2e` (21/21).
+- **Próximo paso concreto:** M7b — espacio de conversación: panel de dos columnas (chat + **ficha
+  del afiliado** de solo lectura con contacto, delegado de referencia, afiliación, casos y tareas
+  abiertas —sin casos—, otras conversaciones), envío optimista con marcas, «escribiendo…»,
+  aviso de «ahora lo atiende X» y solo lectura para otro delegado, plegable con preferencia
+  recordada, y `tasks.conversation_id`. Releer `legacy/src/app/(app)/inbox/[id]`,
+  `docs/ui/CONVERSATION_WORKSPACE.md` y `docs/ui/CHAT.md`.

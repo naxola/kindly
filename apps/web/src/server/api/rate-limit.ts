@@ -1,5 +1,6 @@
 import { DomainError } from '@saas/core'
 import { createMiddleware } from 'hono/factory'
+import { env } from '../env.ts'
 import type { ApiEnv } from './types.ts'
 
 interface Bucket {
@@ -10,6 +11,10 @@ interface Bucket {
 /**
  * Fixed-window rate limiter per key, in process memory (a single web instance). With
  * several replicas it must move to Postgres or a shared store. Answers 429.
+ *
+ * `AUTH_RATE_LIMIT_ENABLED=false` (only the end-to-end tests set it) turns it off, like the ones of
+ * Better Auth: a suite that signs several people up in a minute would otherwise trip the limit of
+ * the invitation endpoints.
  */
 export function rateLimit(opts: {
   limit: number
@@ -19,6 +24,7 @@ export function rateLimit(opts: {
 }) {
   const buckets = new Map<string, Bucket>()
   return createMiddleware<ApiEnv>(async (c, next) => {
+    if (!env().AUTH_RATE_LIMIT_ENABLED) return next()
     const now = Date.now()
     if (buckets.size > 10_000) {
       for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k)

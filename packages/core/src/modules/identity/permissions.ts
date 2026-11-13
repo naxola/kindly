@@ -31,6 +31,7 @@ export const PERMISSIONS = [
   'channels.disconnect_any',
   // Sending is always from one's OWN account (checked in the use case, not by this permission).
   'messages.send',
+  'conversations.read',
   'billing.read',
   'billing.manage',
 ] as const
@@ -50,6 +51,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     'channels.read',
     'channels.connect',
     'messages.send',
+    'conversations.read',
   ],
 }
 

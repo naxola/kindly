@@ -120,7 +120,11 @@
     "INVALID_DELEGATE": "That delegate is not an active member of the organization.",
     "CONCURRENT_ASSIGNMENT": "Someone reassigned this contact at the same time. Reload and try again.",
     "INVALID_CONTACT": "That contact does not exist or you do not have access to it.",
-    "INVALID_ASSIGNEE": "That person is not an active member of the organization."
+    "INVALID_ASSIGNEE": "That person is not an active member of the organization.",
+    "NOT_ACCOUNT_OWNER": "Only the delegate who owns this channel can reply from Kindly.",
+    "SERVICE_WINDOW_CLOSED": "The provider's messaging window is closed.",
+    "ACCOUNT_NOT_OPERATIONAL": "The channel is not connected.",
+    "UNKNOWN_CHANNEL": "This channel is not available."
   },
   "home": {
     "title": "Home",
@@ -130,6 +134,7 @@
   },
   "nav": {
     "home": "Home",
+    "inbox": "Inbox",
     "contacts": "Contacts",
     "tasks": "Tasks",
     "settings": "Settings"
@@ -444,6 +449,57 @@
         "TASK_CREATED": "Task created",
         "TASK_COMPLETED": "Task completed"
       }
+    }
+  },
+  "inbox": {
+    "title": "Inbox",
+    "description": "Conversations from your channels, with what needs an answer first.",
+    "views": {
+      "pending": "Pending",
+      "unread": "Unread",
+      "unassigned": "Not identified",
+      "all": "All"
+    },
+    "search": "Search by name, phone or message",
+    "searchLabel": "Search conversations",
+    "filters": {
+      "channel": "Channel",
+      "allChannels": "All channels",
+      "delegate": "Delegate",
+      "allDelegates": "All delegates"
+    },
+    "emptyTitle": "There are no conversations here",
+    "emptyDescription": "When someone writes to a connected channel, it will show up in this list.",
+    "row": {
+      "you": "You",
+      "fromDevice": "from the phone",
+      "ref": "Ref.: {name}",
+      "unassigned": "Not identified",
+      "noMessages": "No messages",
+      "unread": "Unread"
+    },
+    "notFound": "This conversation does not exist or you do not have access to it.",
+    "back": "Back to the inbox",
+    "conversation": {
+      "openContact": "View profile",
+      "account": "{name}'s channel",
+      "readOnly": "Read only: this conversation is on {name}'s number. If you reply, it will always be from your own number.",
+      "windowClosed": "The provider's messaging window is closed: free-text replies are no longer possible.",
+      "windowOpen": "You can reply until {date}.",
+      "notConnected": "The channel is not connected: you cannot reply from Kindly.",
+      "noAdapter": "This channel is not available in this environment.",
+      "empty": "There are no messages yet.",
+      "composerLabel": "Message",
+      "placeholder": "Write a reply…",
+      "send": "Send",
+      "status": {
+        "PENDING": "Sending",
+        "SENT": "Sent",
+        "DELIVERED": "Delivered",
+        "READ": "Read",
+        "FAILED": "Could not be sent"
+      },
+      "fromDevice": "Written from the phone"
     }
   }
 }

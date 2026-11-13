@@ -36,8 +36,9 @@ export function messagingRegistryFromEnv(
   source: Record<string, string | undefined> = process.env,
 ): MessagingRegistry {
   const env = loadMessagingEnv(source)
-  return buildMessagingRegistry(
-    env.WHATSAPP_TEST_ADAPTER_ENABLED
+  return buildMessagingRegistry({
+    ...(env.E2E_FAKE_MESSAGING_SECRET ? { fake: { secret: env.E2E_FAKE_MESSAGING_SECRET } } : {}),
+    ...(env.WHATSAPP_TEST_ADAPTER_ENABLED
       ? {
           whatsappTest: {
             phoneNumberId: env.WHATSAPP_TEST_PHONE_NUMBER_ID!,
@@ -47,6 +48,6 @@ export function messagingRegistryFromEnv(
             verifyToken: env.WHATSAPP_TEST_VERIFY_TOKEN!,
           },
         }
-      : {},
-  )
+      : {}),
+  })
 }

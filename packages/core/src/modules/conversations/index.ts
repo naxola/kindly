@@ -8,3 +8,12 @@ export {
   markConversationReadUpTo,
 } from './service.ts'
 export type { InboundContactInfo, MessageOrigin, RecordMessageInput } from './service.ts'
+export {
+  INBOX_VIEWS,
+  listConversations,
+  countConversations,
+  listConversationChannels,
+  assertConversationVisible,
+  markConversationRead,
+} from './inbox.ts'
+export type { InboxView, InboxFilters, InboxCounts, ConversationPreview } from './inbox.ts'

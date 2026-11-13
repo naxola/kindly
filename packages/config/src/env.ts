@@ -136,6 +136,11 @@ export const paymentEnv = z.discriminatedUnion('PAYMENT_PROVIDER', [
 export const messagingEnv = z
   .object({
     APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+    /**
+     * A fake channel (signature = this shared secret) so the end-to-end tests can deliver webhooks.
+     * Only the E2E configuration sets it; refused in production.
+     */
+    E2E_FAKE_MESSAGING_SECRET: z.string().min(8).optional(),
     WHATSAPP_TEST_ADAPTER_ENABLED: bool.default(false),
     WHATSAPP_TEST_PHONE_NUMBER_ID: z.string().min(1).optional(),
     WHATSAPP_TEST_WABA_ID: z.string().min(1).optional(),
@@ -146,6 +151,13 @@ export const messagingEnv = z
     WHATSAPP_UNSUPPORTED_COUNTRY_CODES: z.string().optional(),
   })
   .superRefine((e, ctx) => {
+    if (e.E2E_FAKE_MESSAGING_SECRET && e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['E2E_FAKE_MESSAGING_SECRET'],
+        message: 'The fake messaging channel is not allowed in production',
+      })
+    }
     if (!e.WHATSAPP_TEST_ADAPTER_ENABLED) return
     if (e.APP_ENV === 'production') {
       ctx.addIssue({

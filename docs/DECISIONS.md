@@ -3873,3 +3873,26 @@ compartido, difícil de probar); procesar cada evento de un webhook en su propia
    vía de conexión para delegados (principio 1).
 6. **Las reglas de alta de WhatsApp en `core` son ids y estructura**; el copy va en los
    mensajes de la aplicación (es/en), no en el dominio.
+
+## 2026-11-13 — Bandeja: SQL crudo con visibilidad por ids, y envío síncrono (M7a)
+
+**Decisiones:**
+
+1. **La bandeja usa SQL crudo** (`LEFT JOIN LATERAL`, filtros, ordenación y contadores en la
+   base de datos) dentro de `withTenant`, así que la RLS sigue aplicando. Prisma no expresa el
+   último mensaje por conversación; cargar todos los mensajes para quedarse con uno era el
+   problema que el rediseño del código anterior ya había resuelto.
+2. **La visibilidad del SQL crudo es la misma regla, como lista de ids** (`visibleContactIds`),
+   no una copia de la lógica: `contactVisibilityWhere` y la lista comparten
+   `temporaryAccessContactIds`.
+3. **«Sin leer» cuenta cualquier último mensaje más nuevo que la marca de lectura**, también el
+   propio (igual que una lista de chats), y la vista «pendientes» es distinta: el contacto habló
+   el último. Una conversación sin mensajes no es ni una cosa ni otra.
+4. **El envío saliente sigue síncrono** (no pasa por el worker): feedback inmediato y sin
+   riesgo de duplicar un mensaje por un reintento. Riesgo asumido y outbox como mejora
+   anotada (`project/MIGRATION.md`, M7a).
+5. **El canal falso de E2E se enciende con una variable que solo pone la configuración de
+   Playwright y que la validación rechaza en producción.** Los E2E entregan webhooks firmados por
+   la ruta pública real y los procesan con el mismo caso de uso que el worker.
+6. **El limitador de los endpoints públicos respeta `AUTH_RATE_LIMIT_ENABLED=false`** (solo
+   E2E), como los de Better Auth.

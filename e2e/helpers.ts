@@ -1,4 +1,6 @@
 import { expect, type Browser, type Locator, type Page } from '@playwright/test'
+import { createMessagingRegistry, FakeMessagingAdapter, processWebhookEvent } from '@saas/core'
+import { createDb, type Db } from '@saas/database'
 import pg from 'pg'
 
 export const PASSWORD = 'una frase bastante larga'
@@ -6,9 +8,14 @@ export const PASSWORD = 'una frase bastante larga'
 let pool: pg.Pool | undefined
 const db = () => (pool ??= new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 2 }))
 
+let coreDb: Db | undefined
+const appDb = () => (coreDb ??= createDb({ connectionString: process.env.TEST_DATABASE_URL! }))
+
 export async function closeDb() {
   await pool?.end()
   pool = undefined
+  await coreDb?.$disconnect()
+  coreDb = undefined
 }
 
 /**
@@ -121,6 +128,72 @@ export async function inviteDelegate(adminPage: Page, browser: Browser, firstNam
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)
   await page.getByLabel('Repite la contraseña').fill(PASSWORD)
   await press(page.getByRole('button', { name: 'Crear cuenta y unirme' }))
-  await expect(page.getByText('Estás en')).toBeVisible()
+  // Creating the account, accepting the invitation and loading the home are several server steps.
+  await expect(page.getByText('Estás en')).toBeVisible({ timeout: 20_000 })
   return page
+}
+
+/** Same secret as the web server's fake channel (playwright.config.ts); not a real secret. */
+const FAKE_SECRET = 'e2e-fake-secret'
+
+/**
+ * A connected account on the fake channel for the signed-in person, as the channels screen will
+ * create it. Returns its id (the webhook URL carries it).
+ */
+export async function fakeAccount(page: Page): Promise<string> {
+  const organizationId = (await page.context().cookies()).find(
+    (c) => c.name === 'active_org',
+  )?.value
+  if (!organizationId) throw new Error('no active organization cookie')
+  const me = (await (await page.request.get('/api/v1/organization')).json()) as {
+    member: { id: string }
+  }
+  const { withTenant } = await import('@saas/database')
+  const account = await withTenant(appDb(), organizationId, (tx) =>
+    tx.messagingAccount.create({
+      data: {
+        organizationId,
+        delegateId: me.member.id,
+        channel: 'fake',
+        externalAccountId: `e2e-${crypto.randomUUID()}`,
+        status: 'CONNECTED',
+      },
+    }),
+  )
+  return account.id
+}
+
+/**
+ * A message from a contact through the real public webhook (signed), then processed exactly as the
+ * worker would (same use case): the E2E environment runs no worker.
+ */
+export async function deliverFakeMessage(
+  page: Page,
+  accountId: string,
+  { from, text }: { from: string; text: string },
+) {
+  const res = await page.request.post(`/api/webhooks/messaging/fake/${accountId}`, {
+    headers: { 'x-fake-signature': FAKE_SECRET, 'content-type': 'application/json' },
+    data: JSON.stringify({
+      kind: 'MESSAGE',
+      externalConversationId: `chat-${from}`,
+      externalMessageId: `m-${crypto.randomUUID()}`,
+      externalContactId: from,
+      contactDisplayName: from,
+      text,
+    }),
+  })
+  if (res.status() !== 200) throw new Error(`webhook answered ${res.status()}`)
+  const { withTenant } = await import('@saas/database')
+  const organizationId = (await page.context().cookies()).find(
+    (c) => c.name === 'active_org',
+  )!.value
+  const event = await withTenant(appDb(), organizationId, (tx) =>
+    tx.webhookEvent.findFirstOrThrow({ where: { processedAt: null }, orderBy: { id: 'desc' } }),
+  )
+  await processWebhookEvent(
+    { db: appDb(), registry: createMessagingRegistry([new FakeMessagingAdapter(FAKE_SECRET)]) },
+    organizationId,
+    event.id,
+  )
 }

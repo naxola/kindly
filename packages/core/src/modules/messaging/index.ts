@@ -26,6 +26,8 @@ export {
   disconnectMessagingAccount,
 } from './accounts.ts'
 export type { MessagingAccountView } from './accounts.ts'
+export { getConversationDetail, listThreadMessages } from './thread.ts'
+export type { ConversationDetail, ThreadMessage } from './thread.ts'
 export { sendMessage, getConversationServiceWindow, SendMessageInput } from './send.ts'
 export {
   ONBOARDING_PATHS,

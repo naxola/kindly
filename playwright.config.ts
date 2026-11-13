@@ -43,6 +43,8 @@ export default defineConfig({
         APP_URL: BASE_URL,
         DATABASE_URL: process.env.TEST_DATABASE_URL!,
         AUTH_RATE_LIMIT_ENABLED: 'false',
+        // A fake messaging channel so the tests can deliver signed webhooks (never set elsewhere).
+        E2E_FAKE_MESSAGING_SECRET: 'e2e-fake-secret',
         LOG_LEVEL: 'warn',
       },
     },

@@ -1,7 +1,7 @@
 // Contacts (Kindly CRM): the people the organization serves, who answers for each of them
 // and which of them each member may see.
 export { ContactInput } from './schemas.ts'
-export { contactVisibilityWhere } from './visibility.ts'
+export { contactVisibilityWhere, visibleContactIds } from './visibility.ts'
 export {
   listContacts,
   getContact,

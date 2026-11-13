@@ -120,7 +120,11 @@
     "INVALID_DELEGATE": "Ese delegado no es un miembro activo de la organización.",
     "CONCURRENT_ASSIGNMENT": "Alguien reasignó este contacto a la vez. Recarga e inténtalo de nuevo.",
     "INVALID_CONTACT": "Ese contacto no existe o no tienes acceso a él.",
-    "INVALID_ASSIGNEE": "Esa persona no es un miembro activo de la organización."
+    "INVALID_ASSIGNEE": "Esa persona no es un miembro activo de la organización.",
+    "NOT_ACCOUNT_OWNER": "Solo el delegado dueño de este canal puede responder desde Kindly.",
+    "SERVICE_WINDOW_CLOSED": "La ventana de mensajes del proveedor está cerrada.",
+    "ACCOUNT_NOT_OPERATIONAL": "El canal no está conectado.",
+    "UNKNOWN_CHANNEL": "Este canal no está disponible."
   },
   "home": {
     "title": "Inicio",
@@ -130,6 +134,7 @@
   },
   "nav": {
     "home": "Inicio",
+    "inbox": "Bandeja",
     "contacts": "Contactos",
     "tasks": "Tareas",
     "settings": "Ajustes"
@@ -444,6 +449,57 @@
         "TASK_CREATED": "Tarea creada",
         "TASK_COMPLETED": "Tarea completada"
       }
+    }
+  },
+  "inbox": {
+    "title": "Bandeja",
+    "description": "Conversaciones de tus canales, con lo que necesita respuesta primero.",
+    "views": {
+      "pending": "Pendientes",
+      "unread": "Sin leer",
+      "unassigned": "Sin identificar",
+      "all": "Todas"
+    },
+    "search": "Buscar por nombre, teléfono o mensaje",
+    "searchLabel": "Buscar conversaciones",
+    "filters": {
+      "channel": "Canal",
+      "allChannels": "Todos los canales",
+      "delegate": "Delegado",
+      "allDelegates": "Todos los delegados"
+    },
+    "emptyTitle": "No hay conversaciones aquí",
+    "emptyDescription": "Cuando alguien escriba a un canal conectado, aparecerá en esta lista.",
+    "row": {
+      "you": "Tú",
+      "fromDevice": "desde el móvil",
+      "ref": "Ref.: {name}",
+      "unassigned": "Sin identificar",
+      "noMessages": "Sin mensajes",
+      "unread": "Sin leer"
+    },
+    "notFound": "Esta conversación no existe o no tienes acceso a ella.",
+    "back": "Volver a la bandeja",
+    "conversation": {
+      "openContact": "Ver ficha",
+      "account": "Canal de {name}",
+      "readOnly": "Solo lectura: esta conversación está en el número de {name}. Si respondes, será siempre desde tu propio número.",
+      "windowClosed": "La ventana de mensajes del proveedor está cerrada: ya no se puede responder con texto libre.",
+      "windowOpen": "Puedes responder hasta {date}.",
+      "notConnected": "El canal no está conectado: no se puede responder desde Kindly.",
+      "noAdapter": "Este canal no está disponible en este entorno.",
+      "empty": "Todavía no hay mensajes.",
+      "composerLabel": "Mensaje",
+      "placeholder": "Escribe una respuesta…",
+      "send": "Enviar",
+      "status": {
+        "PENDING": "Enviando",
+        "SENT": "Enviado",
+        "DELIVERED": "Entregado",
+        "READ": "Leído",
+        "FAILED": "No se pudo enviar"
+      },
+      "fromDevice": "Escrito desde el móvil"
     }
   }
 }
