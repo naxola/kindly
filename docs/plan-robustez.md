@@ -29,7 +29,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | ------ | ------------------------------ | --------------------------------------------------------- | -------------- | ---------- | ------ |
 | R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ✅     |
 | R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ✅     |
-| R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ⬜     |
+| R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ✅     |
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | 🔒     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | 🔒     |
@@ -129,7 +129,21 @@ otra preferencia.
 - **Test:** unitario de `clientIp`; integración: con `x-forwarded-for` falsificado el límite de
   `/invitations/preview` sigue saltando.
 
-### R1.3 · Fallos definitivos de la cola — `fix/queue-final-failure`
+### R1.3 · Fallos definitivos de la cola — `fix/queue-final-failure` ✅ (2026-11-14)
+
+- **Entregado:** (a) `failedJobsSince` (`adapters/queue`) y un barrido en `checkQueues` del worker
+  que avisa (alerta `job-failed:{cola}`, `captureError` con `source=sweep`, log `error`) de los
+  jobs `failed` de sus colas aparecidos desde la comprobación anterior (reloj de la BD, margen de
+  60 s y conjunto de ids ya notificados, compartido con el aviso del `catch`, sin duplicados);
+  (b) `updateQueue` de pg-boss 12 cuando la configuración almacenada difiere de `defineJob`, al
+  registrar el consumidor (`registerWorker`) y en `pnpm queue:install` (`syncQueues` sobre
+  `ALL_JOBS`; el paquete raíz pasa a depender de `@saas/core`). El productor (web) sigue solo
+  creando las colas que faltan.
+- **Reproducido:** sin el barrido y sin `update`, los dos tests nuevos fallan.
+- **Verificado:** format, lint, typecheck, 83 unitarias, 86 de integración, `db:check`,
+  `pnpm queue:install`. No probado: una expiración real de pg-boss (el test simula su efecto con
+  un `UPDATE` a `failed`) ni el comportamiento con varias réplicas del worker.
+- **Límite conocido:** un fallo ocurrido con el worker parado no se notifica al arrancar.
 
 - **Problema (a):** `registerWorker` (`packages/adapters/src/queue/index.ts`) solo avisa del fallo
   definitivo dentro del `catch` del handler. Un job que agota los reintentos por expiración o por

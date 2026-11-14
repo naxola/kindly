@@ -7,6 +7,7 @@ import { LogEventSink, WebhookEventSink } from '@saas/adapters/events'
 import type { Logger } from '@saas/adapters/logger'
 import {
   createBoss,
+  failedJobsSince,
   queueSnapshot,
   PgBossJobQueue,
   registerWorker,
@@ -70,18 +71,35 @@ export async function startWorker({
   const payments =
     overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
 
+  // Jobs already reported as failed for good, so the handler's report and the periodic sweep
+  // below never alert twice for the same job. Bounded: the sweep window is minutes.
+  const reportedFailures = new Set<string>()
+  const markReported = (id: string) => {
+    if (reportedFailures.size >= 1000)
+      reportedFailures.delete(reportedFailures.values().next().value!)
+    reportedFailures.add(id)
+  }
+  const failedAlert = (
+    job: string,
+    jobId: string,
+    attempts: number,
+    correlationId: string | null,
+  ) =>
+    alerts.send({
+      key: `job-failed:${job}`,
+      severity: 'critical',
+      title: `Job failed for good: ${job}`,
+      body: `Job ${jobId} failed after ${attempts} attempts (correlationId ${correlationId ?? 'unknown'}). See \`pnpm ops:queue\` and the runbook.`,
+    })
+
   const onFinalFailure = async (f: FinalFailure) => {
+    markReported(f.jobId)
     captureError(f.error, {
       correlationId: f.correlationId,
       organizationId: f.organizationId,
       tags: { job: f.job, jobId: f.jobId },
     })
-    await alerts.send({
-      key: `job-failed:${f.job}`,
-      severity: 'critical',
-      title: `Job failed for good: ${f.job}`,
-      body: `Job ${f.jobId} failed after ${f.attempt + 1} attempts (correlationId ${f.correlationId}). See \`pnpm ops:queue\` and the runbook.`,
-    })
+    await failedAlert(f.job, f.jobId, f.attempt + 1, f.correlationId)
   }
 
   const db = createDb({ connectionString: env.DATABASE_URL })
@@ -89,6 +107,8 @@ export async function startWorker({
   boss.on('error', (err) => log.error({ err }, 'pg-boss error'))
   await boss.start()
   const queue = new PgBossJobQueue(boss)
+  // Failures that happened while this worker was down are not reported: only those from now on.
+  let failuresSince = (await failedJobsSince(boss, [], new Date())).now
   for (const { job, handler } of selected) {
     await registerWorker(
       boss,
@@ -120,6 +140,36 @@ export async function startWorker({
       }
     } catch (err) {
       log.error({ err }, 'queue health check failed')
+    }
+    await reportSilentFailures()
+  }
+
+  // Jobs that exhausted their retries without the handler's `catch` running (expired while
+  // running, worker killed) end in `failed` with no alert from the handler: report them here.
+  async function reportSilentFailures() {
+    try {
+      // A margin before the last read covers jobs committed just after it; `reportedFailures`
+      // removes the duplicates.
+      const since = new Date(failuresSince.getTime() - 60_000)
+      const { jobs, now } = await failedJobsSince(boss, queues, since)
+      for (const j of jobs) {
+        if (reportedFailures.has(j.id)) continue
+        markReported(j.id)
+        const correlationId = j.correlationId ?? undefined
+        log.error(
+          { job: j.name, jobId: j.id, correlationId, attempts: j.attempts },
+          'job failed permanently (found by the sweep: it expired or the worker was lost)',
+        )
+        captureError(new Error(j.message ?? `Job ${j.name} failed permanently`), {
+          ...(correlationId ? { correlationId } : {}),
+          organizationId: j.organizationId,
+          tags: { job: j.name, jobId: j.id, source: 'sweep' },
+        })
+        await failedAlert(j.name, j.id, j.attempts, j.correlationId)
+      }
+      failuresSince = now
+    } catch (err) {
+      log.error({ err }, 'failed-job sweep failed')
     }
   }
   const interval = setInterval(

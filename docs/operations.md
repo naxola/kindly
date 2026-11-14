@@ -7,7 +7,7 @@ Qué hacer cuando algo falla. Decisiones de fondo en el ADR 0008.
 | Señal                         | De dónde sale                                                | Dónde llega                                   |
 | ----------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
 | Error no controlado de la web | API (`handleError`), Better Auth, páginas (`onRequestError`) | Sentry/GlitchTip (`SENTRY_DSN`) y log `error` |
-| Job en fallo definitivo       | worker, al agotar los reintentos                             | alerta **crítica** al móvil, Sentry y log     |
+| Job en fallo definitivo       | worker: al agotar reintentos y, cada 5 min, los que expiran  | alerta **crítica** al móvil, Sentry y log     |
 | Cola que no se vacía          | worker, cada 5 minutos (`QUEUE_MAX_WAIT_SECONDS`, 15 min)    | alerta de **aviso** al móvil                  |
 | Web caída o sin base de datos | `GET /api/health` y `GET /api/ready` (BD y cola)             | monitor externo (fase 6)                      |
 | Worker caído o sin BD         | `GET /health` y `GET /ready` en `WORKER_HEALTH_PORT` (3002)  | healthcheck del contenedor / monitor (fase 6) |
@@ -75,6 +75,12 @@ La alerta «Queue not draining» significa que hay jobs listos que nadie consume
 La respuesta indica qué falla (`database` o `queue`). La cola de la web solo necesita la base de
 datos y las tablas de pg-boss: si falla solo `queue`, comprueba que el despliegue ejecutó
 `pnpm queue:install` junto a `pnpm db:deploy`.
+
+Ese mismo comando aplica a las colas existentes los reintentos y la caducidad de `defineJob`
+(pg-boss no los cambia solo), y el worker los comprueba al registrar cada consumidor. Un job que
+expira o pierde su worker hasta agotar los reintentos no pasa por el `catch` del manejador: el
+worker lo detecta en la comprobación de colas (cada 5 min), con la misma alerta crítica y Sentry
+(`source=sweep`). Solo se informa de fallos posteriores al arranque del worker.
 
 ## Pendiente
 

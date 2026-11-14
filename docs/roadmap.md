@@ -168,3 +168,4 @@ Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque 
 
 - **R1.1 · Carrera del último ADMIN** (2026-11-14): bloqueo consultivo por organización en `changeMemberRole` y `disableMember`; dos tests de concurrencia que fallaban sin la corrección.
 - **R1.2 · IP del cliente de confianza** (2026-11-14): solo se lee `TRUSTED_IP_HEADER` (`cf-connecting-ip` en staging); `x-forwarded-for` se ignora; sin IP, los límites comparten un cubo.
+- **R1.3 · Fallos definitivos de la cola** (2026-11-14): barrido de jobs `failed` sin alerta (expirados o con el worker caído) y actualización de la configuración de colas existentes (`updateQueue`) al registrar consumidores y en `queue:install`.
