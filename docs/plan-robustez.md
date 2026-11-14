@@ -84,9 +84,8 @@ validación antes de implementar (regla 1 de `CLAUDE.md`).
 | D10 | Métricas: ver recomendación en la tabla de abajo                                                             | ⏳ Por confirmar |
 | D11 | Supresión de correo: solo el hash SHA-256 del email normalizado. ADR 0017 por redactar                       | ✅ Decidido      |
 
-**ADR redactados, en Propuesto (2026-11-14), pendientes de tu validación:** 0015 (límites), 0016
-(refuerzo del acceso), 0017 (supresión de correo), 0018 (auditoría) y 0019 (borrado de cuenta), en
-`docs/adr/`. R2.4, R2.5, R3.4, R3.5 y R4.5 no se implementan hasta que los valides.
+**Los cinco ADR nuevos están Aceptados (2026-11-14):** 0015 y 0017 ya implementados (R2.4, R3.4);
+0016, 0018 y 0019 validados y pendientes de implementar (R2.5, R3.5, R4.5).
 
 **Numeración de ADR nuevos** (por orden de bloque; las enmiendas a 0008, 0009 y 0012 no consumen
 número): R2.4 → 0015 · R2.5 → 0016 · R3.4 → 0017 · R3.5 → 0018 · R4.5 → 0019.

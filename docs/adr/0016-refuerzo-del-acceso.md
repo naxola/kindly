@@ -1,9 +1,13 @@
 # 0016 — Refuerzo del acceso: segundo factor, contraseñas filtradas y sesiones
 
-**Estado:** Propuesto (2026-11-14). Decisión D4 (MFA opcional por persona con códigos de
-recuperación; la obligación por organización, más adelante) ya tomada por el usuario; este documento
-detalla el diseño y lo que añade. Amplía el ADR 0003. **No se implementa (R2.5) hasta que el usuario
-lo valide.** Depende de R4.3 (pantalla Ajustes → Cuenta, ya entregada salvo el cambio de email).
+**Estado:** Aceptado (2026-11-14). El usuario validó el diseño: una contraseña se rechaza si
+aparece **en cualquier brecha**; si Have I Been Pwned no responde **se acepta** y se registra un
+aviso; y el secreto TOTP se cifra con una **variable propia, `MFA_ENCRYPTION_KEY`** (no con
+`BETTER_AUTH_SECRET`), para poder rotar una sin la otra. Amplía el ADR 0003. Pendiente de
+implementar (R2.5).
+
+> A comprobar al implementar: que el plugin de MFA de Better Auth admita una clave de cifrado
+> propia. Si no la admite, se vuelve al usuario con las alternativas antes de escribir nada.
 
 ## Problema
 
@@ -49,10 +53,11 @@ sesiones abiertas.
 - Migración aditiva en `auth_*`; un cambio en `packages/adapters/src/auth`; pantallas en Ajustes →
   Cuenta; `docs/operations.md` explica qué hacer si alguien pierde el autenticador y los códigos
   (recuperación asistida por una persona, fuera de la aplicación).
-- **Clave de cifrado:** el secreto TOTP se cifra con una clave derivada de `BETTER_AUTH_SECRET`;
-  rotar ese secreto invalidaría los factores ya dados de alta (se anota en el runbook).
+- **Clave de cifrado:** variable nueva `MFA_ENCRYPTION_KEY` (en `.env.example`,
+  `infra/staging/compose.yml` e `infra/staging/.env.example`). Rotarla invalida los factores ya
+  dados de alta (se anota en el runbook); rotar `BETTER_AUTH_SECRET` ya no los afecta.
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (2026-11-14)
 
 - ¿Rechazar la contraseña si aparece **en cualquier brecha** (recomendado) o a partir de un umbral?
 - ¿**Fallo abierto** si HIBP no responde (recomendado)?

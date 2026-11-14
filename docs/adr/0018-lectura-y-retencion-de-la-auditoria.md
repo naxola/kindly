@@ -1,8 +1,8 @@
 # 0018 — Lectura y retención de la auditoría
 
-**Estado:** Propuesto (2026-11-14). Decisión D7 (24 meses, particionado mensual cuando el volumen
-lo pida) ya tomada por el usuario; este documento detalla el diseño. **No se implementa (R3.5) hasta
-que el usuario lo valide.**
+**Estado:** Aceptado (2026-11-14). El usuario validó el diseño: **solo ADMIN** lee la actividad
+(permiso `audit.read`) y el plazo de 24 meses queda **fijo en la función SQL**, no en una variable.
+Pendiente de implementar (R3.5).
 
 ## Problema
 
@@ -40,7 +40,7 @@ Es de solo inserción para `app_user` (ni `UPDATE` ni `DELETE`), por diseño del
   una pantalla y un job (con su consumidor, como exige el test de jobs).
 - El plazo de 24 meses queda en el SQL: cambiarlo es una migración nueva, a propósito.
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (2026-11-14)
 
 - ¿Confirmas que **solo ADMIN** puede leer la actividad (sin acceso para MEMBER)?
 - ¿Te vale que el plazo esté **fijo en la función SQL** (recomendado) y no en una variable de entorno?

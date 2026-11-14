@@ -1,8 +1,8 @@
 # 0019 — Borrado de la cuenta (RGPD)
 
-**Estado:** Propuesto (2026-11-14). Decisión D6 (plazo de gracia de 14 días; bloquear si es el último
-ADMIN de una organización con más miembros) ya tomada por el usuario; este documento detalla el flujo.
-**No se implementa (R4.5) hasta que el usuario lo valide.** Depende de R4.3 (Ajustes → Cuenta).
+**Estado:** Aceptado (2026-11-14). El usuario validó el diseño: las organizaciones **unipersonales
+se archivan** al ejecutar el borrado, la auditoría **conserva el id del actor** tras anonimizar, y
+el plazo de gracia es de **14 días para todas las cuentas**. Pendiente de implementar (R4.5).
 
 ## Problema
 
@@ -57,7 +57,7 @@ Una persona no puede borrar su cuenta ni llevarse sus datos. El esquema ya lo pr
 - La anonimización no es reversible: se prueba con datos reales en un entorno de staging antes de
   activarla en producción.
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (2026-11-14)
 
 - ¿Las **organizaciones unipersonales se archivan** al borrar la cuenta (recomendado) o se bloquea
   el borrado hasta que la persona las archive ella misma?
