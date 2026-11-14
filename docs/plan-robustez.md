@@ -43,7 +43,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
 | R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
-| R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ⬜     |
+| R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ⬜     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
@@ -306,8 +306,9 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
   Paddle solo si se pide) y `e2e/security-headers.spec.ts`. Verificado: format, lint, typecheck,
   unitarias de `config`; `next build` de `web` y `site` y cabeceras reales con `next start`;
   Chromium sin avisos de CSP en `/sign-in`, `/sign-up` de `web` y portada del `site` sin Plausible.
-  **No verificado:** `pnpm test:e2e` (sin BD aquí), el checkout de Paddle con CSP, los hosts de
-  Paddle (tomados de su documentación, sin probar), ni la CSP en vistas con sesión.
+  **E2E ejecutado después (2026-11-14):** `pnpm test:e2e` pasa completo (17 de 17), incluido
+  `security-headers.spec.ts`, sin avisos de CSP. **Sigue sin verificar** el checkout de Paddle con
+  CSP y los hosts de Paddle (tomados de su documentación, sin probar).
 - **Hallazgo aparte:** `apps/site` decide si pinta el script de Plausible al compilar
   (`site.config.ts` lee `env()` en el prerenderizado), lo que contradice el ADR 0006: en la imagen
   construida sin `PLAUSIBLE_DOMAIN`, Plausible nunca carga. Pendiente de un bloque propio.
@@ -452,7 +453,21 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R4 — UX y pantallas
 
-### R4.1 · Estados de error y carga — `feat/ui-states`
+### R4.1 · Estados de error y carga — `feat/ui-states` ✅ (2026-11-14)
+
+- **Entregado:** `Skeleton` en `packages/ui`. `web`: `error.tsx` (con la referencia `digest` de
+  Next), `global-error.tsx` (bilingüe y fijo: no hay proveedores si falla el layout raíz),
+  `not-found.tsx` y `(app)/loading.tsx`. `QueryError` (motivo traducido, `correlationId` de la
+  API y «Reintentar») y `TableSkeleton` para miembros, invitaciones y cobros; estados vacíos en
+  miembros e invitaciones. `ApiError.correlationId`. `site`: `[locale]/error.tsx`,
+  `[locale]/not-found.tsx` y un catch-all `[locale]/[...rest]` que llama a `notFound()` para que
+  cualquier ruta desconocida bajo un idioma muestre el 404 con cabecera y pie. Textos
+  `states.*` en `web` y `site` (es/en).
+- **Límite conocido:** una dirección sin idioma (`/xyz`) en `site` sigue con el 404 por defecto
+  de Next: la app no tiene layout raíz.
+- **Tests:** `e2e/states.spec.ts` (404 en las dos apps y en los dos idiomas; fallo simulado de
+  `/api/v1/members` con referencia visible, sin tabla vacía y recuperación al reintentar).
+  Verificado con Postgres 16 y Chromium locales: suite E2E completa, 17 de 17.
 
 - **Problema:** no existen `error.tsx`, `global-error.tsx`, `not-found.tsx` ni `loading.tsx` en
   ninguna app; las tablas de miembros e invitaciones no muestran carga ni error (aparecen vacías).

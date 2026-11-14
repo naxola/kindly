@@ -78,5 +78,14 @@
   "footer": {
     "rights": "© {year} {company}",
     "legal": "Legal"
+  },
+  "states": {
+    "errorTitle": "Algo ha fallado",
+    "errorBody": "No hemos podido mostrar esta página. Inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "reference": "Referencia: {id}",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundBody": "La dirección no existe o se ha movido.",
+    "goHome": "Ir al inicio"
   }
 }

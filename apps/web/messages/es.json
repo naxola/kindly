@@ -216,7 +216,9 @@
       "role": "Rol",
       "roleOf": "Rol de {name}",
       "roleHint": "Un administrador gestiona miembros e invitaciones.",
-      "enableDescription": "{name} recuperará el acceso con su rol actual."
+      "enableDescription": "{name} recuperará el acceso con su rol actual.",
+      "empty": "Aún no hay miembros.",
+      "noInvitations": "No hay invitaciones pendientes."
     },
     "billing": {
       "title": "Plan y consumo",
@@ -275,5 +277,16 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "states": {
+    "loading": "Cargando…",
+    "loadFailed": "No se han podido cargar los datos",
+    "retry": "Reintentar",
+    "reference": "Referencia: {id}",
+    "errorTitle": "Algo ha fallado",
+    "errorBody": "No hemos podido mostrar esta página. Inténtalo de nuevo; si persiste, indica la referencia a soporte.",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundBody": "La dirección no existe o se ha movido.",
+    "goHome": "Ir al inicio"
   }
 }

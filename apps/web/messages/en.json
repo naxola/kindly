@@ -216,7 +216,9 @@
       "role": "Role",
       "roleOf": "Role of {name}",
       "roleHint": "An administrator manages members and invitations.",
-      "enableDescription": "{name} will regain access with their current role."
+      "enableDescription": "{name} will regain access with their current role.",
+      "empty": "There are no members yet.",
+      "noInvitations": "There are no pending invitations."
     },
     "billing": {
       "title": "Plan and usage",
@@ -275,5 +277,16 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "states": {
+    "loading": "Loading…",
+    "loadFailed": "The data could not be loaded",
+    "retry": "Try again",
+    "reference": "Reference: {id}",
+    "errorTitle": "Something went wrong",
+    "errorBody": "We could not show this page. Try again; if it persists, quote the reference to support.",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The address does not exist or has moved.",
+    "goHome": "Go to the start"
   }
 }
