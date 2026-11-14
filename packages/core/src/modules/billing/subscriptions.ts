@@ -54,6 +54,32 @@ export async function applyProviderEvent(
   const saved = current
     ? await tx.subscription.update({ where: { id: current.id }, data })
     : await tx.subscription.create({ data: { organizationId, ...data } })
+  // Plan in force during this period, stored now so the close never has to guess the past
+  // (ADR 0014). A plan change inside the period updates its row: the latest plan governs it.
+  if (saved.currentPeriodEnd > saved.currentPeriodStart) {
+    await tx.subscriptionPeriod.upsert({
+      where: {
+        organizationId_subscriptionId_periodStart: {
+          organizationId,
+          subscriptionId: saved.id,
+          periodStart: saved.currentPeriodStart,
+        },
+      },
+      create: {
+        organizationId,
+        subscriptionId: saved.id,
+        periodStart: saved.currentPeriodStart,
+        periodEnd: saved.currentPeriodEnd,
+        planKey: plan.plan,
+        planVersion: plan.version,
+      },
+      update: {
+        periodEnd: saved.currentPeriodEnd,
+        planKey: plan.plan,
+        planVersion: plan.version,
+      },
+    })
+  }
   await writeAudit(tx, {
     organizationId,
     actorUserId: null,

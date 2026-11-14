@@ -32,7 +32,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ✅     |
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
-| R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | 🔒     |
+| R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
@@ -206,7 +206,26 @@ otra preferencia.
 - **Test:** integración: proveedor que cobra y base de datos que falla al registrar → estado
   `CHARGING`, nunca `CHARGE_FAILED`; el job relanzado no vuelve a cobrar.
 
-### R1.6 · Cierre de periodos — `fix/billing-period-close` 🔒 D1, D2
+### R1.6 · Cierre de periodos — `fix/billing-period-close` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** tabla `subscription_periods` (tenant, RLS, sin borrado; migración
+  `20261114130000`, que rellena el periodo actual de las suscripciones existentes). La escribe
+  `applyProviderEvent` en cada evento (alta, renovación o cambio de plan dentro del periodo: gana
+  el último plan). `duePeriods` recorre todos los periodos no cerrados cuyo fin más la hora de
+  gracia ya pasó, del más antiguo al más nuevo, cada uno con su plan; extrapola con el último plan
+  conocido los que ningún evento anunció; una suscripción cancelada no extrapola; una suscripción
+  antigua sin historial ni cierres recupera también el periodo anterior al guardado. La gracia se
+  aplica al fin de cada periodo, también cuando la renovación llega antes del escaneo.
+  `recordUsage` rechaza el uso de un periodo ya cerrado (`CONFLICT` / `PERIOD_CLOSED`); un evento
+  repetido y ya registrado sigue siendo un no-op, y sin suscripción viva no aplica.
+- **Tests:** unitarios de `duePeriods` (periodo recién vencido, legado, varios periodos sin
+  cerrar, renovación temprana, cambio de plan, cancelada) e integración (historial por evento,
+  tres periodos cerrados a la vez con su plan y precio, gracia con renovación ya llegada, uso
+  tardío rechazado). Verificado: format, lint, typecheck, 88 unitarias, 93 de integración, `db:check`.
+- **Límites conocidos:** el cuadre de cuota (`billingStateOf`) sigue calculando el periodo de un
+  uso retroactivo desde el periodo guardado, no el de su fecha; el cierre sí cuenta por fecha.
+  Una suscripción antigua con varios periodos sin cerrar antes de esta migración solo recupera el
+  anterior al guardado.
 
 - **Problemas** (`packages/core/src/modules/billing/close.ts`):
   1. `duePeriods` solo devuelve el periodo anterior: con el worker parado más de un periodo, los

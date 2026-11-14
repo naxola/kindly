@@ -388,6 +388,213 @@ describe('period close (B4)', () => {
   })
 })
 
+describe('period close with history (R1.6, ADR 0014)', () => {
+  const ev = (orgId: string, priceId: string, start: string, end: string, at: string) => ({
+    id: newId(),
+    occurredAt: new Date(at),
+    kind: 'subscription' as const,
+    subscription: {
+      ref: `sub_${orgId}`,
+      customerRef: 'ctm_1',
+      status: 'ACTIVE' as const,
+      priceId,
+      periodStart: new Date(start),
+      periodEnd: new Date(end),
+      cancelAtPeriodEnd: false,
+      organizationId: orgId,
+    },
+  })
+  const apply = (orgId: string, e: ReturnType<typeof ev>) =>
+    withTenant(db, orgId, (tx) => applyProviderEvent(base(), tx, orgId, e, 'paddle', TEST_CATALOG))
+  const addUsage = (orgId: string, occurredAt: string, quantity: number) =>
+    withTenant(db, orgId, (tx) =>
+      tx.usageEvent.create({
+        data: {
+          organizationId: orgId,
+          metric: 'api_calls',
+          quantity,
+          occurredAt: new Date(occurredAt),
+          idempotencyKey: newId(),
+        },
+      }),
+    )
+  const closeAt = (orgId: string, at: string) =>
+    withTenant(db, orgId, (tx) =>
+      closeDuePeriods({ ...base(), now: () => new Date(at) }, tx, orgId, TEST_CATALOG),
+    )
+
+  it('every provider event leaves the plan of its period on record', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    // The same period synced again (e.g. a cancellation flag) does not duplicate its row.
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-06T00:00:00Z',
+      ),
+    )
+    const rows = await withTenant(db, orgId, (tx) =>
+      tx.subscriptionPeriod.findMany({ orderBy: { periodStart: 'asc' } }),
+    )
+    expect(rows.map((r) => [r.periodStart.toISOString().slice(0, 10), r.planVersion])).toEqual([
+      ['2026-10-05', 1],
+      ['2026-11-05', 2],
+    ])
+  })
+
+  it('with the worker down for several periods, all are closed, each with the plan it had', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-12-05T00:00:00Z',
+        '2027-01-05T00:00:00Z',
+        '2026-12-05T00:00:05Z',
+      ),
+    )
+    await addUsage(orgId, '2026-10-20T00:00:00Z', 3000)
+    await addUsage(orgId, '2026-11-20T00:00:00Z', 2000)
+    await addUsage(orgId, '2026-12-20T00:00:00Z', 1500)
+
+    // Nothing was closed until now: three periods are due at once.
+    const closed = await closeAt(orgId, '2027-01-06T12:00:00Z')
+    expect(
+      closed.map((p) => [
+        p.periodStart.toISOString().slice(0, 10),
+        p.planVersion,
+        p.fixedPrice.toString(),
+        p.overageTotal.toString(),
+      ]),
+    ).toEqual([
+      ['2026-10-05', 1, '29', '2'],
+      ['2026-11-05', 2, '39', '1'],
+      ['2026-12-05', 2, '39', '0.5'],
+    ])
+    expect(await closeAt(orgId, '2027-01-06T12:00:00Z')).toEqual([])
+  })
+
+  it('the grace is respected for a period that a renewal already replaced', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    expect(await closeAt(orgId, '2026-11-05T00:30:00Z')).toEqual([])
+    expect(
+      (await closeAt(orgId, '2026-11-05T01:00:00Z')).map((p) => p.periodEnd.toISOString()),
+    ).toEqual(['2026-11-05T00:00:00.000Z'])
+  })
+
+  it('usage of an already closed period is refused, but a repeated delivery stays harmless', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    const key = newId()
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 5,
+      occurredAt: inOctober,
+      idempotencyKey: key,
+    })
+    await closeAt(orgId, '2026-11-10T12:00:00Z')
+
+    expect(
+      await errorOf(record(orgId, { metric: 'api_calls', quantity: 5, occurredAt: inOctober })),
+    ).toEqual({ code: 'CONFLICT', detail: 'PERIOD_CLOSED' })
+    // The same event delivered again after the close is a no-op, not an error.
+    expect(
+      (
+        await record(orgId, {
+          metric: 'api_calls',
+          quantity: 5,
+          occurredAt: inOctober,
+          idempotencyKey: key,
+        })
+      ).recorded,
+    ).toBe(false)
+    // Usage of the open period is still accepted.
+    expect(
+      (
+        await record(orgId, {
+          metric: 'api_calls',
+          quantity: 5,
+          occurredAt: new Date('2026-11-10T11:00:00Z'),
+        })
+      ).recorded,
+    ).toBe(true)
+  })
+})
+
 describe('payment provider (B3 + B5)', () => {
   const event = (
     orgId: string,

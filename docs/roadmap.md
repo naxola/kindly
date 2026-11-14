@@ -170,3 +170,4 @@ Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque 
 - **R1.2 · IP del cliente de confianza** (2026-11-14): solo se lee `TRUSTED_IP_HEADER` (`cf-connecting-ip` en staging); `x-forwarded-for` se ignora; sin IP, los límites comparten un cubo.
 - **R1.3 · Fallos definitivos de la cola** (2026-11-14): barrido de jobs `failed` sin alerta (expirados o con el worker caído) y actualización de la configuración de colas existentes (`updateQueue`) al registrar consumidores y en `queue:install`.
 - **R1.5 · Estado `CHARGING` del cobro** (2026-11-14, ADR 0014): el cobro se marca antes de llamar al proveedor; un resultado desconocido nunca se reintenta solo ni se marca como fallido.
+- **R1.6 · Cierre de periodos** (2026-11-14, ADR 0014): tabla `subscription_periods` con el plan de cada periodo; el cierre procesa todos los vencidos con su plan y respeta la gracia; el uso de un periodo cerrado se rechaza.

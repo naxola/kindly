@@ -35,6 +35,7 @@ model Organization {
   subscription   Subscription?
   usageEvents    UsageEvent[]
   billingPeriods BillingPeriod[]
+  subscriptionPeriods SubscriptionPeriod[]
 
   @@map("organizations")
 }
@@ -247,9 +248,30 @@ model Subscription {
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  periods      SubscriptionPeriod[]
 
   @@unique([organizationId, id])
   @@map("subscriptions")
+}
+
+/// Plan and version in force during each billing period of a subscription, written when the
+/// period starts or is synced (ADR 0014). The close uses it instead of guessing the past.
+model SubscriptionPeriod {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  subscriptionId String   @map("subscription_id") @db.Uuid
+  periodStart    DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd      DateTime @map("period_end") @db.Timestamptz(3)
+  planKey        String   @map("plan_key")
+  planVersion    Int      @map("plan_version")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [organizationId, subscriptionId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, subscriptionId, periodStart])
+  @@map("subscription_periods")
 }
 
 /// Metered usage. Append-only for app_user; one row per business effect (idempotency key).

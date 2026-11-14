@@ -41,7 +41,7 @@ export {
   duePeriods,
   overageOf,
 } from './close.ts'
-export type { OverageLine } from './close.ts'
+export type { DuePeriod, OverageLine } from './close.ts'
 export { SetSpendCapInput, listBillingPeriods, setSpendCap } from './manage.ts'
 export { quotaAlertEmail } from './emails.ts'
 export { InvalidWebhookError } from './provider.ts'
