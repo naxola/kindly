@@ -34,7 +34,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
-| R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
+| R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0014)   | R1.2       | 🔒     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0015)   | R4.3       | 🔒     |
@@ -297,7 +297,21 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 - **Test:** E2E que comprueba las cabeceras en una página de cada app y que no hay violaciones de
   CSP en consola durante los recorridos existentes.
 
-### R2.2 · Tiempos límite de Postgres — `chore/db-timeouts`
+### R2.2 · Tiempos límite de Postgres — `chore/db-timeouts` ✅ (2026-11-14)
+
+- **Entregado:** `packages/config/src/db-timeouts.ts` (valores, parámetro `options` de la conexión
+  y `isDbTimeoutError`). `createDb` aplica 30 s / 5 s / 60 s (sentencia / bloqueo / transacción
+  inactiva) y acepta `timeouts` parciales; `createBoss` usa los mismos para `producer` y los del
+  worker para `worker`; el worker pasa `WORKER_DB_TIMEOUTS` (120 s / 30 s / 120 s) a `createDb`.
+  Se fijan en la conexión (`-c …`), no con `ALTER ROLE`; `app_migrator` no cambia. `handleError`
+  responde `503 SERVICE_UNAVAILABLE` (sin detalles; se reporta con `correlationId`) cuando el error
+  trae SQLSTATE 57014, 55P03 o 25P03. Textos `errors.SERVICE_UNAVAILABLE` en es/en.
+  No hay variables de entorno nuevas: los valores son constantes del código; sobrescribir por
+  proceso es pasar `timeouts` a `createDb`.
+- **Tests:** unitarios de `db-timeouts` y de `handleError`; integración
+  (`packages/database/test/timeouts.int.test.ts`): los valores llegan a la conexión, `pg_sleep`
+  sobre el límite falla con 57014 y el pool se recupera. Verificado con Postgres 16 local:
+  format, lint, fronteras, typecheck de todos los paquetes, 104 unitarias.
 
 - **Problema:** `app_user` no tiene `statement_timeout`, `lock_timeout` ni
   `idle_in_transaction_session_timeout`: una consulta colgada retiene conexiones del pool.

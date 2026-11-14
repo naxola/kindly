@@ -1,3 +1,4 @@
+import { DEFAULT_DB_TIMEOUTS, WORKER_DB_TIMEOUTS, dbTimeoutOptions } from '@saas/config/db-timeouts'
 import type { EnqueueOptions, JobContext, JobDefinition, JobQueue } from '@saas/core'
 import type { TenantTx } from '@saas/database'
 import { fromPrisma, PgBoss } from 'pg-boss'
@@ -22,6 +23,8 @@ export function createBoss({ connectionString, role, max = 5 }: CreateBossOption
     connectionString,
     schema: PGBOSS_SCHEMA,
     max,
+    // Postgres time limits (R2.2); the worker gets more room than the producers.
+    options: dbTimeoutOptions(role === 'worker' ? WORKER_DB_TIMEOUTS : DEFAULT_DB_TIMEOUTS),
     application_name: `saas-${role}`,
     // Only the worker migrates the pg-boss schema, supervises and runs schedules.
     migrate: role === 'worker',

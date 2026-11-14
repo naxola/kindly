@@ -76,6 +76,7 @@
   "errors": {
     "UNKNOWN": "Algo ha fallado. Inténtalo de nuevo.",
     "INTERNAL": "Error interno. Si persiste, contacta con soporte indicando la hora.",
+    "SERVICE_UNAVAILABLE": "El servicio no está disponible un momento. Inténtalo de nuevo en unos segundos.",
     "VALIDATION_FAILED": "Revisa los datos del formulario.",
     "UNAUTHENTICATED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
     "FORBIDDEN": "No tienes permiso para esta acción.",

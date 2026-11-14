@@ -76,6 +76,7 @@
   "errors": {
     "UNKNOWN": "Something went wrong. Please try again.",
     "INTERNAL": "Internal error. If it persists, contact support with the time.",
+    "SERVICE_UNAVAILABLE": "The service is briefly unavailable. Try again in a few seconds.",
     "VALIDATION_FAILED": "Please check the form data.",
     "UNAUTHENTICATED": "Your session has expired. Please sign in again.",
     "FORBIDDEN": "You are not allowed to do this.",
