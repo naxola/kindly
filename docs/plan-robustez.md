@@ -420,8 +420,8 @@ aplicar**; si hay filas fuera de regla la migración se detiene y nombra la rest
   valores válidos; las tablas de cobros son de solo inserción para `app_user`, por eso los
   periodos se prueban insertando) y unitario de `RecordUsageInput`. `migrate diff`: sin deriva.
   Las fechas del fixture son del futuro lejano para que el barrido horario del worker no lo cierre.
-- **Hallazgo:** `apps/worker/test/worker.int.test.ts › sends the invitation email and delivers
-the business events` es **inestable** en la suite completa de integración (4 núcleos): falla
+- **Hallazgo (resuelto en R5.3, ver allí):** `apps/worker/test/worker.int.test.ts › sends the invitation email and delivers
+the business events` era **inestable** en la suite completa de integración (4 núcleos): falla
   por «timed out waiting for the worker» en torno a la mitad de las ejecuciones, **también sin
   los cambios de este bloque** (comprobado con `git stash`); suelto pasa siempre. Pendiente de
   investigar, probablemente en R5.3 (worker).
