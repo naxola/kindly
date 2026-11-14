@@ -309,8 +309,10 @@ describe('failed jobs sweep (R1.3)', () => {
       organizationId: orgId,
       message: 'job failed by expiration',
     })
-    // Nothing new after the returned clock.
-    expect((await failedJobsSince(boss, [name], now)).jobs).toEqual([])
+    // Nothing new after the returned clock. The window is inclusive (`>=`, callers deduplicate)
+    // and a JS Date drops the microseconds, so a job that failed in the same millisecond as the
+    // read is returned again: ask from the next millisecond. (This made the CI fail once.)
+    expect((await failedJobsSince(boss, [name], new Date(now.getTime() + 1))).jobs).toEqual([])
   })
 })
 
