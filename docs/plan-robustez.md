@@ -27,7 +27,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 
 | Bloque | Rama                           | Contenido                                                 | ADR            | Depende de | Estado |
 | ------ | ------------------------------ | --------------------------------------------------------- | -------------- | ---------- | ------ |
-| R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ⬜     |
+| R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ✅     |
 | R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ⬜     |
 | R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ⬜     |
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
@@ -82,7 +82,15 @@ otra preferencia.
 
 ## R1 — Correcciones críticas
 
-### R1.1 · Carrera del último ADMIN — `fix/last-admin-race`
+### R1.1 · Carrera del último ADMIN — `fix/last-admin-race` ✅ (2026-11-14)
+
+- **Entregado:** `lockOrganizationMembers` (`members.ts`, `pg_advisory_xact_lock` con clave
+  `members:{organizationId}`) al inicio de `changeMemberRole` y `disableMember`. Quien añada un
+  caso de uso que quite un ADMIN (salir de la organización, borrar cuenta) debe llamarla primero.
+- **Reproducido antes de corregir:** sin el bloqueo, los dos tests nuevos fallan (dos ADMIN que
+  se degradan o desactivan a la vez dejan la organización sin ninguno); con él pasan.
+- **Verificado:** format, lint, typecheck, 76 unitarias y 82 de integración (Postgres 16 local,
+  Node 24). E2E, `api:generate` y `db:check` no aplican (sin cambios de pantallas, rutas ni esquema).
 
 - **Problema:** `assertAnotherActiveAdmin` (`packages/core/src/modules/identity/members.ts`) cuenta
   y después actualiza sin bloqueo. Dos peticiones simultáneas que degradan o desactivan a dos

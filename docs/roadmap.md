@@ -165,3 +165,5 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 ## Robustez R1–R5 — planificado (2026-11-14)
 
 Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque y con las decisiones pendientes del usuario, está en [`plan-robustez.md`](plan-robustez.md): ese archivo lleva el estado; aquí se anota cada bloque al entregarlo.
+
+- **R1.1 · Carrera del último ADMIN** (2026-11-14): bloqueo consultivo por organización en `changeMemberRole` y `disableMember`; dos tests de concurrencia que fallaban sin la corrección.

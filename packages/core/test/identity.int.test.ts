@@ -223,6 +223,62 @@ describe('members', () => {
     })
   })
 
+  it('concurrent cross demotions of two ADMINs leave exactly one (R1.1)', async () => {
+    const owner = await personWithOrg()
+    const secondAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: secondAccess.email })
+    const second = await ensureUser(base(), secondAccess.id)
+    const secondMember = await acceptInvitation(base(), { token, userId: second.id })
+    await changeMemberRole(owner.ctx, secondMember.id, { role: 'ADMIN' })
+    const { actor } = await resolveActor(db, {
+      userId: second.id,
+      organizationId: owner.organization.id,
+    })
+    const secondCtx: Ctx = { ...base(), actor }
+
+    for (let i = 0; i < 5; i++) {
+      // Demote each ADMIN from the other's session at the same time.
+      const results = await Promise.allSettled([
+        changeMemberRole(secondCtx, owner.ctx.actor.memberId, { role: 'MEMBER' }),
+        changeMemberRole(owner.ctx, secondMember.id, { role: 'MEMBER' }),
+      ])
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+      const failed = results.find((r) => r.status === 'rejected')
+      expect((failed as PromiseRejectedResult).reason).toMatchObject({ code: 'CONFLICT' })
+      const admins = await withTenant(db, owner.organization.id, (tx) =>
+        tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+      )
+      expect(admins).toBe(1)
+      // Promote whoever was demoted so the next round starts with two ADMINs again.
+      const survivor = results[0].status === 'fulfilled' ? secondCtx : owner.ctx
+      const demotedId =
+        results[0].status === 'fulfilled' ? owner.ctx.actor.memberId : secondMember.id
+      await changeMemberRole(survivor, demotedId, { role: 'ADMIN' })
+    }
+  })
+
+  it('concurrent disabling of two ADMINs leaves exactly one (R1.1)', async () => {
+    const owner = await personWithOrg()
+    const secondAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: secondAccess.email })
+    const second = await ensureUser(base(), secondAccess.id)
+    const secondMember = await acceptInvitation(base(), { token, userId: second.id })
+    await changeMemberRole(owner.ctx, secondMember.id, { role: 'ADMIN' })
+    const { actor } = await resolveActor(db, {
+      userId: second.id,
+      organizationId: owner.organization.id,
+    })
+    const results = await Promise.allSettled([
+      disableMember({ ...base(), actor }, owner.ctx.actor.memberId),
+      disableMember(owner.ctx, secondMember.id),
+    ])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    const admins = await withTenant(db, owner.organization.id, (tx) =>
+      tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+    )
+    expect(admins).toBe(1)
+  })
+
   it('a disabled member can no longer act in the organization', async () => {
     const owner = await personWithOrg()
     const guestAccess = await accessAccount()
