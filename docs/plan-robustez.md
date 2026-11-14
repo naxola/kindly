@@ -38,7 +38,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ⬜     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ⬜     |
-| R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ⬜     |
+| R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
@@ -406,7 +406,25 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R3 — Backend y datos
 
-### R3.1 · Restricciones de cobros — `chore/db-check-constraints`
+### R3.1 · Restricciones de cobros — `chore/db-check-constraints` ✅ (2026-11-14)
+
+- **Entregado:** migración aditiva `20261114150000_billing_check_constraints`: `usage_events.quantity
+  > 0`; fin posterior al inicio en `subscriptions`, `subscription_periods`y`billing_periods`;
+importes de `billing_periods`y cantidades e importes de`billing_period_lines` `>= 0`;
+`spend_cap >= 0`(nulo permitido) en`subscriptions`y`billing_periods`. Se añadió
+`subscription_periods`(tabla posterior al plan). Las consultas para comprobar que un entorno
+con datos no las incumple están en la cabecera del SQL: **ejecútalas en staging antes de
+aplicar**; si hay filas fuera de regla la migración se detiene y nombra la restricción.`RecordUsageInput`rechaza ahora la cantidad`"0"` en texto (el regex la dejaba pasar y la BD
+  > habría respondido con un 500).
+- **Tests:** `packages/database/test/check-constraints.int.test.ts` (un caso por restricción, más
+  valores válidos; las tablas de cobros son de solo inserción para `app_user`, por eso los
+  periodos se prueban insertando) y unitario de `RecordUsageInput`. `migrate diff`: sin deriva.
+  Las fechas del fixture son del futuro lejano para que el barrido horario del worker no lo cierre.
+- **Hallazgo:** `apps/worker/test/worker.int.test.ts › sends the invitation email and delivers
+the business events` es **inestable** en la suite completa de integración (4 núcleos): falla
+  por «timed out waiting for the worker» en torno a la mitad de las ejecuciones, **también sin
+  los cambios de este bloque** (comprobado con `git stash`); suelto pasa siempre. Pendiente de
+  investigar, probablemente en R5.3 (worker).
 
 - **Cambio:** migración aditiva con `CHECK`: `usage_events.quantity > 0`;
   `period_end > period_start` en `subscriptions` y `billing_periods`; importes y cantidades
