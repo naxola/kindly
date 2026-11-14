@@ -48,8 +48,8 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
 | R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
-| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
-| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
+| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ✅     |
+| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🟡     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
 | R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
@@ -541,7 +541,30 @@ the business events` era **inestable** en la suite completa de integración (4 n
   evento de negocio `user.deleted` para el CRM; exportación de los datos personales.
 - **Test:** integración del job y de las reglas; E2E de la solicitud y su cancelación.
 
-### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` ⬜ (D8 decidida)
+### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` ✅ (2026-11-14)
+
+- **Entregado:** `@sentry/browser` 11.9.0 (igual que `@sentry/node`) y `@axe-core/playwright` 4.14.0
+  (solo desarrollo), ambas con más de 14 días (D8). `apps/web/src/client/browser-errors.ts`: SDK
+  cargado de forma diferida solo si hay DSN, solo captura de errores (sin breadcrumbs, rendimiento
+  ni grabación), recogida de datos desactivada y `scrubBrowserEvent` (quita cookies, cabeceras,
+  cuerpos, usuario, extra y **query y fragmento de toda URL**: el token de invitación va en el
+  fragmento). `SENTRY_BROWSER_DSN` (opcional, público por diseño) se lee en el layout raíz en cada
+  petición, en `.env.example`, `compose.yml` y `infra/staging/.env.example`; el proxy añade su
+  origen a `connect-src` (ADR 0008 enmendado, `docs/operations.md`). `error.tsx` reporta con el
+  `digest`. Axe (WCAG 2.1 A y AA, falla con `serious` y `critical`) en `e2e/a11y.spec.ts`: pantallas
+  públicas y de la aplicación (inicio, miembros, panel de invitar, cobros, 404) y todo el `site`.
+- **Defectos reales que encontró axe, corregidos (sin relajar la regla):** el texto secundario
+  `--foreground-lighter` daba 4,42:1 sobre `#f7f7f7` (ahora `#6b6b6b`, ≥ 4,5:1); los menús de
+  organización y de cuenta tenían un nombre accesible que no contenía su texto visible
+  (WCAG 2.5.3), ahora «Organización: <nombre>» y «Cuenta: <nombre>».
+- **Tests:** unitarios de `scrubBrowserEvent` y `urlOrigin`; `e2e/browser-errors.spec.ts` (un
+  error real llega al DSN sin el fragmento de la URL, sin lo escrito en el formulario, sin
+  breadcrumbs ni cookies; la CSP deja llegar al DSN) y `e2e/a11y.spec.ts`. Verificado con
+  Postgres 16 y Chromium locales: **24 de 24 E2E**, 121 unitarias, tipos, lint y formato;
+  `pnpm audit --audit-level high` sin hallazgos altos (1 bajo y 6 moderados).
+- **Límites conocidos:** un error que ocurra antes de que cargue el SDK (diferido tras la
+  hidratación) no se reporta; el mensaje de una excepción puede contener texto que no controlamos;
+  axe solo ve lo que renderiza cada recorrido, no sustituye una revisión manual.
 
 - **Contenido (enmienda 0008):** errores del cliente a Sentry/GlitchTip con las mismas reglas de
   privacidad que el servidor (sin breadcrumbs, sin datos de formularios), DSN público servido en
@@ -551,7 +574,19 @@ the business events` era **inestable** en la suite completa de integración (4 n
 
 ## R5 — Operación y CI
 
-### R5.1 · Actualización de dependencias — `chore/renovate` ⬜ (D9 decidida)
+### R5.1 · Actualización de dependencias — `chore/renovate` 🟡 (2026-11-14, falta activarlo)
+
+- **Entregado:** `.github/renovate.json5` y la enmienda del ADR 0009 (política D9, límites y
+  motivos). Cubre npm, acciones de GitHub (siguen fijadas por hash), imágenes de `Dockerfile` y
+  `docker-compose`, la imagen de Trivy del CI (gestor `regex`) y la versión de pnpm del
+  `Dockerfile`; la expresión de ambos gestores se probó contra los ficheros reales.
+- **Verificado:** el fichero se lee como JSON5 (Prettier) y las dos expresiones extraen
+  `ghcr.io/aquasecurity/trivy` `0.76.2` con su digest y `pnpm` `10.34.6`. **No verificado:** el
+  validador oficial (`renovate-config-validator`) **no se pudo ejecutar** (descargar y ejecutar
+  Renovate sin versión fijada fue denegado), y nada se ha probado contra Renovate real.
+- **Para que funcione, falta una acción tuya:** instalar la app de GitHub de Renovate en el
+  repositorio. El primer PR («Configure Renovate») o el panel de dependencias dirán si algún
+  nombre de propiedad de la configuración necesita ajuste.
 
 - **Problema:** todas las versiones están fijadas (ADR 0009) y nada las mueve.
 - **Contenido (enmienda 0009):** configuración de Renovate según D9, incluidas las acciones de

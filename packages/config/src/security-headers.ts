@@ -86,3 +86,13 @@ export function buildCsp(options: CspOptions = {}): string {
 export function createNonce(): string {
   return btoa(crypto.randomUUID())
 }
+
+/** Origin (`https://host:port`) of a URL such as a Sentry DSN, or null if there is none. */
+export function urlOrigin(value: string | undefined): string | null {
+  if (!value) return null
+  try {
+    return new URL(value).origin
+  } catch {
+    return null
+  }
+}

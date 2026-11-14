@@ -41,9 +41,24 @@ y poder reintentar sin perder datos.
   homelab. Uptime Kuma es el monitor externo de la web (`/api/ready`) y recibe el latido del
   worker (`HEARTBEAT_URL`).
 
+## Enmienda (2026-11-14): errores del navegador
+
+Decisión D8 del usuario (dependencias `@sentry/browser` 11.9.0, igual que `@sentry/node`, y
+`@axe-core/playwright` 4.14.0 solo en desarrollo).
+
+- **Qué se envía:** solo excepciones no capturadas y las de las páginas de error. Sin
+  breadcrumbs, sin rendimiento, sin grabación de sesión, sin usuario, sin cookies, sin cabeceras,
+  sin cuerpos y sin datos de formularios. A los eventos se les quita además el **query y el
+  fragmento** de toda URL: el token de una invitación viaja en el fragmento (`/invite#…`).
+- **DSN en tiempo de ejecución:** variable opcional `SENTRY_BROWSER_DSN`, leída por el layout
+  raíz en cada petición y entregada a la página (la imagen no lleva variables, ADR 0006). Un DSN de
+  navegador es público por diseño; puede ser el mismo proyecto que `SENTRY_DSN` o uno aparte.
+  Vacía: no se carga el SDK ni se envía nada.
+- **CSP:** el origen del DSN se añade a `connect-src` en el proxy.
+- **Límite:** el mensaje de una excepción puede contener texto que no controlamos; el `correlationId`
+  y los logs del servidor siguen siendo el hilo fiable.
+
 ## Pendiente
 
-- Errores del navegador: no se recogen todavía (se añadirían con un DSN público y el mismo
-  criterio de privacidad).
 - Centralizar logs (Grafana Loki o Better Stack) y el monitor externo: con el despliegue
   (fase 6) y cuando se decida dónde vive producción (ADR 0006).

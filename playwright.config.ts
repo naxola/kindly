@@ -43,6 +43,8 @@ export default defineConfig({
         APP_URL: BASE_URL,
         DATABASE_URL: process.env.TEST_DATABASE_URL!,
         AUTH_RATE_LIMIT_ENABLED: 'false',
+        // Browser errors go to a local port that the E2E intercepts (e2e/browser-errors.spec.ts).
+        SENTRY_BROWSER_DSN: 'http://e2ekey@localhost:3199/1',
         LOG_LEVEL: 'warn',
       },
     },

@@ -7,6 +7,7 @@ Qué hacer cuando algo falla. Decisiones de fondo en el ADR 0008.
 | Señal                         | De dónde sale                                                | Dónde llega                                   |
 | ----------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
 | Error no controlado de la web | API (`handleError`), Better Auth, páginas (`onRequestError`) | Sentry/GlitchTip (`SENTRY_DSN`) y log `error` |
+| Error del navegador           | Excepciones no capturadas y páginas de error del cliente     | Sentry/GlitchTip (`SENTRY_BROWSER_DSN`)       |
 | Job en fallo definitivo       | worker: al agotar reintentos y, cada 5 min, los que expiran  | alerta **crítica** al móvil, Sentry y log     |
 | Cola que no se vacía          | worker, cada 5 minutos (`QUEUE_MAX_WAIT_SECONDS`, 15 min)    | alerta de **aviso** al móvil                  |
 | Web caída o sin base de datos | `GET /api/health` y `GET /api/ready` (BD y cola)             | monitor externo (fase 6)                      |
@@ -25,6 +26,9 @@ completa (petición → job → correo/evento).
 ```bash
 # Sentry (sentry.io) o GlitchTip autoalojado: el mismo DSN sirve para web y worker
 SENTRY_DSN=https://<clave>@<host>/<proyecto>
+# Errores del navegador (opcional; público por diseño; vacío: no se recogen). Puede ser el mismo
+# proyecto o uno aparte; sin cookies, formularios ni fragmentos de URL (ADR 0008, enmienda)
+SENTRY_BROWSER_DSN=https://<clave>@<host>/<proyecto>
 
 # Alertas por ntfy (ntfy.sh o propio). El tema es secreto: quien lo conozca lee las alertas.
 ALERT_PROVIDER=ntfy
@@ -100,5 +104,4 @@ worker lo detecta en la comprobación de colas (cada 5 min), con la misma alerta
 
 ## Pendiente
 
-- Errores del navegador (cliente de la web): no se recogen todavía.
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).

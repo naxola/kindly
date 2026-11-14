@@ -3,6 +3,7 @@
 import { Button } from '@saas/ui'
 import { useTranslations } from 'next-intl'
 import { useEffect } from 'react'
+import { captureBrowserError } from '@/client/browser-errors.ts'
 
 /**
  * Last resort of a page: something failed while rendering. The `digest` is the id Next
@@ -18,6 +19,7 @@ export default function ErrorPage({
   const t = useTranslations('states')
   useEffect(() => {
     console.error(error)
+    captureBrowserError(error, error.digest ? { digest: error.digest } : {})
   }, [error])
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
