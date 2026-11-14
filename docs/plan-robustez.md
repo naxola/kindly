@@ -33,7 +33,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | ✅     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
-| R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
+| R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0014)   | R1.2       | 🔒     |
@@ -262,7 +262,28 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 
 ## R2 — Seguridad
 
-### R2.1 · Cabeceras de seguridad — `feat/security-headers`
+### R2.1 · Cabeceras de seguridad — `feat/security-headers` ✅ (2026-11-14)
+
+- **Entregado:** `packages/config/src/security-headers.ts` (funciones puras: cabeceras estáticas,
+  `buildCsp`, nonce, fuentes de Paddle) y un `proxy.ts` en `apps/web` y en `apps/site`. Van en el
+  proxy y no en `next.config.ts` porque este se evalúa al compilar y las imágenes no llevan
+  variables (ADR 0006): HSTS, Paddle y Plausible se deciden al arrancar. `web`: CSP con nonce y
+  `strict-dynamic` (el nonce llega a `next-themes` vía `x-nonce`); Paddle (sandbox o producción
+  según `PADDLE_ENVIRONMENT`) solo con `PAYMENT_PROVIDER=paddle`. `site`: CSP estática con
+  `'unsafe-inline'` en scripts (páginas prerenderizadas, sin nonce posible) y Plausible si hay
+  `PLAUSIBLE_DOMAIN`. Estilos con `'unsafe-inline'` (Tailwind, Radix, next-themes).
+- **Estado de la CSP: `Content-Security-Policy-Report-Only`** (constante `CSP_HEADER` en cada
+  `proxy.ts`). Pasar a bloqueante cuando `pnpm test:e2e` salga limpio y se haya probado un
+  checkout de Paddle en sandbox.
+- **Tests:** unitarios de `security-headers` (HSTS solo en https, nonce, eval solo en desarrollo,
+  Paddle solo si se pide) y `e2e/security-headers.spec.ts`. Verificado: format, lint, typecheck,
+  unitarias de `config`; `next build` de `web` y `site` y cabeceras reales con `next start`;
+  Chromium sin avisos de CSP en `/sign-in`, `/sign-up` de `web` y portada del `site` sin Plausible.
+  **No verificado:** `pnpm test:e2e` (sin BD aquí), el checkout de Paddle con CSP, los hosts de
+  Paddle (tomados de su documentación, sin probar), ni la CSP en vistas con sesión.
+- **Hallazgo aparte:** `apps/site` decide si pinta el script de Plausible al compilar
+  (`site.config.ts` lee `env()` en el prerenderizado), lo que contradice el ADR 0006: en la imagen
+  construida sin `PLAUSIBLE_DOMAIN`, Plausible nunca carga. Pendiente de un bloque propio.
 
 - **Problema:** ni `apps/web` ni `apps/site` envían CSP, HSTS, `frame-ancestors`,
   `X-Content-Type-Options`, `Referrer-Policy` ni `Permissions-Policy`.
