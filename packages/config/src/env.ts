@@ -16,6 +16,13 @@ export const baseEnv = z.object({
 export const databaseEnv = z.object({
   /** Application connection (role app_user, subject to RLS). */
   DATABASE_URL: z.url(),
+  /**
+   * Postgres time limits in milliseconds (R2.2). Empty: the default of the process (web 30 s /
+   * 5 s / 60 s, worker 120 s / 30 s / 120 s); see `db-timeouts.ts`.
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
 })
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1')

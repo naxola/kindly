@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { NextIntlClientProvider } from 'next-intl'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { Inter, JetBrains_Mono } from 'next/font/google'
+import { headers } from 'next/headers'
 import type { ReactNode } from 'react'
 import { Providers } from '@/components/providers.tsx'
 import './globals.css'
@@ -20,11 +21,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale()
+  // Nonce set by the proxy (R2.1); tags the inline script of next-themes.
+  const nonce = (await headers()).get('x-nonce') ?? undefined
   return (
     <html lang={locale} suppressHydrationWarning className={`${inter.variable} ${mono.variable}`}>
       <body>
         <NextIntlClientProvider>
-          <Providers>{children}</Providers>
+          <Providers nonce={nonce}>{children}</Providers>
         </NextIntlClientProvider>
       </body>
     </html>

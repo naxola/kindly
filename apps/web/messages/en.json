@@ -76,6 +76,7 @@
   "errors": {
     "UNKNOWN": "Something went wrong. Please try again.",
     "INTERNAL": "Internal error. If it persists, contact support with the time.",
+    "SERVICE_UNAVAILABLE": "The service is briefly unavailable. Try again in a few seconds.",
     "VALIDATION_FAILED": "Please check the form data.",
     "UNAUTHENTICATED": "Your session has expired. Please sign in again.",
     "FORBIDDEN": "You are not allowed to do this.",
@@ -86,6 +87,7 @@
     "CSRF": "Request rejected for security. Reload the page.",
     "NO_ACTIVE_ORGANIZATION": "Choose an organization.",
     "LAST_ADMIN": "The organization must keep at least one active Administrator.",
+    "ACCOUNT_CREATED_JOIN_FAILED": "The account was created, but joining the organization failed. Sign in to join.",
     "ALREADY_MEMBER": "That person is already a member.",
     "EMAIL_MISMATCH": "The invitation is for another email address.",
     "INVITATION_ACCEPTED": "The invitation was already accepted.",
@@ -214,7 +216,9 @@
       "role": "Role",
       "roleOf": "Role of {name}",
       "roleHint": "An administrator manages members and invitations.",
-      "enableDescription": "{name} will regain access with their current role."
+      "enableDescription": "{name} will regain access with their current role.",
+      "empty": "There are no members yet.",
+      "noInvitations": "There are no pending invitations."
     },
     "billing": {
       "title": "Plan and usage",
@@ -273,5 +277,24 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "states": {
+    "loading": "Loading…",
+    "loadFailed": "The data could not be loaded",
+    "retry": "Try again",
+    "reference": "Reference: {id}",
+    "errorTitle": "Something went wrong",
+    "errorBody": "We could not show this page. Try again; if it persists, quote the reference to support.",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The address does not exist or has moved.",
+    "goHome": "Go to the start"
+  },
+  "toasts": {
+    "invited": "Invitation sent to {email}",
+    "revoked": "Invitation revoked",
+    "roleChanged": "Role updated",
+    "memberDisabled": "Member disabled",
+    "memberEnabled": "Member enabled",
+    "spendCapSaved": "Spend cap saved"
   }
 }

@@ -197,6 +197,22 @@ export function InvitationScreen() {
     register.mutate({ name: field(form, 'name').trim(), password })
   }
 
+  // The account was created but joining failed: submitting again would only say the account
+  // exists, so the only way forward is to sign in (which joins).
+  if (
+    register.error instanceof ApiError &&
+    register.error.reason === 'ACCOUNT_CREATED_JOIN_FAILED'
+  ) {
+    return (
+      <AuthCard title={title}>
+        <Callout variant="warning">{errorText(t, register.error)}</Callout>
+        <Button asChild variant="primary" size="small">
+          <NextLink href={signInHref}>{t('invite.signInToJoin')}</NextLink>
+        </Button>
+      </AuthCard>
+    )
+  }
+
   return (
     <AuthCard title={title} description={t('invite.createDescription')}>
       <form className="space-y-4" onSubmit={onRegister}>

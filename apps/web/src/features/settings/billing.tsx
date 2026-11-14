@@ -10,6 +10,7 @@ import {
   Panel,
   Progress,
   Table,
+  toast,
   TBody,
   TD,
   TH,
@@ -30,6 +31,8 @@ import {
   useBillingPeriods,
   useBillingPlans,
 } from '@/client/queries.ts'
+import { QueryError } from '@/components/query-error.tsx'
+import { TableSkeleton } from '@/components/table-skeleton.tsx'
 import { useCan, useOrganizationId } from '@/components/workspace-context.tsx'
 
 type Overview = NonNullable<ReturnType<typeof useBillingOverview>['data']>
@@ -102,8 +105,9 @@ export function BillingSettings() {
         description={t('settings.billing.description')}
       />
       <PageContainer>
-        {overview.error ? (
-          <Callout variant="destructive">{errorText(t, overview.error)}</Callout>
+        {overview.isPending ? <TableSkeleton rows={4} label={t('states.loading')} /> : null}
+        {overview.isError ? (
+          <QueryError error={overview.error} onRetry={() => void overview.refetch()} />
         ) : null}
         {o ? (
           <div className="space-y-6">
@@ -306,6 +310,7 @@ function SpendCap({
       unwrap(await apiClient.PUT('/api/v1/billing/spend-cap', { body: { spendCap } })),
     onSuccess: async (r) => {
       setValue(r.spendCap ?? '')
+      toast.success(t('toasts.spendCapSaved'))
       await qc.invalidateQueries({ queryKey: billingKeys.overview(orgId) })
     },
   })

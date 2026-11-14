@@ -1,6 +1,12 @@
+import {
+  DEFAULT_DB_TIMEOUTS,
+  WORKER_DB_TIMEOUTS,
+  dbTimeoutOptions,
+  type DbTimeouts,
+} from '@saas/config/db-timeouts'
 import type { EnqueueOptions, JobContext, JobDefinition, JobQueue } from '@saas/core'
 import type { TenantTx } from '@saas/database'
-import { fromPrisma, PgBoss } from 'pg-boss'
+import { fromPrisma, PgBoss, type Job, type JobResult } from 'pg-boss'
 import { v5 as uuidv5 } from 'uuid'
 import type { z } from 'zod'
 import type { Logger } from '../logger/index.ts'
@@ -10,18 +16,33 @@ const JOB_ID_NAMESPACE = '3f6c1d2e-8a5b-4c7d-9e0f-1a2b3c4d5e6f'
 
 export const PGBOSS_SCHEMA = 'pgboss'
 
+/** Jobs a worker takes per fetch (see `registerWorker`). */
+const WORK_BATCH_SIZE = 5
+
 export interface CreateBossOptions {
   connectionString: string
   /** `producer`: only enqueues (web). `worker`: also consumes and runs maintenance. */
   role: 'producer' | 'worker'
   max?: number
+  /** Postgres time limits that override the role's defaults (R2.2). */
+  timeouts?: Partial<DbTimeouts>
 }
 
-export function createBoss({ connectionString, role, max = 5 }: CreateBossOptions): PgBoss {
+export function createBoss({
+  connectionString,
+  role,
+  max = 5,
+  timeouts,
+}: CreateBossOptions): PgBoss {
   return new PgBoss({
     connectionString,
     schema: PGBOSS_SCHEMA,
     max,
+    // Postgres time limits (R2.2); the worker gets more room than the producers.
+    options: dbTimeoutOptions({
+      ...(role === 'worker' ? WORKER_DB_TIMEOUTS : DEFAULT_DB_TIMEOUTS),
+      ...timeouts,
+    }),
     application_name: `saas-${role}`,
     // Only the worker migrates the pg-boss schema, supervises and runs schedules.
     migrate: role === 'worker',
@@ -141,20 +162,22 @@ export async function registerWorker<S extends z.ZodType>(
   },
 ) {
   await ensureQueue(boss, job, new Set(), { update: true })
-  return boss.work<Envelope>(job.name, { localConcurrency: concurrency }, async ([raw]) => {
-    if (!raw) return
+
+  /** One job: its own logging, retry accounting and final-failure hook. Never throws. */
+  const runOne = async (raw: Job<Envelope>): Promise<JobResult> => {
     const { meta, payload } = raw.data
     const jobLog = log.child({ job: job.name, jobId: raw.id, correlationId: meta.correlationId })
-    const parsed = job.schema.safeParse(payload)
-    if (!parsed.success) {
-      jobLog.error({ issues: parsed.error.issues }, 'invalid job payload')
-      throw new Error(`Invalid payload for job ${job.name}`)
-    }
     const start = performance.now()
     const attempt = (raw as { retryCount?: number }).retryCount ?? 0
     try {
+      const parsed = job.schema.safeParse(payload)
+      if (!parsed.success) {
+        jobLog.error({ issues: parsed.error.issues }, 'invalid job payload')
+        throw new Error(`Invalid payload for job ${job.name}`)
+      }
       await handler(parsed.data, { ...meta, jobId: raw.id, attempt, log: jobLog })
       jobLog.info({ attempt, durationMs: Math.round(performance.now() - start) }, 'job completed')
+      return { id: raw.id, status: 'completed' }
     } catch (err) {
       // `error` only for the final failure: that is what alerts are hooked on (ADR 0008).
       const final = attempt >= job.retryLimit
@@ -174,9 +197,34 @@ export async function registerWorker<S extends z.ZodType>(
           jobLog.error({ err: hookErr }, 'final failure hook failed')
         }
       } else jobLog.warn(fields, 'job failed, will retry')
-      throw err
+      // pg-boss retries (with backoff) or fails it for good, exactly as if the handler had thrown.
+      return {
+        id: raw.id,
+        status: 'failed',
+        output: { message: err instanceof Error ? err.message : String(err) },
+      }
     }
-  })
+  }
+
+  // Each fetch takes up to `WORK_BATCH_SIZE` jobs, which are run one after another (like one
+  // worker always did), and while fetches come back full the worker fetches again at once.
+  // With one job per fetch and a 2 s poll, a queue moved at most `concurrency / 2` jobs a second
+  // however fast the handler was, so a burst of events or emails took minutes to drain. Each job
+  // is settled on its own (`perJobResults`): one failure does not retry its neighbours.
+  return boss.work<Envelope, JobResult[]>(
+    job.name,
+    {
+      localConcurrency: concurrency,
+      batchSize: WORK_BATCH_SIZE,
+      burstWhenBatchFull: true,
+      perJobResults: true,
+    },
+    async (raws) => {
+      const results: JobResult[] = []
+      for (const raw of raws) results.push(await runOne(raw))
+      return results
+    },
+  )
 }
 
 /**

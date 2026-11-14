@@ -46,7 +46,13 @@ export const RecordUsageInput = z.object({
   organizationId: z.uuid(),
   metric: z.string().min(1),
   /** Positive decimal: for `max` metrics, the current sample (e.g. GB stored now). */
-  quantity: z.union([z.number().positive(), z.string().regex(/^\d+(\.\d+)?$/)]),
+  quantity: z.union([
+    z.number().positive(),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .refine((v) => Number(v) > 0, 'Must be greater than zero'),
+  ]),
   /** One usage per business effect: retries never count twice. */
   idempotencyKey: z.string().min(1).max(200),
   /** Required for `unique` metrics (what is counted once per period). */

@@ -33,36 +33,63 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | ✅     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
-| R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
-| R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
-| R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
-| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0014)   | R1.2       | 🔒     |
-| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0015)   | R4.3       | 🔒     |
-| R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ⬜     |
+| R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
+| R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
+| R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
+| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ⬜     |
+| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ⬜     |
+| R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
-| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | 🔒     |
-| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0016)   | —          | 🔒     |
-| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0017)   | —          | 🔒     |
-| R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ⬜     |
-| R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ⬜     |
+| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
+| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
+| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
+| R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
+| R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
-| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0018)   | R4.3       | 🔒     |
-| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | 🔒     |
-| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🔒     |
-| R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | ⬜     |
-| R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ⬜     |
-| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | 🔒     |
+| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
+| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
+| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
+| R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
+| R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
+| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
 
-Orden recomendado: R1.1 → R1.2 → R1.3 → R2.1 → R2.2 → R2.3 → R4.1 → R4.2 → R3.1 → R5.3 → R5.2
-(ninguno necesita decisión), y en paralelo ir resolviendo las decisiones para desbloquear el resto.
+Orden recomendado: R4.1 → R4.2 → R3.1 → R5.3 → R5.2 (sin decisiones pendientes), R5.1 y R4.6
+(decididas, sin ADR nuevo) y, con su ADR validado, R2.4, R3.4 y R3.5. R4.3 desbloquea R2.5 y R4.5.
+R5.4 espera D10 y R5.5 espera D5.
 Los tres bloques de cobros (R1.4–R1.6) van **antes de que ningún producto cobre** con la plantilla.
 
 ## Decisiones del usuario
 
-> D1 y D2 (y la regla para el uso tardío) tienen su propuesta redactada en
-> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Propuesto**.
+> D1 y D2 (y la regla para el uso tardío) están en
+> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Aceptado**.
+
+### Resoluciones (2026-11-14)
+
+El usuario resolvió así. Lo marcado «ADR por redactar» sigue exigiendo ADR en **Propuesto** y su
+validación antes de implementar (regla 1 de `CLAUDE.md`).
+
+| Id  | Resolución                                                                                                   | Estado           |
+| --- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
+| D1  | Sí: enmienda única con los tres cambios (ADR 0014)                                                           | ✅ Aceptado      |
+| D2  | Tabla `subscription_periods`; el uso tardío se **rechaza** (ADR 0014)                                        | ✅ Aceptado      |
+| D3  | Postgres, tabla global `rate_limits`, sin Redis. ADR 0015 por redactar                                       | ✅ Decidido      |
+| D4  | MFA opcional por persona con códigos de recuperación; obligación por organización, más adelante. ADR 0016    | ✅ Decidido      |
+| D5  | Producción (ubicación y copias)                                                                              | ⏳ Sin decidir   |
+| D6  | Borrado con plazo de 14 días; bloqueado si es el último ADMIN de una organización con más miembros. ADR 0019 | ✅ Decidido      |
+| D7  | Auditoría: 24 meses, particionado mensual cuando el volumen lo pida. ADR 0018 por redactar                   | ✅ Decidido      |
+| D8  | Sí a `@sentry/browser` y `@axe-core/playwright` (dev)                                                        | ✅ Decidido      |
+| D9  | Renovate, semanal, agrupando parches y menores; mayores una a una                                            | ✅ Decidido      |
+| D10 | Métricas: ver recomendación en la tabla de abajo                                                             | ⏳ Por confirmar |
+| D11 | Supresión de correo: solo el hash SHA-256 del email normalizado. ADR 0017 por redactar                       | ✅ Decidido      |
+
+**Numeración de ADR nuevos** (por orden de bloque; las enmiendas a 0008, 0009 y 0012 no consumen
+número): R2.4 → 0015 · R2.5 → 0016 · R3.4 → 0017 · R3.5 → 0018 · R4.5 → 0019.
+
+**D10 (decidida):** endpoint `/metrics` en `web` y `worker` (red interna), sin desplegar Prometheus y
+Grafana todavía: añaden dos servicios al homelab (regla 7) y solo compensan con un producto con
+tráfico. Mientras, las colas ya alertan por ntfy. Se instalan después, en un ADR propio.
 
 Cada una desbloquea los bloques indicados. La recomendación es la opción por defecto si no hay
 otra preferencia.
@@ -262,7 +289,29 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 
 ## R2 — Seguridad
 
-### R2.1 · Cabeceras de seguridad — `feat/security-headers`
+### R2.1 · Cabeceras de seguridad — `feat/security-headers` ✅ (2026-11-14)
+
+- **Entregado:** `packages/config/src/security-headers.ts` (funciones puras: cabeceras estáticas,
+  `buildCsp`, nonce, fuentes de Paddle) y un `proxy.ts` en `apps/web` y en `apps/site`. Van en el
+  proxy y no en `next.config.ts` porque este se evalúa al compilar y las imágenes no llevan
+  variables (ADR 0006): HSTS, Paddle y Plausible se deciden al arrancar. `web`: CSP con nonce y
+  `strict-dynamic` (el nonce llega a `next-themes` vía `x-nonce`); Paddle (sandbox o producción
+  según `PADDLE_ENVIRONMENT`) solo con `PAYMENT_PROVIDER=paddle`. `site`: CSP estática con
+  `'unsafe-inline'` en scripts (páginas prerenderizadas, sin nonce posible) y Plausible si hay
+  `PLAUSIBLE_DOMAIN`. Estilos con `'unsafe-inline'` (Tailwind, Radix, next-themes).
+- **Estado de la CSP: `Content-Security-Policy-Report-Only`** (constante `CSP_HEADER` en cada
+  `proxy.ts`). Pasar a bloqueante cuando `pnpm test:e2e` salga limpio y se haya probado un
+  checkout de Paddle en sandbox.
+- **Tests:** unitarios de `security-headers` (HSTS solo en https, nonce, eval solo en desarrollo,
+  Paddle solo si se pide) y `e2e/security-headers.spec.ts`. Verificado: format, lint, typecheck,
+  unitarias de `config`; `next build` de `web` y `site` y cabeceras reales con `next start`;
+  Chromium sin avisos de CSP en `/sign-in`, `/sign-up` de `web` y portada del `site` sin Plausible.
+  **E2E ejecutado después (2026-11-14):** `pnpm test:e2e` pasa completo (17 de 17), incluido
+  `security-headers.spec.ts`, sin avisos de CSP. **Sigue sin verificar** el checkout de Paddle con
+  CSP y los hosts de Paddle (tomados de su documentación, sin probar).
+- **Hallazgo aparte:** `apps/site` decide si pinta el script de Plausible al compilar
+  (`site.config.ts` lee `env()` en el prerenderizado), lo que contradice el ADR 0006: en la imagen
+  construida sin `PLAUSIBLE_DOMAIN`, Plausible nunca carga. Pendiente de un bloque propio.
 
 - **Problema:** ni `apps/web` ni `apps/site` envían CSP, HSTS, `frame-ancestors`,
   `X-Content-Type-Options`, `Referrer-Policy` ni `Permissions-Policy`.
@@ -276,7 +325,23 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 - **Test:** E2E que comprueba las cabeceras en una página de cada app y que no hay violaciones de
   CSP en consola durante los recorridos existentes.
 
-### R2.2 · Tiempos límite de Postgres — `chore/db-timeouts`
+### R2.2 · Tiempos límite de Postgres — `chore/db-timeouts` ✅ (2026-11-14)
+
+- **Entregado:** `packages/config/src/db-timeouts.ts` (valores, parámetro `options` de la conexión
+  y `isDbTimeoutError`). `createDb` aplica 30 s / 5 s / 60 s (sentencia / bloqueo / transacción
+  inactiva) y acepta `timeouts` parciales; `createBoss` usa los mismos para `producer` y los del
+  worker para `worker`; el worker pasa `WORKER_DB_TIMEOUTS` (120 s / 30 s / 120 s) a `createDb`.
+  Se fijan en la conexión (`-c …`), no con `ALTER ROLE`; `app_migrator` no cambia. `handleError`
+  responde `503 SERVICE_UNAVAILABLE` (sin detalles; se reporta con `correlationId`) cuando el error
+  trae SQLSTATE 57014, 55P03 o 25P03. Textos `errors.SERVICE_UNAVAILABLE` en es/en.
+  Se pueden sobrescribir con `DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS` y
+  `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` (opcionales, enteros positivos; vacío = valor por defecto del
+  proceso), declaradas en `.env.example`, `infra/staging/compose.yml` y `infra/staging/.env.example`.
+  En staging web y worker comparten el valor si se define (sin distinguir por proceso).
+- **Tests:** unitarios de `db-timeouts` y de `handleError`; integración
+  (`packages/database/test/timeouts.int.test.ts`): los valores llegan a la conexión, `pg_sleep`
+  sobre el límite falla con 57014 y el pool se recupera. Verificado con Postgres 16 local:
+  format, lint, fronteras, typecheck de todos los paquetes, 104 unitarias.
 
 - **Problema:** `app_user` no tiene `statement_timeout`, `lock_timeout` ni
   `idle_in_transaction_session_timeout`: una consulta colgada retiene conexiones del pool.
@@ -287,7 +352,24 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 - **Test:** integración: `pg_sleep` por encima del límite falla con el error esperado, y
   `handleError` lo devuelve como `SERVICE_UNAVAILABLE` sin filtrar detalles.
 
-### R2.3 · Integridad de las invitaciones — `fix/invitation-integrity`
+### R2.3 · Integridad de las invitaciones — `fix/invitation-integrity` ✅ (2026-11-14)
+
+- **Entregado:** migración `20261114140000_invitation_unique_pending`: índice único parcial
+  `(organization_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL`. Antes de crearlo,
+  revoca los duplicados pendientes que dejó la carrera (se queda la más nueva); para eso levanta
+  y restaura `FORCE ROW LEVEL SECURITY` en `invitations` dentro de la misma migración (sin
+  contexto de tenant no vería filas). Prisma no expresa índices parciales: vive solo en el SQL
+  y `migrate diff` no detecta deriva. `createInvitation`: cierra (revoca) las caducadas del mismo
+  email, rechaza con `ALREADY_MEMBER` si el email ya es miembro **en cualquier estado** (uno
+  deshabilitado se reactiva, no se invita) y traduce el `P2002` del índice a
+  `PENDING_INVITATION`. `POST /invitations/register`: si falla cualquier paso posterior a crear la
+  cuenta, responde `409 ACCOUNT_CREATED_JOIN_FAILED` (error inesperado reportado, sin detalles) y
+  la pantalla muestra el aviso con «Iniciar sesión y unirme». No hay transacción posible entre
+  Better Auth y las tablas de negocio: la compensación es esa, no deshacer la cuenta.
+- **Textos:** `errors.ACCOUNT_CREATED_JOIN_FAILED` en es/en (`errors.ALREADY_MEMBER` ya existía).
+- **Tests:** integración de `core` (cinco invitaciones concurrentes → una; invitar a un miembro y
+  al propietario; reinvitar tras caducar) y de la API (fallo tras crear la cuenta; después, iniciar
+  sesión y aceptar funciona). Los tres primeros fallaban antes del cambio.
 
 - **Problemas:** la comprobación de «ya hay una pendiente» en `createInvitation` es una carrera;
   no se comprueba si el email ya es miembro; `createInvitedAccount` y `POST /invitations/register`
@@ -300,21 +382,21 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 - **Textos:** `errors.ALREADY_MEMBER` en `apps/web/messages/{es,en}.json`.
 - **Test:** integración: dos invitaciones concurrentes al mismo email → una; invitar a un miembro.
 
-### R2.4 · Almacén de límites — `feat/rate-limit-store` 🔒 D3
+### R2.4 · Almacén de límites — `feat/rate-limit-store` ⬜ (D3 decidida)
 
 - **Problema:** el limitador propio (`apps/web/src/server/api/rate-limit.ts`) y el de Better Auth
   viven en memoria: se pierden al reiniciar y no valen con dos réplicas. No hay límites por
   usuario ni por organización; `POST /invitations` permite enviar correo a direcciones arbitrarias
   sin tope.
-- **Cambio (ADR 0014):** tabla global `rate_limits` (declarada en `GLOBAL_TABLES`), ventana fija
+- **Cambio (ADR 0015):** tabla global `rate_limits` (declarada en `GLOBAL_TABLES`), ventana fija
   con `INSERT … ON CONFLICT … DO UPDATE`, limpieza por job programado; Better Auth con
   almacenamiento propio sobre la misma tabla; límite general por sesión en `/api/v1` y tope diario
   de invitaciones por organización.
 - **Test:** integración: el límite sobrevive a recrear la app; tope de invitaciones.
 
-### R2.5 · Refuerzo del acceso — `feat/auth-hardening` 🔒 D4
+### R2.5 · Refuerzo del acceso — `feat/auth-hardening` ⬜ (D4 decidida)
 
-- **Contenido (ADR 0015, amplía el 0003):** MFA TOTP con códigos de recuperación (plugin de Better
+- **Contenido (ADR 0016, amplía el 0003):** MFA TOTP con códigos de recuperación (plugin de Better
   Auth: tablas `auth_*` nuevas, solo tocadas por `adapters/auth`), rechazo de contraseñas
   filtradas (k-anonimato de Have I Been Pwned: llamada saliente, justificar en el ADR), y lista y
   cierre de sesiones activas.
@@ -324,7 +406,25 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R3 — Backend y datos
 
-### R3.1 · Restricciones de cobros — `chore/db-check-constraints`
+### R3.1 · Restricciones de cobros — `chore/db-check-constraints` ✅ (2026-11-14)
+
+- **Entregado:** migración aditiva `20261114150000_billing_check_constraints`: `usage_events.quantity
+  > 0`; fin posterior al inicio en `subscriptions`, `subscription_periods`y`billing_periods`;
+importes de `billing_periods`y cantidades e importes de`billing_period_lines` `>= 0`;
+`spend_cap >= 0`(nulo permitido) en`subscriptions`y`billing_periods`. Se añadió
+`subscription_periods`(tabla posterior al plan). Las consultas para comprobar que un entorno
+con datos no las incumple están en la cabecera del SQL: **ejecútalas en staging antes de
+aplicar**; si hay filas fuera de regla la migración se detiene y nombra la restricción.`RecordUsageInput`rechaza ahora la cantidad`"0"` en texto (el regex la dejaba pasar y la BD
+  > habría respondido con un 500).
+- **Tests:** `packages/database/test/check-constraints.int.test.ts` (un caso por restricción, más
+  valores válidos; las tablas de cobros son de solo inserción para `app_user`, por eso los
+  periodos se prueban insertando) y unitario de `RecordUsageInput`. `migrate diff`: sin deriva.
+  Las fechas del fixture son del futuro lejano para que el barrido horario del worker no lo cierre.
+- **Hallazgo (resuelto en R5.3, ver allí):** `apps/worker/test/worker.int.test.ts › sends the invitation email and delivers
+the business events` era **inestable** en la suite completa de integración (4 núcleos): falla
+  por «timed out waiting for the worker» en torno a la mitad de las ejecuciones, **también sin
+  los cambios de este bloque** (comprobado con `git stash`); suelto pasa siempre. Pendiente de
+  investigar, probablemente en R5.3 (worker).
 
 - **Cambio:** migración aditiva con `CHECK`: `usage_events.quantity > 0`;
   `period_end > period_start` en `subscriptions` y `billing_periods`; importes y cantidades
@@ -341,7 +441,7 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   restringir (job programado diario). Plantillas en `core/billing/emails.ts`, es/en.
 - **Test:** unitarios de las plantillas; integración: una sola vez por impago.
 
-### R3.3 · Contadores de uso — `feat/usage-counters` 🔒 D1, D2
+### R3.3 · Contadores de uso — `feat/usage-counters` ⬜ (D1, D2 aceptadas; enmienda al 0012 por redactar)
 
 - **Problema:** `recordUsage` agrega todos los `usage_events` del periodo en cada escritura, con un
   bloqueo por organización y métrica. Con métricas de mucho volumen es lineal por evento.
@@ -350,20 +450,20 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   cierre compara contador y suma (si difieren: alerta, gana la suma).
 - **Test:** los de cobros existentes más concurrencia y la comparación en el cierre.
 
-### R3.4 · Supresión de correo — `feat/email-suppression` 🔒 D11
+### R3.4 · Supresión de correo — `feat/email-suppression` ⬜ (D11 decidida)
 
 - **Problema:** no se procesan rebotes ni quejas; se sigue enviando a direcciones que el proveedor
   ya marcó, lo que daña la reputación del dominio.
-- **Cambio (ADR 0016):** webhook firmado del proveedor de correo (`/api/webhooks/email`, mismo
+- **Cambio (ADR 0017):** webhook firmado del proveedor de correo (`/api/webhooks/email`, mismo
   patrón que pagos), tabla global `email_suppressions` y comprobación en el `EmailSender` antes de
   enviar. Los correos de acceso (verificación, recuperación) solo se suprimen por rebote
   permanente, nunca por queja.
 - **Test:** firma válida y falsa; correo suprimido que no se envía y queda en el log sin la
   dirección.
 
-### R3.5 · Lectura de la auditoría — `feat/audit-log-read` 🔒 D7
+### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ⬜ (D7 decidida)
 
-- **Contenido (ADR 0017):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
+- **Contenido (ADR 0018):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
   por cursor y filtros (acción, actor, fechas), pantalla Ajustes → Actividad, y job programado de
   retención ejecutado con una función `SECURITY DEFINER` (la tabla es de solo inserción para
   `app_user`).
@@ -371,7 +471,21 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R4 — UX y pantallas
 
-### R4.1 · Estados de error y carga — `feat/ui-states`
+### R4.1 · Estados de error y carga — `feat/ui-states` ✅ (2026-11-14)
+
+- **Entregado:** `Skeleton` en `packages/ui`. `web`: `error.tsx` (con la referencia `digest` de
+  Next), `global-error.tsx` (bilingüe y fijo: no hay proveedores si falla el layout raíz),
+  `not-found.tsx` y `(app)/loading.tsx`. `QueryError` (motivo traducido, `correlationId` de la
+  API y «Reintentar») y `TableSkeleton` para miembros, invitaciones y cobros; estados vacíos en
+  miembros e invitaciones. `ApiError.correlationId`. `site`: `[locale]/error.tsx`,
+  `[locale]/not-found.tsx` y un catch-all `[locale]/[...rest]` que llama a `notFound()` para que
+  cualquier ruta desconocida bajo un idioma muestre el 404 con cabecera y pie. Textos
+  `states.*` en `web` y `site` (es/en).
+- **Límite conocido:** una dirección sin idioma (`/xyz`) en `site` sigue con el 404 por defecto
+  de Next: la app no tiene layout raíz.
+- **Tests:** `e2e/states.spec.ts` (404 en las dos apps y en los dos idiomas; fallo simulado de
+  `/api/v1/members` con referencia visible, sin tabla vacía y recuperación al reintentar).
+  Verificado con Postgres 16 y Chromium locales: suite E2E completa, 17 de 17.
 
 - **Problema:** no existen `error.tsx`, `global-error.tsx`, `not-found.tsx` ni `loading.tsx` en
   ninguna app; las tablas de miembros e invitaciones no muestran carga ni error (aparecen vacías).
@@ -380,7 +494,19 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   (`EmptyState`) en miembros, invitaciones y cobros.
 - **Test:** E2E: ruta inexistente en las dos apps; fallo simulado de `/api/v1/members`.
 
-### R4.2 · Confirmaciones y sesión caducada — `feat/ui-feedback`
+### R4.2 · Confirmaciones y sesión caducada — `feat/ui-feedback` ✅ (2026-11-14)
+
+- **Entregado:** `toast` tras invitar, revocar, cambiar rol, activar/desactivar un miembro y
+  guardar el tope de gasto (`toasts.*`, es/en). `Providers` instala un `QueryCache` y un
+  `MutationCache` con `onError` que, vía `sessionRedirect` (función pura), lleva
+  `UNAUTHENTICATED` a `/sign-in?next=<pantalla actual>` y `NO_ACTIVE_ORGANIZATION` a
+  `/onboarding`; no actúa en las pantallas públicas (`/sign-in`, `/invite`…) que ya lo gestionan.
+  `NO_ACTIVE_ORGANIZATION` llega como detalle de un `FORBIDDEN`, por eso se lee `reason`.
+- **Tests:** unitarios de `sessionRedirect`; `e2e/feedback.spec.ts` (la confirmación al invitar y
+  revocar; con la cookie borrada, actuar lleva a inicio de sesión con `next` y, tras entrar,
+  vuelve a Miembros). Verificado con Postgres 16 y Chromium locales.
+- **Pendiente de otro bloque:** confirmaciones en los ajustes de cuenta y de organización
+  (R4.3, R4.4) y en el checkout de cobros, que redirige fuera de la app.
 
 - **Problema:** el `Toaster` está montado pero nada llama a `toast`: las acciones con éxito no
   confirman. Una respuesta 401 con la sesión caducada muestra un error genérico.
@@ -407,15 +533,15 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   no se cambia: decisión aparte si algún producto lo pide.
 - **Test:** integración de cada caso de uso (permisos, último ADMIN, token anterior inválido); E2E.
 
-### R4.5 · Borrado de la cuenta — `feat/account-deletion` 🔒 D6
+### R4.5 · Borrado de la cuenta — `feat/account-deletion` ⬜ (D6 decidida)
 
-- **Contenido (ADR 0018):** el esquema ya lo prevé (`users.anonymized_at`, `auth_user_id` nulo al
+- **Contenido (ADR 0019):** el esquema ya lo prevé (`users.anonymized_at`, `auth_user_id` nulo al
   borrar el acceso). Falta el flujo: solicitud con contraseña, plazo de gracia, job que borra el
   acceso, anonimiza `users.display_name` y desactiva las membresías; regla del último ADMIN;
   evento de negocio `user.deleted` para el CRM; exportación de los datos personales.
 - **Test:** integración del job y de las reglas; E2E de la solicitud y su cancelación.
 
-### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` 🔒 D8
+### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` ⬜ (D8 decidida)
 
 - **Contenido (enmienda 0008):** errores del cliente a Sentry/GlitchTip con las mismas reglas de
   privacidad que el servidor (sin breadcrumbs, sin datos de formularios), DSN público servido en
@@ -425,28 +551,78 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R5 — Operación y CI
 
-### R5.1 · Actualización de dependencias — `chore/renovate` 🔒 D9
+### R5.1 · Actualización de dependencias — `chore/renovate` ⬜ (D9 decidida)
 
 - **Problema:** todas las versiones están fijadas (ADR 0009) y nada las mueve.
 - **Contenido (enmienda 0009):** configuración de Renovate según D9, incluidas las acciones de
   GitHub fijadas por hash y las imágenes base del `Dockerfile`.
 
-### R5.2 · Imágenes en CI — `chore/ci-images`
+### R5.2 · Imágenes en CI — `chore/ci-images` 🟡 (2026-11-14, sin ejecutar en CI)
+
+- **Entregado en `.github/workflows/ci.yml`:**
+  1. **Caché de capas entre ejecuciones:** `docker buildx` (driver `docker-container`) con
+     `type=local` guardado con la `actions/cache` ya fijada por hash. Se exporta primero la
+     etapa compartida `build` (imagen base, `pnpm fetch`, instalación), que reutilizan las cinco
+     imágenes, y la caché se **reemplaza** en cada ejecución para que no crezca. Se descartó
+     `type=gha` porque necesita otra acción. Aclaración sobre el plan: dentro de una misma
+     ejecución las cinco imágenes ya compartían capas; lo que se perdía era la caché **entre**
+     ejecuciones (runner nuevo cada vez).
+  2. **Escaneo con Trivy 0.76.2** ejecutado desde su imagen **fijada por digest**
+     (`sha256:8f6bb9…`, comprobado contra ghcr.io), falla con CRITICAL con arreglo disponible
+     (`--ignore-unfixed`) en las cinco imágenes; base de datos de vulnerabilidades en caché.
+     Una vulnerabilidad crítica con arreglo en una imagen base ajena (Node, Postgres) también
+     rompe la CI hasta subir la base: es el comportamiento pedido.
+  3. **SBOM CycloneDX** de cada imagen generado en `sbom/` y resumido en el resumen del job.
+- **Pendiente:** publicarlo como **artefacto** necesita `actions/upload-artifact` fijada por
+  hash; no la añadí porque resolver ese hash exige leer otro repositorio de GitHub (fuera del
+  alcance de esta sesión) y no voy a inventarlo. Pásame el hash (o autoriza la consulta) y es un
+  paso más.
+- **No verificado:** **ningún cambio se ha ejecutado en GitHub Actions** (aquí no hay Docker ni
+  Actions). Comprobado: el YAML es válido y pasa Prettier; el digest de Trivy existe en ghcr.io.
+  El primer CI real puede pedir ajustes (permisos del socket de Docker, nombre de la caché, un
+  hallazgo crítico real). Está en la rama sin fusionar en `staging`, así que no afecta a nadie
+  hasta que se abra un PR o se fusione.
 
 - **Cambio:** `docker buildx` con caché de capas de GitHub Actions (hoy cinco builds en frío),
   escaneo de las imágenes (Trivy, falla con críticas con arreglo disponible) y SBOM como artefacto.
   Acciones nuevas fijadas por hash, como las actuales.
 
-### R5.3 · Parada limpia — `fix/graceful-shutdown`
+### R5.3 · Parada limpia — `fix/graceful-shutdown` ✅ (2026-11-14)
 
-- **Problema:** la web no cierra pg-boss ni el pool al recibir `SIGTERM`; el worker no registra
-  `unhandledRejection` ni `uncaughtException`, y un fallo en `shutdown` queda sin capturar.
-- **Cambio:** manejadores en `apps/web/src/instrumentation.ts` y `apps/worker/src/main.ts`
-  (log `fatal`, `captureError`, `flushErrors`, salida con código 1); `/ready` del worker comprueba
-  también pg-boss.
-- **Test:** unitario del manejador; a mano, `SIGTERM` a la web compilada (anotar el resultado).
+- **Entregado (worker):** `installFatalHandlers` (`@saas/adapters/errors`, núcleo puro e
+  inyectable en `errors/fatal.ts`): ante `uncaughtException` o `unhandledRejection` registra
+  `fatal`, reporta con `captureError`, vacía con `flushErrors` y sale con 1 (Docker lo reinicia);
+  solo atiende el primer fallo y la salida no depende de que el reporte funcione.
+  `initErrorTracking({ manualProcessErrors })` quita las integraciones por defecto del SDK de
+  Sentry para esos dos eventos en el worker, para no duplicar el reporte. La parada del worker
+  captura el error de `worker.stop()`, lo registra y sale con 1, siempre tras vaciar los
+  reportes. `/ready` comprueba también la conexión de pg-boss, no solo la de Prisma.
+- **Descartado (web), comprobado a mano:** la web no necesita cierre propio. El `server.js`
+  de Next ya atiende `SIGTERM`: cierra el servidor HTTP, deja terminar lo que está en vuelo y
+  sale con 143. Prueba con la web compilada (standalone): una petición en vuelo al recibir
+  `SIGTERM` terminó con 200, la parada tardó 0,28 s, salió con 143 y no quedó ninguna conexión
+  en `pg_stat_activity`. Cerrar pg-boss o el pool desde un manejador propio cortaría las
+  peticiones en vuelo que encolan trabajos, así que no se hace. Next ya instala sus manejadores
+  de errores de proceso y el SDK de Sentry captura los suyos en la web.
+- **Tests:** unitarios de `installFatalHandlers` (excepción, rechazo, no-Error, fallo del
+  reporte, un solo fallo); a mano, un proceso con un rechazo sin atender: log `fatal` y código 1.
+- **Hallazgo, resuelto (2026-11-14): el test inestable del worker era un límite real de
+  rendimiento.** `registerWorker` pedía **un** trabajo por consulta y esperaba el intervalo de
+  sondeo (2 s) tras cada uno: una cola movía como mucho `WORKER_CONCURRENCY / 2` trabajos por
+  segundo (~1/s con el valor por defecto) por rápido que fuese el manejador. Una ráfaga de eventos
+  o correos tardaba minutos en vaciarse; en la suite, los ~60 trabajos que dejaba
+  `organizations.int.test.ts` retrasaban los del test del worker más de los 20 s de su espera
+  (por eso fallaba ~50 % de las veces, también sin los cambios de R3.1, y suelto nunca). Se
+  comprobó con los registros del worker: 2 trabajos cada 2 s. **Arreglo:** cada consulta toma
+  hasta 5 trabajos que se ejecutan uno tras otro (como antes dentro de cada trabajador) y,
+  mientras los lotes salgan llenos, se vuelve a consultar sin esperar (`burstWhenBatchFull`); cada
+  trabajo se resuelve por separado (`perJobResults`), así que un fallo no reintenta a sus
+  vecinos y los reintentos, la alerta de fallo definitivo y el estado `failed` funcionan igual.
+  Tests nuevos en `packages/adapters/test/queue.int.test.ts` (40 trabajos vaciados en menos de
+  8 s, que antes eran 10 de 40; y un fallo dentro de un lote). Suite de integración: 5 ejecuciones
+  seguidas en verde (110 de 110) y 28 s en lugar de 53 s.
 
-### R5.4 · Métricas — `feat/metrics` 🔒 D10
+### R5.4 · Métricas — `feat/metrics` ⬜ (D10 decidida)
 
 - **Contenido (enmienda 0008):** latencia y tasa de error por ruta, duración y resultado por job,
   profundidad y espera de cada cola. Expuestas solo en la red interna.

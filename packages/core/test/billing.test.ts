@@ -11,6 +11,7 @@ import {
   periodContaining,
   publicPlans,
   quotaAlertEmail,
+  RecordUsageInput,
   type Catalog,
 } from '../src/index.ts'
 import { TEST_CATALOG } from './billing-catalog.ts'
@@ -221,5 +222,24 @@ describe('due periods (R1.6, ADR 0014)', () => {
         opts({}),
       ),
     ).toEqual([])
+  })
+})
+
+describe('RecordUsageInput quantity', () => {
+  const parse = (quantity: unknown) =>
+    RecordUsageInput.safeParse({
+      organizationId: '0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b',
+      metric: 'm',
+      quantity,
+      idempotencyKey: 'k',
+    }).success
+
+  it('accepts only quantities greater than zero, as the database requires', () => {
+    expect(parse(1)).toBe(true)
+    expect(parse('0.5')).toBe(true)
+    expect(parse(0)).toBe(false)
+    expect(parse('0')).toBe(false)
+    expect(parse('0.000')).toBe(false)
+    expect(parse('-1')).toBe(false)
   })
 })

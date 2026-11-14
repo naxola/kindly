@@ -7,9 +7,11 @@ import {
   DomainError,
   ensureUser,
   getInvitationByToken,
+  isDomainError,
   listPendingInvitations,
   revokeInvitation,
 } from '@saas/core'
+import { captureError } from '@saas/adapters/errors'
 import { clientKey } from '@saas/config/client-ip'
 import { auth } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
@@ -188,17 +190,32 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
         ],
       )
     }
-    // Signed in straight away: the session cookie goes back with this answer.
-    const signIn = await auth().api.signInEmail({
-      body: { email: view.email, password },
-      returnHeaders: true,
-    })
-    for (const cookie of signIn.headers.getSetCookie())
-      c.header('set-cookie', cookie, { append: true })
-    const user = await ensureUser(ctx, created.authUserId)
-    const member = await acceptInvitation(ctx, { token, userId: user.id })
-    setActiveOrganization(c, member.organizationId)
-    return c.json({ organizationId: member.organizationId }, 201)
+    // The account now exists, and Better Auth cannot share a transaction with the business
+    // tables. If any later step fails there is no way back, so the answer says so and the
+    // screen offers "sign in and join" instead of leaving the person with an unexplained error.
+    try {
+      // Signed in straight away: the session cookie goes back with this answer.
+      const signIn = await auth().api.signInEmail({
+        body: { email: view.email, password },
+        returnHeaders: true,
+      })
+      for (const cookie of signIn.headers.getSetCookie())
+        c.header('set-cookie', cookie, { append: true })
+      const user = await ensureUser(ctx, created.authUserId)
+      const member = await acceptInvitation(ctx, { token, userId: user.id })
+      setActiveOrganization(c, member.organizationId)
+      return c.json({ organizationId: member.organizationId }, 201)
+    } catch (error) {
+      if (!isDomainError(error)) {
+        captureError(error, {
+          correlationId: c.get('correlationId'),
+          tags: { route: 'invitations/register' },
+        })
+      }
+      throw new DomainError('CONFLICT', 'Account created, but joining the organization failed', [
+        { code: 'ACCOUNT_CREATED_JOIN_FAILED' },
+      ])
+    }
   })
   .openapi(accept, async (c) => {
     const ctx = await accessCtx(c)

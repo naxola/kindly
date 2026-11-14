@@ -1,7 +1,24 @@
 import { createDb, newId, type Db } from '@saas/database'
 import pg from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type * as core_ from '@saas/core'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { api } from '../src/server/api/app.ts'
+
+const core = vi.hoisted(() => ({ failAcceptOnce: false }))
+// Wraps acceptInvitation so one test can make the step after the account creation fail.
+vi.mock('@saas/core', async (original) => {
+  const real = await original<typeof core_>()
+  return {
+    ...real,
+    acceptInvitation: (...args: Parameters<typeof real.acceptInvitation>) => {
+      if (core.failAcceptOnce) {
+        core.failAcceptOnce = false
+        throw new Error('boom: connection lost')
+      }
+      return real.acceptInvitation(...args)
+    },
+  }
+})
 
 const ORIGIN = 'http://localhost:3000'
 const PASSWORD = 'correct horse battery staple'
@@ -239,6 +256,31 @@ describe('sign-up from an invitation link', () => {
     })
     expect(res.status).toBe(409)
     expect(res.body.error.details).toEqual([{ code: 'INVITATION_ACCEPTED' }])
+  })
+
+  it('if joining fails after the account was created, it says so and signing in joins (R2.3)', async () => {
+    const email = `half-${newId()}@example.com`
+    const { token } = await ownerInviting(email)
+    const guest = new Browser()
+    core.failAcceptOnce = true
+    let res = await guest.call('POST', '/api/v1/invitations/register', {
+      token,
+      name: 'Hana',
+      password: PASSWORD,
+    })
+    expect(res.status).toBe(409)
+    expect(res.body.error.details).toEqual([{ code: 'ACCOUNT_CREATED_JOIN_FAILED' }])
+    expect(JSON.stringify(res.body)).not.toContain('boom')
+    // The account exists and the invitation is still pending: signing in and accepting works.
+    expect(await db.authUser.findUnique({ where: { email } })).not.toBeNull()
+    res = await new Browser().call('POST', '/api/v1/invitations/preview', { token })
+    expect(res.body).toMatchObject({ status: 'PENDING', emailRegistered: true })
+    const again = new Browser()
+    expect(
+      (await again.call('POST', '/api/auth/sign-in/email', { email, password: PASSWORD })).status,
+    ).toBe(200)
+    res = await again.call('POST', '/api/v1/invitations/accept', { token })
+    expect(res.status).toBe(200)
   })
 
   it('an email that already has an account must sign in instead', async () => {

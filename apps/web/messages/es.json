@@ -76,6 +76,7 @@
   "errors": {
     "UNKNOWN": "Algo ha fallado. Inténtalo de nuevo.",
     "INTERNAL": "Error interno. Si persiste, contacta con soporte indicando la hora.",
+    "SERVICE_UNAVAILABLE": "El servicio no está disponible un momento. Inténtalo de nuevo en unos segundos.",
     "VALIDATION_FAILED": "Revisa los datos del formulario.",
     "UNAUTHENTICATED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
     "FORBIDDEN": "No tienes permiso para esta acción.",
@@ -86,6 +87,7 @@
     "CSRF": "Petición rechazada por seguridad. Recarga la página.",
     "NO_ACTIVE_ORGANIZATION": "Elige una organización.",
     "LAST_ADMIN": "La organización debe conservar al menos un Administrador activo.",
+    "ACCOUNT_CREATED_JOIN_FAILED": "La cuenta se ha creado, pero no hemos podido unirte a la organización. Inicia sesión para unirte.",
     "ALREADY_MEMBER": "Esa persona ya es miembro de la organización.",
     "EMAIL_MISMATCH": "La invitación es para otra dirección de correo.",
     "INVITATION_ACCEPTED": "La invitación ya se aceptó.",
@@ -214,7 +216,9 @@
       "role": "Rol",
       "roleOf": "Rol de {name}",
       "roleHint": "Un administrador gestiona miembros e invitaciones.",
-      "enableDescription": "{name} recuperará el acceso con su rol actual."
+      "enableDescription": "{name} recuperará el acceso con su rol actual.",
+      "empty": "Aún no hay miembros.",
+      "noInvitations": "No hay invitaciones pendientes."
     },
     "billing": {
       "title": "Plan y consumo",
@@ -273,5 +277,24 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "states": {
+    "loading": "Cargando…",
+    "loadFailed": "No se han podido cargar los datos",
+    "retry": "Reintentar",
+    "reference": "Referencia: {id}",
+    "errorTitle": "Algo ha fallado",
+    "errorBody": "No hemos podido mostrar esta página. Inténtalo de nuevo; si persiste, indica la referencia a soporte.",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundBody": "La dirección no existe o se ha movido.",
+    "goHome": "Ir al inicio"
+  },
+  "toasts": {
+    "invited": "Invitación enviada a {email}",
+    "revoked": "Invitación revocada",
+    "roleChanged": "Rol actualizado",
+    "memberDisabled": "Miembro desactivado",
+    "memberEnabled": "Miembro activado",
+    "spendCapSaved": "Tope de gasto guardado"
   }
 }
