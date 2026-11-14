@@ -39,23 +39,47 @@ interface Envelope {
 export const jobIdFor = (jobName: string, idempotencyKey: string) =>
   uuidv5(`${jobName}:${idempotencyKey}`, JOB_ID_NAMESPACE)
 
-async function ensureQueue(boss: PgBoss, job: JobDefinition, ensured: Set<string>) {
+/** Queue settings that pg-boss stores per queue and that come from `defineJob`. */
+const queueOptionsOf = (job: JobDefinition) => ({
+  retryLimit: job.retryLimit,
+  retryDelay: job.retryDelaySeconds,
+  retryBackoff: true,
+  expireInSeconds: job.expireInSeconds,
+})
+
+/**
+ * Creates the queue if missing. With `update`, an existing queue whose stored settings differ
+ * from `defineJob` is updated: pg-boss never changes them by itself, and the final-failure
+ * decision (`attempt >= job.retryLimit`) must match what pg-boss really does.
+ */
+async function ensureQueue(
+  boss: PgBoss,
+  job: JobDefinition,
+  ensured: Set<string>,
+  { update = false }: { update?: boolean } = {},
+) {
   if (ensured.has(job.name)) return
+  const wanted = queueOptionsOf(job)
   const existing = await boss.getQueue(job.name)
   if (!existing) {
     try {
-      await boss.createQueue(job.name, {
-        retryLimit: job.retryLimit,
-        retryDelay: job.retryDelaySeconds,
-        retryBackoff: true,
-        expireInSeconds: job.expireInSeconds,
-      })
+      await boss.createQueue(job.name, wanted)
     } catch (err) {
       // Race with another process that created it at the same time.
       if (!(await boss.getQueue(job.name))) throw err
     }
+  } else if (update) {
+    const differs = (Object.keys(wanted) as (keyof typeof wanted)[]).some(
+      (k) => existing[k] !== wanted[k],
+    )
+    if (differs) await boss.updateQueue(job.name, wanted)
   }
   ensured.add(job.name)
+}
+
+/** Creates the queues of `jobs` and brings the settings of existing ones in line with them. */
+export async function syncQueues(boss: PgBoss, jobs: readonly JobDefinition[]) {
+  for (const job of jobs) await ensureQueue(boss, job, new Set(), { update: true })
 }
 
 export class PgBossJobQueue implements JobQueue {
@@ -116,7 +140,7 @@ export async function registerWorker<S extends z.ZodType>(
     onFinalFailure?: (failure: FinalFailure) => void | Promise<void>
   },
 ) {
-  await ensureQueue(boss, job, new Set())
+  await ensureQueue(boss, job, new Set(), { update: true })
   return boss.work<Envelope>(job.name, { localConcurrency: concurrency }, async ([raw]) => {
     if (!raw) return
     const { meta, payload } = raw.data
@@ -242,6 +266,60 @@ export async function queueSnapshot(boss: PgBoss, { failures = 10 } = {}): Promi
       failedAt: r.completed_on,
       attempts: r.retry_count + 1,
       correlationId: r.correlation_id,
+      message: r.message,
+    })),
+  }
+}
+
+export interface FailedJob {
+  name: string
+  id: string
+  failedAt: Date
+  attempts: number
+  correlationId: string | null
+  organizationId: string | null
+  message: string | null
+}
+
+/**
+ * Jobs of `queues` that ended in `failed` at or after `since`, plus the database clock at the
+ * time of the read (use it, minus a margin, as the next `since`). This is what catches jobs that
+ * exhausted their retries without the handler's `catch` running (expiry, worker crash).
+ */
+export async function failedJobsSince(
+  boss: PgBoss,
+  queues: string[],
+  since: Date,
+  { limit = 50 } = {},
+): Promise<{ jobs: FailedJob[]; now: Date }> {
+  // Read the clock first: a job that fails while we read is then still after the next `since`.
+  const clock = await boss.getDb().executeSql('SELECT now() AS db_now')
+  const res = await boss.getDb().executeSql(
+    `SELECT name, id, completed_on, retry_count, data->'meta'->>'correlationId' AS correlation_id,
+            data->'meta'->>'organizationId' AS organization_id, output->>'message' AS message
+     FROM ${PGBOSS_SCHEMA}.job
+     WHERE state = 'failed' AND name = ANY($1) AND completed_on >= $2
+     ORDER BY completed_on LIMIT $3`,
+    [queues, since, limit],
+  )
+  const rows = res.rows as {
+    name: string
+    id: string
+    completed_on: Date
+    retry_count: number
+    correlation_id: string | null
+    organization_id: string | null
+    message: string | null
+  }[]
+  return {
+    now: (clock.rows[0] as { db_now: Date }).db_now,
+    jobs: rows.map((r) => ({
+      name: r.name,
+      id: r.id,
+      failedAt: r.completed_on,
+      attempts: r.retry_count + 1,
+      correlationId: r.correlation_id,
+      organizationId: r.organization_id,
       message: r.message,
     })),
   }

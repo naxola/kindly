@@ -22,12 +22,16 @@ afterAll(async () => {
 /** Minimal cookie jar: keeps the last value of each cookie the API sets. */
 class Browser {
   private jar = new Map<string, string>()
+  /** Each browser is a different client, so IP limits do not couple unrelated tests. */
+  ip = `198.51.100.${1 + Math.floor(Math.random() * 250)}`
 
-  async call(method: string, path: string, body?: unknown) {
+  async call(method: string, path: string, body?: unknown, extra: Record<string, string> = {}) {
     const res = await api.request(`${ORIGIN}${path}`, {
       method,
       headers: {
         origin: ORIGIN,
+        'x-test-ip': this.ip,
+        ...extra,
         cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join('; '),
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
       },
@@ -295,5 +299,29 @@ describe('billing through the API', () => {
     const refused = await guest.browser.call('GET', '/api/v1/billing')
     expect(refused.status).toBe(403)
     expect(refused.body.error.details[0].code).toBe('MISSING_PERMISSION')
+  })
+
+  it('IP limits ignore a forged x-forwarded-for and still apply per trusted IP (R1.2)', async () => {
+    const attacker = new Browser()
+    const token = 'x'.repeat(43)
+    let last = 0
+    for (let i = 0; i < 31; i++) {
+      // A new forged forwarded address on every request: it must not give a fresh bucket.
+      const res = await attacker.call(
+        'POST',
+        '/api/v1/invitations/preview',
+        { token },
+        {
+          'x-forwarded-for': `192.0.2.${i + 1}`,
+        },
+      )
+      last = res.status
+    }
+    expect(last).toBe(429)
+    // Another client (another trusted IP) is not affected.
+    const other = new Browser()
+    expect((await other.call('POST', '/api/v1/invitations/preview', { token })).status).not.toBe(
+      429,
+    )
   })
 })

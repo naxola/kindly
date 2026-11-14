@@ -662,6 +662,7 @@
             "enum": [
               "NO_CHARGE",
               "PENDING_CHARGE",
+              "CHARGING",
               "CHARGED",
               "CHARGE_FAILED"
             ]
@@ -748,30 +749,15 @@
           "clientToken": {
             "type": "string"
           },
-          "priceId": {
+          "transactionId": {
             "type": "string"
-          },
-          "customData": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "customerEmail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "email"
           }
         },
         "required": [
           "provider",
           "environment",
           "clientToken",
-          "priceId",
-          "customData",
-          "customerEmail"
+          "transactionId"
         ]
       }
     },

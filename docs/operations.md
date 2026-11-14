@@ -7,7 +7,7 @@ Qué hacer cuando algo falla. Decisiones de fondo en el ADR 0008.
 | Señal                         | De dónde sale                                                | Dónde llega                                   |
 | ----------------------------- | ------------------------------------------------------------ | --------------------------------------------- |
 | Error no controlado de la web | API (`handleError`), Better Auth, páginas (`onRequestError`) | Sentry/GlitchTip (`SENTRY_DSN`) y log `error` |
-| Job en fallo definitivo       | worker, al agotar los reintentos                             | alerta **crítica** al móvil, Sentry y log     |
+| Job en fallo definitivo       | worker: al agotar reintentos y, cada 5 min, los que expiran  | alerta **crítica** al móvil, Sentry y log     |
 | Cola que no se vacía          | worker, cada 5 minutos (`QUEUE_MAX_WAIT_SECONDS`, 15 min)    | alerta de **aviso** al móvil                  |
 | Web caída o sin base de datos | `GET /api/health` y `GET /api/ready` (BD y cola)             | monitor externo (fase 6)                      |
 | Worker caído o sin BD         | `GET /health` y `GET /ready` en `WORKER_HEALTH_PORT` (3002)  | healthcheck del contenedor / monitor (fase 6) |
@@ -59,6 +59,22 @@ Sin `SENTRY_DSN` ni `ALERT_PROVIDER`, todo queda en los logs (nivel `error`/`war
    ```
 
    Es seguro: los jobs son idempotentes (la clave de idempotencia evita efectos duplicados).
+   **Excepción: los cobros** (`billing.charge-period`), que no son idempotentes en el proveedor.
+   Ver la sección siguiente.
+
+## Un cobro ha fallado o está en `CHARGING` (ADR 0014)
+
+El cobro del excedente de un periodo cerrado pasa por `PENDING_CHARGE` → `CHARGING` → `CHARGED`.
+`CHARGING` se guarda **antes** de llamar al proveedor. Nunca se reintenta solo.
+
+| Estado          | Qué significa                                                              | Qué hacer                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHARGE_FAILED` | El proveedor devolvió un error (o faltaba configuración): **no se cobró**. | Corrige la causa (p. ej. suscripción impagada) y `pnpm ops:queue retry billing.charge-period <id>`.                                                 |
+| `CHARGING`      | **Resultado desconocido**: puede haberse cobrado y no haberse anotado.     | Mira el cargo en el panel del proveedor. Si **no** está: `pnpm ops:queue retry billing.charge-period <id> --force`. Si **sí** está: anótalo a mano. |
+
+Sin `--force`, el reintento de un periodo en `CHARGING` se rechaza. Para anotar a mano un cobro que
+sí se hizo, con el rol de plataforma: `UPDATE billing_periods SET status = 'CHARGED',
+provider_charge_ref = '<ref del proveedor>', charged_at = now() WHERE id = '<periodId>'`.
 
 ## Una cola no se vacía
 
@@ -75,6 +91,12 @@ La alerta «Queue not draining» significa que hay jobs listos que nadie consume
 La respuesta indica qué falla (`database` o `queue`). La cola de la web solo necesita la base de
 datos y las tablas de pg-boss: si falla solo `queue`, comprueba que el despliegue ejecutó
 `pnpm queue:install` junto a `pnpm db:deploy`.
+
+Ese mismo comando aplica a las colas existentes los reintentos y la caducidad de `defineJob`
+(pg-boss no los cambia solo), y el worker los comprueba al registrar cada consumidor. Un job que
+expira o pierde su worker hasta agotar los reintentos no pasa por el `catch` del manejador: el
+worker lo detecta en la comprobación de colas (cada 5 min), con la misma alerta crítica y Sentry
+(`source=sweep`). Solo se informa de fallos posteriores al arranque del worker.
 
 ## Pendiente
 

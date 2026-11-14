@@ -27,12 +27,12 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 
 | Bloque | Rama                           | Contenido                                                 | ADR            | Depende de | Estado |
 | ------ | ------------------------------ | --------------------------------------------------------- | -------------- | ---------- | ------ |
-| R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ⬜     |
-| R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ⬜     |
-| R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ⬜     |
-| R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
-| R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | 🔒     |
-| R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | 🔒     |
+| R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ✅     |
+| R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ✅     |
+| R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ✅     |
+| R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | ✅     |
+| R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
+| R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
@@ -61,6 +61,9 @@ Los tres bloques de cobros (R1.4–R1.6) van **antes de que ningún producto cob
 
 ## Decisiones del usuario
 
+> D1 y D2 (y la regla para el uso tardío) tienen su propuesta redactada en
+> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Propuesto**.
+
 Cada una desbloquea los bloques indicados. La recomendación es la opción por defecto si no hay
 otra preferencia.
 
@@ -82,7 +85,15 @@ otra preferencia.
 
 ## R1 — Correcciones críticas
 
-### R1.1 · Carrera del último ADMIN — `fix/last-admin-race`
+### R1.1 · Carrera del último ADMIN — `fix/last-admin-race` ✅ (2026-11-14)
+
+- **Entregado:** `lockOrganizationMembers` (`members.ts`, `pg_advisory_xact_lock` con clave
+  `members:{organizationId}`) al inicio de `changeMemberRole` y `disableMember`. Quien añada un
+  caso de uso que quite un ADMIN (salir de la organización, borrar cuenta) debe llamarla primero.
+- **Reproducido antes de corregir:** sin el bloqueo, los dos tests nuevos fallan (dos ADMIN que
+  se degradan o desactivan a la vez dejan la organización sin ninguno); con él pasan.
+- **Verificado:** format, lint, typecheck, 76 unitarias y 82 de integración (Postgres 16 local,
+  Node 24). E2E, `api:generate` y `db:check` no aplican (sin cambios de pantallas, rutas ni esquema).
 
 - **Problema:** `assertAnotherActiveAdmin` (`packages/core/src/modules/identity/members.ts`) cuenta
   y después actualiza sin bloqueo. Dos peticiones simultáneas que degradan o desactivan a dos
@@ -93,7 +104,20 @@ otra preferencia.
 - **Test:** integración en `packages/core/test/identity.int.test.ts`: dos ADMIN, dos degradaciones
   concurrentes cruzadas → exactamente una falla con `LAST_ADMIN`.
 
-### R1.2 · IP del cliente de confianza — `fix/client-ip`
+### R1.2 · IP del cliente de confianza — `fix/client-ip` ✅ (2026-11-14)
+
+- **Entregado:** `clientIp`/`clientKey` en `packages/config/src/client-ip.ts`; `TRUSTED_IP_HEADER`
+  (opcional, en `authEnv`); usadas en `baseCtx` (auditoría), en los límites de
+  `/invitations/preview` y `/register` y en `advanced.ipAddress.ipAddressHeaders` de Better Auth
+  (lista vacía sin cabecera: Better Auth ya agrupa las peticiones sin IP en un cubo compartido por
+  ruta). Sin IP conocida, el limitador propio usa la clave común `unknown-ip` en vez de saltarse.
+  Variable añadida a `.env.example`, `infra/staging/compose.yml` (por defecto `cf-connecting-ip`),
+  `infra/staging/.env.example` y `docs/deploy.md`.
+- **Reproducido:** con la lectura antigua de `x-forwarded-for`, el test de integración nuevo falla
+  (31 peticiones con una IP falsa distinta cada una no llegan a 429); con la nueva, sí.
+- **Efecto en los tests:** `test/integration-env.ts` fija `TRUSTED_IP_HEADER=x-test-ip` y el
+  `Browser` de los tests manda una IP distinta por instancia.
+- **No verificado:** el comportamiento real detrás de Cloudflare Tunnel y Coolify (staging).
 
 - **Problema:** se usa el primer valor de `x-forwarded-for` (`apps/web/src/server/api/session.ts`,
   `routes/invitations.ts`, `packages/adapters/src/auth/index.ts`). Detrás de Cloudflare Tunnel ese
@@ -108,7 +132,21 @@ otra preferencia.
 - **Test:** unitario de `clientIp`; integración: con `x-forwarded-for` falsificado el límite de
   `/invitations/preview` sigue saltando.
 
-### R1.3 · Fallos definitivos de la cola — `fix/queue-final-failure`
+### R1.3 · Fallos definitivos de la cola — `fix/queue-final-failure` ✅ (2026-11-14)
+
+- **Entregado:** (a) `failedJobsSince` (`adapters/queue`) y un barrido en `checkQueues` del worker
+  que avisa (alerta `job-failed:{cola}`, `captureError` con `source=sweep`, log `error`) de los
+  jobs `failed` de sus colas aparecidos desde la comprobación anterior (reloj de la BD, margen de
+  60 s y conjunto de ids ya notificados, compartido con el aviso del `catch`, sin duplicados);
+  (b) `updateQueue` de pg-boss 12 cuando la configuración almacenada difiere de `defineJob`, al
+  registrar el consumidor (`registerWorker`) y en `pnpm queue:install` (`syncQueues` sobre
+  `ALL_JOBS`; el paquete raíz pasa a depender de `@saas/core`). El productor (web) sigue solo
+  creando las colas que faltan.
+- **Reproducido:** sin el barrido y sin `update`, los dos tests nuevos fallan.
+- **Verificado:** format, lint, typecheck, 83 unitarias, 86 de integración, `db:check`,
+  `pnpm queue:install`. No probado: una expiración real de pg-boss (el test simula su efecto con
+  un `UPDATE` a `failed`) ni el comportamiento con varias réplicas del worker.
+- **Límite conocido:** un fallo ocurrido con el worker parado no se notifica al arrancar.
 
 - **Problema (a):** `registerWorker` (`packages/adapters/src/queue/index.ts`) solo avisa del fallo
   definitivo dentro del `catch` del handler. Un job que agota los reintentos por expiración o por
@@ -124,7 +162,26 @@ otra preferencia.
   reintentos → alerta; cola creada con `retryLimit: 1` y redefinida con 3 → pg-boss la refleja.
 - **Comprobar antes:** la API exacta de pg-boss 12 para actualizar colas (versión fijada, ADR 0009).
 
-### R1.4 · Checkout ligado a la organización — `fix/billing-checkout-binding` 🔒 D1
+### R1.4 · Checkout ligado a la organización — `fix/billing-checkout-binding` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** `PaymentProvider.checkout` es asíncrono y el adaptador crea la transacción en
+  Paddle (`POST /transactions`: `items`, `custom_data.organizationId`, `collection_mode:
+automatic`, sin cliente) para la organización del actor; el navegador recibe solo
+  `transactionId` y abre `Paddle.Checkout.open({ transactionId })` (el contrato de la API deja de
+  llevar `priceId`, `customData` y `customerEmail`; `api:generate` hecho). `applyProviderEvent`
+  rechaza y audita (`billing.provider_event_rejected`) el evento de una suscripción que no es la
+  viva de la organización; acepta una nueva si no hay ninguna o la actual está `CANCELED`, o si la
+  actual nunca estuvo en un proveedor. El webhook confirma (200 sin encolar) que la organización
+  existe y que `custom_data` es un id válido, para que Paddle no reintente eternamente.
+- **Documentación de Paddle leída el 2026-11-14** (crear transacción, pasar una transacción al
+  checkout, custom data). **Sin confirmar** y anotado en `docs/deploy.md` para el sandbox: que el
+  comprador pueda escribir su email sin cliente previo, que `custom_data` llegue a los eventos
+  de la suscripción y que `open` con `transactionId` no necesite más opciones. Se pierde el email
+  precargado en el checkout. **Sigue sin probarse contra el sandbox.**
+- **Tests:** unitarios del adaptador (petición de la transacción, respuesta sin id); integración
+  (evento ajeno rechazado y auditado sin cambiar nada, suscripción nueva tras una cancelada,
+  checkout para la organización del actor, webhook de organización desconocida o con id
+  inválido). Verificado: format, lint, typecheck, 90 unitarias, 96 de integración.
 
 - **Problema:** `organizationId` viaja como `customData` desde el navegador
   (`apps/web/src/client/paddle.ts`) y `applyProviderEvent`
@@ -143,7 +200,19 @@ otra preferencia.
 - **Comprobar antes:** documentación vigente de Paddle para crear transacciones y abrir el checkout
   con su id. Sigue **sin probar contra el sandbox** hasta que el usuario lo haga.
 
-### R1.5 · Estado del cobro de excedentes — `fix/billing-charge-state` 🔒 D1
+### R1.5 · Estado del cobro de excedentes — `fix/billing-charge-state` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** `CHARGING` en `BillingPeriodStatus` (migración aditiva `20261114120000`),
+  confirmado antes de llamar al proveedor y con transición exclusiva (`updateMany` desde
+  `PENDING_CHARGE`/`CHARGE_FAILED`). Solo un error del proveedor marca `CHARGE_FAILED`; si el
+  cargo sale bien y falla el registro, el periodo se queda en `CHARGING` y el job lanza
+  `ChargeOutcomeUnknownError`; un job relanzado con el periodo en `CHARGING` se niega a cobrar.
+  La alerta crítica del worker añade «comprobar el proveedor». `ops:queue retry` rechaza un
+  `CHARGING` sin `--force` (que lo devuelve a `PENDING_CHARGE`). Estado visible en la pantalla
+  de cobros (es/en) y en el contrato de la API. Runbook en `docs/operations.md`.
+- **Tests:** integración (cargo correcto + registro que falla → `CHARGING` y el relanzado no
+  vuelve a cobrar; `CHARGING` visible durante la llamada; fallo de configuración antes de enviar)
+  y unitario de la decisión de `ops:queue`. El glue del script con la base de datos no tiene test.
 
 - **Problema:** en `billingChargeHandler` (`packages/core/src/modules/billing/jobs.ts`) el `try`
   envuelve la llamada al proveedor y la escritura de `CHARGED`. Si el cargo sale bien y la
@@ -156,7 +225,26 @@ otra preferencia.
 - **Test:** integración: proveedor que cobra y base de datos que falla al registrar → estado
   `CHARGING`, nunca `CHARGE_FAILED`; el job relanzado no vuelve a cobrar.
 
-### R1.6 · Cierre de periodos — `fix/billing-period-close` 🔒 D1, D2
+### R1.6 · Cierre de periodos — `fix/billing-period-close` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** tabla `subscription_periods` (tenant, RLS, sin borrado; migración
+  `20261114130000`, que rellena el periodo actual de las suscripciones existentes). La escribe
+  `applyProviderEvent` en cada evento (alta, renovación o cambio de plan dentro del periodo: gana
+  el último plan). `duePeriods` recorre todos los periodos no cerrados cuyo fin más la hora de
+  gracia ya pasó, del más antiguo al más nuevo, cada uno con su plan; extrapola con el último plan
+  conocido los que ningún evento anunció; una suscripción cancelada no extrapola; una suscripción
+  antigua sin historial ni cierres recupera también el periodo anterior al guardado. La gracia se
+  aplica al fin de cada periodo, también cuando la renovación llega antes del escaneo.
+  `recordUsage` rechaza el uso de un periodo ya cerrado (`CONFLICT` / `PERIOD_CLOSED`); un evento
+  repetido y ya registrado sigue siendo un no-op, y sin suscripción viva no aplica.
+- **Tests:** unitarios de `duePeriods` (periodo recién vencido, legado, varios periodos sin
+  cerrar, renovación temprana, cambio de plan, cancelada) e integración (historial por evento,
+  tres periodos cerrados a la vez con su plan y precio, gracia con renovación ya llegada, uso
+  tardío rechazado). Verificado: format, lint, typecheck, 88 unitarias, 93 de integración, `db:check`.
+- **Límites conocidos:** el cuadre de cuota (`billingStateOf`) sigue calculando el periodo de un
+  uso retroactivo desde el periodo guardado, no el de su fecha; el cierre sí cuenta por fecha.
+  Una suscripción antigua con varios periodos sin cerrar antes de esta migración solo recupera el
+  anterior al guardado.
 
 - **Problemas** (`packages/core/src/modules/billing/close.ts`):
   1. `duePeriods` solo devuelve el periodo anterior: con el worker parado más de un periodo, los

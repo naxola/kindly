@@ -38,6 +38,7 @@ type Metric = Overview['metrics'][number]
 const PERIOD_VARIANT = {
   NO_CHARGE: 'default',
   PENDING_CHARGE: 'warning',
+  CHARGING: 'warning',
   CHARGED: 'success',
   CHARGE_FAILED: 'destructive',
 } as const

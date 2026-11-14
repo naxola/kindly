@@ -255,6 +255,7 @@
       "periodStatuses": {
         "NO_CHARGE": "No overage",
         "PENDING_CHARGE": "Pending charge",
+        "CHARGING": "Charging",
         "CHARGED": "Charged",
         "CHARGE_FAILED": "Charge failed"
       },

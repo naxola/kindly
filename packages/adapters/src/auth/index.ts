@@ -32,6 +32,8 @@ export interface CreateAuthOptions {
   /** At least 32 characters. */
   secret: string
   rateLimit: boolean
+  /** Header with the trusted client IP (TRUSTED_IP_HEADER). Unset: IP unknown. */
+  trustedIpHeader?: string
   /** Default true. Only disable in tests or local tools. */
   requireEmailVerification?: boolean
   /**
@@ -55,6 +57,7 @@ export function createAuth({
   baseURL,
   secret,
   rateLimit,
+  trustedIpHeader,
   requireEmailVerification = true,
   sendVerificationEmail = missingSender('verification'),
   sendResetPasswordEmail = missingSender('password reset'),
@@ -92,7 +95,8 @@ export function createAuth({
       database: { generateId: () => newId() },
       useSecureCookies: secure,
       defaultCookieAttributes: { httpOnly: true, sameSite: 'lax', secure },
-      ipAddress: { ipAddressHeaders: ['x-forwarded-for', 'x-real-ip'] },
+      // Never `x-forwarded-for` (client-written). Empty list: unknown IP, one shared bucket.
+      ipAddress: { ipAddressHeaders: trustedIpHeader ? [trustedIpHeader] : [] },
     },
     rateLimit: {
       enabled: rateLimit,

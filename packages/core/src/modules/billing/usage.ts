@@ -99,6 +99,24 @@ export async function recordUsage(
   })
   if (duplicate) return { recorded: false, used, quota }
 
+  // Usage of a period that is already closed would never be billed: refuse it instead of
+  // recording it silently (ADR 0014). Only the subscription's own periods are closed.
+  if (state.subscriptionId) {
+    const closedPeriod = await tx.billingPeriod.findFirst({
+      where: {
+        subscriptionId: state.subscriptionId,
+        periodStart: { lte: occurredAt },
+        periodEnd: { gt: occurredAt },
+      },
+      select: { id: true },
+    })
+    if (closedPeriod) {
+      throw new DomainError('CONFLICT', 'The billing period of this usage is already closed', [
+        { code: 'PERIOD_CLOSED', path: metric.key },
+      ])
+    }
+  }
+
   let next: Decimal
   if (metric.aggregation === 'sum') next = used.plus(quantity)
   else if (metric.aggregation === 'max') next = Decimal.max(used, quantity)

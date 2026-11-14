@@ -14,7 +14,7 @@ interface Bucket {
 export function rateLimit(opts: {
   limit: number
   windowMs: number
-  /** Keys to limit; `null` ones (e.g. unknown IP) are skipped. */
+  /** Keys to limit; `null` ones are skipped. Unknown IPs must map to a shared key, not `null`. */
   keys: (c: Parameters<Parameters<typeof createMiddleware<ApiEnv>>[0]>[0]) => (string | null)[]
 }) {
   const buckets = new Map<string, Bucket>()

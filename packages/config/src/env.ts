@@ -25,6 +25,16 @@ export const authEnv = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   /** Rate limiting of the authentication endpoints. */
   AUTH_RATE_LIMIT_ENABLED: bool.default(true),
+  /**
+   * Header with the client IP that the platform in front of the app sets and the client cannot
+   * forge (`cf-connecting-ip` behind Cloudflare). Empty: client IP unknown, so IP limits share
+   * one bucket and the audit log records no IP.
+   */
+  TRUSTED_IP_HEADER: z
+    .string()
+    .regex(/^[A-Za-z0-9-]+$/, 'Must be a header name')
+    .transform((v) => v.toLowerCase())
+    .optional(),
 })
 
 export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [

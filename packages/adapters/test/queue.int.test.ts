@@ -9,7 +9,9 @@ import {
   PgBossJobQueue,
   queueSnapshot,
   registerWorker,
+  failedJobsSince,
   stuckQueues,
+  syncQueues,
   type FinalFailure,
   type PgBoss,
 } from '../src/queue/index.ts'
@@ -232,5 +234,76 @@ describe('queue health', () => {
     expect(idle?.oldestWaitingSeconds).toBeGreaterThanOrEqual(3600)
     expect(stuckQueues(snapshot, 900).map((q) => q.name)).toContain(idleJob.name)
     expect(stuckQueues(snapshot, 7200).map((q) => q.name)).not.toContain(idleJob.name)
+  })
+})
+
+describe('queue settings (R1.3)', () => {
+  it('a queue redefined with other retries is updated in pg-boss when the consumer registers', async () => {
+    const name = `test-${run}.redefined`
+    const v1 = defineJob({ name, schema: z.object({}), retryLimit: 1, retryDelaySeconds: 1 })
+    await syncQueues(boss, [v1])
+    expect(await boss.getQueue(name)).toMatchObject({ retryLimit: 1, retryDelay: 1 })
+
+    const v2 = defineJob({
+      name,
+      schema: z.object({}),
+      retryLimit: 3,
+      retryDelaySeconds: 7,
+      expireInSeconds: 120,
+    })
+    // The producer only creates missing queues: it must not touch an existing one.
+    await withTenant(db, orgId, (tx) =>
+      new PgBossJobQueue(boss).enqueue(tx, v2, {}, { ...meta(), idempotencyKey: newId() }),
+    )
+    expect(await boss.getQueue(name)).toMatchObject({ retryLimit: 1, retryDelay: 1 })
+
+    await registerWorker(boss, v2, () => Promise.resolve(), { log })
+    expect(await boss.getQueue(name)).toMatchObject({
+      retryLimit: 3,
+      retryDelay: 7,
+      retryBackoff: true,
+      expireInSeconds: 120,
+    })
+  })
+})
+
+describe('failed jobs sweep (R1.3)', () => {
+  it('finds jobs that failed without the handler running, only in the given queues and window', async () => {
+    const name = `test-${run}.expired`
+    const other = `test-${run}.expired-other`
+    const job = defineJob({ name, schema: z.object({}), retryLimit: 0 })
+    const otherJob = defineJob({ name: other, schema: z.object({}), retryLimit: 0 })
+    await syncQueues(boss, [job, otherJob])
+    const before = (await failedJobsSince(boss, [name], new Date())).now
+    const m = meta()
+    const ids: string[] = []
+    for (const j of [job, otherJob]) {
+      const { id } = await withTenant(db, orgId, (tx) =>
+        queue.enqueue(
+          tx,
+          j,
+          {},
+          { ...m, idempotencyKey: newId(), startAfter: new Date(Date.now() + 3_600_000) },
+        ),
+      )
+      ids.push(id)
+    }
+    // What pg-boss does when a job expires with no retries left.
+    await boss
+      .getDb()
+      .executeSql(
+        `UPDATE pgboss.job SET state = 'failed', completed_on = now(), output = '{"message":"job failed by expiration"}' WHERE id = ANY($1)`,
+        [ids],
+      )
+    const { jobs, now } = await failedJobsSince(boss, [name], before)
+    expect(jobs.map((j) => j.id)).toEqual([ids[0]])
+    expect(jobs[0]).toMatchObject({
+      name,
+      correlationId: m.correlationId,
+      organizationId: orgId,
+      message: 'job failed by expiration',
+    })
+    // Nothing new after the returned clock.
+    expect((await failedJobsSince(boss, [name], now)).jobs).toEqual([])
   })
 })

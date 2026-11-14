@@ -16,6 +16,7 @@ export function auth(): Auth {
     baseURL: e.APP_URL,
     secret: e.BETTER_AUTH_SECRET,
     rateLimit: e.AUTH_RATE_LIMIT_ENABLED,
+    ...(e.TRUSTED_IP_HEADER ? { trustedIpHeader: e.TRUSTED_IP_HEADER } : {}),
     ...queuedAuthEmails(db(), lazyQueue),
     onUnexpectedError: (err) => {
       logger().error({ err }, 'auth error')

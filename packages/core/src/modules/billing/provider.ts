@@ -14,7 +14,7 @@ export interface ProviderSubscription {
   periodStart: Date | null
   periodEnd: Date | null
   cancelAtPeriodEnd: boolean
-  /** Our organization id, sent at checkout as custom data. Null if missing. */
+  /** Our organization id, attached by the server when it created the checkout. Null if missing. */
   organizationId: string | null
 }
 
@@ -23,14 +23,17 @@ export type ProviderEvent =
   /** Verified but irrelevant for billing state (logged and acknowledged). */
   | { id: string; occurredAt: Date; kind: 'ignored'; type: string }
 
+/**
+ * What the browser needs to open the provider checkout (e.g. Paddle.js). The transaction is
+ * created by the server (ADR 0014), already bound to the organization: the browser never
+ * says whose purchase it is.
+ */
 export interface CheckoutSession {
   provider: string
-  /** What the browser needs to open the provider checkout (e.g. Paddle.js). */
   environment: 'sandbox' | 'production'
   clientToken: string
-  priceId: string
-  customData: Record<string, string>
-  customerEmail: string | null
+  /** Provider transaction to open (e.g. txn_…). */
+  transactionId: string
 }
 
 export interface OverageCharge {
@@ -45,11 +48,12 @@ export interface OverageCharge {
 
 export interface PaymentProvider {
   readonly name: string
-  checkout(input: {
-    priceId: string
-    organizationId: string
-    customerEmail: string | null
-  }): CheckoutSession
+  /**
+   * Creates the checkout transaction at the provider with the organization attached (custom
+   * data the provider copies to the subscription). Not idempotent: an abandoned transaction
+   * just stays unpaid.
+   */
+  checkout(input: { priceId: string; organizationId: string }): Promise<CheckoutSession>
   portalUrl(input: { customerRef: string; subscriptionRef: string | null }): Promise<string>
   /**
    * Adds a one-off charge to the subscription's next bill. NOT idempotent at the provider:

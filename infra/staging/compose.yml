@@ -58,6 +58,7 @@ services:
       <<: *app-env
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
       AUTH_RATE_LIMIT_ENABLED: 'true'
+      TRUSTED_IP_HEADER: ${TRUSTED_IP_HEADER:-cf-connecting-ip}
     expose:
       - '3000'
     depends_on:

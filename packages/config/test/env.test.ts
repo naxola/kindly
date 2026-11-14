@@ -45,6 +45,16 @@ describe('parseEnv', () => {
     expect(env.AUTH_RATE_LIMIT_ENABLED).toBe(false)
   })
 
+  it('normalizes TRUSTED_IP_HEADER, treats it as optional and rejects non-header values', () => {
+    const base = { BETTER_AUTH_SECRET: 'x'.repeat(32) }
+    expect(parseEnv(authEnv, base).TRUSTED_IP_HEADER).toBeUndefined()
+    expect(parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: '' }).TRUSTED_IP_HEADER).toBeUndefined()
+    expect(
+      parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: 'CF-Connecting-IP' }).TRUSTED_IP_HEADER,
+    ).toBe('cf-connecting-ip')
+    expect(() => parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: 'a b' })).toThrow(EnvError)
+  })
+
   it('validates the email provider by its own fields', () => {
     expect(parseEnv(emailEnv, { EMAIL_PROVIDER: 'log', EMAIL_FROM: 'App <a@b.c>' })).toEqual({
       EMAIL_PROVIDER: 'log',
