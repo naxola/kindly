@@ -25,7 +25,7 @@ test('an admin renames the organization, resends an invitation and archives it',
 
   // The only ADMIN cannot leave.
   await press(page.getByRole('button', { name: 'Salir', exact: true }))
-  await press(page.getByRole('dialog').getByRole('button', { name: 'Salir' }))
+  await press(page.getByRole('alertdialog').getByRole('button', { name: 'Salir' }))
   await expect(
     page.getByRole('alert').filter({ hasText: 'al menos un Administrador' }),
   ).toBeVisible()
