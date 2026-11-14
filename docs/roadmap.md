@@ -18,6 +18,7 @@
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                            | ✅ `v1.0.0` (2026-11-12)                    |
 | B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                                 | 🟡 Entregadas; Paddle sin probar en sandbox |
 | D1–D2. Sin Next.js          | Nivel 1: puertos de presentación y regla de fronteras. Nivel 2 (opcional): Hono + Vite + Astro (ADR 0013) | ⏸ Pospuesto por el usuario                  |
+| R1–R5. Robustez             | Correcciones, seguridad, datos, UX y operación tras la revisión del 2026-11-13 (`docs/plan-robustez.md`)  | ⬜ Planificado                              |
 
 ## Fase 1 — entregado
 
@@ -160,3 +161,7 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 - **Pendiente**: probar con el sandbox (`docs/deploy.md`), cambio de plan de una suscripción existente, créditos manuales (necesitan operador de plataforma) y cuadre automático contra Paddle.
 
 **Verificado en local:** format, lint, typecheck, 76 unitarias (10 del adaptador Paddle: firma válida y con rotación, cuerpo alterado, secreto erróneo, firma caducada, normalización de eventos y estados, cargo en céntimos, errores sin la clave, portal), 80 de integración (evento → plan por su precio, eventos antiguos ignorados, gracia y vuelta al plan por defecto y su recuperación, precio desconocido, condiciones del pago, cobro único y fallo marcado sin reintento, webhook HTTP con firma real que rechaza falsificaciones y encola una sola vez), 12 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos. **No probado contra Paddle.**
+
+## Robustez R1–R5 — planificado (2026-11-14)
+
+Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque y con las decisiones pendientes del usuario, está en [`plan-robustez.md`](plan-robustez.md): ese archivo lleva el estado; aquí se anota cada bloque al entregarlo.
