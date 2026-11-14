@@ -36,33 +36,62 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
-| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0014)   | R1.2       | 🔒     |
-| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0015)   | R4.3       | 🔒     |
+| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ⬜     |
+| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ⬜     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ⬜     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
-| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | 🔒     |
-| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0016)   | —          | 🔒     |
-| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0017)   | —          | 🔒     |
+| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
+| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
+| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ⬜     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ⬜     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
-| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0018)   | R4.3       | 🔒     |
-| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | 🔒     |
-| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🔒     |
+| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
+| R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
+| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | ⬜     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ⬜     |
 | R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | 🔒     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
 
-Orden recomendado: R1.1 → R1.2 → R1.3 → R2.1 → R2.2 → R2.3 → R4.1 → R4.2 → R3.1 → R5.3 → R5.2
-(ninguno necesita decisión), y en paralelo ir resolviendo las decisiones para desbloquear el resto.
+Orden recomendado: R4.1 → R4.2 → R3.1 → R5.3 → R5.2 (sin decisiones pendientes), R5.1 y R4.6
+(decididas, sin ADR nuevo) y, con su ADR validado, R2.4, R3.4 y R3.5. R4.3 desbloquea R2.5 y R4.5.
+R5.4 espera D10 y R5.5 espera D5.
 Los tres bloques de cobros (R1.4–R1.6) van **antes de que ningún producto cobre** con la plantilla.
 
 ## Decisiones del usuario
 
-> D1 y D2 (y la regla para el uso tardío) tienen su propuesta redactada en
-> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Propuesto**.
+> D1 y D2 (y la regla para el uso tardío) están en
+> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Aceptado**.
+
+### Resoluciones (2026-11-14)
+
+El usuario resolvió así. Lo marcado «ADR por redactar» sigue exigiendo ADR en **Propuesto** y su
+validación antes de implementar (regla 1 de `CLAUDE.md`).
+
+| Id  | Resolución                                                                                                   | Estado           |
+| --- | ------------------------------------------------------------------------------------------------------------ | ---------------- |
+| D1  | Sí: enmienda única con los tres cambios (ADR 0014)                                                           | ✅ Aceptado      |
+| D2  | Tabla `subscription_periods`; el uso tardío se **rechaza** (ADR 0014)                                        | ✅ Aceptado      |
+| D3  | Postgres, tabla global `rate_limits`, sin Redis. ADR 0015 por redactar                                       | ✅ Decidido      |
+| D4  | MFA opcional por persona con códigos de recuperación; obligación por organización, más adelante. ADR 0016    | ✅ Decidido      |
+| D5  | Producción (ubicación y copias)                                                                              | ⏳ Sin decidir   |
+| D6  | Borrado con plazo de 14 días; bloqueado si es el último ADMIN de una organización con más miembros. ADR 0019 | ✅ Decidido      |
+| D7  | Auditoría: 24 meses, particionado mensual cuando el volumen lo pida. ADR 0018 por redactar                   | ✅ Decidido      |
+| D8  | Sí a `@sentry/browser` y `@axe-core/playwright` (dev)                                                        | ✅ Decidido      |
+| D9  | Renovate, semanal, agrupando parches y menores; mayores una a una                                            | ✅ Decidido      |
+| D10 | Métricas: ver recomendación en la tabla de abajo                                                             | ⏳ Por confirmar |
+| D11 | Supresión de correo: solo el hash SHA-256 del email normalizado. ADR 0017 por redactar                       | ✅ Decidido      |
+
+**Numeración de ADR nuevos** (por orden de bloque; las enmiendas a 0008, 0009 y 0012 no consumen
+número): R2.4 → 0015 · R2.5 → 0016 · R3.4 → 0017 · R3.5 → 0018 · R4.5 → 0019.
+
+**D10, recomendación pendiente de confirmar:** endpoint `/metrics` en `web` y `worker` (red
+interna), **sin** desplegar Prometheus y Grafana todavía. El endpoint es estándar, no ata a
+ningún servicio y casi no cuesta; Prometheus y Grafana añaden dos servicios al homelab (regla 7)
+y solo compensan cuando haya un producto con tráfico que graficar. Mientras, la profundidad y la
+espera de las colas ya alertan por ntfy. Se instalan después, en un ADR propio, sin tocar el código.
 
 Cada una desbloquea los bloques indicados. La recomendación es la opción por defecto si no hay
 otra preferencia.
@@ -354,21 +383,21 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 - **Textos:** `errors.ALREADY_MEMBER` en `apps/web/messages/{es,en}.json`.
 - **Test:** integración: dos invitaciones concurrentes al mismo email → una; invitar a un miembro.
 
-### R2.4 · Almacén de límites — `feat/rate-limit-store` 🔒 D3
+### R2.4 · Almacén de límites — `feat/rate-limit-store` ⬜ (D3 decidida)
 
 - **Problema:** el limitador propio (`apps/web/src/server/api/rate-limit.ts`) y el de Better Auth
   viven en memoria: se pierden al reiniciar y no valen con dos réplicas. No hay límites por
   usuario ni por organización; `POST /invitations` permite enviar correo a direcciones arbitrarias
   sin tope.
-- **Cambio (ADR 0014):** tabla global `rate_limits` (declarada en `GLOBAL_TABLES`), ventana fija
+- **Cambio (ADR 0015):** tabla global `rate_limits` (declarada en `GLOBAL_TABLES`), ventana fija
   con `INSERT … ON CONFLICT … DO UPDATE`, limpieza por job programado; Better Auth con
   almacenamiento propio sobre la misma tabla; límite general por sesión en `/api/v1` y tope diario
   de invitaciones por organización.
 - **Test:** integración: el límite sobrevive a recrear la app; tope de invitaciones.
 
-### R2.5 · Refuerzo del acceso — `feat/auth-hardening` 🔒 D4
+### R2.5 · Refuerzo del acceso — `feat/auth-hardening` ⬜ (D4 decidida)
 
-- **Contenido (ADR 0015, amplía el 0003):** MFA TOTP con códigos de recuperación (plugin de Better
+- **Contenido (ADR 0016, amplía el 0003):** MFA TOTP con códigos de recuperación (plugin de Better
   Auth: tablas `auth_*` nuevas, solo tocadas por `adapters/auth`), rechazo de contraseñas
   filtradas (k-anonimato de Have I Been Pwned: llamada saliente, justificar en el ADR), y lista y
   cierre de sesiones activas.
@@ -395,7 +424,7 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   restringir (job programado diario). Plantillas en `core/billing/emails.ts`, es/en.
 - **Test:** unitarios de las plantillas; integración: una sola vez por impago.
 
-### R3.3 · Contadores de uso — `feat/usage-counters` 🔒 D1, D2
+### R3.3 · Contadores de uso — `feat/usage-counters` ⬜ (D1, D2 aceptadas; enmienda al 0012 por redactar)
 
 - **Problema:** `recordUsage` agrega todos los `usage_events` del periodo en cada escritura, con un
   bloqueo por organización y métrica. Con métricas de mucho volumen es lineal por evento.
@@ -404,20 +433,20 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   cierre compara contador y suma (si difieren: alerta, gana la suma).
 - **Test:** los de cobros existentes más concurrencia y la comparación en el cierre.
 
-### R3.4 · Supresión de correo — `feat/email-suppression` 🔒 D11
+### R3.4 · Supresión de correo — `feat/email-suppression` ⬜ (D11 decidida)
 
 - **Problema:** no se procesan rebotes ni quejas; se sigue enviando a direcciones que el proveedor
   ya marcó, lo que daña la reputación del dominio.
-- **Cambio (ADR 0016):** webhook firmado del proveedor de correo (`/api/webhooks/email`, mismo
+- **Cambio (ADR 0017):** webhook firmado del proveedor de correo (`/api/webhooks/email`, mismo
   patrón que pagos), tabla global `email_suppressions` y comprobación en el `EmailSender` antes de
   enviar. Los correos de acceso (verificación, recuperación) solo se suprimen por rebote
   permanente, nunca por queja.
 - **Test:** firma válida y falsa; correo suprimido que no se envía y queda en el log sin la
   dirección.
 
-### R3.5 · Lectura de la auditoría — `feat/audit-log-read` 🔒 D7
+### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ⬜ (D7 decidida)
 
-- **Contenido (ADR 0017):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
+- **Contenido (ADR 0018):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
   por cursor y filtros (acción, actor, fechas), pantalla Ajustes → Actividad, y job programado de
   retención ejecutado con una función `SECURITY DEFINER` (la tabla es de solo inserción para
   `app_user`).
@@ -461,15 +490,15 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   no se cambia: decisión aparte si algún producto lo pide.
 - **Test:** integración de cada caso de uso (permisos, último ADMIN, token anterior inválido); E2E.
 
-### R4.5 · Borrado de la cuenta — `feat/account-deletion` 🔒 D6
+### R4.5 · Borrado de la cuenta — `feat/account-deletion` ⬜ (D6 decidida)
 
-- **Contenido (ADR 0018):** el esquema ya lo prevé (`users.anonymized_at`, `auth_user_id` nulo al
+- **Contenido (ADR 0019):** el esquema ya lo prevé (`users.anonymized_at`, `auth_user_id` nulo al
   borrar el acceso). Falta el flujo: solicitud con contraseña, plazo de gracia, job que borra el
   acceso, anonimiza `users.display_name` y desactiva las membresías; regla del último ADMIN;
   evento de negocio `user.deleted` para el CRM; exportación de los datos personales.
 - **Test:** integración del job y de las reglas; E2E de la solicitud y su cancelación.
 
-### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` 🔒 D8
+### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` ⬜ (D8 decidida)
 
 - **Contenido (enmienda 0008):** errores del cliente a Sentry/GlitchTip con las mismas reglas de
   privacidad que el servidor (sin breadcrumbs, sin datos de formularios), DSN público servido en
@@ -479,7 +508,7 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 
 ## R5 — Operación y CI
 
-### R5.1 · Actualización de dependencias — `chore/renovate` 🔒 D9
+### R5.1 · Actualización de dependencias — `chore/renovate` ⬜ (D9 decidida)
 
 - **Problema:** todas las versiones están fijadas (ADR 0009) y nada las mueve.
 - **Contenido (enmienda 0009):** configuración de Renovate según D9, incluidas las acciones de

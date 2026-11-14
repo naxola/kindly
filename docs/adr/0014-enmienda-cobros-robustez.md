@@ -4,8 +4,9 @@
 `subscription_periods`) y que el uso tardío se **rechaza** (confirmado por él mismo el 2026-11-14). Sale de la revisión técnica de `v1.0.0` (`docs/plan-robustez.md`, bloques
 R1.4–R1.6). Si se acepta, el ADR 0012 pasa a remitir a este.
 
-> Nota de numeración: el plan reserva 0014 para el almacén de límites (R2.4). Al aceptar este
-> documento se renumerará el que llegue después; no hay referencias a 0014 en el código.
+> Nota de numeración: el plan reservaba 0014 para el almacén de límites (R2.4); al ser este el
+> primero en escribirse, conserva el 0014 y los ADR siguientes del plan se renumeran (R2.4 → 0015,
+> R2.5 → 0016, R3.4 → 0017, R3.5 → 0018, R4.5 → 0019).
 
 ## Problema
 
