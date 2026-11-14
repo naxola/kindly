@@ -46,19 +46,9 @@ esconder fallos y dejar para el final lo que depende de decisiones externas.
 _Necesita del usuario:_ el hash de la acción (o permiso para consultarlo), instalar Renovate y
 confirmar que el despliegue de staging es el homelab con Coolify de `docs/deploy.md`.
 
-### Etapa 1 — Validar las decisiones abiertas
+### Etapa 1 — Validar las decisiones abiertas ✅ (2026-11-14)
 
-Cinco ADR están en **Propuesto**, cada uno con sus preguntas al final. Sin validarlos no se
-implementa nada de la etapa 2 que dependa de ellos (regla 1 de `CLAUDE.md`).
-
-| ADR  | Bloque | Lo que hay que decidir                                                            |
-| ---- | ------ | --------------------------------------------------------------------------------- |
-| 0015 | R2.4   | Cifras por defecto y política de fallo del limitador                              |
-| 0016 | R2.5   | Umbral de contraseñas filtradas, fallo abierto de HIBP, clave de cifrado del TOTP |
-| 0017 | R3.4   | Supresiones solo por script; Resend como proveedor                                |
-| 0018 | R3.5   | Solo ADMIN lee la actividad; plazo fijo en la función SQL                         |
-| 0019 | R4.5   | Organizaciones unipersonales, id del actor en la auditoría, plazo con pago        |
-
+Los ADR 0015 a 0019 están **Aceptados**, con las decisiones del usuario anotadas en cada uno.
 Faltan por redactar dos enmiendas: la del **ADR 0012** para los contadores de uso (R3.3) y la del
 **ADR 0008** para las métricas (R5.4, D10 ya decidida).
 

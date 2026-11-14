@@ -17,10 +17,10 @@
 | [0013](0013-desacoplar-del-framework-web.md)        | Desacoplar la plantilla del framework web (Next.js)                      | Pospuesto |
 | [0014](0014-enmienda-cobros-robustez.md)            | Enmienda al 0012: cobros robustos (checkout, `CHARGING`, cierre)         | Aceptado  |
 | [0015](0015-almacen-de-limites-en-postgres.md)      | Almacén de límites de peticiones en Postgres                             | Aceptado  |
-| [0016](0016-refuerzo-del-acceso.md)                 | Refuerzo del acceso: segundo factor, contraseñas filtradas y sesiones    | Propuesto |
+| [0016](0016-refuerzo-del-acceso.md)                 | Refuerzo del acceso: segundo factor, contraseñas filtradas y sesiones    | Aceptado  |
 | [0017](0017-supresion-de-correo.md)                 | Supresión de correo (rebotes y quejas)                                   | Aceptado  |
-| [0018](0018-lectura-y-retencion-de-la-auditoria.md) | Lectura y retención de la auditoría                                      | Propuesto |
-| [0019](0019-borrado-de-la-cuenta.md)                | Borrado de la cuenta (RGPD)                                              | Propuesto |
+| [0018](0018-lectura-y-retencion-de-la-auditoria.md) | Lectura y retención de la auditoría                                      | Aceptado  |
+| [0019](0019-borrado-de-la-cuenta.md)                | Borrado de la cuenta (RGPD)                                              | Aceptado  |
 
 **Aceptado**: validado por el usuario. **Propuesto**: pendiente de validar; no se implementa hasta entonces.
 Una decisión nunca se borra: se marca como _Sustituida por NNNN_.
