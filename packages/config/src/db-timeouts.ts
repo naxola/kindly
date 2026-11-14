@@ -27,6 +27,21 @@ export const WORKER_DB_TIMEOUTS: DbTimeouts = {
   idleInTransactionMs: 120_000,
 }
 
+/** The limits set in the environment (`DB_*_TIMEOUT_MS`); unset ones keep the process default. */
+export function dbTimeoutsFromEnv(env: {
+  DB_STATEMENT_TIMEOUT_MS?: number | undefined
+  DB_LOCK_TIMEOUT_MS?: number | undefined
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS?: number | undefined
+}): Partial<DbTimeouts> {
+  const out: Partial<DbTimeouts> = {}
+  if (env.DB_STATEMENT_TIMEOUT_MS) out.statementMs = env.DB_STATEMENT_TIMEOUT_MS
+  if (env.DB_LOCK_TIMEOUT_MS) out.lockMs = env.DB_LOCK_TIMEOUT_MS
+  if (env.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS) {
+    out.idleInTransactionMs = env.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS
+  }
+  return out
+}
+
 /** Value of the `options` connection parameter that applies the limits. */
 export function dbTimeoutOptions(timeouts: DbTimeouts): string {
   for (const value of Object.values(timeouts)) {

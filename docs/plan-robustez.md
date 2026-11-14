@@ -306,8 +306,10 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
   Se fijan en la conexión (`-c …`), no con `ALTER ROLE`; `app_migrator` no cambia. `handleError`
   responde `503 SERVICE_UNAVAILABLE` (sin detalles; se reporta con `correlationId`) cuando el error
   trae SQLSTATE 57014, 55P03 o 25P03. Textos `errors.SERVICE_UNAVAILABLE` en es/en.
-  No hay variables de entorno nuevas: los valores son constantes del código; sobrescribir por
-  proceso es pasar `timeouts` a `createDb`.
+  Se pueden sobrescribir con `DB_STATEMENT_TIMEOUT_MS`, `DB_LOCK_TIMEOUT_MS` y
+  `DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` (opcionales, enteros positivos; vacío = valor por defecto del
+  proceso), declaradas en `.env.example`, `infra/staging/compose.yml` y `infra/staging/.env.example`.
+  En staging web y worker comparten el valor si se define (sin distinguir por proceso).
 - **Tests:** unitarios de `db-timeouts` y de `handleError`; integración
   (`packages/database/test/timeouts.int.test.ts`): los valores llegan a la conexión, `pg_sleep`
   sobre el límite falla con 57014 y el pool se recupera. Verificado con Postgres 16 local:

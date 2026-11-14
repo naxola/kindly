@@ -3,6 +3,7 @@ import {
   DEFAULT_DB_TIMEOUTS,
   WORKER_DB_TIMEOUTS,
   dbTimeoutOptions,
+  dbTimeoutsFromEnv,
   isDbTimeoutError,
 } from '../src/db-timeouts.ts'
 
@@ -21,6 +22,13 @@ describe('dbTimeoutOptions', () => {
     expect(() =>
       dbTimeoutOptions({ ...DEFAULT_DB_TIMEOUTS, statementMs: '1 -c x=1' as unknown as number }),
     ).toThrow()
+  })
+})
+
+describe('dbTimeoutsFromEnv', () => {
+  it('keeps only the limits that are set', () => {
+    expect(dbTimeoutsFromEnv({})).toEqual({})
+    expect(dbTimeoutsFromEnv({ DB_LOCK_TIMEOUT_MS: 1000 })).toEqual({ lockMs: 1000 })
   })
 })
 

@@ -23,7 +23,7 @@ import {
   type EventSink,
   type PaymentProvider,
 } from '@saas/core'
-import { WORKER_DB_TIMEOUTS } from '@saas/config/db-timeouts'
+import { WORKER_DB_TIMEOUTS, dbTimeoutsFromEnv } from '@saas/config/db-timeouts'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
@@ -120,8 +120,12 @@ export async function startWorker({
     )
   }
 
-  const db = createDb({ connectionString: env.DATABASE_URL, timeouts: WORKER_DB_TIMEOUTS })
-  const boss = createBoss({ connectionString: env.DATABASE_URL, role: 'worker' })
+  const timeouts = dbTimeoutsFromEnv(env)
+  const db = createDb({
+    connectionString: env.DATABASE_URL,
+    timeouts: { ...WORKER_DB_TIMEOUTS, ...timeouts },
+  })
+  const boss = createBoss({ connectionString: env.DATABASE_URL, role: 'worker', timeouts })
   boss.on('error', (err) => log.error({ err }, 'pg-boss error'))
   await boss.start()
   const queue = new PgBossJobQueue(boss)

@@ -36,6 +36,18 @@ describe('parseEnv', () => {
     expect(message).not.toContain('hunter2')
   })
 
+  it('reads the optional database time limits and rejects bad values', () => {
+    const base = { APP_URL: 'http://localhost:3000', DATABASE_URL: 'postgresql://u:p@h:5432/d' }
+    const schema = baseEnv.extend(databaseEnv.shape)
+    expect(parseEnv(schema, base).DB_STATEMENT_TIMEOUT_MS).toBeUndefined()
+    expect(
+      parseEnv(schema, { ...base, DB_STATEMENT_TIMEOUT_MS: '' }).DB_STATEMENT_TIMEOUT_MS,
+    ).toBeUndefined()
+    expect(parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: '2500' }).DB_LOCK_TIMEOUT_MS).toBe(2500)
+    expect(() => parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: '0' })).toThrow(EnvError)
+    expect(() => parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: 'fast' })).toThrow(EnvError)
+  })
+
   it('requires a long auth secret and parses the rate-limit flag', () => {
     expect(() => parseEnv(authEnv, { BETTER_AUTH_SECRET: 'short' })).toThrow(EnvError)
     const env = parseEnv(authEnv, {
