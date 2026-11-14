@@ -130,7 +130,9 @@
     "settings": {
       "title": "Settings",
       "members": "Members",
-      "billing": "Plan and usage"
+      "billing": "Plan and usage",
+      "account": "Account",
+      "organization": "Organization"
     }
   },
   "orgSwitcher": {
@@ -269,6 +271,39 @@
       "choosePlan": "Choose a plan",
       "subscribe": "Subscribe",
       "afterCheckout": "After payment, the plan becomes active as soon as the provider confirms it (a few seconds)."
+    },
+    "account": {
+      "title": "Account",
+      "description": "Your personal details. They do not depend on any organization.",
+      "profile": "Profile",
+      "profileHint": "How other members see you, and the language you use the app in.",
+      "emailFixed": "The sign-in email cannot be changed from here yet.",
+      "language": "Language",
+      "languageHint": "Your preference; this browser may have another one chosen in the settings menu.",
+      "languageDefault": "The organization's",
+      "password": "Password",
+      "passwordHint": "Changing it signs you out on other devices.",
+      "currentPassword": "Current password",
+      "changePassword": "Change password"
+    },
+    "organization": {
+      "title": "Organization",
+      "description": "General details of the active organization.",
+      "general": "General",
+      "name": "Name",
+      "slug": "Identifier",
+      "slugHint": "It cannot be changed.",
+      "language": "Default language",
+      "languageHint": "Used by emails and by anyone who has not chosen another.",
+      "leave": "Leave the organization",
+      "leaveHint": "You stop seeing its data. An administrator can activate you again. The organization always keeps at least one administrator.",
+      "leaveButton": "Leave",
+      "leaveConfirm": "Are you sure you want to leave this organization?",
+      "archive": "Archive the organization",
+      "archiveHint": "Nobody will be able to enter it and it disappears from the lists. Data is kept. If it has a paid subscription, cancel it first in Plan and usage.",
+      "archiveType": "Type \"{name}\" to confirm",
+      "archiveButton": "Archive",
+      "resend": "Resend"
     }
   },
   "billing": {
@@ -295,6 +330,12 @@
     "roleChanged": "Role updated",
     "memberDisabled": "Member disabled",
     "memberEnabled": "Member enabled",
-    "spendCapSaved": "Spend cap saved"
+    "spendCapSaved": "Spend cap saved",
+    "profileSaved": "Profile saved",
+    "passwordChanged": "Password changed. Your other sessions were signed out.",
+    "organizationSaved": "Organization saved",
+    "left": "You left the organization",
+    "archived": "Organization archived",
+    "resent": "Invitation resent to {email}"
   }
 }

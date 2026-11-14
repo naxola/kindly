@@ -1,4 +1,5 @@
 import { createDb, newId, withTenant, withUser, type Db } from '@saas/database'
+import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { RecordingQueue } from './fake-queue.ts'
 import {
@@ -15,6 +16,11 @@ import {
   listMyOrganizations,
   resolveActor,
   revokeInvitation,
+  updateProfile,
+  updateOrganization,
+  archiveOrganization,
+  leaveOrganization,
+  resendInvitation,
   type Ctx,
 } from '../src/index.ts'
 
@@ -72,6 +78,64 @@ describe('business user', () => {
       tx.organizationMember.count({ where: { userId: user.id } }),
     )
     expect(members).toBe(1)
+  })
+})
+
+describe('profile (R4.3)', () => {
+  it('changes the display name and language of the person, and audits it', async () => {
+    const { user } = await personWithOrg()
+    const updated = await updateProfile(base(), user.id, {
+      displayName: '  Nueva Persona ',
+      locale: 'en',
+    })
+    expect(updated).toMatchObject({ displayName: 'Nueva Persona', locale: 'en' })
+    // Audit rows without an organization can be written but not read by app_user (RLS):
+    // the platform role reads them.
+    const platform = new pg.Client({
+      connectionString: process.env.TEST_DATABASE_URL!.replace(
+        /\/\/[^@]+@/,
+        `//app_platform:${process.env.APP_PLATFORM_PASSWORD ?? 'platform'}@`,
+      ),
+    })
+    await platform.connect()
+    const { rows } = await platform.query(
+      `SELECT organization_id AS "organizationId", resource_id AS "resourceId", before, after
+       FROM audit_logs WHERE action = 'user.profile_updated' AND actor_id = $1`,
+      [user.id],
+    )
+    await platform.end()
+    const audit = rows[0]
+    expect(audit).toMatchObject({ organizationId: null, resourceId: user.id })
+    expect(audit?.after).toEqual({ displayName: 'Nueva Persona', locale: 'en' })
+    expect(audit?.before).toMatchObject({ locale: null })
+  })
+
+  it('can go back to the organization language (null) and changes only what is sent', async () => {
+    const { user } = await personWithOrg()
+    await updateProfile(base(), user.id, { locale: 'en' })
+    const only = await updateProfile(base(), user.id, { displayName: 'Solo Nombre' })
+    expect(only).toMatchObject({ displayName: 'Solo Nombre', locale: 'en' })
+    expect(await updateProfile(base(), user.id, { locale: null })).toMatchObject({ locale: null })
+  })
+
+  it('rejects an empty name, an unknown language or nothing to change', async () => {
+    const { user } = await personWithOrg()
+    for (const bad of [
+      { displayName: '   ' },
+      { locale: 'fr' },
+      {},
+      { displayName: 'x'.repeat(121) },
+    ]) {
+      expect(await codeOf(updateProfile(base(), user.id, bad as never))).toMatchObject({
+        code: 'VALIDATION_FAILED',
+      })
+    }
+  })
+
+  it('is NOT_FOUND for a user that does not exist', async () => {
+    expect(await codeOf(updateProfile(base(), newId(), { displayName: 'X' }))).toMatchObject({
+      code: 'NOT_FOUND',
+    })
   })
 })
 
@@ -253,6 +317,122 @@ describe('invitations', () => {
     ).toEqual({
       code: 'FORBIDDEN',
       detail: 'MISSING_PERMISSION',
+    })
+  })
+})
+
+describe('organization settings (R4.4)', () => {
+  async function adminWithMember() {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    await acceptInvitation(base(), { token, userId: guest.id })
+    const { actor } = await resolveActor(db, {
+      userId: guest.id,
+      organizationId: owner.organization.id,
+    })
+    return { owner, guest, guestCtx: { ...base(), actor } as Ctx }
+  }
+
+  it('an ADMIN renames the organization and changes its language, audited; a MEMBER cannot', async () => {
+    const { owner, guestCtx } = await adminWithMember()
+    const updated = await updateOrganization(owner.ctx, {
+      name: ' Acme Nueva ',
+      defaultLocale: 'en',
+    })
+    expect(updated).toMatchObject({ name: 'Acme Nueva', defaultLocale: 'en' })
+    const audit = await withTenant(db, owner.organization.id, (tx) =>
+      tx.auditLog.findFirst({ where: { action: 'organization.updated' } }),
+    )
+    expect(audit?.after).toEqual({ name: 'Acme Nueva', defaultLocale: 'en' })
+    expect(audit?.before).toMatchObject({ name: 'Acme' })
+    expect(await codeOf(updateOrganization(guestCtx, { name: 'Hack' }))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    for (const bad of [{}, { name: 'x' }, { defaultLocale: 'fr' }]) {
+      expect(await codeOf(updateOrganization(owner.ctx, bad as never))).toMatchObject({
+        code: 'VALIDATION_FAILED',
+      })
+    }
+  })
+
+  it('archiving needs the exact name; then nobody can act in it and it leaves their lists', async () => {
+    const { owner, guest, guestCtx } = await adminWithMember()
+    expect(await codeOf(archiveOrganization(guestCtx, { confirmName: 'Acme' }))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    expect(await codeOf(archiveOrganization(owner.ctx, { confirmName: 'acme' }))).toEqual({
+      code: 'VALIDATION_FAILED',
+      detail: 'NAME_MISMATCH',
+    })
+    await archiveOrganization(owner.ctx, { confirmName: 'Acme' })
+    expect(
+      await codeOf(
+        resolveActor(db, { userId: owner.user.id, organizationId: owner.organization.id }),
+      ),
+    ).toMatchObject({ code: 'NOT_FOUND' })
+    expect(await listMyOrganizations(db, guest.id)).toEqual([])
+  })
+
+  it('a member leaves; the last ADMIN cannot, also when two ADMINs try at once', async () => {
+    const { owner, guest, guestCtx } = await adminWithMember()
+    await leaveOrganization(guestCtx)
+    expect(await listMyOrganizations(db, guest.id)).toEqual([])
+    // The only ADMIN left cannot leave.
+    expect(await codeOf(leaveOrganization(owner.ctx))).toEqual({
+      code: 'CONFLICT',
+      detail: 'LAST_ADMIN',
+    })
+  })
+
+  it('two ADMINs leaving at the same time leave one', async () => {
+    const owner = await personWithOrg()
+    const otherAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: otherAccess.email, role: 'ADMIN' })
+    const other = await ensureUser(base(), otherAccess.id)
+    await acceptInvitation(base(), { token, userId: other.id })
+    const { actor } = await resolveActor(db, {
+      userId: other.id,
+      organizationId: owner.organization.id,
+    })
+    const results = await Promise.allSettled([
+      leaveOrganization(owner.ctx),
+      leaveOrganization({ ...base(), actor }),
+    ])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    const admins = await withTenant(db, owner.organization.id, (tx) =>
+      tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+    )
+    expect(admins).toBe(1)
+  })
+
+  it('resending an invitation issues a new link and the old one stops working', async () => {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const first = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    const again = await resendInvitation(owner.ctx, first.invitation.id)
+    expect(again.token).not.toBe(first.token)
+    expect(await getInvitationByToken(base(), first.token)).toBeNull()
+    expect(await getInvitationByToken(base(), again.token)).toMatchObject({ status: 'PENDING' })
+    const emails = queue
+      .of('identity.invitation-email')
+      .filter((j) => (j.payload as { to?: string }).to === guestAccess.email)
+    expect(emails).toHaveLength(2)
+    expect((emails[1]!.payload as { url: string }).url).toContain(again.token)
+    // The new one works; an accepted or revoked one cannot be resent.
+    await acceptInvitation(base(), { token: again.token, userId: guest.id })
+    expect(await codeOf(resendInvitation(owner.ctx, first.invitation.id))).toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
+  it('a MEMBER cannot resend', async () => {
+    const { owner, guestCtx } = await adminWithMember()
+    const { invitation } = await createInvitation(owner.ctx, { email: `x-${newId()}@example.com` })
+    expect(await codeOf(resendInvitation(guestCtx, invitation.id))).toMatchObject({
+      code: 'FORBIDDEN',
     })
   })
 })

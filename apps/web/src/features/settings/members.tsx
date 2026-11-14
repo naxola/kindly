@@ -264,12 +264,24 @@ function PendingInvitations() {
       await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
     },
   })
+  const resend = useMutation({
+    mutationFn: async (i: { id: string; email: string }) =>
+      unwrap(
+        await apiClient.POST('/api/v1/invitations/{id}/resend', { params: { path: { id: i.id } } }),
+      ),
+    onSuccess: async (_, i) => {
+      toast.success(t('toasts.resent', { email: i.email }))
+      await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
+    },
+  })
   const items = invitations.data ?? []
 
   return (
     <section className="space-y-3">
       <h2 className="text-sm text-foreground">{t('settings.members.invitations')}</h2>
-      {revoke.error ? <Callout variant="destructive">{errorText(t, revoke.error)}</Callout> : null}
+      {(revoke.error ?? resend.error) ? (
+        <Callout variant="destructive">{errorText(t, revoke.error ?? resend.error)}</Callout>
+      ) : null}
       {invitations.isPending ? <TableSkeleton rows={2} label={t('states.loading')} /> : null}
       {invitations.isError ? (
         <QueryError error={invitations.error} onRetry={() => void invitations.refetch()} />
@@ -300,6 +312,14 @@ function PendingInvitations() {
                   {format.dateTime(new Date(i.expiresAt), { dateStyle: 'medium' })}
                 </TD>
                 <TD className="text-right">
+                  <Button
+                    size="tiny"
+                    variant="ghost"
+                    disabled={resend.isPending}
+                    onClick={() => resend.mutate({ id: i.id, email: i.email })}
+                  >
+                    {t('settings.organization.resend')}
+                  </Button>
                   <Button
                     size="tiny"
                     variant="ghost"

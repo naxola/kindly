@@ -1,4 +1,10 @@
-import { Prisma, withInvitationToken, withTenant, type OrganizationRole } from '@saas/database'
+import {
+  Prisma,
+  withInvitationToken,
+  withTenant,
+  type OrganizationRole,
+  type TenantTx,
+} from '@saas/database'
 import { z } from 'zod'
 import { nowOf, type BaseCtx, type Ctx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
@@ -89,30 +95,12 @@ export async function createInvitation(
       correlationId: ctx.correlationId,
       ip: ctx.ip,
     })
-    const [organization, inviter] = await Promise.all([
-      tx.organization.findUnique({
-        where: { id: ctx.actor.organizationId },
-        select: { name: true, defaultLocale: true },
-      }),
-      tx.user.findUnique({ where: { id: ctx.actor.userId }, select: { displayName: true } }),
-    ])
-    await ctx.queue.enqueue(
-      tx,
-      invitationEmailJob,
-      {
-        to: email,
-        locale: isLocale(organization?.defaultLocale) ? organization.defaultLocale : DEFAULT_LOCALE,
-        organizationName: organization?.name ?? '',
-        inviterName: inviter?.displayName ?? '',
-        url: invitationUrl(ctx.appUrl, token),
-        expiresInDays: ttlDays,
-      },
-      {
-        organizationId: ctx.actor.organizationId,
-        correlationId: ctx.correlationId,
-        idempotencyKey: `invitation:${created.id}`,
-      },
-    )
+    await enqueueInvitationEmail(ctx, tx, {
+      to: email,
+      token,
+      ttlDays,
+      idempotencyKey: `invitation:${created.id}`,
+    })
     await emitEvent(ctx, tx, {
       type: 'invitation.created',
       organizationId: ctx.actor.organizationId,
@@ -120,6 +108,89 @@ export async function createInvitation(
       data: { invitationId: created.id, role },
     })
     return created
+  })
+  return { invitation, token }
+}
+
+/** Queues the invitation email (inside the caller's transaction) with a link carrying `token`. */
+async function enqueueInvitationEmail(
+  ctx: Ctx,
+  tx: TenantTx,
+  {
+    to,
+    token,
+    ttlDays,
+    idempotencyKey,
+  }: {
+    to: string
+    token: string
+    ttlDays: number
+    idempotencyKey: string
+  },
+) {
+  const [organization, inviter] = await Promise.all([
+    tx.organization.findUnique({
+      where: { id: ctx.actor.organizationId },
+      select: { name: true, defaultLocale: true },
+    }),
+    tx.user.findUnique({ where: { id: ctx.actor.userId }, select: { displayName: true } }),
+  ])
+  await ctx.queue.enqueue(
+    tx,
+    invitationEmailJob,
+    {
+      to,
+      locale: isLocale(organization?.defaultLocale) ? organization.defaultLocale : DEFAULT_LOCALE,
+      organizationName: organization?.name ?? '',
+      inviterName: inviter?.displayName ?? '',
+      url: invitationUrl(ctx.appUrl, token),
+      expiresInDays: ttlDays,
+    },
+    {
+      organizationId: ctx.actor.organizationId,
+      correlationId: ctx.correlationId,
+      idempotencyKey,
+    },
+  )
+}
+
+/**
+ * Sends the invitation again with a NEW link: the previous token stops working and the expiry
+ * starts over. Only for pending (also expired) invitations: an accepted or revoked one is gone.
+ */
+export async function resendInvitation(
+  ctx: Ctx,
+  invitationId: string,
+  { ttlDays = INVITATION_TTL_DAYS }: { ttlDays?: number } = {},
+) {
+  authorize(ctx.actor, 'members.invite')
+  const token = newToken()
+  const tokenHash = hashToken(token)
+  const now = nowOf(ctx)
+  const invitation = await withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
+    const { count } = await tx.invitation.updateMany({
+      where: { id: invitationId, acceptedAt: null, revokedAt: null },
+      data: { tokenHash, expiresAt: new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000) },
+    })
+    if (count === 0) throw new DomainError('NOT_FOUND', 'Pending invitation not found')
+    const updated = await tx.invitation.findUniqueOrThrow({ where: { id: invitationId } })
+    await writeAudit(tx, {
+      organizationId: ctx.actor.organizationId,
+      actorUserId: ctx.actor.userId,
+      action: 'invitation.resent',
+      resourceType: 'invitation',
+      resourceId: invitationId,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+    })
+    await enqueueInvitationEmail(ctx, tx, {
+      to: updated.email,
+      token,
+      ttlDays,
+      // One email per link: the hash of the new token tells each resend apart.
+      idempotencyKey: `invitation:${invitationId}:${tokenHash.slice(0, 16)}`,
+    })
+    return updated
   })
   return { invitation, token }
 }
