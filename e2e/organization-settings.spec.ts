@@ -29,7 +29,6 @@ test('an admin renames the organization, resends an invitation and archives it',
   await expect(
     page.getByRole('alert').filter({ hasText: 'al menos un Administrador' }),
   ).toBeVisible()
-  await page.keyboard.press('Escape')
 
   // Resend: a second email with a different link.
   const guest = uniqueEmail('guest')

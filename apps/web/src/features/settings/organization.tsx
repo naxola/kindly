@@ -141,6 +141,8 @@ function LeavePanel() {
   const [open, setOpen] = useState(false)
   const leave = useMutation({
     mutationFn: async () => unwrap(await apiClient.POST('/api/v1/me/organization/leave')),
+    // The error shows in the panel, which the open dialog would hide.
+    onError: () => setOpen(false),
     onSuccess: () => {
       toast.success(t('toasts.left'))
       qc.clear()
