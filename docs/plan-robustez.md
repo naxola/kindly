@@ -30,7 +30,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ✅     |
 | R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ✅     |
 | R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ✅     |
-| R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
+| R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | ✅     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
@@ -162,7 +162,26 @@ otra preferencia.
   reintentos → alerta; cola creada con `retryLimit: 1` y redefinida con 3 → pg-boss la refleja.
 - **Comprobar antes:** la API exacta de pg-boss 12 para actualizar colas (versión fijada, ADR 0009).
 
-### R1.4 · Checkout ligado a la organización — `fix/billing-checkout-binding` 🔒 D1
+### R1.4 · Checkout ligado a la organización — `fix/billing-checkout-binding` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** `PaymentProvider.checkout` es asíncrono y el adaptador crea la transacción en
+  Paddle (`POST /transactions`: `items`, `custom_data.organizationId`, `collection_mode:
+automatic`, sin cliente) para la organización del actor; el navegador recibe solo
+  `transactionId` y abre `Paddle.Checkout.open({ transactionId })` (el contrato de la API deja de
+  llevar `priceId`, `customData` y `customerEmail`; `api:generate` hecho). `applyProviderEvent`
+  rechaza y audita (`billing.provider_event_rejected`) el evento de una suscripción que no es la
+  viva de la organización; acepta una nueva si no hay ninguna o la actual está `CANCELED`, o si la
+  actual nunca estuvo en un proveedor. El webhook confirma (200 sin encolar) que la organización
+  existe y que `custom_data` es un id válido, para que Paddle no reintente eternamente.
+- **Documentación de Paddle leída el 2026-11-14** (crear transacción, pasar una transacción al
+  checkout, custom data). **Sin confirmar** y anotado en `docs/deploy.md` para el sandbox: que el
+  comprador pueda escribir su email sin cliente previo, que `custom_data` llegue a los eventos
+  de la suscripción y que `open` con `transactionId` no necesite más opciones. Se pierde el email
+  precargado en el checkout. **Sigue sin probarse contra el sandbox.**
+- **Tests:** unitarios del adaptador (petición de la transacción, respuesta sin id); integración
+  (evento ajeno rechazado y auditado sin cambiar nada, suscripción nueva tras una cancelada,
+  checkout para la organización del actor, webhook de organización desconocida o con id
+  inválido). Verificado: format, lint, typecheck, 90 unitarias, 96 de integración.
 
 - **Problema:** `organizationId` viaja como `customData` desde el navegador
   (`apps/web/src/client/paddle.ts`) y `applyProviderEvent`

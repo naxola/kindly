@@ -110,6 +110,12 @@ documentación de Paddle, pero no está probado contra Paddle hasta que hagas es
    - El portal abre.
    - Un periodo cerrado con excedente aparece cobrado en Paddle.
    - Una firma inválida se rechaza (401 en los logs).
+   - **Checkout creado en el servidor (ADR 0014):** el navegador solo recibe un `txn_…` y Paddle
+     lo abre. Puntos sin confirmar en la documentación, a verificar aquí: que el checkout deja
+     escribir el email sin cliente previo, que `custom_data` de la transacción llega a la
+     suscripción y a los eventos `subscription.*`, y que `Paddle.Checkout.open` con
+     `transactionId` no necesita más opciones. Si `custom_data` no llega, los eventos no
+     encuentran la organización (se ignoran con un aviso en el log) y hay que ajustar el adaptador.
 
 ## Operación diaria
 

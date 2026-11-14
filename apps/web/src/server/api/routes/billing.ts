@@ -145,9 +145,7 @@ const CheckoutSchema = z
     provider: z.string(),
     environment: z.enum(['sandbox', 'production']),
     clientToken: z.string(),
-    priceId: z.string(),
-    customData: z.record(z.string(), z.string()),
-    customerEmail: z.email().nullable(),
+    transactionId: z.string(),
   })
   .openapi('CheckoutSession')
 
@@ -210,9 +208,7 @@ export const billingRoutes = new OpenAPIHono<ApiEnv>()
     return c.json(await setSpendCap(await actorCtx(c), c.req.valid('json')), 200)
   })
   .openapi(checkout, async (c) => {
-    const ctx = await actorCtx(c)
-    const email = c.get('access')?.email ?? null
-    return c.json(await startCheckout(ctx, payments(), c.req.valid('json'), email), 200)
+    return c.json(await startCheckout(await actorCtx(c), payments(), c.req.valid('json')), 200)
   })
   .openapi(portal, async (c) => {
     return c.json({ url: await customerPortalUrl(await actorCtx(c), payments()) }, 200)

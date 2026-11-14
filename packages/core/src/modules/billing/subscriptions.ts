@@ -31,6 +31,26 @@ export async function applyProviderEvent(
   if (s.organizationId !== organizationId) throw new Error('Event for another organization')
   const plan = planForPrice(catalog, s.priceId)
   const current = await tx.subscription.findUnique({ where: { organizationId } })
+  // Only the organization's live subscription may change it. A different subscription is
+  // accepted only when there is none, the last one is canceled, or it was never at a provider
+  // (ADR 0014). Anything else is rejected and audited, never retried.
+  if (
+    current &&
+    current.status !== 'CANCELED' &&
+    current.providerSubscriptionId &&
+    current.providerSubscriptionId !== s.ref
+  ) {
+    await writeAudit(tx, {
+      organizationId,
+      actorUserId: null,
+      action: 'billing.provider_event_rejected',
+      resourceType: 'subscription',
+      resourceId: current.id,
+      after: { reason: 'NOT_THE_LIVE_SUBSCRIPTION', providerEventId: event.id },
+      correlationId: ctx.correlationId,
+    })
+    return { applied: false as const, rejected: 'NOT_THE_LIVE_SUBSCRIPTION' as const }
+  }
   if (current?.providerUpdatedAt && current.providerUpdatedAt >= event.occurredAt) {
     return { applied: false as const }
   }
@@ -116,7 +136,6 @@ export async function startCheckout(
   ctx: Ctx,
   provider: PaymentProvider | null,
   input: z.input<typeof StartCheckoutInput>,
-  customerEmail: string | null,
   catalog: Catalog = CATALOG,
 ) {
   authorize(ctx.actor, 'billing.manage')
@@ -139,10 +158,10 @@ export async function startCheckout(
       { code: 'ALREADY_SUBSCRIBED' },
     ])
   }
+  // The server creates the transaction for the actor's organization (ADR 0014).
   return provider.checkout({
     priceId: plan.providerPriceId,
     organizationId: ctx.actor.organizationId,
-    customerEmail,
   })
 }
 

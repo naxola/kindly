@@ -16,6 +16,12 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  *   destination secret; several h1 during secret rotation; 5 s tolerance by default.
  * - One-off charge: POST /subscriptions/{id}/charge with a non-catalog price (amount in
  *   the lowest denomination). No idempotency key is documented: never retried here.
+ * - Checkout: the server creates the transaction (POST /transactions, items + custom_data,
+ *   `collection_mode: automatic`, no customer: it stays `draft` until paid in the checkout)
+ *   and the browser opens it with `Paddle.Checkout.open({ transactionId })`. Paddle copies the
+ *   transaction's custom_data to the subscription it creates (read 2026-11-14). Not verified
+ *   against the sandbox: that the checkout lets the buyer enter their email without a customer,
+ *   and that custom_data reaches the subscription events.
  * - Portal: POST /customers/{id}/portal-sessions → data.urls.general.overview.
  * Not operational until tested against the Paddle sandbox (CLAUDE.md).
  */
@@ -97,19 +103,23 @@ export class PaddlePaymentProvider implements PaymentProvider {
       config.environment === 'sandbox' ? 'https://sandbox-api.paddle.com' : 'https://api.paddle.com'
   }
 
-  checkout(input: {
-    priceId: string
-    organizationId: string
-    customerEmail: string | null
-  }): CheckoutSession {
-    // Paddle.js copies customData to the subscription it creates: that is how events find us.
+  async checkout(input: { priceId: string; organizationId: string }): Promise<CheckoutSession> {
+    // The organization is attached here, on the server, and Paddle copies it to the
+    // subscription: that is how its events find us. The browser only receives the id.
+    const body = await this.request('POST', '/transactions', {
+      items: [{ price_id: input.priceId, quantity: 1 }],
+      custom_data: { organizationId: input.organizationId },
+      collection_mode: 'automatic',
+    })
+    const transactionId = (body as { data?: { id?: unknown } } | null)?.data?.id
+    if (typeof transactionId !== 'string' || !/^txn_/.test(transactionId)) {
+      throw new Error('Paddle transaction without id')
+    }
     return {
       provider: this.name,
       environment: this.config.environment,
       clientToken: this.config.clientToken,
-      priceId: input.priceId,
-      customData: { organizationId: input.organizationId },
-      customerEmail: input.customerEmail,
+      transactionId,
     }
   }
 

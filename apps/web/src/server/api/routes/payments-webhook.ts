@@ -1,6 +1,7 @@
 import { InvalidWebhookError, providerEventJob, providerEventPayload } from '@saas/core'
 import { withTenant } from '@saas/database'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { db } from '../../db.ts'
 import { payments } from '../../payments.ts'
 import { queue } from '../../queue.ts'
@@ -31,6 +32,17 @@ export const paymentWebhookRoutes = new Hono<ApiEnv>().post('/webhooks/payments'
   if (!organizationId) {
     // A subscription created outside our checkout: nothing to attach it to.
     log.warn({ eventId: event.id }, 'payment event without organization')
+    return c.body(null, 200)
+  }
+  // custom_data comes from the provider side: acknowledge (so it does not retry forever)
+  // anything that is not one of our organizations instead of queueing a job that cannot apply.
+  const known = z.uuid().safeParse(organizationId).success
+    ? await withTenant(db(), organizationId, (tx) =>
+        tx.organization.findUnique({ where: { id: organizationId }, select: { id: true } }),
+      )
+    : null
+  if (!known) {
+    log.warn({ eventId: event.id }, 'payment event for an unknown organization')
     return c.body(null, 200)
   }
   const q = await queue()

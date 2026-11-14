@@ -637,6 +637,43 @@ describe('payment provider (B3 + B5)', () => {
     ).toBe(true)
   })
 
+  it("an event of another subscription cannot change the organization's live one (R1.4)", async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId)) // live subscription sub_<orgId>, pro@2
+    const foreign = event(
+      orgId,
+      { ref: 'sub_someone_elses', priceId: 'pri_test_pro_1', status: 'CANCELED' },
+      '2026-11-09T00:00:00Z',
+    )
+    expect(await apply(orgId, foreign)).toEqual({
+      applied: false,
+      rejected: 'NOT_THE_LIVE_SUBSCRIPTION',
+    })
+    const state = await stateAt(orgId, NOW)
+    expect(state).toMatchObject({ status: 'ACTIVE' })
+    expect(`${state.plan.plan}@${state.plan.version}`).toBe('pro@2')
+    const audited = await withTenant(db, orgId, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'billing.provider_event_rejected' } }),
+    )
+    expect(audited).toHaveLength(1)
+    expect(audited[0]!.after).toMatchObject({ providerEventId: foreign.id })
+  })
+
+  it('a new subscription is accepted once the previous one is canceled', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
+    const fresh = event(
+      orgId,
+      { ref: 'sub_second', priceId: 'pri_test_pro_1' },
+      '2026-11-09T00:00:00Z',
+    )
+    expect((await apply(orgId, fresh)).applied).toBe(true)
+    const row = await withTenant(db, orgId, (tx) =>
+      tx.subscription.findUniqueOrThrow({ where: { organizationId: orgId } }),
+    )
+    expect(row).toMatchObject({ providerSubscriptionId: 'sub_second', planVersion: 1 })
+  })
+
   it('older events arriving late are ignored', async () => {
     const { orgId } = await orgWithAdmin()
     await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
@@ -673,23 +710,22 @@ describe('payment provider (B3 + B5)', () => {
   it('checkout: only with a provider, a public paid plan and no live subscription', async () => {
     const { orgId, ctx } = await orgWithAdmin()
     const provider = fakeProvider()
-    expect(await errorOf(startCheckout(ctx, null, { plan: 'pro' }, null, TEST_CATALOG))).toEqual({
+    expect(await errorOf(startCheckout(ctx, null, { plan: 'pro' }, TEST_CATALOG))).toEqual({
       code: 'CONFLICT',
       detail: 'PAYMENTS_DISABLED',
     })
     expect(
-      await errorOf(startCheckout(ctx, provider, { plan: 'gold' }, null, TEST_CATALOG)),
+      await errorOf(startCheckout(ctx, provider, { plan: 'gold' }, TEST_CATALOG)),
     ).toMatchObject({
       detail: 'PLAN_NOT_FOUND',
     })
-    const session = await startCheckout(ctx, provider, { plan: 'pro' }, 'a@b.test', TEST_CATALOG)
-    expect(session).toMatchObject({
-      priceId: 'pri_test_pro_2',
-      customData: { organizationId: orgId },
-    })
+    // The transaction is created for the actor's organization, whatever the browser says.
+    const session = await startCheckout(ctx, provider, { plan: 'pro' }, TEST_CATALOG)
+    expect(session).toMatchObject({ transactionId: 'txn_test' })
+    expect(provider.checkouts).toEqual([{ priceId: 'pri_test_pro_2', organizationId: orgId }])
     await apply(orgId, event(orgId))
     expect(
-      await errorOf(startCheckout(ctx, provider, { plan: 'pro' }, null, TEST_CATALOG)),
+      await errorOf(startCheckout(ctx, provider, { plan: 'pro' }, TEST_CATALOG)),
     ).toMatchObject({
       detail: 'ALREADY_SUBSCRIBED',
     })
@@ -848,17 +884,23 @@ describe('charge state (R1.5)', () => {
 
 function fakeProvider(failWith?: Error) {
   const charges: OverageCharge[] = []
-  const provider: PaymentProvider & { charges: OverageCharge[] } = {
+  const checkouts: { priceId: string; organizationId: string }[] = []
+  const provider: PaymentProvider & {
+    charges: OverageCharge[]
+    checkouts: typeof checkouts
+  } = {
     name: 'paddle',
     charges,
-    checkout: (i) => ({
-      provider: 'paddle',
-      environment: 'sandbox',
-      clientToken: 'tok',
-      priceId: i.priceId,
-      customData: { organizationId: i.organizationId },
-      customerEmail: i.customerEmail,
-    }),
+    checkouts,
+    checkout: (i) => {
+      checkouts.push(i)
+      return Promise.resolve({
+        provider: 'paddle',
+        environment: 'sandbox' as const,
+        clientToken: 'tok',
+        transactionId: 'txn_test',
+      })
+    },
     portalUrl: () => Promise.resolve('https://portal.test'),
     chargeOverage: (c) =>
       failWith ? Promise.reject(failWith) : (charges.push(c), Promise.resolve()),
