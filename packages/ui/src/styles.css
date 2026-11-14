@@ -34,6 +34,8 @@
   --brand-subtle: #e8edfc;
 
   --destructive: #d93f2e;
+  /* Background of a solid destructive button: white text on it reaches 4.5:1 (WCAG AA). */
+  --destructive-solid: #d03a28;
   --destructive-subtle: #fdecea;
   --warning: #b86b00;
   --warning-subtle: #fdf3e2;
@@ -70,6 +72,7 @@
   --brand-subtle: #1c2340;
 
   --destructive: #ef6a57;
+  --destructive-solid: #c9402e;
   --destructive-subtle: #3a1a16;
   --warning: #e6a23c;
   --warning-subtle: #33240f;
@@ -105,6 +108,7 @@
   --color-brand-subtle: var(--brand-subtle);
 
   --color-destructive: var(--destructive);
+  --color-destructive-solid: var(--destructive-solid);
   --color-destructive-subtle: var(--destructive-subtle);
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);
