@@ -49,7 +49,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
 | R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
 | R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
-| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
+| R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🟡     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
 | R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
@@ -551,7 +551,19 @@ the business events` era **inestable** en la suite completa de integración (4 n
 
 ## R5 — Operación y CI
 
-### R5.1 · Actualización de dependencias — `chore/renovate` ⬜ (D9 decidida)
+### R5.1 · Actualización de dependencias — `chore/renovate` 🟡 (2026-11-14, falta activarlo)
+
+- **Entregado:** `.github/renovate.json5` y la enmienda del ADR 0009 (política D9, límites y
+  motivos). Cubre npm, acciones de GitHub (siguen fijadas por hash), imágenes de `Dockerfile` y
+  `docker-compose`, la imagen de Trivy del CI (gestor `regex`) y la versión de pnpm del
+  `Dockerfile`; la expresión de ambos gestores se probó contra los ficheros reales.
+- **Verificado:** el fichero se lee como JSON5 (Prettier) y las dos expresiones extraen
+  `ghcr.io/aquasecurity/trivy` `0.76.2` con su digest y `pnpm` `10.34.6`. **No verificado:** el
+  validador oficial (`renovate-config-validator`) **no se pudo ejecutar** (descargar y ejecutar
+  Renovate sin versión fijada fue denegado), y nada se ha probado contra Renovate real.
+- **Para que funcione, falta una acción tuya:** instalar la app de GitHub de Renovate en el
+  repositorio. El primer PR («Configure Renovate») o el panel de dependencias dirán si algún
+  nombre de propiedad de la configuración necesita ajuste.
 
 - **Problema:** todas las versiones están fijadas (ADR 0009) y nada las mueve.
 - **Contenido (enmienda 0009):** configuración de Renovate según D9, incluidas las acciones de
