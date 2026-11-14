@@ -182,4 +182,6 @@ Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque 
 - **R5.2 · Imágenes en CI** (2026-11-14, **sin ejecutar en CI**): caché de capas entre ejecuciones, escaneo con Trivy (digest fijado) y SBOM generado; falta publicar el SBOM como artefacto (necesita el hash de `actions/upload-artifact`).
 - **R5.1 · Renovate** (2026-11-14, **falta instalar la app**): configuración semanal contra `staging` (parches y menores agrupados, mayores uno a uno, 14 días de espera, nunca fusiona); enmienda del ADR 0009. Sin validar con Renovate real.
 - **R4.6 · Errores del navegador y accesibilidad** (2026-11-14): errores del cliente a Sentry/GlitchTip con las reglas de privacidad del servidor (`SENTRY_BROWSER_DSN`) y comprobación con axe en los E2E; corregidos un contraste y dos nombres accesibles.
+- **R4.3 · Ajustes de la cuenta** (2026-11-14, falta el cambio de email): nombre, idioma y contraseña en Ajustes → Cuenta.
+- **R4.4 · Ajustes de la organización** (2026-11-14): nombre e idioma, salir, archivar escribiendo el nombre y reenviar invitaciones.
 - **Decisiones D1–D11** (2026-11-14): D1, D2 (ADR 0014 aceptado), D3, D4, D6, D7, D8, D9 y D11 resueltas con las recomendaciones del plan; D10 (métricas) por confirmar y D5 (producción) sin decidir. Detalle y numeración de los ADR nuevos (0015–0019) en `docs/plan-robustez.md`.

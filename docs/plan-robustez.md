@@ -37,7 +37,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ⬜     |
-| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ⬜     |
+| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | 🟡     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
@@ -46,7 +46,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
-| R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
+| R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ✅     |
 | R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
 | R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ✅     |
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🟡     |
@@ -520,7 +520,23 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Test:** E2E: invitar muestra la confirmación; borrar la cookie de sesión y actuar lleva al
   inicio de sesión y vuelve a la misma pantalla.
 
-### R4.3 · Ajustes de la cuenta — `feat/account-settings`
+### R4.3 · Ajustes de la cuenta — `feat/account-settings` 🟡 (2026-11-14, falta el cambio de email)
+
+- **Entregado:** `updateProfile` (`core/identity`, nombre visible e idioma preferido; personal, sin
+  permisos de organización, auditado sin organización como `user.profile_updated` con antes y
+  después), `PATCH /api/v1/me` y la pantalla **Ajustes → Cuenta**: perfil (el email de acceso se
+  muestra, no se edita) y cambio de contraseña con la ruta de Better Auth (exige la actual y cierra
+  las demás sesiones). Al guardar el idioma se actualiza también la cookie de este navegador,
+  que tiene prioridad sobre la preferencia. `writeAudit` pasa a `createMany`: una fila sin
+  organización se puede insertar pero no leer con RLS, y `create` la leía al devolverla.
+- **Pendiente:** **cambio de email de acceso.** Exige activar `changeEmail` en Better Auth,
+  verificar el nuevo correo, plantillas de correo nuevas (es/en) y decidir qué pasa con las
+  invitaciones por email. Va aparte para no mezclarlo con esta entrega. Lista y cierre de sesiones
+  activas son de R2.5.
+- **Tests:** integración de `updateProfile` (nombre, idioma, vuelta a `null`, validaciones, usuario
+  inexistente, auditoría leída con el rol de plataforma) y de la ruta (propio, anónimo, sin haber
+  entrado al producto); `e2e/account.spec.ts` (nombre, idioma, contraseña errónea y correcta, y
+  entrar con la nueva y no con la antigua) y axe sobre la pantalla.
 
 - **Contenido:** `PATCH /api/v1/me` (nombre visible e idioma, caso de uso en `core/identity`,
   auditado); cambio de contraseña y de email con las rutas de Better Auth (el email exige
@@ -528,7 +544,28 @@ the business events` era **inestable** en la suite completa de integración (4 n
   permisos de organización.
 - **Test:** integración de `PATCH /me`; E2E de cambio de nombre, idioma y contraseña.
 
-### R4.4 · Ajustes de la organización — `feat/organization-settings`
+### R4.4 · Ajustes de la organización — `feat/organization-settings` ✅ (2026-11-14)
+
+- **Entregado:** `updateOrganization` (nombre e idioma, permiso `organization.update`, el
+  identificador no cambia), `archiveOrganization` (escribiendo el nombre exacto; nadie puede
+  entrar y sale de las listas; los datos se conservan), `leaveOrganization` (la membresía queda
+  `DISABLED` y un ADMIN puede reactivarla; último ADMIN bloqueado con el bloqueo de R1.1, también
+  con dos a la vez) y `resendInvitation` (token nuevo, el anterior deja de valer, caducidad
+  renovada, un correo por enlace). Rutas `PATCH /organization`, `POST /organization/archive`,
+  `POST /me/organization/leave` y `POST /invitations/{id}/resend` (`api:generate` hecho);
+  `GET /organization` devuelve también el idioma. Pantalla **Ajustes → Organización** y botón
+  «Reenviar» en las invitaciones.
+- **Defectos reales que salieron al probar, corregidos:** el botón destructivo sólido daba 3,05:1
+  de contraste en oscuro (ahora un fondo propio `--destructive-solid`, ≥ 4,5:1); al fallar «Salir»
+  el diálogo seguía abierto y tapaba el mensaje (ahora se cierra al fallar).
+- **Límites conocidos:** archivar **no cancela** la suscripción de pago (la pantalla avisa de
+  cancelarla antes); quien sale no puede ser reinvitado, solo reactivado por un ADMIN (la
+  invitación responde `ALREADY_MEMBER`); archivar y salir no emiten evento de negocio (el CRM no se
+  entera; se añadiría con tipos nuevos en `BUSINESS_EVENT_TYPES`).
+- **Tests:** integración de `core` (permisos, validación, archivar con nombre exacto, salir, último
+  ADMIN y dos a la vez, token anterior inválido, MEMBER sin permiso) y de la API; `e2e/organization-settings.spec.ts`
+  y axe. Verificado con Postgres 16 y Chromium locales: **26 de 26 E2E**, 126 de integración,
+  121 unitarias, tipos, lint, fronteras y formato.
 
 - **Contenido:** `PATCH /api/v1/organization` (nombre e idioma; el permiso `organization.update`
   ya existe sin caso de uso), `POST /organization/archive` con confirmación escribiendo el nombre,

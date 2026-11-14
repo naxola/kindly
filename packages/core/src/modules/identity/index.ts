@@ -3,8 +3,20 @@ export { PERMISSIONS, ROLE_PERMISSIONS, isPermission } from './permissions.ts'
 export type { Permission } from './permissions.ts'
 export { can, authorize, permissionsOf } from './authorization.ts'
 export type { Actor } from './authorization.ts'
-export { ensureUser, findUserByAuthId, listMyOrganizations } from './users.ts'
-export { CreateOrganizationInput, createOrganization } from './organizations.ts'
+export {
+  ensureUser,
+  findUserByAuthId,
+  listMyOrganizations,
+  updateProfile,
+  UpdateProfileInput,
+} from './users.ts'
+export {
+  CreateOrganizationInput,
+  createOrganization,
+  UpdateOrganizationInput,
+  updateOrganization,
+  archiveOrganization,
+} from './organizations.ts'
 export { resolveActor } from './actor.ts'
 export {
   ChangeRoleInput,
@@ -12,6 +24,7 @@ export {
   changeMemberRole,
   disableMember,
   enableMember,
+  leaveOrganization,
   organizationAdmins,
 } from './members.ts'
 export {
@@ -27,6 +40,7 @@ export {
   CreateInvitationInput,
   createInvitation,
   revokeInvitation,
+  resendInvitation,
   listPendingInvitations,
   getInvitationByToken,
   acceptInvitation,

@@ -13,7 +13,7 @@ export const buttonVariants = cva(
         outline: 'border-border-strong bg-transparent text-foreground hover:bg-surface-200',
         ghost:
           'border-transparent bg-transparent text-foreground-light hover:bg-surface-200 hover:text-foreground',
-        destructive: 'border-destructive bg-destructive text-white hover:opacity-90',
+        destructive: 'border-destructive-solid bg-destructive-solid text-white hover:opacity-90',
         warning: 'border-warning bg-warning text-white hover:opacity-90',
       },
       size: {

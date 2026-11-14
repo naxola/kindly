@@ -9,6 +9,7 @@ import {
   getInvitationByToken,
   isDomainError,
   listPendingInvitations,
+  resendInvitation,
   revokeInvitation,
 } from '@saas/core'
 import { captureError } from '@saas/adapters/errors'
@@ -71,6 +72,19 @@ const revoke = createRoute({
   security: cookieAuth,
   request: { params: IdParam },
   responses: { 204: { description: 'Revoked' }, ...errorResponses(401, 403, 404) },
+})
+
+const resend = createRoute({
+  method: 'post',
+  path: '/invitations/{id}/resend',
+  tags: ['invitations'],
+  summary: 'Send a pending invitation again with a new link (the old one stops working)',
+  security: cookieAuth,
+  request: { params: IdParam },
+  responses: {
+    200: { description: 'Sent', ...json(InvitationSchema) },
+    ...errorResponses(401, 403, 404),
+  },
 })
 
 // The preview is public: limit guessing attempts per IP (tokens are 256-bit, this is hygiene).
@@ -147,6 +161,10 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(create, async (c) => {
     const { invitation } = await createInvitation(await actorCtx(c), c.req.valid('json'))
     return c.json(toJson(invitation), 201)
+  })
+  .openapi(resend, async (c) => {
+    const { invitation } = await resendInvitation(await actorCtx(c), c.req.valid('param').id)
+    return c.json(toJson(invitation), 200)
   })
   .openapi(revoke, async (c) => {
     await revokeInvitation(await actorCtx(c), c.req.valid('param').id)

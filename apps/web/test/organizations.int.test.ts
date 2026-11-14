@@ -311,6 +311,125 @@ describe('sign-up from an invitation link', () => {
   })
 })
 
+describe('organization settings through the API (R4.4)', () => {
+  async function orgWithMember() {
+    const owner = await person('settings-owner')
+    await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Ajustes',
+      slug: `ajustes-${newId().slice(-12)}`,
+    })
+    const guest = await person('settings-guest')
+    await owner.browser.call('POST', '/api/v1/invitations', { email: guest.email })
+    const token = await invitationToken(guest.email)
+    expect((await guest.browser.call('POST', '/api/v1/invitations/accept', { token })).status).toBe(
+      200,
+    )
+    return { owner, guest, token }
+  }
+
+  it('an ADMIN renames the organization; a MEMBER cannot', async () => {
+    const { owner, guest } = await orgWithMember()
+    const res = await owner.browser.call('PATCH', '/api/v1/organization', {
+      name: 'Ajustes Nuevos',
+      defaultLocale: 'en',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ name: 'Ajustes Nuevos', defaultLocale: 'en' })
+    expect(
+      (await guest.browser.call('PATCH', '/api/v1/organization', { name: 'Nope' })).status,
+    ).toBe(403)
+    expect((await owner.browser.call('PATCH', '/api/v1/organization', {})).status).toBe(400)
+  })
+
+  it('a member leaves and loses access; the last ADMIN cannot leave', async () => {
+    const { owner, guest } = await orgWithMember()
+    expect((await guest.browser.call('POST', '/api/v1/me/organization/leave')).status).toBe(204)
+    expect((await guest.browser.call('GET', '/api/v1/members')).status).not.toBe(200)
+    const res = await owner.browser.call('POST', '/api/v1/me/organization/leave')
+    expect(res.status).toBe(409)
+    expect(res.body.error.details).toEqual([{ code: 'LAST_ADMIN' }])
+  })
+
+  it('archiving needs the exact name and closes the organization', async () => {
+    const { owner } = await orgWithMember()
+    let res = await owner.browser.call('POST', '/api/v1/organization/archive', {
+      confirmName: 'otro nombre',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error.details).toEqual([{ path: 'confirmName', code: 'NAME_MISMATCH' }])
+    res = await owner.browser.call('POST', '/api/v1/organization/archive', {
+      confirmName: 'Ajustes',
+    })
+    expect(res.status).toBe(204)
+    expect((await owner.browser.call('GET', '/api/v1/members')).status).not.toBe(200)
+  })
+
+  it('resending an invitation gives a new link and the old one stops working', async () => {
+    const owner = await person('resend-owner')
+    await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Reenvio',
+      slug: `reenvio-${newId().slice(-12)}`,
+    })
+    const email = `resend-${newId()}@example.com`
+    const created = await owner.browser.call('POST', '/api/v1/invitations', { email })
+    const oldToken = await invitationToken(email)
+    const res = await owner.browser.call('POST', `/api/v1/invitations/${created.body.id}/resend`)
+    expect(res.status).toBe(200)
+    const { rows } = await jobs.query(
+      `SELECT data->'payload'->>'url' AS url FROM pgboss.job
+       WHERE name = 'identity.invitation-email' AND data->'payload'->>'to' = $1`,
+      [email],
+    )
+    expect(rows).toHaveLength(2)
+    const tokens = rows.map((r) => new URL(r.url as string).hash.slice(1))
+    const newToken = tokens.find((t) => t !== oldToken)!
+    expect(
+      (await new Browser().call('POST', '/api/v1/invitations/preview', { token: oldToken })).status,
+    ).toBe(404)
+    expect(
+      (await new Browser().call('POST', '/api/v1/invitations/preview', { token: newToken })).status,
+    ).toBe(200)
+  })
+})
+
+describe('profile through the API (R4.3)', () => {
+  it('a person changes their own name and language; /me shows it', async () => {
+    const owner = await person('profile')
+    // Entering the product creates the business user.
+    await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Perfil',
+      slug: `perfil-${newId().slice(-12)}`,
+    })
+    let res = await owner.browser.call('PATCH', '/api/v1/me', {
+      displayName: '  Nuevo Nombre ',
+      locale: 'en',
+    })
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ displayName: 'Nuevo Nombre', locale: 'en' })
+    res = await owner.browser.call('GET', '/api/v1/me')
+    expect(res.body.user).toMatchObject({ displayName: 'Nuevo Nombre', locale: 'en' })
+    res = await owner.browser.call('PATCH', '/api/v1/me', { locale: null })
+    expect(res.body.locale).toBeNull()
+  })
+
+  it('refuses invalid values, anonymous callers and people who have not entered yet', async () => {
+    const entered = await person('profile-bad')
+    await entered.browser.call('POST', '/api/v1/organizations', {
+      name: 'Malo',
+      slug: `malo-${newId().slice(-12)}`,
+    })
+    expect((await entered.browser.call('PATCH', '/api/v1/me', { displayName: ' ' })).status).toBe(
+      400,
+    )
+    expect((await entered.browser.call('PATCH', '/api/v1/me', { locale: 'fr' })).status).toBe(400)
+    expect((await new Browser().call('PATCH', '/api/v1/me', { displayName: 'X' })).status).toBe(401)
+    const newcomer = await person('profile-new')
+    expect((await newcomer.browser.call('PATCH', '/api/v1/me', { displayName: 'X' })).status).toBe(
+      403,
+    )
+  })
+})
+
 describe('billing through the API', () => {
   it('an ADMIN sees the default plan; a MEMBER is refused', async () => {
     const owner = await person('billing-owner')

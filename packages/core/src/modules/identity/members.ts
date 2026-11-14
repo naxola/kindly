@@ -87,6 +87,33 @@ export async function changeMemberRole(
   })
 }
 
+/**
+ * The person leaves the organization. Their membership is disabled (history stays) and an ADMIN
+ * can re-enable it; the organization always keeps an active ADMIN, also when two leave at once.
+ */
+export async function leaveOrganization(ctx: Ctx) {
+  return tenantTx(ctx, async (tx) => {
+    await lockOrganizationMembers(tx, ctx.actor.organizationId)
+    const member = await tx.organizationMember.findUnique({ where: { id: ctx.actor.memberId } })
+    if (!member || member.status !== 'ACTIVE')
+      throw new DomainError('NOT_FOUND', 'Member not found')
+    if (member.role === 'ADMIN') await assertAnotherActiveAdmin(tx, member.id)
+    await tx.organizationMember.update({
+      where: { id: member.id },
+      data: { status: 'DISABLED', disabledAt: nowOf(ctx) },
+    })
+    await writeAudit(tx, {
+      organizationId: ctx.actor.organizationId,
+      actorUserId: ctx.actor.userId,
+      action: 'member.left',
+      resourceType: 'organization_member',
+      resourceId: member.id,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+    })
+  })
+}
+
 /** Re-enables a disabled member. */
 export async function enableMember(ctx: Ctx, memberId: string) {
   authorize(ctx.actor, 'members.manage')

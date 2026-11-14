@@ -130,7 +130,9 @@
     "settings": {
       "title": "Ajustes",
       "members": "Miembros",
-      "billing": "Plan y consumo"
+      "billing": "Plan y consumo",
+      "account": "Cuenta",
+      "organization": "Organización"
     }
   },
   "orgSwitcher": {
@@ -269,6 +271,39 @@
       "choosePlan": "Contratar un plan",
       "subscribe": "Contratar",
       "afterCheckout": "Tras el pago, el plan se activa en cuanto el proveedor lo confirma (unos segundos)."
+    },
+    "account": {
+      "title": "Cuenta",
+      "description": "Tus datos personales. No dependen de ninguna organización.",
+      "profile": "Perfil",
+      "profileHint": "Cómo te ven los demás miembros y en qué idioma usas la aplicación.",
+      "emailFixed": "El email de acceso no se puede cambiar desde aquí todavía.",
+      "language": "Idioma",
+      "languageHint": "Tu preferencia; este navegador puede tener otra elegida en el menú de ajustes.",
+      "languageDefault": "El de la organización",
+      "password": "Contraseña",
+      "passwordHint": "Al cambiarla se cierran tus sesiones en otros dispositivos.",
+      "currentPassword": "Contraseña actual",
+      "changePassword": "Cambiar contraseña"
+    },
+    "organization": {
+      "title": "Organización",
+      "description": "Datos generales de la organización activa.",
+      "general": "General",
+      "name": "Nombre",
+      "slug": "Identificador",
+      "slugHint": "No se puede cambiar.",
+      "language": "Idioma por defecto",
+      "languageHint": "Lo usan los correos y quien no haya elegido otro.",
+      "leave": "Salir de la organización",
+      "leaveHint": "Dejas de ver sus datos. Un administrador puede volver a activarte. La organización siempre conserva al menos un administrador.",
+      "leaveButton": "Salir",
+      "leaveConfirm": "¿Seguro que quieres salir de esta organización?",
+      "archive": "Archivar la organización",
+      "archiveHint": "Nadie podrá entrar en ella y desaparece de las listas. Los datos se conservan. Si tiene una suscripción de pago, cancélala antes en Plan y consumo.",
+      "archiveType": "Escribe «{name}» para confirmar",
+      "archiveButton": "Archivar",
+      "resend": "Reenviar"
     }
   },
   "billing": {
@@ -295,6 +330,12 @@
     "roleChanged": "Rol actualizado",
     "memberDisabled": "Miembro desactivado",
     "memberEnabled": "Miembro activado",
-    "spendCapSaved": "Tope de gasto guardado"
+    "spendCapSaved": "Tope de gasto guardado",
+    "profileSaved": "Perfil guardado",
+    "passwordChanged": "Contraseña cambiada. Se han cerrado las demás sesiones.",
+    "organizationSaved": "Organización guardada",
+    "left": "Has salido de la organización",
+    "archived": "Organización archivada",
+    "resent": "Invitación reenviada a {email}"
   }
 }

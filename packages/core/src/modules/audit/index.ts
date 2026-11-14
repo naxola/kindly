@@ -18,18 +18,22 @@ export interface AuditEntry {
  * if the change it describes was committed. The table is append-only for app_user.
  */
 export async function writeAudit(tx: TenantTx, entry: AuditEntry): Promise<void> {
-  await tx.auditLog.create({
-    data: {
-      organizationId: entry.organizationId,
-      actorType: entry.actorUserId ? 'USER' : 'SYSTEM',
-      actorId: entry.actorUserId,
-      action: entry.action,
-      resourceType: entry.resourceType,
-      resourceId: entry.resourceId ?? null,
-      ...(entry.before !== undefined ? { before: entry.before } : {}),
-      ...(entry.after !== undefined ? { after: entry.after } : {}),
-      correlationId: entry.correlationId ?? null,
-      ip: entry.ip ?? null,
-    },
+  // `createMany` (no RETURNING): rows without an organization can be inserted but not read back
+  // under RLS, and `create` would read the row it just wrote.
+  await tx.auditLog.createMany({
+    data: [
+      {
+        organizationId: entry.organizationId,
+        actorType: entry.actorUserId ? 'USER' : 'SYSTEM',
+        actorId: entry.actorUserId,
+        action: entry.action,
+        resourceType: entry.resourceType,
+        resourceId: entry.resourceId ?? null,
+        ...(entry.before !== undefined ? { before: entry.before } : {}),
+        ...(entry.after !== undefined ? { after: entry.after } : {}),
+        correlationId: entry.correlationId ?? null,
+        ip: entry.ip ?? null,
+      },
+    ],
   })
 }
