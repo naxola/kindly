@@ -649,6 +649,11 @@ the business events` era **inestable** en la suite completa de integración (4 n
      Una vulnerabilidad crítica con arreglo en una imagen base ajena (Node, Postgres) también
      rompe la CI hasta subir la base: es el comportamiento pedido.
   3. **SBOM CycloneDX** de cada imagen generado en `sbom/` y resumido en el resumen del job.
+- **Primeras ejecuciones reales (2026-11-14):** el job se quedaba sin disco (se libera espacio
+  del runner, se borra el constructor y cada imagen se vuelca una sola vez: primero el SBOM y el
+  escaneo lee el SBOM). Ya ejecuta entero y encontró una crítica real en la imagen base de
+  Postgres (`gosu`, CVE-2025-68121), aceptada por el usuario con caducidad en
+  `.trivyignore.yaml` (ADR 0009). Las cuatro imágenes propias salen limpias.
 - **Pendiente:** publicarlo como **artefacto** necesita `actions/upload-artifact` fijada por
   hash; no la añadí porque resolver ese hash exige leer otro repositorio de GitHub (fuera del
   alcance de esta sesión) y no voy a inventarlo. Pásame el hash (o autoriza la consulta) y es un

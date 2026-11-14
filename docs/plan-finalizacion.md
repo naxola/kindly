@@ -15,14 +15,14 @@ para tests y E2E con Node 24 y Postgres 18):
 
 **Hecho pero sin validar fuera de aquí:**
 
-| Qué                              | Qué falta                                                                     |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| Cobros con Paddle (B3, B5, R1.4) | Probar contra el **sandbox**: nunca se ha ejecutado contra Paddle             |
-| CSP (R2.1)                       | Está en **modo informe**; pasar a bloqueante tras probar el checkout          |
-| Observabilidad (fase 5)          | Validar en staging con GlitchTip, ntfy y Uptime Kuma                          |
-| Despliegue en staging (fase 6)   | Aplicar las migraciones nuevas (`CHECK`, índice de invitaciones) con datos    |
-| Imágenes en CI (R5.2)            | El escaneo dejó el CI en rojo por disco; arreglo subido, **pendiente de ver** |
-| Renovate (R5.1)                  | Instalar la app en el repositorio; sin validar con Renovate real              |
+| Qué                              | Qué falta                                                                  |
+| -------------------------------- | -------------------------------------------------------------------------- |
+| Cobros con Paddle (B3, B5, R1.4) | Probar contra el **sandbox**: nunca se ha ejecutado contra Paddle          |
+| CSP (R2.1)                       | Está en **modo informe**; pasar a bloqueante tras probar el checkout       |
+| Observabilidad (fase 5)          | Validar en staging con GlitchTip, ntfy y Uptime Kuma                       |
+| Despliegue en staging (fase 6)   | Aplicar las migraciones nuevas (`CHECK`, índice de invitaciones) con datos |
+| Imágenes en CI (R5.2)            | Excepción de `gosu` caduca el 2026-12-14: subir Postgres a 18.7 antes      |
+| Renovate (R5.1)                  | Instalar la app en el repositorio; sin validar con Renovate real           |
 
 **Sin hacer:** R2.4, R2.5, R3.2, R3.3, R3.4, R3.5, R4.5, R5.4, R5.5 y el cambio de email (R4.3).
 
