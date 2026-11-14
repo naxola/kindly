@@ -65,6 +65,14 @@ export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
 ])
 
 /**
+ * Signing secret of the email provider's webhook (bounces and complaints, ADR 0017). Resend
+ * signs with Svix: `whsec_…`. Empty: the webhook answers 404 and nothing is suppressed.
+ */
+export const emailWebhookEnv = z.object({
+  EMAIL_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+})
+
+/**
  * Business events webhook (n8n or similar). Without URL, events are recorded as
  * delivered-to-nobody in the worker log; with URL, the secret is mandatory.
  */

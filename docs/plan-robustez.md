@@ -41,7 +41,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
-| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
+| R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ✅     |
 | R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
@@ -472,7 +472,24 @@ the business events` era **inestable** en la suite completa de integración (4 n
   cierre compara contador y suma (si difieren: alerta, gana la suma).
 - **Test:** los de cobros existentes más concurrencia y la comparación en el cierre.
 
-### R3.4 · Supresión de correo — `feat/email-suppression` ⬜ (D11 decidida)
+### R3.4 · Supresión de correo — `feat/email-suppression` ✅ (2026-11-14, ADR 0017)
+
+- **Entregado:** tabla global `email_suppressions` (migración `20261114170000`, en
+  `GLOBAL_TABLES`): solo el SHA-256 del email normalizado y el motivo (`BOUNCE_PERMANENT` o
+  `COMPLAINT`). `POST /api/webhooks/email` verifica la firma de Resend (Svix) con `node:crypto`,
+  con tolerancia de 5 minutos y comparación en tiempo constante; un rebote **permanente** o una
+  queja suprimen a cada destinatario; lo demás se ignora con 200. Sin `EMAIL_WEBHOOK_SECRET`
+  responde 404. `SuppressingEmailSender` envuelve al remitente del worker: no escribe a una
+  dirección suprimida y lo registra **con el hash, nunca con la dirección**; los correos de acceso
+  (`category: 'access'`: verificación y recuperación) solo se detienen por rebote permanente.
+  Script `pnpm ops:email status|unsuppress <email>`. Variable nueva en `.env.example`,
+  `compose.yml` e `infra/staging/.env.example`.
+- **Tests:** unitarios de la firma y de la lectura de eventos (rebote permanente y temporal,
+  queja, varias firmas, secreto distinto, cuerpo alterado, sello de tiempo viejo o futuro);
+  integración del almacén y del remitente (solo hash, acceso frente a queja y rebote, quitar la
+  supresión) y de la ruta (apagada sin secreto, reintento idempotente, firma falsa).
+- **Sin verificar:** el webhook contra Resend real (se hará en la etapa de validación externa).
+  El formato se tomó de su documentación el 2026-11-14, no de un evento recibido.
 
 - **Problema:** no se procesan rebotes ni quejas; se sigue enviando a direcciones que el proveedor
   ya marcó, lo que daña la reputación del dominio.

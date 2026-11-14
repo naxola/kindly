@@ -43,6 +43,7 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
     await sender.send({
       to: p.to,
       idempotencyKey: `${verificationEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
       ...verificationEmail(p.locale, p.name, p.url),
     })
   },
@@ -50,6 +51,7 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
     await sender.send({
       to: p.to,
       idempotencyKey: `${passwordResetEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
       ...passwordResetEmail(p.locale, p.name, p.url),
     })
   },

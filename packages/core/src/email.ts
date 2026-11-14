@@ -7,10 +7,16 @@ export interface EmailMessage {
   /** Identifies the effect (e.g. `invitation:{id}`); the provider never sends the same one twice. */
   idempotencyKey: string
   replyTo?: string
+  /**
+   * `access`: needed to get into the account (verification, password recovery). Only a permanent
+   * bounce stops it; a spam complaint does not (ADR 0017). Default: `notification`.
+   */
+  category?: 'access' | 'notification'
 }
 
 export interface EmailSender {
-  send(message: EmailMessage): Promise<{ providerMessageId: string }>
+  /** `suppressed`: not sent because the address is on the suppression list (ADR 0017). */
+  send(message: EmailMessage): Promise<{ providerMessageId: string; suppressed?: boolean }>
 }
 
 const escapeHtml = (s: string) =>

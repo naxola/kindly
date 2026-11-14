@@ -224,6 +224,24 @@ model RateLimit {
   @@map("rate_limits")
 }
 
+enum EmailSuppressionReason {
+  BOUNCE_PERMANENT
+  COMPLAINT
+}
+
+/// Addresses the product must not write to again (ADR 0017). Global: no tenant, no RLS.
+/// Only the SHA-256 of the normalized address is kept, never the address.
+model EmailSuppression {
+  emailHash     String                 @map("email_hash")
+  reason        EmailSuppressionReason
+  /// Provider event that caused it (idempotency and traceability).
+  sourceEventId String?                @map("source_event_id")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([emailHash, reason])
+  @@map("email_suppressions")
+}
+
 // ============================================================================
 // BILLING (ADR 0012). The plan catalog lives in code (core/billing/catalog.ts), versioned;
 // the database stores which plan version each organization has and what it consumed.

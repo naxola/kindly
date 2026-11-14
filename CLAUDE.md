@@ -156,6 +156,9 @@ Convenciones al añadir código:
 - Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
   `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
   claves en hash. Cada límite nuevo lleva su `scope` propio.
+- Correo (ADR 0017): el worker comprueba la lista de supresión antes de enviar. Un correo
+  imprescindible para entrar en la cuenta lleva `category: 'access'`; el resto se detiene también
+  por queja. La tabla guarda solo hashes: nunca se registra una dirección.
 - Observabilidad (ADR 0008): los errores inesperados se reportan con `captureError`
   (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
   Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son

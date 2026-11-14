@@ -17,6 +17,8 @@ const GLOBAL_TABLES = new Set<string>([
   'users',
   // Request limiter counters (ADR 0015): hashed keys, no tenant data.
   'rate_limits',
+  // Suppressed addresses (ADR 0017): only hashes, shared by the whole product.
+  'email_suppressions',
 ])
 
 let db: Db

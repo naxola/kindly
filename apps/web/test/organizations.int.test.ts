@@ -1,7 +1,9 @@
 import { createDb, newId, type Db } from '@saas/database'
+import { createHmac } from 'node:crypto'
 import pg from 'pg'
 import type * as core_ from '@saas/core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { emailHash } from '@saas/adapters/email'
 import { rateLimitKey } from '@saas/adapters/rate-limit'
 import { api } from '../src/server/api/app.ts'
 import {
@@ -315,6 +317,47 @@ describe('sign-up from an invitation link', () => {
     expect(res.status).toBe(400)
     expect(res.body.error.details).toEqual([{ code: 'PASSWORD_TOO_SHORT', path: 'password' }])
     expect(await db.authUser.findUnique({ where: { email } })).toBeNull()
+  })
+})
+
+describe('email provider webhook (R3.4, ADR 0017)', () => {
+  const SECRET = `whsec_${Buffer.from('a-test-signing-key-of-32-bytes!!').toString('base64')}`
+  const post = (body: string, headers: Record<string, string>) =>
+    api.request(`${ORIGIN}/api/webhooks/email`, { method: 'POST', body, headers })
+  const sign = (body: string, id: string) => {
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const signature = createHmac('sha256', Buffer.from(SECRET.slice(6), 'base64'))
+      .update(`${id}.${timestamp}.${body}`)
+      .digest('base64')
+    return { 'svix-id': id, 'svix-timestamp': timestamp, 'svix-signature': `v1,${signature}` }
+  }
+
+  it('is off (404) without a secret; with one, a signed bounce suppresses the address once', async () => {
+    const email = `bounce-${newId()}@example.com`
+    const body = JSON.stringify({
+      type: 'email.bounced',
+      data: { to: [email], bounce: { type: 'Permanent', subType: 'General', message: 'gone' } },
+    })
+    delete process.env.EMAIL_WEBHOOK_SECRET
+    expect((await post(body, sign(body, 'msg_a'))).status).toBe(404)
+
+    process.env.EMAIL_WEBHOOK_SECRET = SECRET
+    try {
+      // No session and no CSRF header: the signature is the authentication.
+      expect((await post(body, sign(body, 'msg_a'))).status).toBe(200)
+      // The provider retries with the same id: harmless.
+      expect((await post(body, sign(body, 'msg_a'))).status).toBe(200)
+      const rows = await db.emailSuppression.findMany({ where: { emailHash: emailHash(email) } })
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ reason: 'BOUNCE_PERMANENT', sourceEventId: 'msg_a' })
+
+      const forged = await post(body, { ...sign(body, 'msg_b'), 'svix-signature': 'v1,AAAA' })
+      expect(forged.status).toBe(401)
+      const tampered = await post(body.replace('Permanent', 'Temporary'), sign(body, 'msg_c'))
+      expect(tampered.status).toBe(401)
+    } finally {
+      delete process.env.EMAIL_WEBHOOK_SECRET
+    }
   })
 })
 

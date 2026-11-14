@@ -1,7 +1,7 @@
 import { createAlertSender, type AlertSender } from '@saas/adapters/alerts'
 import { createPaymentProvider } from '@saas/adapters/payments'
 import { loadPaymentEnv } from '@saas/config/env'
-import { createEmailSender } from '@saas/adapters/email'
+import { createEmailSender, SuppressingEmailSender } from '@saas/adapters/email'
 import { captureError, initErrorTracking } from '@saas/adapters/errors'
 import { LogEventSink, WebhookEventSink } from '@saas/adapters/events'
 import type { Logger } from '@saas/adapters/logger'
@@ -67,9 +67,13 @@ export async function startWorker({
   const sender =
     overrides.email ??
     (selected.some((r) => r.sendsEmail) ? createEmailSender(loadEmailEnv(env.APP_ENV), log) : null)
+  // Every email goes through the suppression list first (ADR 0017). Built on first use: the
+  // database client is created further down.
+  let guarded: EmailSender | null = null
   const email = () => {
     if (!sender) throw new Error('Email is not configured for this worker')
-    return sender
+    guarded ??= new SuppressingEmailSender(sender, db, log)
+    return guarded
   }
   const events = overrides.events ?? eventSinkFromEnv(log)
   const observability = loadObservabilityEnv()
