@@ -51,7 +51,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | ⬜     |
-| R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ⬜     |
+| R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
 | R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
 
@@ -563,7 +563,30 @@ the business events` es **inestable** en la suite completa de integración (4 n�
   escaneo de las imágenes (Trivy, falla con críticas con arreglo disponible) y SBOM como artefacto.
   Acciones nuevas fijadas por hash, como las actuales.
 
-### R5.3 · Parada limpia — `fix/graceful-shutdown`
+### R5.3 · Parada limpia — `fix/graceful-shutdown` ✅ (2026-11-14)
+
+- **Entregado (worker):** `installFatalHandlers` (`@saas/adapters/errors`, núcleo puro e
+  inyectable en `errors/fatal.ts`): ante `uncaughtException` o `unhandledRejection` registra
+  `fatal`, reporta con `captureError`, vacía con `flushErrors` y sale con 1 (Docker lo reinicia);
+  solo atiende el primer fallo y la salida no depende de que el reporte funcione.
+  `initErrorTracking({ manualProcessErrors })` quita las integraciones por defecto del SDK de
+  Sentry para esos dos eventos en el worker, para no duplicar el reporte. La parada del worker
+  captura el error de `worker.stop()`, lo registra y sale con 1, siempre tras vaciar los
+  reportes. `/ready` comprueba también la conexión de pg-boss, no solo la de Prisma.
+- **Descartado (web), comprobado a mano:** la web no necesita cierre propio. El `server.js`
+  de Next ya atiende `SIGTERM`: cierra el servidor HTTP, deja terminar lo que está en vuelo y
+  sale con 143. Prueba con la web compilada (standalone): una petición en vuelo al recibir
+  `SIGTERM` terminó con 200, la parada tardó 0,28 s, salió con 143 y no quedó ninguna conexión
+  en `pg_stat_activity`. Cerrar pg-boss o el pool desde un manejador propio cortaría las
+  peticiones en vuelo que encolan trabajos, así que no se hace. Next ya instala sus manejadores
+  de errores de proceso y el SDK de Sentry captura los suyos en la web.
+- **Tests:** unitarios de `installFatalHandlers` (excepción, rechazo, no-Error, fallo del
+  reporte, un solo fallo); a mano, un proceso con un rechazo sin atender: log `fatal` y código 1.
+- **Hallazgo, sin resolver:** la inestabilidad del test del worker (ver R3.1) **no depende** de
+  los tiempos de Postgres (sigue fallando con límites de 600 s). Al fallar, quedan 4 trabajos
+  `events.deliver` en `created` y sin consumir con el worker vivo durante más de 40 s, mientras
+  otros 28 de la misma cola sí se entregaron. Puede ser un defecto real del consumo de esa cola
+  (no solo del test) y merece su propio bloque de investigación.
 
 - **Problema:** la web no cierra pg-boss ni el pool al recibir `SIGTERM`; el worker no registra
   `unhandledRejection` ni `uncaughtException`, y un fallo en `shutdown` queda sin capturar.

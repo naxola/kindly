@@ -1,4 +1,4 @@
-import { flushErrors } from '@saas/adapters/errors'
+import { flushErrors, captureError, installFatalHandlers } from '@saas/adapters/errors'
 import { createLogger } from '@saas/adapters/logger'
 import { loadEnv } from './env.ts'
 import { startWorker } from './worker.ts'
@@ -10,6 +10,9 @@ const log = createLogger({
   pretty: env.NODE_ENV === 'development',
 })
 
+// Anything uncaught ends the process with 1 so Docker starts a clean one (R5.3).
+installFatalHandlers(log)
+
 let stopping = false
 async function main() {
   const worker = await startWorker({ env, log })
@@ -17,10 +20,19 @@ async function main() {
     if (stopping) return
     stopping = true
     log.info({ signal }, 'worker stopping')
-    await worker.stop()
-    await flushErrors()
-    log.info('worker stopped')
-    process.exit(0)
+    let code = 0
+    try {
+      await worker.stop()
+      log.info('worker stopped')
+    } catch (err) {
+      // A failed shutdown must be visible and must still end the process.
+      code = 1
+      log.error({ err }, 'worker failed to stop cleanly')
+      captureError(err, { tags: { phase: 'shutdown' } })
+    } finally {
+      await flushErrors().catch(() => undefined)
+      process.exit(code)
+    }
   }
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
   process.on('SIGINT', () => void shutdown('SIGINT'))

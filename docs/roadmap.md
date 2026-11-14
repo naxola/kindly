@@ -178,4 +178,5 @@ Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque 
 - **R4.1 · Estados de error y carga** (2026-11-14): páginas de error, 404 y carga en `web` y `site`; `Skeleton`; miembros, invitaciones y cobros muestran carga, error con referencia y «Reintentar», y vacío.
 - **R4.2 · Confirmaciones y sesión caducada** (2026-11-14): confirmación tras cada mutación de miembros, invitaciones y tope de gasto; una sesión caducada lleva a iniciar sesión y vuelve a la misma pantalla.
 - **R3.1 · Restricciones `CHECK` de cobros** (2026-11-14): cantidades, importes, topes y periodos de las tablas de cobros validados por la base de datos.
+- **R5.3 · Parada limpia** (2026-11-14): el worker sale con 1 y reporta ante errores sin capturar y ante un fallo al pararse; `/ready` comprueba pg-boss. La web ya se para bien con el `SIGTERM` de Next (comprobado).
 - **Decisiones D1–D11** (2026-11-14): D1, D2 (ADR 0014 aceptado), D3, D4, D6, D7, D8, D9 y D11 resueltas con las recomendaciones del plan; D10 (métricas) por confirmar y D5 (producción) sin decidir. Detalle y numeración de los ADR nuevos (0015–0019) en `docs/plan-robustez.md`.

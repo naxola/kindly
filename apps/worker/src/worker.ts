@@ -73,7 +73,13 @@ export async function startWorker({
   }
   const events = overrides.events ?? eventSinkFromEnv(log)
   const observability = loadObservabilityEnv()
-  initErrorTracking({ dsn: observability.SENTRY_DSN, environment: env.APP_ENV, service: 'worker' })
+  initErrorTracking({
+    dsn: observability.SENTRY_DSN,
+    environment: env.APP_ENV,
+    service: 'worker',
+    // main.ts installs its own handlers for uncaught errors (R5.3).
+    manualProcessErrors: true,
+  })
   const alerts = overrides.alerts ?? createAlertSender(observability, log)
   const payments =
     overrides.payments !== undefined ? overrides.payments : createPaymentProvider(loadPaymentEnv())
@@ -201,7 +207,9 @@ export async function startWorker({
   interval.unref()
 
   const ready = async () => {
+    // Both connections: the application's (Prisma) and the queue's (pg-boss).
     await db.$queryRaw`SELECT 1`
+    await boss.getDb().executeSql('SELECT 1')
     return true
   }
   let health: Server | null = null
