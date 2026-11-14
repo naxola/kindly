@@ -194,6 +194,53 @@ describe('invitations', () => {
     })
   })
 
+  it('two concurrent invitations to the same email leave exactly one (R2.3)', async () => {
+    const owner = await personWithOrg()
+    const email = `race-${newId()}@example.com`
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () => createInvitation(owner.ctx, { email })),
+    )
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        expect(r.reason).toBeInstanceOf(DomainError)
+        expect((r.reason as DomainError).details?.[0]?.code).toBe('PENDING_INVITATION')
+      }
+    }
+    const pending = await withTenant(db, owner.organization.id, (tx) =>
+      tx.invitation.count({ where: { email, acceptedAt: null, revokedAt: null } }),
+    )
+    expect(pending).toBe(1)
+  })
+
+  it('inviting someone who is already a member is ALREADY_MEMBER', async () => {
+    const { owner, guest, guestAccess, token } = await invited()
+    await acceptInvitation(base(), { token, userId: guest.id })
+    expect(await codeOf(createInvitation(owner.ctx, { email: guestAccess.email }))).toEqual({
+      code: 'CONFLICT',
+      detail: 'ALREADY_MEMBER',
+    })
+    // Also with the owner's own email.
+    expect(await codeOf(createInvitation(owner.ctx, { email: owner.access.email }))).toEqual({
+      code: 'CONFLICT',
+      detail: 'ALREADY_MEMBER',
+    })
+  })
+
+  it('an expired invitation is replaced by a new one for the same email', async () => {
+    const { owner, guestAccess, invitation } = await invited()
+    const later = {
+      ...owner.ctx,
+      now: () => new Date(Date.now() + 8 * 24 * 3600 * 1000),
+    }
+    const again = await createInvitation(later, { email: guestAccess.email })
+    expect(again.invitation.id).not.toBe(invitation.id)
+    const old = await withTenant(db, owner.organization.id, (tx) =>
+      tx.invitation.findUnique({ where: { id: invitation.id } }),
+    )
+    expect(old?.revokedAt).not.toBeNull()
+  })
+
   it('a MEMBER cannot invite (FORBIDDEN)', async () => {
     const { owner, guest, token } = await invited('MEMBER')
     await acceptInvitation(base(), { token, userId: guest.id })

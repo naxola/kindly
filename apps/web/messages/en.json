@@ -87,6 +87,7 @@
     "CSRF": "Request rejected for security. Reload the page.",
     "NO_ACTIVE_ORGANIZATION": "Choose an organization.",
     "LAST_ADMIN": "The organization must keep at least one active Administrator.",
+    "ACCOUNT_CREATED_JOIN_FAILED": "The account was created, but joining the organization failed. Sign in to join.",
     "ALREADY_MEMBER": "That person is already a member.",
     "EMAIL_MISMATCH": "The invitation is for another email address.",
     "INVITATION_ACCEPTED": "The invitation was already accepted.",

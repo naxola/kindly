@@ -87,6 +87,7 @@
     "CSRF": "Petición rechazada por seguridad. Recarga la página.",
     "NO_ACTIVE_ORGANIZATION": "Elige una organización.",
     "LAST_ADMIN": "La organización debe conservar al menos un Administrador activo.",
+    "ACCOUNT_CREATED_JOIN_FAILED": "La cuenta se ha creado, pero no hemos podido unirte a la organización. Inicia sesión para unirte.",
     "ALREADY_MEMBER": "Esa persona ya es miembro de la organización.",
     "EMAIL_MISMATCH": "La invitación es para otra dirección de correo.",
     "INVITATION_ACCEPTED": "La invitación ya se aceptó.",

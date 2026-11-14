@@ -41,24 +41,44 @@ export async function createInvitation(
   const token = newToken()
   const now = nowOf(ctx)
   const invitation = await withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-    const pending = await tx.invitation.findFirst({
-      where: { email, acceptedAt: null, revokedAt: null, expiresAt: { gt: now } },
+    // Someone who already belongs to the organization (any status: a disabled member is
+    // re-enabled, not invited) cannot be invited.
+    const member = await tx.organizationMember.findFirst({
+      where: { organizationId: ctx.actor.organizationId, user: { authUser: { email } } },
+      select: { id: true },
     })
-    if (pending) {
-      throw new DomainError('CONFLICT', 'There is already a pending invitation for that email', [
-        { path: 'email', code: 'PENDING_INVITATION' },
+    if (member) {
+      throw new DomainError('CONFLICT', 'That person is already a member', [
+        { path: 'email', code: 'ALREADY_MEMBER' },
       ])
     }
-    const created = await tx.invitation.create({
-      data: {
-        organizationId: ctx.actor.organizationId,
-        email,
-        role,
-        tokenHash: hashToken(token),
-        expiresAt: new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000),
-        invitedById: ctx.actor.memberId,
-      },
+    // An expired invitation would keep holding the unique slot: close it before inviting again.
+    await tx.invitation.updateMany({
+      where: { email, acceptedAt: null, revokedAt: null, expiresAt: { lte: now } },
+      data: { revokedAt: now },
     })
+    // The partial unique index decides races: of two concurrent inserts, one gets P2002.
+    const created = await tx.invitation
+      .create({
+        data: {
+          organizationId: ctx.actor.organizationId,
+          email,
+          role,
+          tokenHash: hashToken(token),
+          expiresAt: new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000),
+          invitedById: ctx.actor.memberId,
+        },
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new DomainError(
+            'CONFLICT',
+            'There is already a pending invitation for that email',
+            [{ path: 'email', code: 'PENDING_INVITATION' }],
+          )
+        }
+        throw error
+      })
     await writeAudit(tx, {
       organizationId: ctx.actor.organizationId,
       actorUserId: ctx.actor.userId,

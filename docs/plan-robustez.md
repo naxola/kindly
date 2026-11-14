@@ -35,7 +35,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | ✅     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
-| R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ⬜     |
+| R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0014)   | R1.2       | 🔒     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0015)   | R4.3       | 🔒     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ⬜     |
@@ -324,7 +324,24 @@ automatic`, sin cliente) para la organización del actor; el navegador recibe so
 - **Test:** integración: `pg_sleep` por encima del límite falla con el error esperado, y
   `handleError` lo devuelve como `SERVICE_UNAVAILABLE` sin filtrar detalles.
 
-### R2.3 · Integridad de las invitaciones — `fix/invitation-integrity`
+### R2.3 · Integridad de las invitaciones — `fix/invitation-integrity` ✅ (2026-11-14)
+
+- **Entregado:** migración `20261114140000_invitation_unique_pending`: índice único parcial
+  `(organization_id, email) WHERE accepted_at IS NULL AND revoked_at IS NULL`. Antes de crearlo,
+  revoca los duplicados pendientes que dejó la carrera (se queda la más nueva); para eso levanta
+  y restaura `FORCE ROW LEVEL SECURITY` en `invitations` dentro de la misma migración (sin
+  contexto de tenant no vería filas). Prisma no expresa índices parciales: vive solo en el SQL
+  y `migrate diff` no detecta deriva. `createInvitation`: cierra (revoca) las caducadas del mismo
+  email, rechaza con `ALREADY_MEMBER` si el email ya es miembro **en cualquier estado** (uno
+  deshabilitado se reactiva, no se invita) y traduce el `P2002` del índice a
+  `PENDING_INVITATION`. `POST /invitations/register`: si falla cualquier paso posterior a crear la
+  cuenta, responde `409 ACCOUNT_CREATED_JOIN_FAILED` (error inesperado reportado, sin detalles) y
+  la pantalla muestra el aviso con «Iniciar sesión y unirme». No hay transacción posible entre
+  Better Auth y las tablas de negocio: la compensación es esa, no deshacer la cuenta.
+- **Textos:** `errors.ACCOUNT_CREATED_JOIN_FAILED` en es/en (`errors.ALREADY_MEMBER` ya existía).
+- **Tests:** integración de `core` (cinco invitaciones concurrentes → una; invitar a un miembro y
+  al propietario; reinvitar tras caducar) y de la API (fallo tras crear la cuenta; después, iniciar
+  sesión y aceptar funciona). Los tres primeros fallaban antes del cambio.
 
 - **Problemas:** la comprobación de «ya hay una pendiente» en `createInvitation` es una carrera;
   no se comprueba si el email ya es miembro; `createInvitedAccount` y `POST /invitations/register`
