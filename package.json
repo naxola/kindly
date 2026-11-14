@@ -26,7 +26,8 @@
     "db:check": "pnpm --filter @saas/database migrate:check",
     "queue:install": "tsx scripts/install-queue.ts",
     "api:generate": "pnpm --filter @saas/web generate",
-    "ops:queue": "tsx scripts/ops-queue.ts"
+    "ops:queue": "tsx scripts/ops-queue.ts",
+    "ops:email": "tsx scripts/ops-email.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

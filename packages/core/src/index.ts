@@ -13,6 +13,7 @@ export * from './modules/audit/index.ts'
 export * from './modules/events/index.ts'
 export * from './modules/identity/index.ts'
 export * from './modules/billing/index.ts'
+export * from './modules/platform/index.ts'
 
 import {
   BILLING_SCHEDULES,
@@ -23,6 +24,7 @@ import {
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
+import { PLATFORM_SCHEDULES, purgeRateLimitsJob } from './modules/platform/index.ts'
 import {
   invitationEmailJob,
   passwordResetEmailJob,
@@ -43,7 +45,8 @@ export const ALL_JOBS = [
   closePeriodsJob,
   chargePeriodJob,
   providerEventJob,
+  purgeRateLimitsJob,
 ] as const
 
 /** Recurring jobs (cron, UTC). The worker registers them on start. */
-export const ALL_SCHEDULES = [...BILLING_SCHEDULES] as const
+export const ALL_SCHEDULES = [...BILLING_SCHEDULES, ...PLATFORM_SCHEDULES] as const

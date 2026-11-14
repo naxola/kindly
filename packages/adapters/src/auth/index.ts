@@ -1,3 +1,4 @@
+import { betterAuthRateLimitStorage } from '../rate-limit/index.ts'
 import { newId, type Db } from '@saas/database'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
@@ -100,6 +101,9 @@ export function createAuth({
     },
     rateLimit: {
       enabled: rateLimit,
+      // Counters in Postgres (ADR 0015): shared by every replica and kept across restarts. If
+      // the store fails here the request fails: the access endpoints fail closed.
+      customStorage: betterAuthRateLimitStorage(db),
       window: 60,
       max: 100,
       // SUPUESTO: per-IP, per-minute limits on sensitive endpoints.

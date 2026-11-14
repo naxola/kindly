@@ -1,7 +1,8 @@
 # 0017 — Supresión de correo (rebotes y quejas)
 
-**Estado:** Propuesto (2026-11-14). Decisión D11 (guardar solo el hash del email) ya tomada por el
-usuario; falta validar el resto del diseño. **No se implementa (R3.4) hasta que el usuario lo valide.**
+**Estado:** Aceptado (2026-11-14). El usuario validó el diseño con las opciones recomendadas:
+las supresiones se quitan **solo por script** (`pnpm ops:email`) y el adaptador del webhook se
+escribe para **Resend**. Implementado en R3.4.
 
 ## Problema
 
@@ -38,13 +39,15 @@ marcó, lo que daña la reputación del dominio y puede acabar en bloqueo del re
 - Una tabla global y una consulta por hash antes de cada envío (clave primaria).
 - Una variable nueva de entorno: el secreto de firma del webhook del proveedor (`.env.example`,
   `infra/staging/compose.yml`, `infra/staging/.env.example`).
-- **Pendiente de comprobar antes de escribir código:** el formato exacto de eventos y de firma de
-  los webhooks de Resend en su documentación vigente (no leído todavía); si el producto usa otro
-  proveedor, el adaptador cambia pero el puerto no.
+- **Formato comprobado el 2026-11-14** en la documentación de Resend (eventos `email.bounced` y
+  `email.complained`, `data.to` es una lista, `bounce.type` vale `Permanent` o `Temporary`) y de
+  Svix (firma HMAC-SHA256 sobre `id.timestamp.cuerpo` con la parte base64 del secreto `whsec_`).
+  La verificación se hace con `node:crypto`, sin dependencia nueva. Si el producto usa otro
+  proveedor, cambia el adaptador y no el resto.
 - Con solo el hash no se puede avisar a una persona de que su dirección está suprimida; sí se
   puede comprobar la dirección de quien está dentro de la sesión (su email se hashea al vuelo).
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (2026-11-14)
 
 - ¿Te vale que quitar una supresión sea **solo por script** (recomendado) o la quieres en la interfaz?
 - ¿Confirmas **Resend** como proveedor sobre el que escribir el adaptador del webhook?

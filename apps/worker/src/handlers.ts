@@ -1,10 +1,12 @@
 import type { JobHandler } from '@saas/adapters/queue'
+import { purgeRateLimits } from '@saas/adapters/rate-limit'
 import {
   billingChargeHandler,
   billingCloseHandlers,
   chargePeriodJob,
   providerEventHandler,
   providerEventJob,
+  purgeRateLimitsJob,
   billingEmailHandlers,
   closeDuePeriodsScanJob,
   closePeriodsJob,
@@ -77,5 +79,13 @@ export const registrations: Registration[] = [
   register({
     job: chargePeriodJob,
     handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: purgeRateLimitsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeRateLimits(db) }, 'rate limit counters purged')
+      },
   }),
 ]

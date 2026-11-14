@@ -13,10 +13,11 @@ import {
   revokeInvitation,
 } from '@saas/core'
 import { captureError } from '@saas/adapters/errors'
+import type { Context } from 'hono'
 import { clientKey } from '@saas/config/client-ip'
 import { auth } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
-import { rateLimit } from '../rate-limit.ts'
+import { enforceRateLimit, INVITATIONS_PER_ORGANIZATION_PER_DAY, rateLimit } from '../rate-limit.ts'
 import { accessCtx, actorCtx, baseCtx, requestIp, setActiveOrganization } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json, Role } from './schemas.ts'
@@ -60,7 +61,7 @@ const create = createRoute({
   request: { body: { required: true, ...json(CreateInvitationInput) } },
   responses: {
     201: { description: 'Created', ...json(InvitationSchema) },
-    ...errorResponses(400, 401, 403, 409),
+    ...errorResponses(400, 401, 403, 409, 429),
   },
 })
 
@@ -89,6 +90,7 @@ const resend = createRoute({
 
 // The preview is public: limit guessing attempts per IP (tokens are 256-bit, this is hygiene).
 const previewLimit = rateLimit({
+  scope: 'invitation-preview',
   limit: 30,
   windowMs: 60_000,
   keys: (c) => [clientKey(requestIp(c))],
@@ -96,6 +98,7 @@ const previewLimit = rateLimit({
 
 // Creating accounts from a public endpoint: stricter per-IP limit.
 const registerLimit = rateLimit({
+  scope: 'invitation-register',
   limit: 5,
   windowMs: 60_000,
   keys: (c) => [clientKey(requestIp(c))],
@@ -153,17 +156,33 @@ const toJson = (i: { id: string; email: string; role: 'ADMIN' | 'MEMBER'; expire
   expiresAt: i.expiresAt.toISOString(),
 })
 
+/**
+ * Daily cap of emails an organization can make the product send to arbitrary addresses
+ * (ADR 0015). New invitations and resends count the same: each one is an email.
+ */
+const invitationCap = (c: Context<ApiEnv>, organizationId: string) =>
+  enforceRateLimit(c, {
+    scope: 'invitations',
+    key: organizationId,
+    limit: INVITATIONS_PER_ORGANIZATION_PER_DAY,
+    windowSeconds: 86_400,
+  })
+
 export const invitationRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(list, async (c) => {
     const items = await listPendingInvitations(await actorCtx(c))
     return c.json({ items: items.map(toJson) }, 200)
   })
   .openapi(create, async (c) => {
-    const { invitation } = await createInvitation(await actorCtx(c), c.req.valid('json'))
+    const ctx = await actorCtx(c)
+    await invitationCap(c, ctx.actor.organizationId)
+    const { invitation } = await createInvitation(ctx, c.req.valid('json'))
     return c.json(toJson(invitation), 201)
   })
   .openapi(resend, async (c) => {
-    const { invitation } = await resendInvitation(await actorCtx(c), c.req.valid('param').id)
+    const ctx = await actorCtx(c)
+    await invitationCap(c, ctx.actor.organizationId)
+    const { invitation } = await resendInvitation(ctx, c.req.valid('param').id)
     return c.json(toJson(invitation), 200)
   })
   .openapi(revoke, async (c) => {

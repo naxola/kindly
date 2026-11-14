@@ -62,6 +62,7 @@ services:
       <<: *app-env
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?}
       AUTH_RATE_LIMIT_ENABLED: 'true'
+      EMAIL_WEBHOOK_SECRET: ${EMAIL_WEBHOOK_SECRET:-}
       TRUSTED_IP_HEADER: ${TRUSTED_IP_HEADER:-cf-connecting-ip}
     expose:
       - '3000'

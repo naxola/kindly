@@ -102,6 +102,25 @@ expira o pierde su worker hasta agotar los reintentos no pasa por el `catch` del
 worker lo detecta en la comprobación de colas (cada 5 min), con la misma alerta crítica y Sentry
 (`source=sweep`). Solo se informa de fallos posteriores al arranque del worker.
 
+## Una dirección no recibe correos (lista de supresión, ADR 0017)
+
+Un rebote permanente o una queja de spam que llega por el webhook de Resend
+(`POST /api/webhooks/email`, firmado; secreto en `EMAIL_WEBHOOK_SECRET`) deja la dirección en la
+lista de supresión. El worker no vuelve a escribirle y lo registra como `email not sent: suppressed
+address`, con el hash de la dirección. Los correos de acceso (verificación y recuperación de
+contraseña) solo se detienen por rebote permanente.
+
+```bash
+pnpm ops:email status persona@ejemplo.com       # por qué está suprimida, si lo está
+pnpm ops:email unsuppress persona@ejemplo.com   # se le puede volver a escribir
+```
+
+La tabla solo guarda hashes: no se puede listar a quién afecta, solo consultar una dirección
+concreta. Quitar la supresión aquí **no** la quita de la lista del propio Resend.
+
+En Resend, el webhook se da de alta apuntando a `https://<app>/api/webhooks/email` con los eventos
+`email.bounced` y `email.complained`; su secreto de firma (`whsec_…`) es `EMAIL_WEBHOOK_SECRET`.
+
 ## Pendiente
 
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).
