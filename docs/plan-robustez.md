@@ -50,7 +50,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
 | R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ⬜     |
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
-| R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | ⬜     |
+| R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
 | R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
@@ -557,7 +557,31 @@ the business events` es **inestable** en la suite completa de integración (4 n�
 - **Contenido (enmienda 0009):** configuración de Renovate según D9, incluidas las acciones de
   GitHub fijadas por hash y las imágenes base del `Dockerfile`.
 
-### R5.2 · Imágenes en CI — `chore/ci-images`
+### R5.2 · Imágenes en CI — `chore/ci-images` 🟡 (2026-11-14, sin ejecutar en CI)
+
+- **Entregado en `.github/workflows/ci.yml`:**
+  1. **Caché de capas entre ejecuciones:** `docker buildx` (driver `docker-container`) con
+     `type=local` guardado con la `actions/cache` ya fijada por hash. Se exporta primero la
+     etapa compartida `build` (imagen base, `pnpm fetch`, instalación), que reutilizan las cinco
+     imágenes, y la caché se **reemplaza** en cada ejecución para que no crezca. Se descartó
+     `type=gha` porque necesita otra acción. Aclaración sobre el plan: dentro de una misma
+     ejecución las cinco imágenes ya compartían capas; lo que se perdía era la caché **entre**
+     ejecuciones (runner nuevo cada vez).
+  2. **Escaneo con Trivy 0.76.2** ejecutado desde su imagen **fijada por digest**
+     (`sha256:8f6bb9…`, comprobado contra ghcr.io), falla con CRITICAL con arreglo disponible
+     (`--ignore-unfixed`) en las cinco imágenes; base de datos de vulnerabilidades en caché.
+     Una vulnerabilidad crítica con arreglo en una imagen base ajena (Node, Postgres) también
+     rompe la CI hasta subir la base: es el comportamiento pedido.
+  3. **SBOM CycloneDX** de cada imagen generado en `sbom/` y resumido en el resumen del job.
+- **Pendiente:** publicarlo como **artefacto** necesita `actions/upload-artifact` fijada por
+  hash; no la añadí porque resolver ese hash exige leer otro repositorio de GitHub (fuera del
+  alcance de esta sesión) y no voy a inventarlo. Pásame el hash (o autoriza la consulta) y es un
+  paso más.
+- **No verificado:** **ningún cambio se ha ejecutado en GitHub Actions** (aquí no hay Docker ni
+  Actions). Comprobado: el YAML es válido y pasa Prettier; el digest de Trivy existe en ghcr.io.
+  El primer CI real puede pedir ajustes (permisos del socket de Docker, nombre de la caché, un
+  hallazgo crítico real). Está en la rama sin fusionar en `staging`, así que no afecta a nadie
+  hasta que se abra un PR o se fusione.
 
 - **Cambio:** `docker buildx` con caché de capas de GitHub Actions (hoy cinco builds en frío),
   escaneo de las imágenes (Trivy, falla con críticas con arreglo disponible) y SBOM como artefacto.
