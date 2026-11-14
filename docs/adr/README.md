@@ -15,7 +15,7 @@
 | [0011](0011-servicios-autoalojados.md)       | Servicios de apoyo autoalojados (GlitchTip, ntfy, Uptime Kuma, listmonk) | Aceptado  |
 | [0012](0012-cobros-suscripcion-y-uso.md)     | Cobros: suscripción, uso medido y proveedor de pago                      | Aceptado  |
 | [0013](0013-desacoplar-del-framework-web.md) | Desacoplar la plantilla del framework web (Next.js)                      | Pospuesto |
-| [0014](0014-enmienda-cobros-robustez.md)     | Enmienda al 0012: cobros robustos (checkout, `CHARGING`, cierre)         | Aceptado  |
+| [0014](0014-enmienda-cobros-robustez.md)     | Enmienda al 0012: cobros robustos (checkout, `CHARGING`, cierre)         | Propuesto |
 
 **Aceptado**: validado por el usuario. **Propuesto**: pendiente de validar; no se implementa hasta entonces.
 Una decisión nunca se borra: se marca como _Sustituida por NNNN_.
