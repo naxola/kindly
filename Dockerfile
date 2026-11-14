@@ -42,12 +42,14 @@ RUN SITE_URL="$SITE_URL" APP_URL="$APP_URL" PLAUSIBLE_DOMAIN="$PLAUSIBLE_DOMAIN"
 
 FROM build AS build-worker
 # Production dependencies of the worker, from the lockfile, in a flat node_modules
-# (the bundle in dist/ already contains the workspace packages).
+# (the bundle in dist/ already contains the workspace packages). `--prefer-offline`, not
+# `--offline`: when the `pnpm fetch` layer comes from the layer cache (CI), the store mount is
+# empty and the packages are downloaded; the frozen lockfile still pins and verifies them.
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm --filter @saas/worker build \
     && mkdir /out && cp pnpm-lock.yaml pnpm-workspace.yaml .npmrc package.json /out/ \
     && find apps packages -maxdepth 2 -name package.json -exec cp --parents {} /out/ \; \
-    && cd /out && pnpm install --prod --frozen-lockfile --offline --filter "@saas/worker..." \
+    && cd /out && pnpm install --prod --frozen-lockfile --prefer-offline --filter "@saas/worker..." \
        --config.node-linker=hoisted --ignore-scripts \
     && cp -r /app/apps/worker/dist /out/apps/worker/dist
 

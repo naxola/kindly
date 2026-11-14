@@ -689,6 +689,10 @@ the business events` era **inestable** en la suite completa de integración (4 n
   escaneo lee el SBOM). Ya ejecuta entero y encontró una crítica real en la imagen base de
   Postgres (`gosu`, CVE-2025-68121), aceptada por el usuario con caducidad en
   `.trivyignore.yaml` (ADR 0009). Las cuatro imágenes propias salen limpias.
+- **Segundo fallo real (2026-11-14):** con la caché de capas restaurada, la capa de `pnpm fetch`
+  no se ejecuta y el almacén de pnpm (un montaje de caché, que no viaja con las capas) llega
+  vacío; la instalación `--offline` de la imagen del worker fallaba. Ahora usa
+  `--prefer-offline`: descarga lo que falte, con el lockfile congelado fijando y verificando.
 - **Pendiente:** publicarlo como **artefacto** necesita `actions/upload-artifact` fijada por
   hash; no la añadí porque resolver ese hash exige leer otro repositorio de GitHub (fuera del
   alcance de esta sesión) y no voy a inventarlo. Pásame el hash (o autoriza la consulta) y es un
