@@ -169,6 +169,7 @@ jobs:
           trivy() {
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$HOME/.cache/trivy:/root/.cache/trivy" -v "$PWD/sbom:/sbom" \
+              -v "$PWD/.trivyignore.yaml:/.trivyignore.yaml:ro" \
               "$TRIVY_IMAGE" "$@"
           }
           status=0
@@ -176,7 +177,9 @@ jobs:
           for target in postgres migrate web worker site; do
             trivy image --no-progress --format cyclonedx --output "/sbom/$target.cdx.json" \
               "local/$target:ci"
+            # Accepted findings, each with its reason and expiry date: .trivyignore.yaml
             trivy sbom --no-progress --severity CRITICAL --ignore-unfixed --exit-code 1 \
+              --ignorefile /.trivyignore.yaml \
               "/sbom/$target.cdx.json" || status=1
           done
           {

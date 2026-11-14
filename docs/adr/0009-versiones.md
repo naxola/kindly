@@ -90,6 +90,17 @@ con avisos altos o críticos.
 
 Las fases siguientes añaden sus dependencias con el mismo criterio.
 
+## Excepciones del escaneo de imágenes
+
+Las excepciones aceptadas viven en `.trivyignore.yaml`, cada una acotada a su fichero, con su
+motivo y una **fecha de caducidad**: al vencer, el escaneo vuelve a fallar y se revisa.
+
+- **CVE-2025-68121** (crítica, `crypto/tls` de Go) en `usr/local/bin/gosu` de la imagen oficial
+  `postgres:18.6-trixie`. `gosu` solo cambia de usuario al arrancar el contenedor y no abre
+  conexiones TLS. Aceptada por el usuario el 2026-11-14, **caduca el 2026-12-14**. Salida prevista:
+  subir a `postgres:18.7-trixie` cuando cumpla 14 días (2026-11-26) y comprobar que trae `gosu`
+  recompilado.
+
 ## Enmienda (2026-11-14): actualizaciones con Renovate
 
 Decisión D9 del usuario. `.github/renovate.json5` hace que Renovate **abra pull requests contra
