@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./env": "./src/env.ts",
+    "./client-ip": "./src/client-ip.ts",
     "./tsconfig/*": "./tsconfig/*"
   },
   "scripts": {

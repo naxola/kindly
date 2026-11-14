@@ -58,6 +58,12 @@ dominio. Sigue la guía de Coolify para Cloudflare Tunnel de tu versión; los do
 paso anterior deben resolver por el túnel. `postgres` y el puerto 3002 del worker **no** se
 exponen.
 
+**IP del cliente (`TRUSTED_IP_HEADER`).** La web solo confía en la cabecera que indica esta
+variable (por defecto `cf-connecting-ip`, que escribe Cloudflare y el cliente no puede falsificar
+mientras todo el tráfico pase por el túnel). `x-forwarded-for` y `x-real-ip` se ignoran. Si la web
+se expone sin Cloudflare por delante, vacía la variable: la IP será desconocida, los límites por
+IP compartirán un único cubo y la auditoría no guardará IP.
+
 ### 4. Espejo en Forgejo
 
 GitHub sigue siendo el origen (el CI vive allí). En Forgejo: _Nueva migración → GitHub_, marca

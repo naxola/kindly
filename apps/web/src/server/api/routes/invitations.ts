@@ -10,10 +10,11 @@ import {
   listPendingInvitations,
   revokeInvitation,
 } from '@saas/core'
+import { clientKey } from '@saas/config/client-ip'
 import { auth } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
 import { rateLimit } from '../rate-limit.ts'
-import { accessCtx, actorCtx, baseCtx, setActiveOrganization } from '../session.ts'
+import { accessCtx, actorCtx, baseCtx, requestIp, setActiveOrganization } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json, Role } from './schemas.ts'
 
@@ -74,14 +75,14 @@ const revoke = createRoute({
 const previewLimit = rateLimit({
   limit: 30,
   windowMs: 60_000,
-  keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
+  keys: (c) => [clientKey(requestIp(c))],
 })
 
 // Creating accounts from a public endpoint: stricter per-IP limit.
 const registerLimit = rateLimit({
   limit: 5,
   windowMs: 60_000,
-  keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
+  keys: (c) => [clientKey(requestIp(c))],
 })
 
 const preview = createRoute({

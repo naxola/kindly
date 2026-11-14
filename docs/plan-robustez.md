@@ -28,7 +28,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | Bloque | Rama                           | Contenido                                                 | ADR            | Depende de | Estado |
 | ------ | ------------------------------ | --------------------------------------------------------- | -------------- | ---------- | ------ |
 | R1.1   | `fix/last-admin-race`          | Carrera del último ADMIN                                  | —              | —          | ✅     |
-| R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ⬜     |
+| R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ✅     |
 | R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ⬜     |
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
 | R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | 🔒     |
@@ -101,7 +101,20 @@ otra preferencia.
 - **Test:** integración en `packages/core/test/identity.int.test.ts`: dos ADMIN, dos degradaciones
   concurrentes cruzadas → exactamente una falla con `LAST_ADMIN`.
 
-### R1.2 · IP del cliente de confianza — `fix/client-ip`
+### R1.2 · IP del cliente de confianza — `fix/client-ip` ✅ (2026-11-14)
+
+- **Entregado:** `clientIp`/`clientKey` en `packages/config/src/client-ip.ts`; `TRUSTED_IP_HEADER`
+  (opcional, en `authEnv`); usadas en `baseCtx` (auditoría), en los límites de
+  `/invitations/preview` y `/register` y en `advanced.ipAddress.ipAddressHeaders` de Better Auth
+  (lista vacía sin cabecera: Better Auth ya agrupa las peticiones sin IP en un cubo compartido por
+  ruta). Sin IP conocida, el limitador propio usa la clave común `unknown-ip` en vez de saltarse.
+  Variable añadida a `.env.example`, `infra/staging/compose.yml` (por defecto `cf-connecting-ip`),
+  `infra/staging/.env.example` y `docs/deploy.md`.
+- **Reproducido:** con la lectura antigua de `x-forwarded-for`, el test de integración nuevo falla
+  (31 peticiones con una IP falsa distinta cada una no llegan a 429); con la nueva, sí.
+- **Efecto en los tests:** `test/integration-env.ts` fija `TRUSTED_IP_HEADER=x-test-ip` y el
+  `Browser` de los tests manda una IP distinta por instancia.
+- **No verificado:** el comportamiento real detrás de Cloudflare Tunnel y Coolify (staging).
 
 - **Problema:** se usa el primer valor de `x-forwarded-for` (`apps/web/src/server/api/session.ts`,
   `routes/invitations.ts`, `packages/adapters/src/auth/index.ts`). Detrás de Cloudflare Tunnel ese
