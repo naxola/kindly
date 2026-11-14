@@ -99,7 +99,7 @@ const BillingPeriodSchema = z
     overageTotal: DecimalString,
     spendCap: DecimalString.nullable(),
     amountDue: DecimalString,
-    status: z.enum(['NO_CHARGE', 'PENDING_CHARGE', 'CHARGED', 'CHARGE_FAILED']),
+    status: z.enum(['NO_CHARGE', 'PENDING_CHARGE', 'CHARGING', 'CHARGED', 'CHARGE_FAILED']),
     closedAt: z.iso.datetime(),
     lines: z.array(
       z.object({

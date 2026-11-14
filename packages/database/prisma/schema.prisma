@@ -276,6 +276,10 @@ enum BillingPeriodStatus {
   NO_CHARGE
   /// Overage computed, waiting to be charged at the provider.
   PENDING_CHARGE
+  /// Charge being sent to the provider. Written and committed BEFORE the call: if the process
+  /// dies after the provider charged, the period stays here (outcome unknown, check the
+  /// provider) and is never retried automatically. ADR 0014.
+  CHARGING
   CHARGED
   CHARGE_FAILED
 }

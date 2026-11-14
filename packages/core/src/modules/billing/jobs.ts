@@ -113,8 +113,10 @@ export const billingCloseHandlers = ({
 
 /**
  * Charges the amount due of a closed period at the provider. Never retried automatically:
- * the provider call is not idempotent, so a failure is marked CHARGE_FAILED and alerted
- * (final failure) for a person to check before retrying with `pnpm ops:queue retry`.
+ * the provider call is not idempotent. The period goes PENDING_CHARGE → CHARGING (committed
+ * before the call) → CHARGED. A provider error marks CHARGE_FAILED; anything that leaves the
+ * outcome unknown stays CHARGING. Both alert (final failure) for a person to check the
+ * provider before retrying with `pnpm ops:queue retry` (ADR 0014).
  */
 export const chargePeriodJob = defineJob({
   name: 'billing.charge-period',
@@ -122,19 +124,37 @@ export const chargePeriodJob = defineJob({
   retryLimit: 0,
 })
 
+/**
+ * The provider may or may not have charged this period: the outcome is unknown, so it is never
+ * retried automatically. A person checks the provider first (docs/operations.md).
+ */
+export class ChargeOutcomeUnknownError extends Error {
+  constructor(
+    public readonly periodId: string,
+    reason: string,
+  ) {
+    super(`Charge of period ${periodId}: ${reason}. Check the provider before retrying.`)
+    this.name = 'ChargeOutcomeUnknownError'
+  }
+}
+
 export const billingChargeHandler =
   ({ db, provider }: { db: Db; provider: PaymentProvider | null }) =>
   async (p: z.output<typeof chargePeriodJob.schema>, _ctx: JobContext) => {
-    const loaded = await withTenant(db, p.organizationId, async (tx) => {
+    const { period, sub } = await withTenant(db, p.organizationId, async (tx) => {
       const period = await tx.billingPeriod.findUnique({ where: { id: p.periodId } })
       const sub = period
         ? await tx.subscription.findUnique({ where: { organizationId: p.organizationId } })
         : null
       return { period, sub }
     })
-    const { period, sub } = loaded
     // Already charged (a manual retry after checking the provider) or nothing to charge.
     if (!period || period.status === 'CHARGED' || period.amountDue.lte(0)) return
+    // A previous run marked it CHARGING and never recorded the result: the provider may have
+    // charged. Never charge again from here; `ops:queue retry --force` resets it on purpose.
+    if (period.status === 'CHARGING') {
+      throw new ChargeOutcomeUnknownError(period.id, 'a previous attempt did not record its result')
+    }
     const setStatus = (status: 'CHARGED' | 'CHARGE_FAILED', ref: string | null) =>
       withTenant(db, p.organizationId, (tx) =>
         tx.billingPeriod.update({
@@ -146,11 +166,26 @@ export const billingChargeHandler =
           },
         }),
       )
+    // Configuration problems happen before anything is sent: a plain, safe failure.
+    if (!provider || !sub?.providerSubscriptionId || sub.provider !== provider.name) {
+      await setStatus('CHARGE_FAILED', null)
+      throw new Error(
+        provider
+          ? 'The subscription is not at the configured provider'
+          : 'No payment provider configured',
+      )
+    }
+    // Commit CHARGING before calling the provider; only one runner can win the transition.
+    const claimed = await withTenant(db, p.organizationId, (tx) =>
+      tx.billingPeriod.updateMany({
+        where: { id: period.id, status: { in: ['PENDING_CHARGE', 'CHARGE_FAILED'] } },
+        data: { status: 'CHARGING' },
+      }),
+    )
+    if (claimed.count === 0) {
+      throw new ChargeOutcomeUnknownError(period.id, 'its status changed while starting the charge')
+    }
     try {
-      if (!provider) throw new Error('No payment provider configured')
-      if (!sub?.providerSubscriptionId || sub.provider !== provider.name) {
-        throw new Error('The subscription is not at the configured provider')
-      }
       await provider.chargeOverage({
         subscriptionRef: sub.providerSubscriptionId,
         amount: period.amountDue.toFixed(2),
@@ -158,10 +193,19 @@ export const billingChargeHandler =
         description: `Usage ${period.periodStart.toISOString().slice(0, 10)} – ${period.periodEnd.toISOString().slice(0, 10)}`,
         periodId: period.id,
       })
-      await setStatus('CHARGED', `${provider.name}:${sub.providerSubscriptionId}:${period.id}`)
     } catch (err) {
+      // Only an error from the provider means "not charged".
       await setStatus('CHARGE_FAILED', null)
       throw err
+    }
+    try {
+      await setStatus('CHARGED', `${provider.name}:${sub.providerSubscriptionId}:${period.id}`)
+    } catch (err) {
+      // Charged at the provider but not recorded: stays CHARGING (never CHARGE_FAILED).
+      throw new ChargeOutcomeUnknownError(
+        period.id,
+        `charged at the provider but the result was not recorded (${err instanceof Error ? err.message : 'unknown error'})`,
+      )
     }
   }
 

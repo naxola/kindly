@@ -6,6 +6,7 @@ import {
   billingChargeHandler,
   billingCloseHandlers,
   chargePeriodJob,
+  ChargeOutcomeUnknownError,
   billingStateOf,
   closeDuePeriods,
   createOrganization,
@@ -546,6 +547,95 @@ describe('payment provider (B3 + B5)', () => {
       jobCtx,
     )
     expect(ok.charges).toHaveLength(1)
+  })
+})
+
+describe('charge state (R1.5)', () => {
+  async function closedPeriod() {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date('2026-10-05T00:00:00Z'),
+          currentPeriodEnd: new Date('2026-11-05T00:00:00Z'),
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+          provider: 'paddle',
+          providerSubscriptionId: `sub_${newId()}`,
+          providerCustomerId: 'ctm_1',
+        },
+      }),
+    )
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 3000,
+      occurredAt: new Date('2026-10-20T00:00:00Z'),
+    })
+    const [period] = await withTenant(db, orgId, (tx) =>
+      closeDuePeriods(base(), tx, orgId, TEST_CATALOG),
+    )
+    const statusOf = async () =>
+      (
+        await withTenant(db, orgId, (tx) =>
+          tx.billingPeriod.findUniqueOrThrow({ where: { id: period!.id } }),
+        )
+      ).status
+    return { orgId, periodId: period!.id, statusOf }
+  }
+  const jobCtx = { organizationId: null, correlationId: 'c', jobId: 'j', attempt: 0 }
+
+  it('the provider charges but recording the result fails: stays CHARGING, never CHARGE_FAILED, and a relaunch does not charge again', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    // Same database, but every transaction after the provider call fails to write.
+    let providerCalled = false
+    const flaky = new Proxy(db, {
+      get: (target, prop, receiver) =>
+        prop === '$transaction' && providerCalled
+          ? () => Promise.reject(new Error('connection lost'))
+          : Reflect.get(target, prop, receiver),
+    })
+    const provider = fakeProvider()
+    const charge = provider.chargeOverage.bind(provider)
+    provider.chargeOverage = async (c) => {
+      await charge(c)
+      providerCalled = true
+    }
+
+    await expect(
+      billingChargeHandler({ db: flaky, provider })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toBeInstanceOf(ChargeOutcomeUnknownError)
+    expect(provider.charges).toHaveLength(1)
+    expect(await statusOf()).toBe('CHARGING')
+
+    // The relaunched job refuses: it never calls the provider again.
+    await expect(
+      billingChargeHandler({ db, provider })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toBeInstanceOf(ChargeOutcomeUnknownError)
+    expect(provider.charges).toHaveLength(1)
+    expect(await statusOf()).toBe('CHARGING')
+  })
+
+  it('CHARGING is committed before the provider is called', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    let seenDuringCall: string | null = null
+    const provider = fakeProvider()
+    provider.chargeOverage = async () => {
+      seenDuringCall = await statusOf()
+    }
+    await billingChargeHandler({ db, provider })({ organizationId: orgId, periodId }, jobCtx)
+    expect(seenDuringCall).toBe('CHARGING')
+    expect(await statusOf()).toBe('CHARGED')
+  })
+
+  it('a configuration problem fails before anything is sent', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    await expect(
+      billingChargeHandler({ db, provider: null })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toThrow('No payment provider configured')
+    expect(await statusOf()).toBe('CHARGE_FAILED')
   })
 })
 

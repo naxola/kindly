@@ -27,6 +27,7 @@ export {
   BILLING_SCHEDULES,
   chargePeriodJob,
   billingChargeHandler,
+  ChargeOutcomeUnknownError,
   ProviderEventPayload,
   providerEventPayload,
   providerEventJob,

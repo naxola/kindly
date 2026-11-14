@@ -662,6 +662,7 @@
             "enum": [
               "NO_CHARGE",
               "PENDING_CHARGE",
+              "CHARGING",
               "CHARGED",
               "CHARGE_FAILED"
             ]

@@ -16,7 +16,13 @@ import {
   type FinalFailure,
   type PgBoss,
 } from '@saas/adapters/queue'
-import { ALL_SCHEDULES, type EmailSender, type EventSink, type PaymentProvider } from '@saas/core'
+import {
+  ALL_SCHEDULES,
+  ChargeOutcomeUnknownError,
+  type EmailSender,
+  type EventSink,
+  type PaymentProvider,
+} from '@saas/core'
 import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
@@ -84,12 +90,17 @@ export async function startWorker({
     jobId: string,
     attempts: number,
     correlationId: string | null,
+    unknownCharge = false,
   ) =>
     alerts.send({
       key: `job-failed:${job}`,
       severity: 'critical',
       title: `Job failed for good: ${job}`,
-      body: `Job ${jobId} failed after ${attempts} attempts (correlationId ${correlationId ?? 'unknown'}). See \`pnpm ops:queue\` and the runbook.`,
+      body:
+        `Job ${jobId} failed after ${attempts} attempts (correlationId ${correlationId ?? 'unknown'}). ` +
+        (unknownCharge
+          ? 'The charge may have gone through: CHECK THE PAYMENT PROVIDER before retrying (runbook: CHARGING).'
+          : 'See `pnpm ops:queue` and the runbook.'),
     })
 
   const onFinalFailure = async (f: FinalFailure) => {
@@ -99,7 +110,13 @@ export async function startWorker({
       organizationId: f.organizationId,
       tags: { job: f.job, jobId: f.jobId },
     })
-    await failedAlert(f.job, f.jobId, f.attempt + 1, f.correlationId)
+    await failedAlert(
+      f.job,
+      f.jobId,
+      f.attempt + 1,
+      f.correlationId,
+      f.error instanceof ChargeOutcomeUnknownError,
+    )
   }
 
   const db = createDb({ connectionString: env.DATABASE_URL })

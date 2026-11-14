@@ -255,6 +255,7 @@
       "periodStatuses": {
         "NO_CHARGE": "Sin excedente",
         "PENDING_CHARGE": "Pendiente de cobro",
+        "CHARGING": "Cobrando",
         "CHARGED": "Cobrado",
         "CHARGE_FAILED": "Cobro fallido"
       },

@@ -31,7 +31,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R1.2   | `fix/client-ip`                | IP del cliente de confianza para límites y auditoría      | —              | —          | ✅     |
 | R1.3   | `fix/queue-final-failure`      | Fallos definitivos sin alerta; colas que no se actualizan | —              | —          | ✅     |
 | R1.4   | `fix/billing-checkout-binding` | Checkout ligado a la organización en servidor             | enmienda 0012  | D1         | 🔒     |
-| R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | 🔒     |
+| R1.5   | `fix/billing-charge-state`     | Estado `CHARGING`; cobro y registro separados             | enmienda 0012  | D1         | ✅     |
 | R1.6   | `fix/billing-period-close`     | Cierre de todos los periodos vencidos, con su plan        | enmienda 0012  | D1, D2     | 🔒     |
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ⬜     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ⬜     |
@@ -181,7 +181,19 @@ otra preferencia.
 - **Comprobar antes:** documentación vigente de Paddle para crear transacciones y abrir el checkout
   con su id. Sigue **sin probar contra el sandbox** hasta que el usuario lo haga.
 
-### R1.5 · Estado del cobro de excedentes — `fix/billing-charge-state` 🔒 D1
+### R1.5 · Estado del cobro de excedentes — `fix/billing-charge-state` ✅ (2026-11-14, ADR 0014)
+
+- **Entregado:** `CHARGING` en `BillingPeriodStatus` (migración aditiva `20261114120000`),
+  confirmado antes de llamar al proveedor y con transición exclusiva (`updateMany` desde
+  `PENDING_CHARGE`/`CHARGE_FAILED`). Solo un error del proveedor marca `CHARGE_FAILED`; si el
+  cargo sale bien y falla el registro, el periodo se queda en `CHARGING` y el job lanza
+  `ChargeOutcomeUnknownError`; un job relanzado con el periodo en `CHARGING` se niega a cobrar.
+  La alerta crítica del worker añade «comprobar el proveedor». `ops:queue retry` rechaza un
+  `CHARGING` sin `--force` (que lo devuelve a `PENDING_CHARGE`). Estado visible en la pantalla
+  de cobros (es/en) y en el contrato de la API. Runbook en `docs/operations.md`.
+- **Tests:** integración (cargo correcto + registro que falla → `CHARGING` y el relanzado no
+  vuelve a cobrar; `CHARGING` visible durante la llamada; fallo de configuración antes de enviar)
+  y unitario de la decisión de `ops:queue`. El glue del script con la base de datos no tiene test.
 
 - **Problema:** en `billingChargeHandler` (`packages/core/src/modules/billing/jobs.ts`) el `try`
   envuelve la llamada al proveedor y la escritura de `CHARGED`. Si el cargo sale bien y la

@@ -59,6 +59,22 @@ Sin `SENTRY_DSN` ni `ALERT_PROVIDER`, todo queda en los logs (nivel `error`/`war
    ```
 
    Es seguro: los jobs son idempotentes (la clave de idempotencia evita efectos duplicados).
+   **Excepción: los cobros** (`billing.charge-period`), que no son idempotentes en el proveedor.
+   Ver la sección siguiente.
+
+## Un cobro ha fallado o está en `CHARGING` (ADR 0014)
+
+El cobro del excedente de un periodo cerrado pasa por `PENDING_CHARGE` → `CHARGING` → `CHARGED`.
+`CHARGING` se guarda **antes** de llamar al proveedor. Nunca se reintenta solo.
+
+| Estado          | Qué significa                                                              | Qué hacer                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CHARGE_FAILED` | El proveedor devolvió un error (o faltaba configuración): **no se cobró**. | Corrige la causa (p. ej. suscripción impagada) y `pnpm ops:queue retry billing.charge-period <id>`.                                                 |
+| `CHARGING`      | **Resultado desconocido**: puede haberse cobrado y no haberse anotado.     | Mira el cargo en el panel del proveedor. Si **no** está: `pnpm ops:queue retry billing.charge-period <id> --force`. Si **sí** está: anótalo a mano. |
+
+Sin `--force`, el reintento de un periodo en `CHARGING` se rechaza. Para anotar a mano un cobro que
+sí se hizo, con el rol de plataforma: `UPDATE billing_periods SET status = 'CHARGED',
+provider_charge_ref = '<ref del proveedor>', charged_at = now() WHERE id = '<periodId>'`.
 
 ## Una cola no se vacía
 
