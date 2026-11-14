@@ -1,8 +1,7 @@
 # 0014 — Enmienda al ADR 0012: cobros robustos (checkout en servidor, cobro en dos pasos, cierre completo)
 
-**Estado:** Propuesto (2026-11-14). Pendiente de que el usuario valide D1, D2 y el uso tardío. La
-implementación de R1.4–R1.6 ya existe en las ramas de trabajo (sin fusionar en `staging`) y se rehará si se
-rechaza o cambia algo. Sale de la revisión técnica de `v1.0.0` (`docs/plan-robustez.md`, bloques
+**Estado:** Aceptado (2026-11-14). El usuario validó D1 (los tres cambios), D2 (opción A: tabla
+`subscription_periods`) y que el uso tardío se **rechaza** (confirmado por él mismo el 2026-11-14). Sale de la revisión técnica de `v1.0.0` (`docs/plan-robustez.md`, bloques
 R1.4–R1.6). Si se acepta, el ADR 0012 pasa a remitir a este.
 
 > Nota de numeración: el plan reserva 0014 para el almacén de límites (R2.4). Al aceptar este
