@@ -61,6 +61,9 @@ Los tres bloques de cobros (R1.4–R1.6) van **antes de que ningún producto cob
 
 ## Decisiones del usuario
 
+> D1 y D2 (y la regla para el uso tardío) tienen su propuesta redactada en
+> [`adr/0014-enmienda-cobros-robustez.md`](adr/0014-enmienda-cobros-robustez.md), **Propuesto**.
+
 Cada una desbloquea los bloques indicados. La recomendación es la opción por defecto si no hay
 otra preferencia.
 
