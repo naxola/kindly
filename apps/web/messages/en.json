@@ -288,5 +288,13 @@
     "notFoundTitle": "Page not found",
     "notFoundBody": "The address does not exist or has moved.",
     "goHome": "Go to the start"
+  },
+  "toasts": {
+    "invited": "Invitation sent to {email}",
+    "revoked": "Invitation revoked",
+    "roleChanged": "Role updated",
+    "memberDisabled": "Member disabled",
+    "memberEnabled": "Member enabled",
+    "spendCapSaved": "Spend cap saved"
   }
 }

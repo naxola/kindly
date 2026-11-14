@@ -44,7 +44,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ⬜     |
 | R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
-| R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ⬜     |
+| R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ⬜     |
 | R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
@@ -476,7 +476,19 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   (`EmptyState`) en miembros, invitaciones y cobros.
 - **Test:** E2E: ruta inexistente en las dos apps; fallo simulado de `/api/v1/members`.
 
-### R4.2 · Confirmaciones y sesión caducada — `feat/ui-feedback`
+### R4.2 · Confirmaciones y sesión caducada — `feat/ui-feedback` ✅ (2026-11-14)
+
+- **Entregado:** `toast` tras invitar, revocar, cambiar rol, activar/desactivar un miembro y
+  guardar el tope de gasto (`toasts.*`, es/en). `Providers` instala un `QueryCache` y un
+  `MutationCache` con `onError` que, vía `sessionRedirect` (función pura), lleva
+  `UNAUTHENTICATED` a `/sign-in?next=<pantalla actual>` y `NO_ACTIVE_ORGANIZATION` a
+  `/onboarding`; no actúa en las pantallas públicas (`/sign-in`, `/invite`…) que ya lo gestionan.
+  `NO_ACTIVE_ORGANIZATION` llega como detalle de un `FORBIDDEN`, por eso se lee `reason`.
+- **Tests:** unitarios de `sessionRedirect`; `e2e/feedback.spec.ts` (la confirmación al invitar y
+  revocar; con la cookie borrada, actuar lleva a inicio de sesión con `next` y, tras entrar,
+  vuelve a Miembros). Verificado con Postgres 16 y Chromium locales.
+- **Pendiente de otro bloque:** confirmaciones en los ajustes de cuenta y de organización
+  (R4.3, R4.4) y en el checkout de cobros, que redirige fuera de la app.
 
 - **Problema:** el `Toaster` está montado pero nada llama a `toast`: las acciones con éxito no
   confirman. Una respuesta 401 con la sesión caducada muestra un error genérico.

@@ -15,6 +15,7 @@ import {
   TD,
   TH,
   THead,
+  toast,
   TR,
 } from '@saas/ui'
 import { PageContainer, PageHeader } from '@saas/ui/shell'
@@ -55,6 +56,7 @@ export function MembersSettings() {
           body: { role },
         }),
       ),
+    onSuccess: () => toast.success(t('toasts.roleChanged')),
     onSettled: refresh,
   })
   const toggle = useMutation({
@@ -65,7 +67,8 @@ export function MembersSettings() {
           body: { status: m.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' },
         }),
       ),
-    onSuccess: async () => {
+    onSuccess: async (_, m) => {
+      toast.success(t(m.status === 'ACTIVE' ? 'toasts.memberDisabled' : 'toasts.memberEnabled'))
       setToggling(null)
       await refresh()
     },
@@ -195,7 +198,8 @@ function InvitePanel({ onClose }: { onClose: () => void }) {
   const invite = useMutation({
     mutationFn: async (body: { email: string; role: Role }) =>
       unwrap(await apiClient.POST('/api/v1/invitations', { body })),
-    onSuccess: async () => {
+    onSuccess: async (_, body) => {
+      toast.success(t('toasts.invited', { email: body.email }))
       await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
       onClose()
     },
@@ -255,7 +259,10 @@ function PendingInvitations() {
   const revoke = useMutation({
     mutationFn: async (id: string) =>
       unwrap(await apiClient.POST('/api/v1/invitations/{id}/revoke', { params: { path: { id } } })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.invitations(orgId) }),
+    onSuccess: async () => {
+      toast.success(t('toasts.revoked'))
+      await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
+    },
   })
   const items = invitations.data ?? []
 

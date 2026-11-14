@@ -10,6 +10,7 @@ import {
   Panel,
   Progress,
   Table,
+  toast,
   TBody,
   TD,
   TH,
@@ -309,6 +310,7 @@ function SpendCap({
       unwrap(await apiClient.PUT('/api/v1/billing/spend-cap', { body: { spendCap } })),
     onSuccess: async (r) => {
       setValue(r.spendCap ?? '')
+      toast.success(t('toasts.spendCapSaved'))
       await qc.invalidateQueries({ queryKey: billingKeys.overview(orgId) })
     },
   })

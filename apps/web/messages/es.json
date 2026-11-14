@@ -288,5 +288,13 @@
     "notFoundTitle": "Página no encontrada",
     "notFoundBody": "La dirección no existe o se ha movido.",
     "goHome": "Ir al inicio"
+  },
+  "toasts": {
+    "invited": "Invitación enviada a {email}",
+    "revoked": "Invitación revocada",
+    "roleChanged": "Rol actualizado",
+    "memberDisabled": "Miembro desactivado",
+    "memberEnabled": "Miembro activado",
+    "spendCapSaved": "Tope de gasto guardado"
   }
 }
