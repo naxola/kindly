@@ -52,7 +52,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | ⬜     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | ⬜     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ⬜     |
-| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | 🔒     |
+| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
 
 Orden recomendado: R4.1 → R4.2 → R3.1 → R5.3 → R5.2 (sin decisiones pendientes), R5.1 y R4.6
@@ -87,11 +87,9 @@ validación antes de implementar (regla 1 de `CLAUDE.md`).
 **Numeración de ADR nuevos** (por orden de bloque; las enmiendas a 0008, 0009 y 0012 no consumen
 número): R2.4 → 0015 · R2.5 → 0016 · R3.4 → 0017 · R3.5 → 0018 · R4.5 → 0019.
 
-**D10, recomendación pendiente de confirmar:** endpoint `/metrics` en `web` y `worker` (red
-interna), **sin** desplegar Prometheus y Grafana todavía. El endpoint es estándar, no ata a
-ningún servicio y casi no cuesta; Prometheus y Grafana añaden dos servicios al homelab (regla 7)
-y solo compensan cuando haya un producto con tráfico que graficar. Mientras, la profundidad y la
-espera de las colas ya alertan por ntfy. Se instalan después, en un ADR propio, sin tocar el código.
+**D10 (decidida):** endpoint `/metrics` en `web` y `worker` (red interna), sin desplegar Prometheus y
+Grafana todavía: añaden dos servicios al homelab (regla 7) y solo compensan con un producto con
+tráfico. Mientras, las colas ya alertan por ntfy. Se instalan después, en un ADR propio.
 
 Cada una desbloquea los bloques indicados. La recomendación es la opción por defecto si no hay
 otra preferencia.
@@ -529,7 +527,7 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   también pg-boss.
 - **Test:** unitario del manejador; a mano, `SIGTERM` a la web compilada (anotar el resultado).
 
-### R5.4 · Métricas — `feat/metrics` 🔒 D10
+### R5.4 · Métricas — `feat/metrics` ⬜ (D10 decidida)
 
 - **Contenido (enmienda 0008):** latencia y tasa de error por ruta, duración y resultado por job,
   profundidad y espera de cada cola. Expuestas solo en la red interna.
