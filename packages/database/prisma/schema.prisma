@@ -213,6 +213,17 @@ model Invitation {
   @@map("invitations")
 }
 
+/// Counters of the request limiter (ADR 0015). Global: no tenant, no RLS. `key` is a SHA-256
+/// of scope and identifier, never an IP, an email or an id in the clear.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int
+
+  @@index([windowStart])
+  @@map("rate_limits")
+}
+
 // ============================================================================
 // BILLING (ADR 0012). The plan catalog lives in code (core/billing/catalog.ts), versioned;
 // the database stores which plan version each organization has and what it consumed.

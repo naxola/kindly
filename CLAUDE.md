@@ -153,6 +153,9 @@ Convenciones al añadir código:
   de la transacción del efecto y con su clave de idempotencia; una función de pago se comprueba
   con `requireFeature(ctx, tx, …)` además de `authorize`. Nombres visibles de planes, métricas
   y unidades en `billing.*` de los mensajes. Dinero y cantidades: decimales, nunca `float`.
+- Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
+  `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
+  claves en hash. Cada límite nuevo lleva su `scope` propio.
 - Observabilidad (ADR 0008): los errores inesperados se reportan con `captureError`
   (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
   Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son

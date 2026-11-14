@@ -2,7 +2,12 @@ import { createDb, newId, type Db } from '@saas/database'
 import pg from 'pg'
 import type * as core_ from '@saas/core'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { rateLimitKey } from '@saas/adapters/rate-limit'
 import { api } from '../src/server/api/app.ts'
+import {
+  INVITATIONS_PER_ORGANIZATION_PER_DAY,
+  SESSION_LIMIT_PER_MINUTE,
+} from '../src/server/api/rate-limit.ts'
 
 const core = vi.hoisted(() => ({ failAcceptOnce: false }))
 // Wraps acceptInvitation so one test can make the step after the account creation fail.
@@ -40,7 +45,9 @@ afterAll(async () => {
 class Browser {
   private jar = new Map<string, string>()
   /** Each browser is a different client, so IP limits do not couple unrelated tests. */
-  ip = `198.51.100.${1 + Math.floor(Math.random() * 250)}`
+  // Unique per browser (documentation range): the counters live in the database now, so two
+  // browsers that drew the same address would share their limits.
+  ip = `2001:db8::${newId().slice(-4)}:${newId().slice(-8, -4)}`
 
   async call(method: string, path: string, body?: unknown, extra: Record<string, string> = {}) {
     const res = await api.request(`${ORIGIN}${path}`, {
@@ -63,7 +70,7 @@ class Browser {
     }
     const text = await res.text()
     const parsed: any = text ? JSON.parse(text) : null
-    return { status: res.status, body: parsed }
+    return { status: res.status, body: parsed, headers: res.headers }
   }
 
   has(cookie: string) {
@@ -308,6 +315,49 @@ describe('sign-up from an invitation link', () => {
     expect(res.status).toBe(400)
     expect(res.body.error.details).toEqual([{ code: 'PASSWORD_TOO_SHORT', path: 'password' }])
     expect(await db.authUser.findUnique({ where: { email } })).toBeNull()
+  })
+})
+
+describe('persistent rate limits (R2.4, ADR 0015)', () => {
+  /** Leaves a counter one request away from its limit, as if the window were almost used up. */
+  const fill = (scope: string, id: string, count: number) =>
+    db.rateLimit.upsert({
+      where: { key: rateLimitKey(scope, id) },
+      create: { key: rateLimitKey(scope, id), windowStart: new Date(), count },
+      update: { windowStart: new Date(), count },
+    })
+
+  it('an organization cannot send more than its daily cap of invitations', async () => {
+    const owner = await person('cap-owner')
+    const created = await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Tope',
+      slug: `tope-${newId().slice(-12)}`,
+    })
+    await fill('invitations', created.body.id as string, INVITATIONS_PER_ORGANIZATION_PER_DAY - 1)
+    const ok = await owner.browser.call('POST', '/api/v1/invitations', {
+      email: `cap-${newId()}@example.com`,
+    })
+    expect(ok.status).toBe(201)
+    const refused = await owner.browser.call('POST', '/api/v1/invitations', {
+      email: `cap-${newId()}@example.com`,
+    })
+    expect(refused.status).toBe(429)
+    expect(refused.body.error.code).toBe('RATE_LIMITED')
+    expect(Number(refused.headers.get('retry-after'))).toBeGreaterThan(3600)
+    // Resending is an email too: it counts against the same cap.
+    const again = await owner.browser.call('POST', `/api/v1/invitations/${ok.body.id}/resend`)
+    expect(again.status).toBe(429)
+  })
+
+  it('a signed-in person is limited across /api/v1, without affecting anyone else', async () => {
+    const busy = await person('busy')
+    const calm = await person('calm')
+    const access = await db.authUser.findUniqueOrThrow({ where: { email: busy.email } })
+    await fill('api', access.id, SESSION_LIMIT_PER_MINUTE)
+    const refused = await busy.browser.call('GET', '/api/v1/me')
+    expect(refused.status).toBe(429)
+    expect(Number(refused.headers.get('retry-after'))).toBeLessThanOrEqual(60)
+    expect((await calm.browser.call('GET', '/api/v1/me')).status).toBe(200)
   })
 })
 

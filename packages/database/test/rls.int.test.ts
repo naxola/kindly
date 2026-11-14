@@ -15,6 +15,8 @@ const GLOBAL_TABLES = new Set<string>([
   'auth_verifications',
   // Business person, shared by all the organizations they belong to (ADR 0003).
   'users',
+  // Request limiter counters (ADR 0015): hashed keys, no tenant data.
+  'rate_limits',
 ])
 
 let db: Db

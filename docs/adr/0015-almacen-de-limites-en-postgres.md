@@ -1,8 +1,9 @@
 # 0015 — Almacén de límites de peticiones en Postgres
 
-**Estado:** Propuesto (2026-11-14). Decisión D3 (Postgres, sin Redis) ya tomada por el usuario; este
-documento detalla el diseño y las cifras que hay que validar. **No se implementa (R2.4) hasta que
-el usuario lo valide.**
+**Estado:** Aceptado (2026-11-14). El usuario validó el diseño con las opciones recomendadas:
+**300 peticiones por minuto** por sesión en `/api/v1`, **50 invitaciones al día** por organización
+(nuevas y reenviadas), y política de fallo **abierta salvo en el acceso** (`/api/auth/*` falla
+cerrado). Implementado en R2.4.
 
 ## Problema
 
@@ -43,7 +44,7 @@ enviar correo a direcciones arbitrarias sin tope.
   facilita fuerza bruta.
 - Cambia `apps/web/src/server/api/rate-limit.ts` y la configuración de Better Auth.
 
-## Decisiones que necesito de ti
+## Decisiones tomadas (2026-11-14)
 
 - **Cifras por defecto** (SUPUESTO, ajustables luego): sesión en `/api/v1`: **300 peticiones por
   minuto**; acceso (`/api/auth/*`) por IP: las actuales; **invitaciones por organización: 50 al

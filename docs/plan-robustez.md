@@ -36,7 +36,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.1   | `feat/security-headers`        | CSP, HSTS y resto de cabeceras en `web` y `site`          | —              | —          | ✅     |
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
-| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ⬜     |
+| R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ✅     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | 🟡     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
@@ -386,7 +386,25 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
 - **Textos:** `errors.ALREADY_MEMBER` en `apps/web/messages/{es,en}.json`.
 - **Test:** integración: dos invitaciones concurrentes al mismo email → una; invitar a un miembro.
 
-### R2.4 · Almacén de límites — `feat/rate-limit-store` ⬜ (D3 decidida)
+### R2.4 · Almacén de límites — `feat/rate-limit-store` ✅ (2026-11-14, ADR 0015)
+
+- **Entregado:** tabla global `rate_limits` (migración `20261114160000`, declarada en
+  `GLOBAL_TABLES`) y `@saas/adapters/rate-limit`: `consumeRateLimit` (ventana fija, **una sentencia
+  atómica** `INSERT … ON CONFLICT`), claves `SHA-256(ámbito:identificador)` (la tabla nunca guarda
+  una IP, un email ni un id en claro), `purgeRateLimits` y el almacén para Better Auth (su API
+  actual es `consume`, atómica; ya no acepta `get`/`set`). El limitador de `/api/v1` usa el
+  almacén; **límites nuevos:** 300 peticiones por minuto por persona con sesión en `/api/v1` y 50
+  invitaciones al día por organización (nuevas y reenviadas cuentan igual). Fallo abierto en
+  `/api/v1` (se registra y se reporta); el acceso falla cerrado. Job diario
+  `platform.purge-rate-limits` (módulo nuevo `core/platform`, solo definiciones) con su consumidor
+  en el worker.
+- **Tests:** integración del almacén (límite, 20 peticiones simultáneas con tope 5, otro pool de
+  conexiones, ventana nueva, solo hashes, purga, Better Auth) y de la API (tope diario de
+  invitaciones también al reenviar, límite por sesión sin afectar a otra persona). Verificado:
+  135 de integración, 121 unitarias, 26 de 26 E2E, tipos, lint, fronteras, `migrate diff` sin deriva.
+- **Límites conocidos:** sin IP de confianza, las peticiones anónimas comparten un solo cubo
+  (como antes, R1.2). El fallo abierto no tiene test: exigiría tirar Postgres a mitad de petición.
+  Las cifras son `SUPUESTO` en `apps/web/src/server/api/rate-limit.ts`.
 
 - **Problema:** el limitador propio (`apps/web/src/server/api/rate-limit.ts`) y el de Better Auth
   viven en memoria: se pierden al reiniciar y no valen con dos réplicas. No hay límites por

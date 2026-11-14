@@ -3,6 +3,7 @@ import { DomainError } from '@saas/core'
 import { auth } from '../auth.ts'
 import { errorBody, handleError, validationError } from './errors.ts'
 import { requestContext } from './middleware.ts'
+import { sessionLimit } from './rate-limit.ts'
 import { billingRoutes } from './routes/billing.ts'
 import { healthRoutes } from './routes/health.ts'
 import { invitationRoutes } from './routes/invitations.ts'
@@ -28,7 +29,7 @@ function newApp() {
 
 /** Versioned business API (/api/v1). Modules register their routes here. */
 const v1 = newApp()
-v1.use('*', csrfGuard, session)
+v1.use('*', csrfGuard, session, sessionLimit)
 v1.route('/', meRoutes)
 v1.route('/', organizationRoutes)
 v1.route('/', memberRoutes)
