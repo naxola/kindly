@@ -606,18 +606,21 @@ the business events` es **inestable** en la suite completa de integración (4 n�
   de errores de proceso y el SDK de Sentry captura los suyos en la web.
 - **Tests:** unitarios de `installFatalHandlers` (excepción, rechazo, no-Error, fallo del
   reporte, un solo fallo); a mano, un proceso con un rechazo sin atender: log `fatal` y código 1.
-- **Hallazgo, sin resolver:** la inestabilidad del test del worker (ver R3.1) **no depende** de
-  los tiempos de Postgres (sigue fallando con límites de 600 s). Al fallar, quedan 4 trabajos
-  `events.deliver` en `created` y sin consumir con el worker vivo durante más de 40 s, mientras
-  otros 28 de la misma cola sí se entregaron. Puede ser un defecto real del consumo de esa cola
-  (no solo del test) y merece su propio bloque de investigación.
-
-- **Problema:** la web no cierra pg-boss ni el pool al recibir `SIGTERM`; el worker no registra
-  `unhandledRejection` ni `uncaughtException`, y un fallo en `shutdown` queda sin capturar.
-- **Cambio:** manejadores en `apps/web/src/instrumentation.ts` y `apps/worker/src/main.ts`
-  (log `fatal`, `captureError`, `flushErrors`, salida con código 1); `/ready` del worker comprueba
-  también pg-boss.
-- **Test:** unitario del manejador; a mano, `SIGTERM` a la web compilada (anotar el resultado).
+- **Hallazgo, resuelto (2026-11-14): el test inestable del worker era un límite real de
+  rendimiento.** `registerWorker` pedía **un** trabajo por consulta y esperaba el intervalo de
+  sondeo (2 s) tras cada uno: una cola movía como mucho `WORKER_CONCURRENCY / 2` trabajos por
+  segundo (~1/s con el valor por defecto) por rápido que fuese el manejador. Una ráfaga de eventos
+  o correos tardaba minutos en vaciarse; en la suite, los ~60 trabajos que dejaba
+  `organizations.int.test.ts` retrasaban los del test del worker más de los 20 s de su espera
+  (por eso fallaba ~50 % de las veces, también sin los cambios de R3.1, y suelto nunca). Se
+  comprobó con los registros del worker: 2 trabajos cada 2 s. **Arreglo:** cada consulta toma
+  hasta 5 trabajos que se ejecutan uno tras otro (como antes dentro de cada trabajador) y,
+  mientras los lotes salgan llenos, se vuelve a consultar sin esperar (`burstWhenBatchFull`); cada
+  trabajo se resuelve por separado (`perJobResults`), así que un fallo no reintenta a sus
+  vecinos y los reintentos, la alerta de fallo definitivo y el estado `failed` funcionan igual.
+  Tests nuevos en `packages/adapters/test/queue.int.test.ts` (40 trabajos vaciados en menos de
+  8 s, que antes eran 10 de 40; y un fallo dentro de un lote). Suite de integración: 5 ejecuciones
+  seguidas en verde (110 de 110) y 28 s en lugar de 53 s.
 
 ### R5.4 · Métricas — `feat/metrics` ⬜ (D10 decidida)
 

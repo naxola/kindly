@@ -34,6 +34,12 @@ const recordJob = defineJob({
   retryLimit: 1,
   retryDelaySeconds: 1,
 })
+const backlogJob = defineJob({
+  name: `test-${run}.backlog`,
+  schema: z.object({ n: z.number() }),
+  retryLimit: 0,
+  retryDelaySeconds: 1,
+})
 const failingJob = defineJob({
   name: `test-${run}.fail`,
   schema: z.object({}),
@@ -305,5 +311,76 @@ describe('failed jobs sweep (R1.3)', () => {
     })
     // Nothing new after the returned clock.
     expect((await failedJobsSince(boss, [name], now)).jobs).toEqual([])
+  })
+})
+
+describe('throughput (R5.3 follow-up)', () => {
+  it('drains a backlog at the speed of the handler, not one job per polling interval', async () => {
+    const total = 40
+    await withTenant(db, orgId, async (tx) => {
+      for (let n = 0; n < total; n++) {
+        await queue.enqueue(tx, backlogJob, { n }, { ...meta(), idempotencyKey: `backlog-${n}` })
+      }
+    })
+    const done = new Set<number>()
+    await registerWorker(
+      boss,
+      backlogJob,
+      (payload) => {
+        done.add(payload.n)
+        return Promise.resolve()
+      },
+      { log, concurrency: 2 },
+    )
+    const started = Date.now()
+    while (done.size < total) {
+      if (Date.now() - started > 8_000) throw new Error(`only ${done.size}/${total} in 8 s`)
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    // Before the fix: one job per worker every 2 s (40 jobs ≈ 40 s).
+    expect(Date.now() - started).toBeLessThan(8_000)
+  })
+
+  it('a failing job in a batch is retried on its own and does not fail its neighbours', async () => {
+    const mixedJob = defineJob({
+      name: `test-${run}.mixed`,
+      schema: z.object({ n: z.number() }),
+      retryLimit: 0,
+      retryDelaySeconds: 1,
+    })
+    const finals: FinalFailure[] = []
+    const ok: number[] = []
+    const ids: string[] = []
+    await withTenant(db, orgId, async (tx) => {
+      for (let n = 0; n < 6; n++) {
+        ids.push(
+          (await queue.enqueue(tx, mixedJob, { n }, { ...meta(), idempotencyKey: `mixed-${n}` }))
+            .id,
+        )
+      }
+    })
+    await registerWorker(
+      boss,
+      mixedJob,
+      (payload) => {
+        if (payload.n === 3) return Promise.reject(new Error('only this one fails'))
+        ok.push(payload.n)
+        return Promise.resolve()
+      },
+      { log, concurrency: 1, onFinalFailure: (f) => void finals.push(f) },
+    )
+    const states = await Promise.all(
+      ids.map((id) => waitForState(mixedJob.name, id, ['completed', 'failed'])),
+    )
+    expect(states.map((j) => j.state)).toEqual([
+      'completed',
+      'completed',
+      'completed',
+      'failed',
+      'completed',
+      'completed',
+    ])
+    expect(ok.sort()).toEqual([0, 1, 2, 4, 5])
+    expect(finals).toHaveLength(1)
   })
 })
