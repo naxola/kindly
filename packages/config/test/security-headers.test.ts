@@ -4,6 +4,7 @@ import {
   createNonce,
   paddleSources,
   staticSecurityHeaders,
+  urlOrigin,
 } from '../src/security-headers.ts'
 
 const names = (https: boolean) => staticSecurityHeaders({ https }).map((h) => h.key)
@@ -53,5 +54,17 @@ describe('buildCsp', () => {
 describe('createNonce', () => {
   it('differs per call', () => {
     expect(createNonce()).not.toBe(createNonce())
+  })
+})
+
+describe('urlOrigin', () => {
+  it('gives the origin of a DSN, without its key or path', () => {
+    expect(urlOrigin('https://abc123@errors.example.com/4')).toBe('https://errors.example.com')
+    expect(urlOrigin('http://key@localhost:3199/1')).toBe('http://localhost:3199')
+  })
+  it('is null for nothing or for garbage', () => {
+    expect(urlOrigin(undefined)).toBeNull()
+    expect(urlOrigin('')).toBeNull()
+    expect(urlOrigin('not a url')).toBeNull()
   })
 })

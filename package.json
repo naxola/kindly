@@ -29,6 +29,7 @@
     "ops:queue": "tsx scripts/ops-queue.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@saas/adapters": "workspace:*",

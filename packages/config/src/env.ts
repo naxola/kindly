@@ -92,6 +92,15 @@ export const siteEnv = z.object({
  * Observability (ADR 0008). Everything is optional: without values, errors are only logged
  * and alerts only go to the log, so a fresh clone works without any account.
  */
+/**
+ * DSN for errors of the BROWSER (R4.6). A browser DSN is public by design (it only lets events be
+ * sent), so it is handed to the page at runtime; it can be the same project as `SENTRY_DSN` or a
+ * separate one. Empty: browser errors are not collected.
+ */
+export const browserErrorsEnv = z.object({
+  SENTRY_BROWSER_DSN: z.url().optional(),
+})
+
 export const observabilityEnv = z
   .object({
     /** Sentry or GlitchTip (same protocol). Empty: error tracking disabled. */

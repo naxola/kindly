@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, type Locator, type Page } from '@playwright/test'
 import pg from 'pg'
 
@@ -104,4 +105,25 @@ export async function closedBillingPeriod(page: Page) {
   } finally {
     client.release()
   }
+}
+
+/**
+ * Accessibility check of the current screen with axe (WCAG 2.1 A and AA). Fails on `serious` and
+ * `critical` violations and names each one, its elements and the rule's help page.
+ */
+export async function expectAccessible(page: Page, label: string) {
+  const { violations } = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  const grave = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')
+  const report = grave.map(
+    (v) =>
+      `[${v.impact}] ${v.id}: ${v.help} (${v.helpUrl})\n` +
+      v.nodes
+        .slice(0, 3)
+        .map((n) => `    ${n.target.join(' ')}  ${n.failureSummary?.split('\n')[1] ?? ''}`)
+        .join('\n'),
+  )
+  // Compare the readable report (not axe's raw objects) so a failure names what to fix.
+  expect(report, label).toEqual([])
 }

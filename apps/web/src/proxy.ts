@@ -3,6 +3,7 @@ import {
   createNonce,
   paddleSources,
   staticSecurityHeaders,
+  urlOrigin,
 } from '@saas/config/security-headers'
 import { NextResponse, type NextRequest } from 'next/server'
 
@@ -20,13 +21,15 @@ function policy(nonce: string): string {
     process.env.PAYMENT_PROVIDER === 'paddle'
       ? paddleSources(process.env.PADDLE_ENVIRONMENT === 'production' ? 'production' : 'sandbox')
       : null
+  // The browser sends its errors to the DSN host (R4.6).
+  const errors = urlOrigin(process.env.SENTRY_BROWSER_DSN)
   return buildCsp({
     nonce,
     development: process.env.NODE_ENV === 'development',
     scriptSrc: paddle?.script,
     styleSrc: paddle?.style,
     imgSrc: paddle?.img,
-    connectSrc: paddle?.connect,
+    connectSrc: [...(paddle?.connect ?? []), ...(errors ? [errors] : [])],
     frameSrc: paddle?.frame,
   })
 }

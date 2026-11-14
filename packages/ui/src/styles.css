@@ -24,7 +24,8 @@
 
   --foreground: #171717;
   --foreground-light: #525252;
-  --foreground-lighter: #737373;
+  /* 4.5:1 or more on every light surface (WCAG AA); #737373 reached only 4.42 on #f7f7f7. */
+  --foreground-lighter: #6b6b6b;
   --foreground-muted: #a3a3a3;
 
   --brand: #3b5bdb;
