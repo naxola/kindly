@@ -31,6 +31,7 @@ import {
   purgeRateLimitsJob,
 } from './modules/platform/index.ts'
 import {
+  changeEmailConfirmationEmailJob,
   invitationEmailJob,
   passwordResetEmailJob,
   verificationEmailJob,
@@ -44,6 +45,7 @@ export const ALL_JOBS = [
   verificationEmailJob,
   passwordResetEmailJob,
   invitationEmailJob,
+  changeEmailConfirmationEmailJob,
   deliverEventJob,
   quotaAlertEmailJob,
   dunningEmailJob,

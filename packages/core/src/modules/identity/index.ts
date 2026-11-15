@@ -31,11 +31,17 @@ export {
 } from './members.ts'
 export {
   verificationEmailJob,
+  changeEmailConfirmationEmailJob,
   passwordResetEmailJob,
   invitationEmailJob,
   identityEmailHandlers,
 } from './jobs.ts'
-export { verificationEmail, passwordResetEmail, invitationEmail } from './emails.ts'
+export {
+  verificationEmail,
+  passwordResetEmail,
+  changeEmailConfirmationEmail,
+  invitationEmail,
+} from './emails.ts'
 export {
   INVITATION_TTL_DAYS,
   invitationUrl,

@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test'
-import { adminWithOrganization, closeDb, expectAccessible, PASSWORD, press } from './helpers.ts'
+import {
+  adminWithOrganization,
+  closeDb,
+  emailUrl,
+  expectAccessible,
+  PASSWORD,
+  press,
+  uniqueEmail,
+} from './helpers.ts'
 
 test.afterAll(closeDb)
 
@@ -41,6 +49,33 @@ test('a person changes their name and language, then their password, and signs i
   await press(page.getByRole('button', { name: 'Entrar' }))
   await expect(page.getByText('Email o contraseña incorrectos.')).toBeVisible()
   await page.getByLabel('Contraseña').fill(next)
+  await press(page.getByRole('button', { name: 'Entrar' }))
+  await expect(page).toHaveURL(/\/$/)
+})
+
+test('changing the sign-in email is confirmed from the old address and then the new one', async ({
+  page,
+}) => {
+  const oldEmail = await adminWithOrganization(page, 'Cambio')
+  const newEmail = uniqueEmail('nuevo')
+  await page.goto('/settings/account')
+  await page.getByLabel('Email nuevo').fill(newEmail)
+  await press(page.getByRole('button', { name: 'Cambiar email' }))
+  await expect(page.getByText(`Te hemos enviado un correo a ${oldEmail}`)).toBeVisible()
+
+  // Step 1: the link sent to the CURRENT address.
+  await page.goto(await emailUrl('identity.change-email-confirmation-email', oldEmail))
+  // Step 2: the verification sent to the NEW address.
+  await page.goto(await emailUrl('identity.verification-email', newEmail))
+
+  // The account now signs in with the new address, and the old one is gone.
+  await page.context().clearCookies()
+  await page.goto('/sign-in')
+  await page.getByLabel('Email').fill(oldEmail)
+  await page.getByLabel('Contraseña').fill(PASSWORD)
+  await press(page.getByRole('button', { name: 'Entrar' }))
+  await expect(page.getByText('Email o contraseña incorrectos.')).toBeVisible()
+  await page.getByLabel('Email').fill(newEmail)
   await press(page.getByRole('button', { name: 'Entrar' }))
   await expect(page).toHaveURL(/\/$/)
 })

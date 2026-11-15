@@ -37,11 +37,8 @@ export function AccountSettings() {
         {me.isError ? <QueryError error={me.error} onRetry={() => void me.refetch()} /> : null}
         {me.data?.user ? (
           <>
-            <ProfileForm
-              name={me.data.user.displayName}
-              locale={me.data.user.locale}
-              email={me.data.access.email}
-            />
+            <ProfileForm name={me.data.user.displayName} locale={me.data.user.locale} />
+            <EmailChangeForm current={me.data.access.email} />
             <PasswordForm />
           </>
         ) : null}
@@ -50,15 +47,7 @@ export function AccountSettings() {
   )
 }
 
-function ProfileForm({
-  name,
-  locale,
-  email,
-}: {
-  name: string
-  locale: 'es' | 'en' | null
-  email: string
-}) {
+function ProfileForm({ name, locale }: { name: string; locale: 'es' | 'en' | null }) {
   const t = useTranslations()
   const router = useRouter()
   const qc = useQueryClient()
@@ -102,9 +91,6 @@ function ProfileForm({
             />
           )}
         </Field>
-        <Field label={t('auth.fields.email')} hint={t('settings.account.emailFixed')}>
-          {(p) => <Input {...p} value={email} readOnly disabled />}
-        </Field>
         <Field label={t('settings.account.language')} hint={t('settings.account.languageHint')}>
           {(p) => (
             <Select {...p} name="locale" defaultValue={locale ?? ''}>
@@ -116,6 +102,52 @@ function ProfileForm({
         </Field>
         <Button type="submit" size="small" variant="primary" disabled={save.isPending}>
           {t('settings.billing.save')}
+        </Button>
+      </form>
+    </Panel>
+  )
+}
+
+function EmailChangeForm({ current }: { current: string }) {
+  const t = useTranslations()
+  const [requested, setRequested] = useState<string | null>(null)
+  const change = useMutation({
+    mutationFn: async (newEmail: string) => {
+      const res = await authRequest('/change-email', {
+        newEmail,
+        callbackURL: '/settings/account',
+      })
+      if (!res.ok) throw new AuthError(res.code ?? 'UNKNOWN')
+      return newEmail
+    },
+    onSuccess: (newEmail) => setRequested(newEmail),
+  })
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setRequested(null)
+    change.mutate(field(new FormData(e.currentTarget), 'newEmail').trim())
+  }
+
+  return (
+    <Panel title={t('settings.account.email')} description={t('settings.account.emailHint')}>
+      <form className="max-w-md space-y-4" onSubmit={onSubmit}>
+        {change.error ? (
+          <Callout variant="destructive">{errorText(t, change.error)}</Callout>
+        ) : null}
+        {requested ? (
+          <Callout variant="success">
+            {t('settings.account.emailRequested', { current, email: requested })}
+          </Callout>
+        ) : null}
+        <Field label={t('settings.account.currentEmail')}>
+          {(p) => <Input {...p} value={current} readOnly disabled />}
+        </Field>
+        <Field label={t('settings.account.newEmail')}>
+          {(p) => <Input {...p} name="newEmail" type="email" autoComplete="email" required />}
+        </Field>
+        <Button type="submit" size="small" variant="primary" disabled={change.isPending}>
+          {t('settings.account.changeEmail')}
         </Button>
       </form>
     </Panel>

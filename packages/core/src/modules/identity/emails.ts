@@ -46,6 +46,31 @@ export const verificationEmail = (locale: Locale, name: string, url: string) =>
 export const passwordResetEmail = (locale: Locale, name: string, url: string) =>
   render(RESET[locale], url, hello(locale, name))
 
+export function changeEmailConfirmationEmail(
+  locale: Locale,
+  name: string,
+  newEmail: string,
+  url: string,
+): Rendered {
+  const t: Template =
+    locale === 'es'
+      ? {
+          subject: 'Confirma el cambio de tu correo de acceso',
+          intro: `Has pedido cambiar tu correo de acceso a ${newEmail}. Confirma que has sido tú; después te enviaremos un enlace a la nueva dirección para terminar.`,
+          action: 'Confirmar el cambio',
+          outro:
+            'El enlace caduca en 1 hora. Si no lo has pedido tú, ignora este mensaje y cambia tu contraseña: alguien podría tener acceso a tu cuenta.',
+        }
+      : {
+          subject: 'Confirm the change of your sign-in email',
+          intro: `You asked to change your sign-in email to ${newEmail}. Confirm it was you; we will then send a link to the new address to finish.`,
+          action: 'Confirm the change',
+          outro:
+            'The link expires in 1 hour. If you did not request it, ignore this message and change your password: someone may have access to your account.',
+        }
+  return render(t, url, hello(locale, name))
+}
+
 export function invitationEmail(
   locale: Locale,
   organizationName: string,

@@ -278,14 +278,19 @@
       "description": "Your personal details. They do not depend on any organization.",
       "profile": "Profile",
       "profileHint": "How other members see you, and the language you use the app in.",
-      "emailFixed": "The sign-in email cannot be changed from here yet.",
       "language": "Language",
       "languageHint": "Your preference; this browser may have another one chosen in the settings menu.",
       "languageDefault": "The organization's",
       "password": "Password",
       "passwordHint": "Changing it signs you out on other devices.",
       "currentPassword": "Current password",
-      "changePassword": "Change password"
+      "changePassword": "Change password",
+      "email": "Sign-in email",
+      "emailHint": "You sign in with this email. To change it you confirm first from the current address and then from the new one; until then the current one keeps working.",
+      "currentEmail": "Current email",
+      "newEmail": "New email",
+      "changeEmail": "Change email",
+      "emailRequested": "We sent an email to {current} to confirm the change to {email}. Once you confirm it, we will send another to {email} to finish."
     },
     "organization": {
       "title": "Organization",
