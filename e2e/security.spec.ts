@@ -14,7 +14,7 @@ async function signIn(page: Page, email: string) {
 test('turning on the second factor, signing in with a code and with a recovery code', async ({
   page,
 }) => {
-  const email = await adminWithOrganization(page, 'Dos pasos')
+  const email = await adminWithOrganization(page, 'Dospasos')
   await page.goto('/settings/account')
 
   // Set up: password, then the QR / key and a first code.
