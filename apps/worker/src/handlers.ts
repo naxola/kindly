@@ -10,6 +10,7 @@ import {
   purgeExpiredAuditLogs,
   purgeRateLimitsJob,
   billingEmailHandlers,
+  changeEmailConfirmationEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
   deliverEventHandler,
@@ -68,6 +69,11 @@ export const registrations: Registration[] = [
   register({
     job: invitationEmailJob,
     handler: ({ email }) => identityEmailHandlers(email()).invitation,
+    sendsEmail: true,
+  }),
+  register({
+    job: changeEmailConfirmationEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).changeEmailConfirmation,
     sendsEmail: true,
   }),
   register({ job: deliverEventJob, handler: ({ events }) => deliverEventHandler(events) }),

@@ -28,6 +28,8 @@ import { createDb, type Db } from '@saas/database'
 import type { Server } from 'node:http'
 import { loadEmailEnv, loadEventsEnv, loadObservabilityEnv, type WorkerEnv } from './env.ts'
 import { startHealthServer, startHeartbeat } from './health.ts'
+import { collectProcessMetrics, DURATION_BUCKETS, MetricsRegistry } from '@saas/adapters/metrics'
+import { metricsEnv, parseEnv } from '@saas/config/env'
 import { registrations } from './handlers.ts'
 
 export interface StartWorkerOptions {
@@ -130,6 +132,22 @@ export async function startWorker({
     )
   }
 
+  // Metrics (ADR 0008, amendment): in memory, read through /metrics. Labels are queue and state
+  // names only: never ids, emails or IPs.
+  const metrics = new MetricsRegistry()
+  collectProcessMetrics(metrics)
+  const jobsTotal = metrics.counter('worker_jobs_total', 'Job attempts by queue and result')
+  const jobSeconds = metrics.histogram(
+    'worker_job_duration_seconds',
+    'Duration of a job attempt',
+    DURATION_BUCKETS,
+  )
+  const queueJobs = metrics.gauge('worker_queue_jobs', 'Jobs per queue and state')
+  const queueWait = metrics.gauge(
+    'worker_queue_oldest_wait_seconds',
+    'Seconds the oldest ready job of a queue has been waiting',
+  )
+
   const timeouts = dbTimeoutsFromEnv(env)
   const db = createDb({
     connectionString: env.DATABASE_URL,
@@ -150,6 +168,10 @@ export async function startWorker({
         log,
         concurrency: env.WORKER_CONCURRENCY,
         onFinalFailure,
+        onJobDone: ({ job: name, result, seconds }) => {
+          jobsTotal.inc({ queue: name, result })
+          jobSeconds.observe({ queue: name, result }, seconds)
+        },
       },
     )
   }
@@ -216,8 +238,30 @@ export async function startWorker({
     await boss.getDb().executeSql('SELECT 1')
     return true
   }
+  metrics.onCollect(async () => {
+    const snapshot = await queueSnapshot(boss, { failures: 0 })
+    queueJobs.replace(
+      snapshot.queues.flatMap((q) =>
+        Object.entries(q.counts).map(([state, value]) => ({
+          labels: { queue: q.name, state },
+          value: value ?? 0,
+        })),
+      ),
+    )
+    queueWait.replace(
+      snapshot.queues.map((q) => ({
+        labels: { queue: q.name },
+        value: q.oldestWaitingSeconds ?? 0,
+      })),
+    )
+  })
   let health: Server | null = null
-  if (env.WORKER_HEALTH_PORT > 0) health = await startHealthServer(env.WORKER_HEALTH_PORT, ready)
+  if (env.WORKER_HEALTH_PORT > 0) {
+    health = await startHealthServer(env.WORKER_HEALTH_PORT, ready, {
+      token: parseEnv(metricsEnv).METRICS_TOKEN,
+      render: () => metrics.renderAsync(),
+    })
+  }
   const heartbeat = env.HEARTBEAT_URL
     ? startHeartbeat({
         url: env.HEARTBEAT_URL,

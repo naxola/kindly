@@ -58,6 +58,31 @@ Decisión D8 del usuario (dependencias `@sentry/browser` 11.9.0, igual que `@sen
 - **Límite:** el mensaje de una excepción puede contener texto que no controlamos; el `correlationId`
   y los logs del servidor siguen siendo el hilo fiable.
 
+## Enmienda (2026-11-15): métricas con `/metrics`
+
+Decisión D10 del usuario: endpoint `/metrics` en `web` y en `worker`; **Prometheus y Grafana no se
+despliegan todavía** (dos servicios más en el homelab, regla 7) y entrarán, si hace falta, con un
+ADR propio sin tocar este código.
+
+- **Formato:** texto de Prometheus (exposición 0.0.4). **Sin dependencia nueva:** un registro
+  mínimo (contador, medidor, histograma) en `packages/adapters/src/metrics`, de unas decenas de
+  líneas; una librería (`prom-client`) añadiría una dependencia y un riesgo de cadena de
+  suministro para tres tipos de métrica.
+- **Qué se mide:** web: peticiones y duración por método, **ruta con plantilla** (nunca la ruta
+  real: sin ids ni tokens, cardinalidad acotada) y clase de estado. Worker: trabajos y duración
+  por cola y resultado (`completed`, `retry`, `failed`), profundidad de cada cola por estado y
+  espera del trabajo listo más antiguo, leídas de pg-boss al consultar. Ambos: tiempo en marcha
+  y memoria residente del proceso.
+- **Privacidad:** etiquetas solo con nombres de ruta, de cola y de estado; **nunca** ids de
+  organización o persona, emails ni IP.
+- **Acceso:** «solo en la red interna». `web` publica `/api/metrics` en el puerto de la
+  aplicación, que sale a Internet por el proxy; por eso exige `Authorization: Bearer
+<METRICS_TOKEN>` y **sin la variable responde 404** (nunca queda abierto por descuido). El
+  worker lo publica en su puerto de salud (ya interno) con el mismo token. Además, el proxy no
+  debería enrutar `/api/metrics` hacia fuera (`docs/operations.md`).
+- **Límite:** las métricas viven en memoria del proceso y se reinician con él (así es Prometheus:
+  el raspador calcula las tasas). Con varias réplicas de `web`, cada una expone las suyas.
+
 ## Pendiente
 
 - Centralizar logs (Grafana Loki o Better Stack) y el monitor externo: con el despliegue

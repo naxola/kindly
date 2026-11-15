@@ -37,7 +37,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.2   | `chore/db-timeouts`            | Tiempos límite de sentencia, bloqueo y transacción        | —              | —          | ✅     |
 | R2.3   | `fix/invitation-integrity`     | Invitación única por email; registro atómico              | —              | —          | ✅     |
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ✅     |
-| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | 🟡     |
+| R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ✅     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ✅     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
@@ -52,7 +52,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🟡     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
 | R5.3   | `fix/graceful-shutdown`        | Parada limpia de la web; errores no capturados del worker | —              | —          | ✅     |
-| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ⬜     |
+| R5.4   | `feat/metrics`                 | Métricas de latencia, errores y cola                      | enmienda 0008  | —          | ✅     |
 | R5.5   | `docs/backups`                 | Copias de seguridad y restauración probada                | ADR producción | D5         | 🔒     |
 
 Orden recomendado: R4.1 → R4.2 → R3.1 → R5.3 → R5.2 (sin decisiones pendientes), R5.1 y R4.6
@@ -583,7 +583,24 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Test:** E2E: invitar muestra la confirmación; borrar la cookie de sesión y actuar lleva al
   inicio de sesión y vuelve a la misma pantalla.
 
-### R4.3 · Ajustes de la cuenta — `feat/account-settings` 🟡 (2026-11-14, falta el cambio de email)
+### R4.3 · Ajustes de la cuenta — `feat/account-settings` ✅ (2026-11-15)
+
+- **Entregado antes:** `updateProfile` (nombre visible e idioma, auditado), `PATCH /api/v1/me` y la
+  pantalla **Ajustes → Cuenta** con el cambio de contraseña (exige la actual y cierra las demás
+  sesiones). Al guardar el idioma se actualiza también la cookie de este navegador.
+- **Entregado ahora, cambio del email de acceso:** `changeEmail` de Better Auth activado, en dos
+  pasos: un correo a la dirección **actual** para confirmar (plantilla nueva es/en,
+  `identity.change-email-confirmation-email`, con `category: 'access'`) y, al confirmarlo, el correo
+  de verificación habitual a la **nueva**; el email solo cambia tras los dos. Hasta entonces sigue
+  valiendo el actual. Límite propio `/change-email`: 3 por minuto. Formulario en Ajustes → Cuenta.
+  El negocio no se entera (`users` se une por `auth_user_id`).
+- **Tests:** integración de Better Auth (flujo completo: solicitud, confirmación en la dirección
+  antigua, verificación en la nueva, la antigua deja de entrar y la nueva entra) y
+  `e2e/account.spec.ts` (los dos flujos).
+- **Límites conocidos:** el correo de confirmación usa el idioma por defecto (el acceso no conoce
+  preferencias de negocio); una invitación pendiente dirigida al email antiguo deja de poder
+  aceptarse con la cuenta (`EMAIL_MISMATCH`) y hay que reenviarla al nuevo; el cambio no deja
+  entrada de auditoría. Lista y cierre de sesiones activas son de R2.5.
 
 - **Entregado:** `updateProfile` (`core/identity`, nombre visible e idioma preferido; personal, sin
   permisos de organización, auditado sin organización como `user.profile_updated` con antes y
@@ -770,7 +787,23 @@ the business events` era **inestable** en la suite completa de integración (4 n
   8 s, que antes eran 10 de 40; y un fallo dentro de un lote). Suite de integración: 5 ejecuciones
   seguidas en verde (110 de 110) y 28 s en lugar de 53 s.
 
-### R5.4 · Métricas — `feat/metrics` ⬜ (D10 decidida)
+### R5.4 · Métricas — `feat/metrics` ✅ (2026-11-15, ADR 0008 enmendado)
+
+- **Entregado:** `@saas/adapters/metrics`: registro mínimo (contador, medidor, histograma) en
+  formato Prometheus 0.0.4, **sin dependencia nueva**, y comparación del token en tiempo
+  constante. `web`: peticiones y duración por método, **ruta con plantilla** (`/api/v1/members/:id/role`,
+  nunca la real) y clase de estado, en `GET /api/metrics`. `worker`: intentos y duración de cada
+  trabajo por cola y resultado (`completed`, `retry`, `failed`), profundidad de cada cola por estado
+  y espera del trabajo más antiguo (leídas de pg-boss al consultar), en `/metrics` de su puerto de
+  salud. Ambos, uptime y memoria. **Acceso:** `Authorization: Bearer <METRICS_TOKEN>`; sin la
+  variable responden 404, con token erróneo 401. Variable en `.env.example`, `compose.yml` e
+  `infra/staging/.env.example`.
+- **Tests:** unitarios del registro (formato, escape, histograma acumulado, medidor que se
+  reemplaza, nombres inválidos, token) e integración de ambos endpoints (404 sin token, 401, 200;
+  la plantilla de ruta y ningún id ni email en las etiquetas).
+- **Sin verificar:** el raspado real con Prometheus (no está desplegado, D10) y el reparto entre
+  varias réplicas de `web`. El proxy debe impedir que `/api/metrics` salga a Internet
+  (`docs/operations.md`).
 
 - **Contenido (enmienda 0008):** latencia y tasa de error por ruta, duración y resultado por job,
   profundidad y espera de cada cola. Expuestas solo en la red interna.

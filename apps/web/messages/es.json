@@ -278,14 +278,19 @@
       "description": "Tus datos personales. No dependen de ninguna organización.",
       "profile": "Perfil",
       "profileHint": "Cómo te ven los demás miembros y en qué idioma usas la aplicación.",
-      "emailFixed": "El email de acceso no se puede cambiar desde aquí todavía.",
       "language": "Idioma",
       "languageHint": "Tu preferencia; este navegador puede tener otra elegida en el menú de ajustes.",
       "languageDefault": "El de la organización",
       "password": "Contraseña",
       "passwordHint": "Al cambiarla se cierran tus sesiones en otros dispositivos.",
       "currentPassword": "Contraseña actual",
-      "changePassword": "Cambiar contraseña"
+      "changePassword": "Cambiar contraseña",
+      "email": "Email de acceso",
+      "emailHint": "Con este email entras. Para cambiarlo confirmas primero desde el correo actual y después desde el nuevo; hasta entonces sigue valiendo el actual.",
+      "currentEmail": "Email actual",
+      "newEmail": "Email nuevo",
+      "changeEmail": "Cambiar email",
+      "emailRequested": "Te hemos enviado un correo a {current} para confirmar el cambio a {email}. Cuando lo confirmes, te enviaremos otro a {email} para terminar."
     },
     "organization": {
       "title": "Organización",

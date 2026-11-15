@@ -1,12 +1,13 @@
 import {
   DEFAULT_LOCALE,
+  changeEmailConfirmationEmailJob,
   passwordResetEmailJob,
   verificationEmailJob,
   type JobQueue,
 } from '@saas/core'
 import { newId, type Db } from '@saas/database'
 import { createHash } from 'node:crypto'
-import type { AuthEmail } from './index.ts'
+import type { AuthEmail, ChangeEmailConfirmation } from './index.ts'
 
 const sha256 = (v: string) => createHash('sha256').update(v).digest('hex')
 
@@ -32,5 +33,21 @@ export function queuedAuthEmails(db: Db, queue: JobQueue) {
   return {
     sendVerificationEmail: enqueue(verificationEmailJob),
     sendResetPasswordEmail: enqueue(passwordResetEmailJob),
+    sendChangeEmailConfirmation: async ({
+      to,
+      name,
+      newEmail,
+      url,
+      token,
+    }: ChangeEmailConfirmation) => {
+      await db.$transaction((tx) =>
+        queue.enqueue(
+          tx,
+          changeEmailConfirmationEmailJob,
+          { to, name, newEmail, url, locale: DEFAULT_LOCALE },
+          { organizationId: null, correlationId: newId(), idempotencyKey: sha256(token) },
+        ),
+      )
+    },
   }
 }

@@ -26,6 +26,12 @@ export interface AuthEmail {
   token: string
 }
 
+/** Confirmation sent to the CURRENT address when someone asks to change their email. */
+export interface ChangeEmailConfirmation extends AuthEmail {
+  /** The address they want to move to. */
+  newEmail: string
+}
+
 export interface CreateAuthOptions {
   db: Db
   /** Public URL of the app (APP_URL). */
@@ -43,6 +49,11 @@ export interface CreateAuthOptions {
    */
   sendVerificationEmail?: (email: AuthEmail) => Promise<void>
   sendResetPasswordEmail?: (email: AuthEmail) => Promise<void>
+  /**
+   * Changing the access email takes two steps: this confirmation goes to the current address, and
+   * then the usual verification email goes to the new one (the email only changes after both).
+   */
+  sendChangeEmailConfirmation?: (email: ChangeEmailConfirmation) => Promise<void>
   /**
    * Unexpected failures inside the access layer (database down, bugs). Expected answers
    * such as wrong password or rate limit are not reported. Without it, Better Auth logs them.
@@ -62,6 +73,7 @@ export function createAuth({
   requireEmailVerification = true,
   sendVerificationEmail = missingSender('verification'),
   sendResetPasswordEmail = missingSender('password reset'),
+  sendChangeEmailConfirmation = missingSender('email change confirmation'),
   onUnexpectedError,
 }: CreateAuthOptions) {
   const secure = baseURL.startsWith('https://')
@@ -82,7 +94,14 @@ export function createAuth({
         }
       : {}),
     // Access tables carry the auth_ prefix (Prisma models AuthUser, AuthSession…).
-    user: { modelName: 'authUser' },
+    user: {
+      modelName: 'authUser',
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: ({ user, newEmail, url, token }) =>
+          sendChangeEmailConfirmation({ to: user.email, name: user.name, newEmail, url, token }),
+      },
+    },
     session: {
       modelName: 'authSession',
       expiresIn: 7 * 24 * ONE_HOUR,
@@ -112,6 +131,7 @@ export function createAuth({
         '/sign-up/email': { window: 60, max: 3 },
         '/request-password-reset': { window: 60, max: 3 },
         '/send-verification-email': { window: 60, max: 3 },
+        '/change-email': { window: 60, max: 3 },
       },
     },
     emailAndPassword: {

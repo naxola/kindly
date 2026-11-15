@@ -28,6 +28,7 @@ let producer: PgBoss
 let worker: RunningWorker
 
 beforeAll(async () => {
+  process.env.METRICS_TOKEN = 'a-metrics-token-of-16+'
   db = createDb({ connectionString: process.env.DATABASE_URL! })
   worker = await startWorker({
     env: loadEnv({
@@ -78,7 +79,7 @@ async function until<T>(read: () => T | undefined, timeoutMs = 20_000): Promise<
 
 describe('worker', () => {
   it('consumes every template queue and registers the schedules', async () => {
-    expect(worker.queues).toHaveLength(12)
+    expect(worker.queues).toHaveLength(13)
     const schedules = await worker.boss.getSchedules()
     expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
       'billing.close-due-periods',
@@ -124,6 +125,31 @@ describe('worker', () => {
     expect(types).toEqual(['invitation.created', 'organization.created', 'user.created'])
     const created = delivered.find((e) => e.data.invitationId === invitation.id)
     expect(created?.type).toBe('invitation.created')
+  })
+})
+
+describe('worker metrics (R5.4, ADR 0008)', () => {
+  const read = (token?: string) =>
+    fetch(`http://127.0.0.1:${HEALTH_PORT}/metrics`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+
+  it('serves jobs, durations and queue depth only with the token', async () => {
+    expect((await read()).status).toBe(401)
+    expect((await read('wrong-token-wrong-token')).status).toBe(401)
+    const res = await read('a-metrics-token-of-16+')
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    // The earlier test of this file ran an invitation email and its events through the worker.
+    expect(text).toMatch(
+      /worker_jobs_total\{queue="identity\.invitation-email",result="completed"\} [1-9]/,
+    )
+    expect(text).toContain('worker_job_duration_seconds_bucket{')
+    expect(text).toContain('worker_queue_jobs{queue="')
+    expect(text).toContain('worker_queue_oldest_wait_seconds{queue="')
+    expect(text).toContain('process_uptime_seconds')
+    // Labels are queue names and states: no ids or addresses.
+    expect(text).not.toMatch(/@example\.com/)
   })
 })
 
