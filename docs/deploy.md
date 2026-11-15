@@ -102,6 +102,11 @@ documentación de Paddle, pero no está probado contra Paddle hasta que hagas es
      de su versión en `CATALOG`.
    - Crea un producto para el excedente (`pro_…` → `PADDLE_OVERAGE_PRODUCT_ID`).
 2. Copia la clave de API (`PADDLE_API_KEY`) y el token de cliente (`PADDLE_CLIENT_TOKEN`).
+   Antes de crear ninguna transacción, fija en Paddle → Checkout → Checkout settings el
+   **«Default payment link»** (la URL de la app, p. ej. `https://app.staging.<dominio>/settings/billing`;
+   en el sandbox no hace falta que el dominio esté verificado ni desplegado). Sin él, Paddle
+   rechaza `POST /transactions` con `transaction_default_checkout_url_not_set` (comprobado
+   contra el sandbox el 2026-11-15).
 3. Crea un destino de notificaciones hacia `https://app.staging.<dominio>/api/webhooks/payments`
    con los eventos `subscription.*`. Su secreto va en `PADDLE_WEBHOOK_SECRET`.
 4. `PAYMENT_PROVIDER=paddle` y `PADDLE_ENVIRONMENT=sandbox` en Coolify (web y worker).
@@ -116,6 +121,11 @@ documentación de Paddle, pero no está probado contra Paddle hasta que hagas es
      suscripción y a los eventos `subscription.*`, y que `Paddle.Checkout.open` con
      `transactionId` no necesita más opciones. Si `custom_data` no llega, los eventos no
      encuentran la organización (se ignoran con un aviso en el log) y hay que ajustar el adaptador.
+   - **Comprobado contra el sandbox (2026-11-15), solo la creación del checkout:** `POST
+/transactions` con `custom_data` y sin cliente devuelve `draft` con `customer_id` nulo y el
+     `custom_data` guardado en la transacción. **Siguen sin comprobarse** (necesitan un pago en el
+     navegador y un webhook público): que el checkout deje escribir el email, que `custom_data`
+     llegue a la suscripción y a sus eventos, el portal y el cobro de excedente.
 
 ## Operación diaria
 

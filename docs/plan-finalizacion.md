@@ -15,14 +15,14 @@ para tests y E2E con Node 24 y Postgres 18):
 
 **Hecho pero sin validar fuera de aquí:**
 
-| Qué                              | Qué falta                                                                  |
-| -------------------------------- | -------------------------------------------------------------------------- |
-| Cobros con Paddle (B3, B5, R1.4) | Probar contra el **sandbox**: nunca se ha ejecutado contra Paddle          |
-| CSP (R2.1)                       | Está en **modo informe**; pasar a bloqueante tras probar el checkout       |
-| Observabilidad (fase 5)          | Validar en staging con GlitchTip, ntfy y Uptime Kuma                       |
-| Despliegue en staging (fase 6)   | Aplicar las migraciones nuevas (`CHECK`, índice de invitaciones) con datos |
-| Imágenes en CI (R5.2)            | Excepción de `gosu` caduca el 2026-12-14: subir Postgres a 18.7 antes      |
-| Renovate (R5.1)                  | Instalar la app en el repositorio; sin validar con Renovate real           |
+| Qué                              | Qué falta                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Cobros con Paddle (B3, B5, R1.4) | Sandbox: la creación del checkout ya se probó (2026-11-15); falta pago, webhook, portal y excedente |
+| CSP (R2.1)                       | Está en **modo informe**; pasar a bloqueante tras probar el checkout                                |
+| Observabilidad (fase 5)          | Validar en staging con GlitchTip, ntfy y Uptime Kuma                                                |
+| Despliegue en staging (fase 6)   | Aplicar las migraciones nuevas (`CHECK`, índice de invitaciones) con datos                          |
+| Imágenes en CI (R5.2)            | Excepción de `gosu` caduca el 2026-12-14: subir Postgres a 18.7 antes                               |
+| Renovate (R5.1)                  | Instalar la app en el repositorio; sin validar con Renovate real                                    |
 
 **Sin hacer:** R5.5. R2.5, R3.3 y R4.5 entregados el 2026-11-15. R2.4 y R3.4 entregados el 2026-11-14; R3.2, R3.5, el cambio
 de email (R4.3) y R5.4, el 2026-11-15.
