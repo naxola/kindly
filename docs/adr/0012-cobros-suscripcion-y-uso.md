@@ -225,7 +225,7 @@ hacerlo (`docs/deploy.md`).
 - Periodo de gracia por impago: **7 días**.
 - Planes **mensuales y anuales** desde la primera versión (el catálogo admite ambos).
 
-### Enmienda R3.3 — contadores de uso (2026-11-15) · **Propuesta, pendiente de validar**
+### Enmienda R3.3 — contadores de uso (2026-11-15) · **Aceptada** (2026-11-15, el usuario la validó)
 
 **Problema.** La implementación de B1 + B2 calcula el consumo del periodo con una agregación sobre
 `usage_events` y `recordUsage` la repite en **cada escritura** (para la cuota y el tope de gasto).

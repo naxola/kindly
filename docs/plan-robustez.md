@@ -40,7 +40,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | ✅     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ✅     |
-| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | 🟨     |
+| R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ✅     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ✅     |
 | R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ✅     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
@@ -506,7 +506,7 @@ the business events` era **inestable** en la suite completa de integración (4 n
   restringir (job programado diario). Plantillas en `core/billing/emails.ts`, es/en.
 - **Test:** unitarios de las plantillas; integración: una sola vez por impago.
 
-### R3.3 · Contadores de uso — `feat/usage-counters` 🟨 (implementado en rama; enmienda al 0012 pendiente de validar)
+### R3.3 · Contadores de uso — `feat/usage-counters` ✅ (2026-11-15, enmienda al 0012 aceptada)
 
 - **Problema:** `recordUsage` agrega todos los `usage_events` del periodo en cada escritura, con un
   bloqueo por organización y métrica. Con métricas de mucho volumen es lineal por evento.
@@ -514,7 +514,7 @@ the business events` era **inestable** en la suite completa de integración (4 n
   periodo, actualizada en la misma transacción; `usage_events` sigue siendo la evidencia y el
   cierre compara contador y suma (si difieren: alerta, gana la suma).
 - **Test:** los de cobros existentes más concurrencia y la comparación en el cierre.
-- **Entregado en la rama (sin fusionar hasta validar la enmienda):** tabla `usage_counters` con RLS y
+- **Entregado:** tabla `usage_counters` con RLS y
   migración aditiva `20261115160000`; `recordUsage` lee y escribe el contador en la misma
   transacción (sin migrar datos: el primero de un periodo lo inicia sumando los eventos);
   `closeDuePeriods` reconcilia (gana la suma, reescribe y audita `billing.usage_counter_mismatch`);
