@@ -132,7 +132,8 @@
       "members": "Members",
       "billing": "Plan and usage",
       "account": "Account",
-      "organization": "Organization"
+      "organization": "Organization",
+      "activity": "Activity"
     }
   },
   "orgSwitcher": {
@@ -304,6 +305,41 @@
       "archiveType": "Type \"{name}\" to confirm",
       "archiveButton": "Archive",
       "resend": "Resend"
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "Who did what in the organization. Kept for 24 months.",
+      "filter": "Show",
+      "all": "Everything",
+      "areas": {
+        "organization": "Organization",
+        "member": "Members",
+        "invitation": "Invitations",
+        "billing": "Billing"
+      },
+      "when": "When",
+      "who": "Who",
+      "what": "What",
+      "system": "System",
+      "empty": "There is no activity with that filter.",
+      "more": "Load more",
+      "actions": {
+        "organization_created": "Organization created",
+        "organization_updated": "Organization changed",
+        "organization_archived": "Organization archived",
+        "member_role_changed": "A member's role changed",
+        "member_enabled": "Member enabled",
+        "member_disabled": "Member disabled",
+        "member_left": "A member left",
+        "invitation_created": "Invitation sent",
+        "invitation_resent": "Invitation resent",
+        "invitation_revoked": "Invitation revoked",
+        "invitation_accepted": "Invitation accepted",
+        "billing_subscription_synced": "Subscription updated",
+        "billing_spend_cap_changed": "Spend cap changed",
+        "billing_period_closed": "Billing period closed",
+        "billing_provider_event_rejected": "Payment provider event rejected"
+      }
     }
   },
   "billing": {

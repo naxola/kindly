@@ -6,6 +6,8 @@ import {
   chargePeriodJob,
   providerEventHandler,
   providerEventJob,
+  purgeAuditLogsJob,
+  purgeExpiredAuditLogs,
   purgeRateLimitsJob,
   billingEmailHandlers,
   closeDuePeriodsScanJob,
@@ -85,6 +87,14 @@ export const registrations: Registration[] = [
   register({
     job: chargePeriodJob,
     handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: purgeAuditLogsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
+      },
   }),
   register({
     job: purgeRateLimitsJob,

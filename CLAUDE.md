@@ -153,6 +153,10 @@ Convenciones al añadir código:
   de la transacción del efecto y con su clave de idempotencia; una función de pago se comprueba
   con `requireFeature(ctx, tx, …)` además de `authorize`. Nombres visibles de planes, métricas
   y unidades en `billing.*` de los mensajes. Dinero y cantidades: decimales, nunca `float`.
+- Auditoría (ADR 0018): se lee con `listActivity` (permiso `audit.read`), que nunca devuelve IP
+  ni `before`/`after`. Una acción nueva de la plantilla añade su nombre legible en
+  `settings.activity.actions` (los puntos del código pasan a `_`). El plazo de retención está en
+  el SQL: cambiarlo es una migración.
 - Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
   `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
   claves en hash. Cada límite nuevo lleva su `scope` propio.

@@ -15,5 +15,16 @@ export const purgeRateLimitsJob = defineJob({
   retryDelaySeconds: 300,
 })
 
-/** Every day at 03:23 (UTC). */
-export const PLATFORM_SCHEDULES = [{ job: purgeRateLimitsJob, cron: '23 3 * * *' }] as const
+/** Deletes audit entries older than the retention period (ADR 0018). */
+export const purgeAuditLogsJob = defineJob({
+  name: 'platform.purge-audit-logs',
+  schema: z.object({}),
+  retryLimit: 2,
+  retryDelaySeconds: 300,
+})
+
+/** Every day, in the small hours (UTC). */
+export const PLATFORM_SCHEDULES = [
+  { job: purgeRateLimitsJob, cron: '23 3 * * *' },
+  { job: purgeAuditLogsJob, cron: '41 3 * * *' },
+] as const

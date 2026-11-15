@@ -132,7 +132,8 @@
       "members": "Miembros",
       "billing": "Plan y consumo",
       "account": "Cuenta",
-      "organization": "Organización"
+      "organization": "Organización",
+      "activity": "Actividad"
     }
   },
   "orgSwitcher": {
@@ -304,6 +305,41 @@
       "archiveType": "Escribe «{name}» para confirmar",
       "archiveButton": "Archivar",
       "resend": "Reenviar"
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "Quién ha hecho qué en la organización. Se conserva durante 24 meses.",
+      "filter": "Mostrar",
+      "all": "Todo",
+      "areas": {
+        "organization": "Organización",
+        "member": "Miembros",
+        "invitation": "Invitaciones",
+        "billing": "Cobros"
+      },
+      "when": "Cuándo",
+      "who": "Quién",
+      "what": "Qué",
+      "system": "Sistema",
+      "empty": "No hay actividad con ese filtro.",
+      "more": "Cargar más",
+      "actions": {
+        "organization_created": "Organización creada",
+        "organization_updated": "Organización modificada",
+        "organization_archived": "Organización archivada",
+        "member_role_changed": "Rol de un miembro cambiado",
+        "member_enabled": "Miembro activado",
+        "member_disabled": "Miembro desactivado",
+        "member_left": "Un miembro ha salido",
+        "invitation_created": "Invitación enviada",
+        "invitation_resent": "Invitación reenviada",
+        "invitation_revoked": "Invitación revocada",
+        "invitation_accepted": "Invitación aceptada",
+        "billing_subscription_synced": "Suscripción actualizada",
+        "billing_spend_cap_changed": "Tope de gasto cambiado",
+        "billing_period_closed": "Periodo de cobro cerrado",
+        "billing_provider_event_rejected": "Evento del proveedor de pago rechazado"
+      }
     }
   },
   "billing": {

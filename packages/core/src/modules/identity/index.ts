@@ -18,6 +18,8 @@ export {
   archiveOrganization,
 } from './organizations.ts'
 export { resolveActor } from './actor.ts'
+export { ListActivityInput, listActivity } from './activity.ts'
+export type { ActivityEntry } from './activity.ts'
 export {
   ChangeRoleInput,
   listMembers,

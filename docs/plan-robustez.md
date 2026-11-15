@@ -42,7 +42,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ✅     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ✅     |
-| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
+| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ✅     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
@@ -513,7 +513,22 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Test:** firma válida y falsa; correo suprimido que no se envía y queda en el log sin la
   dirección.
 
-### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ⬜ (D7 decidida)
+### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ✅ (2026-11-15, ADR 0018)
+
+- **Entregado:** permiso `audit.read` (solo ADMIN). `listActivity` (`core/identity/activity.ts`):
+  paginación por cursor opaco (`createdAt` + `id`), filtros de acción (exacta o prefijo), autor y
+  fechas, con filtro explícito de organización además de RLS; devuelve quién, qué y cuándo, y
+  **nunca la IP ni los datos `before`/`after`**. `GET /api/v1/audit-logs` y pantalla **Ajustes →
+  Actividad** (nombres legibles para las acciones de la plantilla; las de un producto muestran su
+  código). **Retención:** migración `20261115100000` con la función `SECURITY DEFINER`
+  `app.purge_expired_audit_logs()`, **sin argumentos** (24 meses fijos en el SQL) y por lotes de
+  5 000; dos políticas limitan además al propietario a ver y borrar solo filas de más de 24 meses.
+  Job diario `platform.purge-audit-logs`; la purga se audita (`audit.purged`, sin organización).
+  `app_user` sigue sin poder borrar ni modificar la auditoría.
+- **Tests:** integración de `core` (orden, autor, sin IP ni instantáneas, paginación sin
+  repetir ni saltar, filtros, MEMBER rechazado, aislamiento entre organizaciones; purga de lo
+  antiguo y solo de lo antiguo, auditoría de la purga, `DELETE`/`UPDATE` denegados) y de la API;
+  `e2e/activity.spec.ts` con axe.
 
 - **Contenido (ADR 0018):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
   por cursor y filtros (acción, actor, fechas), pantalla Ajustes → Actividad, y job programado de

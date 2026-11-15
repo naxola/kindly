@@ -1,4 +1,4 @@
-import type { Prisma, TenantTx } from '@saas/database'
+import type { Db, Prisma, TenantTx } from '@saas/database'
 
 export interface AuditEntry {
   organizationId: string | null
@@ -36,4 +36,32 @@ export async function writeAudit(tx: TenantTx, entry: AuditEntry): Promise<void>
       },
     ],
   })
+}
+
+/**
+ * Retention (ADR 0018): deletes audit entries older than 24 months, in batches, through the
+ * database function that owns that rule (the application cannot choose the cut-off). Returns how
+ * many rows went; the purge itself is audited.
+ */
+export async function purgeExpiredAuditLogs(db: Db, maxBatches = 200): Promise<number> {
+  let total = 0
+  for (let i = 0; i < maxBatches; i++) {
+    const rows = await db.$queryRaw<{ deleted: number }[]>`
+      SELECT app.purge_expired_audit_logs() AS deleted`
+    const deleted = rows[0]?.deleted ?? 0
+    total += deleted
+    if (deleted === 0) break
+  }
+  if (total > 0) {
+    await db.$transaction((tx) =>
+      writeAudit(tx, {
+        organizationId: null,
+        actorUserId: null,
+        action: 'audit.purged',
+        resourceType: 'audit_log',
+        after: { deleted: total },
+      }),
+    )
+  }
+  return total
 }
