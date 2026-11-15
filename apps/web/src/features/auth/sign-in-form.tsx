@@ -34,7 +34,9 @@ export function SignInForm() {
     e.preventDefault()
     setPending(true)
     setError(null)
-    const code = field(new FormData(e.currentTarget), 'code').replaceAll(/\s|-/g, '')
+    const raw = field(new FormData(e.currentTarget), 'code')
+    // App codes may be typed with spaces; recovery codes keep their hyphen (`abcde-fghij`).
+    const code = second === 'recovery' ? raw.trim() : raw.replaceAll(/\s/g, '')
     const res = await authRequest(
       second === 'recovery' ? '/two-factor/verify-backup-code' : '/two-factor/verify-totp',
       { code },
