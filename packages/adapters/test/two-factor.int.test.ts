@@ -37,9 +37,16 @@ async function person(auth: ReturnType<typeof authWith>) {
   return { email, cookie: cookieOf(signedIn.headers) }
 }
 
+/** Starts the set-up (the plugin also has an email-OTP method that this template does not use). */
+async function startEnable(auth: ReturnType<typeof authWith>, headers: Headers) {
+  const res = await auth.api.enableTwoFactor({ body: { password }, headers })
+  if (res.method !== 'totp') throw new Error('expected the TOTP method')
+  return res
+}
+
 async function enable(auth: ReturnType<typeof authWith>, cookie: string) {
   const headers = new Headers({ cookie })
-  const { totpURI, backupCodes } = await auth.api.enableTwoFactor({ body: { password }, headers })
+  const { totpURI, backupCodes } = await startEnable(auth, headers)
   const secret = secretOf(totpURI)
   await auth.api.verifyTOTP({ body: { code: totp(secret) }, headers })
   return { secret, backupCodes }
@@ -59,7 +66,7 @@ describe('second factor (R2.5, ADR 0016)', () => {
     await expect(
       auth.api.enableTwoFactor({ body: { password: 'not the password 123' }, headers }),
     ).rejects.toThrow()
-    const { totpURI, backupCodes } = await auth.api.enableTwoFactor({ body: { password }, headers })
+    const { totpURI, backupCodes } = await startEnable(auth, headers)
     expect(backupCodes).toHaveLength(10)
     // Not verified yet: signing in still works with the password alone.
     expect((await signInAgain(auth, email)).body.twoFactorRedirect).toBeFalsy()
