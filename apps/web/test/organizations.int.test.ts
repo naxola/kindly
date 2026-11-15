@@ -320,6 +320,39 @@ describe('sign-up from an invitation link', () => {
   })
 })
 
+describe('activity through the API (R3.5, ADR 0018)', () => {
+  it('an ADMIN pages through the activity; a MEMBER is refused; no IP in the answer', async () => {
+    const owner = await person('activity-owner')
+    await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Actividad',
+      slug: `actividad-${newId().slice(-12)}`,
+    })
+    const guest = await person('activity-guest')
+    await owner.browser.call('POST', '/api/v1/invitations', { email: guest.email })
+    await guest.browser.call('POST', '/api/v1/invitations/accept', {
+      token: await invitationToken(guest.email),
+    })
+    const first = await owner.browser.call('GET', '/api/v1/audit-logs?limit=2')
+    expect(first.status).toBe(200)
+    expect(first.body.items).toHaveLength(2)
+    expect(first.body.items[0].action).toBe('invitation.accepted')
+    expect(first.body.nextCursor).toBeTruthy()
+    const second = await owner.browser.call(
+      'GET',
+      `/api/v1/audit-logs?limit=2&cursor=${encodeURIComponent(first.body.nextCursor as string)}`,
+    )
+    expect(second.body.items.map((i: { action: string }) => i.action)).toEqual([
+      'organization.created',
+    ])
+    expect(second.body.nextCursor).toBeNull()
+    expect(JSON.stringify(first.body)).not.toContain(owner.browser.ip)
+    const filtered = await owner.browser.call('GET', '/api/v1/audit-logs?action=invitation.')
+    expect(filtered.body.items).toHaveLength(2)
+    expect((await guest.browser.call('GET', '/api/v1/audit-logs')).status).toBe(403)
+    expect((await owner.browser.call('GET', '/api/v1/audit-logs?cursor=zzz')).status).toBe(400)
+  })
+})
+
 describe('email provider webhook (R3.4, ADR 0017)', () => {
   const SECRET = `whsec_${Buffer.from('a-test-signing-key-of-32-bytes!!').toString('base64')}`
   const post = (body: string, headers: Record<string, string>) =>

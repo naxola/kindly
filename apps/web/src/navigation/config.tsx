@@ -37,6 +37,7 @@ export const MODULES: ModuleDef[] = [
             { key: 'organization', path: 'organization', anyOf: ['organization.read'] },
             { key: 'members', path: 'members', anyOf: ['members.read'] },
             { key: 'billing', path: 'billing', anyOf: ['billing.read'] },
+            { key: 'activity', path: 'activity', anyOf: ['audit.read'] },
             // Personal: no permission, every signed-in person sees it.
             { key: 'account', path: 'account' },
           ],

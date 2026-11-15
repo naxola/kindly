@@ -8,7 +8,8 @@ import { CATALOG, type Catalog } from './catalog.ts'
 import { closeDuePeriods } from './close.ts'
 import type { PaymentProvider, ProviderEvent } from './provider.ts'
 import { applyProviderEvent } from './subscriptions.ts'
-import { quotaAlertEmail } from './emails.ts'
+import { dunningEmailJob, enqueueDunningFollowUps } from './dunning.ts'
+import { dunningEmail, quotaAlertEmail } from './emails.ts'
 
 /** Notice to the organization's ADMINs when a quota reaches 80 % or 100 % (ADR 0012). */
 export const quotaAlertEmailJob = defineJob({
@@ -41,6 +42,21 @@ export const billingEmailHandlers = (sender: EmailSender, db: Db) => ({
           used: p.used,
           included: p.included,
           hardLimit: p.hardLimit,
+          url: p.url,
+        }),
+      })
+    }
+  },
+  dunning: async (p: z.output<typeof dunningEmailJob.schema>, ctx: JobContext) => {
+    const admins = await withTenant(db, p.organizationId, (tx) => organizationAdmins(tx))
+    for (const admin of admins) {
+      await sender.send({
+        to: admin.email,
+        idempotencyKey: `${dunningEmailJob.name}:${ctx.jobId}:${admin.memberId}`,
+        ...dunningEmail(isLocale(admin.locale) ? admin.locale : 'es', {
+          kind: p.kind,
+          organizationName: admin.organizationName,
+          restrictsOn: new Date(p.restrictsAt),
           url: p.url,
         }),
       })
@@ -100,14 +116,18 @@ export const billingCloseHandlers = ({
     }
   },
   close: async (p: z.output<typeof closePeriodsJob.schema>, ctx: JobContext) => {
-    await withTenant(db, p.organizationId, (tx) =>
-      closeDuePeriods(
-        { db, queue, appUrl, correlationId: ctx.correlationId ?? newId(), ...(now ? { now } : {}) },
-        tx,
-        p.organizationId,
-        catalog,
-      ),
-    )
+    const jobCtx = {
+      db,
+      queue,
+      appUrl,
+      correlationId: ctx.correlationId ?? newId(),
+      ...(now ? { now } : {}),
+    }
+    await withTenant(db, p.organizationId, async (tx) => {
+      await closeDuePeriods(jobCtx, tx, p.organizationId, catalog)
+      // Same hourly pass: reminder and restriction notices of a failed payment (R3.2).
+      await enqueueDunningFollowUps(jobCtx, tx, p.organizationId)
+    })
   },
 })
 

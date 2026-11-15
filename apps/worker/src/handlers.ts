@@ -6,12 +6,15 @@ import {
   chargePeriodJob,
   providerEventHandler,
   providerEventJob,
+  purgeAuditLogsJob,
+  purgeExpiredAuditLogs,
   purgeRateLimitsJob,
   billingEmailHandlers,
   closeDuePeriodsScanJob,
   closePeriodsJob,
   deliverEventHandler,
   deliverEventJob,
+  dunningEmailJob,
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
@@ -73,12 +76,25 @@ export const registrations: Registration[] = [
     handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
     sendsEmail: true,
   }),
+  register({
+    job: dunningEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).dunning,
+    sendsEmail: true,
+  }),
   register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
   register({ job: closePeriodsJob, handler: (deps) => billingCloseHandlers(deps).close }),
   register({ job: providerEventJob, handler: (deps) => providerEventHandler(deps) }),
   register({
     job: chargePeriodJob,
     handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: purgeAuditLogsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
+      },
   }),
   register({
     job: purgeRateLimitsJob,

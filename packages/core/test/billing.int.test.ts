@@ -3,6 +3,7 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   applyProviderEvent,
+  enqueueDunningFollowUps,
   billingChargeHandler,
   billingCloseHandlers,
   chargePeriodJob,
@@ -679,6 +680,79 @@ describe('payment provider (B3 + B5)', () => {
     await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
     expect((await apply(orgId, event(orgId, {}, '2026-11-05T00:00:00Z'))).applied).toBe(false)
     expect((await stateAt(orgId, NOW)).status).toBe('DEFAULT')
+  })
+
+  describe('dunning notices (R3.2)', () => {
+    const dunning = () => queue.of('billing.dunning-email')
+    const kinds = () => dunning().map((j) => (j.payload as { kind: string }).kind)
+    const followUps = (orgId: string, at: string) =>
+      withTenant(db, orgId, (tx) =>
+        enqueueDunningFollowUps({ ...base(), now: () => new Date(at) }, tx, orgId),
+      )
+    const goPastDue = async (orgId: string) => {
+      await apply(orgId, event(orgId))
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-11-06T00:00:00Z'),
+        new Date('2026-11-06T00:00:00Z'),
+      )
+    }
+
+    it('entering PAST_DUE queues one notice with the date the plan will be restricted', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      expect(kinds()).toEqual(['PAST_DUE'])
+      expect(dunning()[0]!.payload).toMatchObject({
+        organizationId: orgId,
+        restrictsAt: '2026-11-13T00:00:00.000Z',
+        url: 'https://app.example.com/settings/billing',
+      })
+      // Another PAST_DUE event of the same non-payment does not notify again.
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-11-07T00:00:00Z'),
+        new Date('2026-11-07T00:00:00Z'),
+      )
+      expect(kinds()).toEqual(['PAST_DUE'])
+    })
+
+    it('reminds two days before the restriction and tells when it happens, once each', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      await followUps(orgId, '2026-11-08T00:00:00Z') // too early: nothing
+      expect(kinds()).toEqual(['PAST_DUE'])
+      await followUps(orgId, '2026-11-11T00:00:00Z') // 2 days before the 13th
+      await followUps(orgId, '2026-11-11T01:00:00Z') // the next hourly pass
+      await followUps(orgId, '2026-11-13T00:30:00Z') // grace over
+      await followUps(orgId, '2026-11-13T01:30:00Z')
+      // The queue deduplicates by key: one REMINDER and one RESTRICTED, however many passes.
+      const keys = new Set(dunning().map((j) => j.options.idempotencyKey))
+      expect([...new Set(kinds())].sort()).toEqual(['PAST_DUE', 'REMINDER', 'RESTRICTED'])
+      expect(keys.size).toBe(3)
+    })
+
+    it('says nothing once it is paid, and starts over on a later non-payment', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      await apply(orgId, event(orgId, {}, '2026-11-09T00:00:00Z'), new Date('2026-11-09T00:00:00Z'))
+      await followUps(orgId, '2026-11-12T00:00:00Z')
+      await followUps(orgId, '2026-11-20T00:00:00Z')
+      expect(kinds()).toEqual(['PAST_DUE'])
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-12-06T00:00:00Z'),
+        new Date('2026-12-06T00:00:00Z'),
+      )
+      expect(kinds()).toEqual(['PAST_DUE', 'PAST_DUE'])
+      const keys = new Set(dunning().map((j) => j.options.idempotencyKey))
+      expect(keys.size).toBe(2)
+    })
+
+    it('organizations without a subscription get nothing', async () => {
+      const { orgId } = await orgWithAdmin()
+      await followUps(orgId, '2026-11-20T00:00:00Z')
+      expect(dunning()).toEqual([])
+    })
   })
 
   it('past due keeps the plan during the grace period, then falls back (data kept)', async () => {

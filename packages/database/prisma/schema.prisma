@@ -59,6 +59,7 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@index([organizationId, resourceType, resourceId])
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("audit_logs")
 }
 

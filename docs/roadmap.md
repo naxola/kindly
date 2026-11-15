@@ -190,4 +190,6 @@ Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque 
 - **R4.4 · Ajustes de la organización** (2026-11-14): nombre e idioma, salir, archivar escribiendo el nombre y reenviar invitaciones.
 - **R2.4 · Límites en Postgres** (2026-11-14, ADR 0015): contadores persistentes y compartidos entre réplicas; 300 peticiones por minuto por sesión y 50 invitaciones al día por organización.
 - **R3.4 · Supresión de correo** (2026-11-14, ADR 0017): webhook firmado de Resend; rebotes permanentes y quejas dejan de recibir correo (solo se guarda el hash); `pnpm ops:email`. Sin probar contra Resend real.
+- **R3.2 · Avisos de impago** (2026-11-15): correo a los administradores al fallar el pago, dos días antes de la restricción y al aplicarse el plan gratuito; una vez por impago.
+- **R3.5 · Actividad y retención de la auditoría** (2026-11-15, ADR 0018): pantalla Ajustes → Actividad para administradores; la auditoría de más de 24 meses se purga a diario con una función acotada.
 - **Decisiones D1–D11** (2026-11-14): D1, D2 (ADR 0014 aceptado), D3, D4, D6, D7, D8, D9 y D11 resueltas con las recomendaciones del plan; D10 (métricas) por confirmar y D5 (producción) sin decidir. Detalle y numeración de los ADR nuevos (0015–0019) en `docs/plan-robustez.md`.

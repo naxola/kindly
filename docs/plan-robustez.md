@@ -39,10 +39,10 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ✅     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | 🟡     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
-| R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
+| R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ✅     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ✅     |
-| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
+| R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ✅     |
 | R4.1   | `feat/ui-states`               | Páginas de error y carga; estados de las tablas           | —              | —          | ✅     |
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
@@ -453,7 +453,21 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Antes de aplicar:** consulta que confirme que staging no tiene filas que las incumplan.
 - **Test:** `db:check` y un caso por restricción en `packages/database/test`.
 
-### R3.2 · Avisos de impago — `feat/billing-dunning-emails`
+### R3.2 · Avisos de impago — `feat/billing-dunning-emails` ✅ (2026-11-15)
+
+- **Entregado:** job `billing.dunning-email` (`core/billing/dunning.ts`) con tres avisos a los
+  ADMIN, **una vez por impago**: al entrar en `PAST_DUE` (encolado en `applyProviderEvent`, en la
+  misma transacción), recordatorio 2 días antes de la restricción y aviso al restringir. Los dos
+  últimos se evalúan en la pasada **horaria** del cierre de periodos por organización (no en un
+  job diario aparte: ya existía la pasada y avisa antes). La clave de idempotencia es suscripción +
+  fecha del impago + etapa, así que un impago posterior vuelve a avisar. Plantillas es/en en
+  `emails.ts`, con la fecha de restricción y el enlace a Plan y consumo; el de restricción dice que
+  no se ha borrado nada.
+- **Tests:** unitarios de las plantillas; integración (un aviso al entrar y no en eventos
+  repetidos; recordatorio y restricción una vez cada uno tras varias pasadas; nada tras pagar; un
+  impago posterior avisa de nuevo; sin suscripción, nada). Verificado: 144 de integración,
+  129 unitarias, tipos, lint y fronteras.
+- **Sin verificar:** el envío real (depende de Paddle en sandbox para provocar un impago).
 
 - **Problema:** al pasar a `PAST_DUE` solo cambia un aviso en pantalla; nadie recibe correo y a los
   7 días la organización cae al plan por defecto sin haber sido avisada.
@@ -499,7 +513,22 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Test:** firma válida y falsa; correo suprimido que no se envía y queda en el log sin la
   dirección.
 
-### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ⬜ (D7 decidida)
+### R3.5 · Lectura de la auditoría — `feat/audit-log-read` ✅ (2026-11-15, ADR 0018)
+
+- **Entregado:** permiso `audit.read` (solo ADMIN). `listActivity` (`core/identity/activity.ts`):
+  paginación por cursor opaco (`createdAt` + `id`), filtros de acción (exacta o prefijo), autor y
+  fechas, con filtro explícito de organización además de RLS; devuelve quién, qué y cuándo, y
+  **nunca la IP ni los datos `before`/`after`**. `GET /api/v1/audit-logs` y pantalla **Ajustes →
+  Actividad** (nombres legibles para las acciones de la plantilla; las de un producto muestran su
+  código). **Retención:** migración `20261115100000` con la función `SECURITY DEFINER`
+  `app.purge_expired_audit_logs()`, **sin argumentos** (24 meses fijos en el SQL) y por lotes de
+  5 000; dos políticas limitan además al propietario a ver y borrar solo filas de más de 24 meses.
+  Job diario `platform.purge-audit-logs`; la purga se audita (`audit.purged`, sin organización).
+  `app_user` sigue sin poder borrar ni modificar la auditoría.
+- **Tests:** integración de `core` (orden, autor, sin IP ni instantáneas, paginación sin
+  repetir ni saltar, filtros, MEMBER rechazado, aislamiento entre organizaciones; purga de lo
+  antiguo y solo de lo antiguo, auditoría de la purga, `DELETE`/`UPDATE` denegados) y de la API;
+  `e2e/activity.spec.ts` con axe.
 
 - **Contenido (ADR 0018):** permiso `audit.read` (ADMIN), `GET /api/v1/audit-logs` con paginación
   por cursor y filtros (acción, actor, fechas), pantalla Ajustes → Actividad, y job programado de

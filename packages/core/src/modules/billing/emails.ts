@@ -47,3 +47,72 @@ export function quotaAlertEmail(locale: Locale, a: QuotaAlert): RenderedEmail {
     'Hello,',
   )
 }
+
+export interface DunningNotice {
+  kind: 'PAST_DUE' | 'REMINDER' | 'RESTRICTED'
+  organizationName: string
+  /** Day the default plan starts (or started) to apply. */
+  restrictsOn: Date
+  url: string
+}
+
+const longDate = (locale: Locale, date: Date) =>
+  new Intl.DateTimeFormat(locale === 'es' ? 'es-ES' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+
+/** Failed payment: told when it happens, before the plan is restricted and when it is. */
+export function dunningEmail(locale: Locale, n: DunningNotice): RenderedEmail {
+  const date = longDate(locale, n.restrictsOn)
+  if (locale === 'es') {
+    const text = {
+      PAST_DUE: {
+        subject: `${n.organizationName}: no hemos podido cobrar tu suscripción`,
+        intro: `El último pago de ${n.organizationName} ha fallado. El plan se mantiene hasta el ${date}; si para entonces no se ha pagado, se aplicará el plan gratuito. Revisa el método de pago.`,
+      },
+      REMINDER: {
+        subject: `${n.organizationName}: el plan se restringe el ${date}`,
+        intro: `El pago de ${n.organizationName} sigue pendiente. El ${date} se aplicará el plan gratuito si no se ha resuelto. Revisa el método de pago.`,
+      },
+      RESTRICTED: {
+        subject: `${n.organizationName}: se ha aplicado el plan gratuito`,
+        intro: `El pago de ${n.organizationName} sigue pendiente y desde el ${date} se aplica el plan gratuito. Tus datos se conservan: no se ha borrado nada. Al pagar se recupera el plan.`,
+      },
+    }[n.kind]
+    return renderActionEmail(
+      {
+        ...text,
+        action: 'Revisar el pago',
+        outro: 'Recibes este aviso porque eres administrador de la organización.',
+      },
+      n.url,
+      'Hola:',
+    )
+  }
+  const text = {
+    PAST_DUE: {
+      subject: `${n.organizationName}: we could not charge your subscription`,
+      intro: `The latest payment of ${n.organizationName} failed. The plan stays until ${date}; if it has not been paid by then, the free plan will apply. Please check the payment method.`,
+    },
+    REMINDER: {
+      subject: `${n.organizationName}: the plan is restricted on ${date}`,
+      intro: `The payment of ${n.organizationName} is still pending. On ${date} the free plan will apply unless it is solved. Please check the payment method.`,
+    },
+    RESTRICTED: {
+      subject: `${n.organizationName}: the free plan now applies`,
+      intro: `The payment of ${n.organizationName} is still pending and the free plan applies since ${date}. Your data is kept: nothing has been deleted. Paying restores the plan.`,
+    },
+  }[n.kind]
+  return renderActionEmail(
+    {
+      ...text,
+      action: 'Review the payment',
+      outro: 'You receive this notice because you are an administrator of the organization.',
+    },
+    n.url,
+    'Hello,',
+  )
+}

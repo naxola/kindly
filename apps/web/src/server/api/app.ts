@@ -4,6 +4,7 @@ import { auth } from '../auth.ts'
 import { errorBody, handleError, validationError } from './errors.ts'
 import { requestContext } from './middleware.ts'
 import { sessionLimit } from './rate-limit.ts'
+import { activityRoutes } from './routes/activity.ts'
 import { billingRoutes } from './routes/billing.ts'
 import { emailWebhookRoutes } from './routes/email-webhook.ts'
 import { healthRoutes } from './routes/health.ts'
@@ -36,6 +37,7 @@ v1.route('/', organizationRoutes)
 v1.route('/', memberRoutes)
 v1.route('/', invitationRoutes)
 v1.route('/', billingRoutes)
+v1.route('/', activityRoutes)
 
 export const api = newApp().basePath('/api')
 api.use('*', requestContext)

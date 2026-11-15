@@ -121,6 +121,14 @@ concreta. Quitar la supresión aquí **no** la quita de la lista del propio Rese
 En Resend, el webhook se da de alta apuntando a `https://<app>/api/webhooks/email` con los eventos
 `email.bounced` y `email.complained`; su secreto de firma (`whsec_…`) es `EMAIL_WEBHOOK_SECRET`.
 
+## Auditoría: lectura y retención (ADR 0018)
+
+Los administradores la ven en Ajustes → Actividad. Cada noche el worker ejecuta
+`platform.purge-audit-logs`, que borra las entradas de más de **24 meses** llamando a
+`app.purge_expired_audit_logs()`; el plazo está fijo en esa función (cambiarlo es una migración).
+Cada purga deja una entrada `audit.purged` con el recuento. Si la tabla llega a decenas de millones
+de filas, es el momento de particionarla por mes (ADR 0018) para borrar particiones enteras.
+
 ## Pendiente
 
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).

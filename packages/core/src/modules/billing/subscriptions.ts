@@ -1,3 +1,4 @@
+import { enqueuePastDueNotice } from './dunning.ts'
 import { withTenant, type TenantTx } from '@saas/database'
 import { z } from 'zod'
 import { nowOf, type BaseCtx, type Ctx } from '../../context.ts'
@@ -99,6 +100,10 @@ export async function applyProviderEvent(
         planVersion: plan.version,
       },
     })
+  }
+  // Entering PAST_DUE (not every event while it lasts): tell the ADMINs once (R3.2).
+  if (s.status === 'PAST_DUE' && current?.status !== 'PAST_DUE' && saved.pastDueSince) {
+    await enqueuePastDueNotice(ctx, tx, saved, saved.pastDueSince)
   }
   await writeAudit(tx, {
     organizationId,
