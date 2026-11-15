@@ -160,6 +160,9 @@ Convenciones al añadir código:
 - Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
   `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
   claves en hash. Cada límite nuevo lleva su `scope` propio.
+- Métricas (ADR 0008): `metrics().registry` (web) o el `MetricsRegistry` del worker, con etiquetas
+  de baja cardinalidad: nombres de ruta, de cola y de estado; nunca ids, emails ni IP. `/metrics`
+  exige `METRICS_TOKEN` y sin él responde 404.
 - Correo (ADR 0017): el worker comprueba la lista de supresión antes de enviar. Un correo
   imprescindible para entrar en la cuenta lleva `category: 'access'`; el resto se detiene también
   por queja. La tabla guarda solo hashes: nunca se registra una dirección.

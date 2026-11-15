@@ -1,16 +1,35 @@
+import { bearerMatches } from '@saas/adapters/metrics'
 import { createServer, type Server } from 'node:http'
 
 /**
  * HTTP health of the worker, for Docker healthchecks and external monitors (ADR 0008).
  * /health: the process answers. /ready: the database and the queue answer.
  */
-export function startHealthServer(port: number, ready: () => Promise<boolean>): Promise<Server> {
+export function startHealthServer(
+  port: number,
+  ready: () => Promise<boolean>,
+  /** `/metrics` (ADR 0008): only with a token; without it the path answers 404. */
+  metrics?: { token: string | undefined; render: () => Promise<string> },
+): Promise<Server> {
   const server = createServer((req, res) => {
     const reply = (status: number, body: object) => {
       res.writeHead(status, { 'content-type': 'application/json' })
       res.end(JSON.stringify(body))
     }
     if (req.url === '/health') return reply(200, { status: 'ok' })
+    if (req.url === '/metrics' && metrics?.token) {
+      if (!bearerMatches(req.headers.authorization, metrics.token)) {
+        return reply(401, { status: 'unauthorized' })
+      }
+      metrics
+        .render()
+        .then((text) => {
+          res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' })
+          res.end(text)
+        })
+        .catch(() => reply(500, { status: 'fail' }))
+      return
+    }
     if (req.url === '/ready') {
       ready()
         .then((ok) => reply(ok ? 200 : 503, { status: ok ? 'ok' : 'fail' }))

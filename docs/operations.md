@@ -129,6 +129,24 @@ Los administradores la ven en Ajustes → Actividad. Cada noche el worker ejecut
 Cada purga deja una entrada `audit.purged` con el recuento. Si la tabla llega a decenas de millones
 de filas, es el momento de particionarla por mes (ADR 0018) para borrar particiones enteras.
 
+## Métricas (ADR 0008, enmienda)
+
+`web` publica `GET /api/metrics` y el worker `GET /metrics` (en su puerto de salud, 3002), ambos con
+`Authorization: Bearer <METRICS_TOKEN>`. Sin `METRICS_TOKEN` responden 404; con un token erróneo, 401. **El proxy no debe enrutar `/api/metrics` hacia Internet:** el token es la segunda barrera, no la
+primera (en Cloudflare Tunnel, no publiques esa ruta).
+
+| Métrica                                                   | Qué dice                                                                     |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `http_requests_total`, `http_request_duration_seconds`    | peticiones de la API por método, ruta con plantilla y clase de estado        |
+| `worker_jobs_total`, `worker_job_duration_seconds`        | intentos por cola y resultado (`completed`, `retry`, `failed`) y su duración |
+| `worker_queue_jobs`, `worker_queue_oldest_wait_seconds`   | trabajos por cola y estado, y espera del más antiguo                         |
+| `process_uptime_seconds`, `process_resident_memory_bytes` | el proceso                                                                   |
+
+Viven en memoria y se reinician con el proceso: quien las raspa calcula las tasas. Para verlas sin
+instalar nada: `curl -H "Authorization: Bearer $METRICS_TOKEN" http://worker:3002/metrics`.
+Prometheus y Grafana no están desplegados (D10); cuando lo estén, su configuración de raspado apunta
+a estas dos rutas.
+
 ## Pendiente
 
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).

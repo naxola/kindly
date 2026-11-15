@@ -24,8 +24,8 @@ para tests y E2E con Node 24 y Postgres 18):
 | Imágenes en CI (R5.2)            | Excepción de `gosu` caduca el 2026-12-14: subir Postgres a 18.7 antes      |
 | Renovate (R5.1)                  | Instalar la app en el repositorio; sin validar con Renovate real           |
 
-**Sin hacer:** R2.5, R3.3, R4.5, R5.4, R5.5 y el cambio de email (R4.3). R2.4 y R3.4 entregados el
-2026-11-14; R3.2 y R3.5, el 2026-11-15.
+**Sin hacer:** R2.5, R3.3, R4.5 y R5.5. R2.4 y R3.4 entregados el 2026-11-14; R3.2, R3.5, el cambio
+de email (R4.3) y R5.4, el 2026-11-15.
 
 ## Etapas
 

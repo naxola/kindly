@@ -612,3 +612,44 @@ describe('billing through the API', () => {
     )
   })
 })
+
+describe('metrics (R5.4, ADR 0008)', () => {
+  const read = (token?: string) =>
+    api.request(`${ORIGIN}/api/metrics`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+
+  it('does not exist without a token, refuses a wrong one and serves the right one', async () => {
+    delete process.env.METRICS_TOKEN
+    expect((await read()).status).toBe(404)
+    process.env.METRICS_TOKEN = 'a-metrics-token-of-16+'
+    try {
+      expect((await read()).status).toBe(401)
+      expect((await read('wrong-token-wrong-token')).status).toBe(401)
+      // Some traffic, with ids in the path: the metrics keep only the route template.
+      const owner = await person('metrics')
+      const created = await owner.browser.call('POST', '/api/v1/organizations', {
+        name: 'Metricas',
+        slug: `metricas-${newId().slice(-12)}`,
+      })
+      await owner.browser.call('GET', '/api/v1/members')
+      await owner.browser.call('PUT', `/api/v1/members/${newId()}/role`, { role: 'MEMBER' })
+      const res = await read('a-metrics-token-of-16+')
+      expect(res.status).toBe(200)
+      expect(res.headers.get('content-type')).toContain('text/plain')
+      const text = await res.text()
+      expect(text).toContain('# TYPE http_requests_total counter')
+      expect(text).toMatch(
+        /http_requests_total\{method="GET",route="\/api\/v1\/members",status="2xx"\} \d+/,
+      )
+      expect(text).toContain('route="/api/v1/members/:id/role"')
+      expect(text).toContain('http_request_duration_seconds_bucket{')
+      expect(text).toContain('process_resident_memory_bytes')
+      // Nothing that identifies a person or an organization.
+      expect(text).not.toContain(created.body.id as string)
+      expect(text).not.toContain(owner.email)
+    } finally {
+      delete process.env.METRICS_TOKEN
+    }
+  })
+})

@@ -154,9 +154,16 @@ export async function registerWorker<S extends z.ZodType>(
     log,
     concurrency = 1,
     onFinalFailure,
+    onJobDone,
   }: {
     log: Logger
     concurrency?: number
+    /** Called after every attempt with how it ended and how long it took (metrics). Never throws. */
+    onJobDone?: (done: {
+      job: string
+      result: 'completed' | 'retry' | 'failed'
+      seconds: number
+    }) => void
     /** Called once when a job exhausts its retries (alerts, error tracking). Never throws. */
     onFinalFailure?: (failure: FinalFailure) => void | Promise<void>
   },
@@ -169,6 +176,13 @@ export async function registerWorker<S extends z.ZodType>(
     const jobLog = log.child({ job: job.name, jobId: raw.id, correlationId: meta.correlationId })
     const start = performance.now()
     const attempt = (raw as { retryCount?: number }).retryCount ?? 0
+    const done = (result: 'completed' | 'retry' | 'failed') => {
+      try {
+        onJobDone?.({ job: job.name, result, seconds: (performance.now() - start) / 1000 })
+      } catch {
+        // Metrics must never change how a job ends.
+      }
+    }
     try {
       const parsed = job.schema.safeParse(payload)
       if (!parsed.success) {
@@ -177,10 +191,12 @@ export async function registerWorker<S extends z.ZodType>(
       }
       await handler(parsed.data, { ...meta, jobId: raw.id, attempt, log: jobLog })
       jobLog.info({ attempt, durationMs: Math.round(performance.now() - start) }, 'job completed')
+      done('completed')
       return { id: raw.id, status: 'completed' }
     } catch (err) {
       // `error` only for the final failure: that is what alerts are hooked on (ADR 0008).
       const final = attempt >= job.retryLimit
+      done(final ? 'failed' : 'retry')
       const fields = { err, attempt, final, durationMs: Math.round(performance.now() - start) }
       if (final) {
         jobLog.error(fields, 'job failed permanently')

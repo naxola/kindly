@@ -73,6 +73,14 @@ export const emailWebhookEnv = z.object({
 })
 
 /**
+ * Bearer token that protects `/metrics` (ADR 0008, amendment). Without it the endpoint answers
+ * 404: metrics are never open by accident.
+ */
+export const metricsEnv = z.object({
+  METRICS_TOKEN: z.string().min(16).optional(),
+})
+
+/**
  * Business events webhook (n8n or similar). Without URL, events are recorded as
  * delivered-to-nobody in the worker log; with URL, the secret is mandatory.
  */
