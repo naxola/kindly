@@ -1,15 +1,24 @@
 import type { JobHandler } from '@saas/adapters/queue'
+import { purgeRateLimits } from '@saas/adapters/rate-limit'
 import {
   billingChargeHandler,
   billingCloseHandlers,
   chargePeriodJob,
   providerEventHandler,
   providerEventJob,
+  purgeAuditLogsJob,
+  purgeExpiredAuditLogs,
+  purgeRateLimitsJob,
   billingEmailHandlers,
+  accountDeletionEmailJob,
+  processAccountDeletionsJob,
+  processAccountDeletions,
+  changeEmailConfirmationEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
   deliverEventHandler,
   deliverEventJob,
+  dunningEmailJob,
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
@@ -65,10 +74,39 @@ export const registrations: Registration[] = [
     handler: ({ email }) => identityEmailHandlers(email()).invitation,
     sendsEmail: true,
   }),
+  register({
+    job: changeEmailConfirmationEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).changeEmailConfirmation,
+    sendsEmail: true,
+  }),
+  register({
+    job: accountDeletionEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).accountDeletion,
+    sendsEmail: true,
+  }),
+  register({
+    job: processAccountDeletionsJob,
+    handler:
+      ({ db, queue, appUrl }) =>
+      async (_payload, { log, jobId }) => {
+        const result = await processAccountDeletions({
+          db,
+          queue,
+          appUrl,
+          correlationId: jobId,
+        })
+        log.info(result, 'account deletions processed')
+      },
+  }),
   register({ job: deliverEventJob, handler: ({ events }) => deliverEventHandler(events) }),
   register({
     job: quotaAlertEmailJob,
     handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
+    sendsEmail: true,
+  }),
+  register({
+    job: dunningEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).dunning,
     sendsEmail: true,
   }),
   register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
@@ -77,5 +115,21 @@ export const registrations: Registration[] = [
   register({
     job: chargePeriodJob,
     handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: purgeAuditLogsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
+      },
+  }),
+  register({
+    job: purgeRateLimitsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeRateLimits(db) }, 'rate limit counters purged')
+      },
   }),
 ]

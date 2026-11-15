@@ -1,4 +1,5 @@
 import { createDb, newId, withTenant, withUser, type Db } from '@saas/database'
+import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { RecordingQueue } from './fake-queue.ts'
 import {
@@ -15,6 +16,11 @@ import {
   listMyOrganizations,
   resolveActor,
   revokeInvitation,
+  updateProfile,
+  updateOrganization,
+  archiveOrganization,
+  leaveOrganization,
+  resendInvitation,
   type Ctx,
 } from '../src/index.ts'
 
@@ -72,6 +78,64 @@ describe('business user', () => {
       tx.organizationMember.count({ where: { userId: user.id } }),
     )
     expect(members).toBe(1)
+  })
+})
+
+describe('profile (R4.3)', () => {
+  it('changes the display name and language of the person, and audits it', async () => {
+    const { user } = await personWithOrg()
+    const updated = await updateProfile(base(), user.id, {
+      displayName: '  Nueva Persona ',
+      locale: 'en',
+    })
+    expect(updated).toMatchObject({ displayName: 'Nueva Persona', locale: 'en' })
+    // Audit rows without an organization can be written but not read by app_user (RLS):
+    // the platform role reads them.
+    const platform = new pg.Client({
+      connectionString: process.env.TEST_DATABASE_URL!.replace(
+        /\/\/[^@]+@/,
+        `//app_platform:${process.env.APP_PLATFORM_PASSWORD ?? 'platform'}@`,
+      ),
+    })
+    await platform.connect()
+    const { rows } = await platform.query(
+      `SELECT organization_id AS "organizationId", resource_id AS "resourceId", before, after
+       FROM audit_logs WHERE action = 'user.profile_updated' AND actor_id = $1`,
+      [user.id],
+    )
+    await platform.end()
+    const audit = rows[0]
+    expect(audit).toMatchObject({ organizationId: null, resourceId: user.id })
+    expect(audit?.after).toEqual({ displayName: 'Nueva Persona', locale: 'en' })
+    expect(audit?.before).toMatchObject({ locale: null })
+  })
+
+  it('can go back to the organization language (null) and changes only what is sent', async () => {
+    const { user } = await personWithOrg()
+    await updateProfile(base(), user.id, { locale: 'en' })
+    const only = await updateProfile(base(), user.id, { displayName: 'Solo Nombre' })
+    expect(only).toMatchObject({ displayName: 'Solo Nombre', locale: 'en' })
+    expect(await updateProfile(base(), user.id, { locale: null })).toMatchObject({ locale: null })
+  })
+
+  it('rejects an empty name, an unknown language or nothing to change', async () => {
+    const { user } = await personWithOrg()
+    for (const bad of [
+      { displayName: '   ' },
+      { locale: 'fr' },
+      {},
+      { displayName: 'x'.repeat(121) },
+    ]) {
+      expect(await codeOf(updateProfile(base(), user.id, bad as never))).toMatchObject({
+        code: 'VALIDATION_FAILED',
+      })
+    }
+  })
+
+  it('is NOT_FOUND for a user that does not exist', async () => {
+    expect(await codeOf(updateProfile(base(), newId(), { displayName: 'X' }))).toMatchObject({
+      code: 'NOT_FOUND',
+    })
   })
 })
 
@@ -194,6 +258,53 @@ describe('invitations', () => {
     })
   })
 
+  it('two concurrent invitations to the same email leave exactly one (R2.3)', async () => {
+    const owner = await personWithOrg()
+    const email = `race-${newId()}@example.com`
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () => createInvitation(owner.ctx, { email })),
+    )
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        expect(r.reason).toBeInstanceOf(DomainError)
+        expect((r.reason as DomainError).details?.[0]?.code).toBe('PENDING_INVITATION')
+      }
+    }
+    const pending = await withTenant(db, owner.organization.id, (tx) =>
+      tx.invitation.count({ where: { email, acceptedAt: null, revokedAt: null } }),
+    )
+    expect(pending).toBe(1)
+  })
+
+  it('inviting someone who is already a member is ALREADY_MEMBER', async () => {
+    const { owner, guest, guestAccess, token } = await invited()
+    await acceptInvitation(base(), { token, userId: guest.id })
+    expect(await codeOf(createInvitation(owner.ctx, { email: guestAccess.email }))).toEqual({
+      code: 'CONFLICT',
+      detail: 'ALREADY_MEMBER',
+    })
+    // Also with the owner's own email.
+    expect(await codeOf(createInvitation(owner.ctx, { email: owner.access.email }))).toEqual({
+      code: 'CONFLICT',
+      detail: 'ALREADY_MEMBER',
+    })
+  })
+
+  it('an expired invitation is replaced by a new one for the same email', async () => {
+    const { owner, guestAccess, invitation } = await invited()
+    const later = {
+      ...owner.ctx,
+      now: () => new Date(Date.now() + 8 * 24 * 3600 * 1000),
+    }
+    const again = await createInvitation(later, { email: guestAccess.email })
+    expect(again.invitation.id).not.toBe(invitation.id)
+    const old = await withTenant(db, owner.organization.id, (tx) =>
+      tx.invitation.findUnique({ where: { id: invitation.id } }),
+    )
+    expect(old?.revokedAt).not.toBeNull()
+  })
+
   it('a MEMBER cannot invite (FORBIDDEN)', async () => {
     const { owner, guest, token } = await invited('MEMBER')
     await acceptInvitation(base(), { token, userId: guest.id })
@@ -210,6 +321,122 @@ describe('invitations', () => {
   })
 })
 
+describe('organization settings (R4.4)', () => {
+  async function adminWithMember() {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    await acceptInvitation(base(), { token, userId: guest.id })
+    const { actor } = await resolveActor(db, {
+      userId: guest.id,
+      organizationId: owner.organization.id,
+    })
+    return { owner, guest, guestCtx: { ...base(), actor } as Ctx }
+  }
+
+  it('an ADMIN renames the organization and changes its language, audited; a MEMBER cannot', async () => {
+    const { owner, guestCtx } = await adminWithMember()
+    const updated = await updateOrganization(owner.ctx, {
+      name: ' Acme Nueva ',
+      defaultLocale: 'en',
+    })
+    expect(updated).toMatchObject({ name: 'Acme Nueva', defaultLocale: 'en' })
+    const audit = await withTenant(db, owner.organization.id, (tx) =>
+      tx.auditLog.findFirst({ where: { action: 'organization.updated' } }),
+    )
+    expect(audit?.after).toEqual({ name: 'Acme Nueva', defaultLocale: 'en' })
+    expect(audit?.before).toMatchObject({ name: 'Acme' })
+    expect(await codeOf(updateOrganization(guestCtx, { name: 'Hack' }))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    for (const bad of [{}, { name: 'x' }, { defaultLocale: 'fr' }]) {
+      expect(await codeOf(updateOrganization(owner.ctx, bad as never))).toMatchObject({
+        code: 'VALIDATION_FAILED',
+      })
+    }
+  })
+
+  it('archiving needs the exact name; then nobody can act in it and it leaves their lists', async () => {
+    const { owner, guest, guestCtx } = await adminWithMember()
+    expect(await codeOf(archiveOrganization(guestCtx, { confirmName: 'Acme' }))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+    expect(await codeOf(archiveOrganization(owner.ctx, { confirmName: 'acme' }))).toEqual({
+      code: 'VALIDATION_FAILED',
+      detail: 'NAME_MISMATCH',
+    })
+    await archiveOrganization(owner.ctx, { confirmName: 'Acme' })
+    expect(
+      await codeOf(
+        resolveActor(db, { userId: owner.user.id, organizationId: owner.organization.id }),
+      ),
+    ).toMatchObject({ code: 'NOT_FOUND' })
+    expect(await listMyOrganizations(db, guest.id)).toEqual([])
+  })
+
+  it('a member leaves; the last ADMIN cannot, also when two ADMINs try at once', async () => {
+    const { owner, guest, guestCtx } = await adminWithMember()
+    await leaveOrganization(guestCtx)
+    expect(await listMyOrganizations(db, guest.id)).toEqual([])
+    // The only ADMIN left cannot leave.
+    expect(await codeOf(leaveOrganization(owner.ctx))).toEqual({
+      code: 'CONFLICT',
+      detail: 'LAST_ADMIN',
+    })
+  })
+
+  it('two ADMINs leaving at the same time leave one', async () => {
+    const owner = await personWithOrg()
+    const otherAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: otherAccess.email, role: 'ADMIN' })
+    const other = await ensureUser(base(), otherAccess.id)
+    await acceptInvitation(base(), { token, userId: other.id })
+    const { actor } = await resolveActor(db, {
+      userId: other.id,
+      organizationId: owner.organization.id,
+    })
+    const results = await Promise.allSettled([
+      leaveOrganization(owner.ctx),
+      leaveOrganization({ ...base(), actor }),
+    ])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    const admins = await withTenant(db, owner.organization.id, (tx) =>
+      tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+    )
+    expect(admins).toBe(1)
+  })
+
+  it('resending an invitation issues a new link and the old one stops working', async () => {
+    const owner = await personWithOrg()
+    const guestAccess = await accessAccount()
+    const first = await createInvitation(owner.ctx, { email: guestAccess.email })
+    const guest = await ensureUser(base(), guestAccess.id)
+    const again = await resendInvitation(owner.ctx, first.invitation.id)
+    expect(again.token).not.toBe(first.token)
+    expect(await getInvitationByToken(base(), first.token)).toBeNull()
+    expect(await getInvitationByToken(base(), again.token)).toMatchObject({ status: 'PENDING' })
+    const emails = queue
+      .of('identity.invitation-email')
+      .filter((j) => (j.payload as { to?: string }).to === guestAccess.email)
+    expect(emails).toHaveLength(2)
+    expect((emails[1]!.payload as { url: string }).url).toContain(again.token)
+    // The new one works; an accepted or revoked one cannot be resent.
+    await acceptInvitation(base(), { token: again.token, userId: guest.id })
+    expect(await codeOf(resendInvitation(owner.ctx, first.invitation.id))).toMatchObject({
+      code: 'NOT_FOUND',
+    })
+  })
+
+  it('a MEMBER cannot resend', async () => {
+    const { owner, guestCtx } = await adminWithMember()
+    const { invitation } = await createInvitation(owner.ctx, { email: `x-${newId()}@example.com` })
+    expect(await codeOf(resendInvitation(guestCtx, invitation.id))).toMatchObject({
+      code: 'FORBIDDEN',
+    })
+  })
+})
+
 describe('members', () => {
   it('the organization always keeps an active ADMIN', async () => {
     const { ctx } = await personWithOrg()
@@ -221,6 +448,62 @@ describe('members', () => {
       code: 'CONFLICT',
       detail: 'LAST_ADMIN',
     })
+  })
+
+  it('concurrent cross demotions of two ADMINs leave exactly one (R1.1)', async () => {
+    const owner = await personWithOrg()
+    const secondAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: secondAccess.email })
+    const second = await ensureUser(base(), secondAccess.id)
+    const secondMember = await acceptInvitation(base(), { token, userId: second.id })
+    await changeMemberRole(owner.ctx, secondMember.id, { role: 'ADMIN' })
+    const { actor } = await resolveActor(db, {
+      userId: second.id,
+      organizationId: owner.organization.id,
+    })
+    const secondCtx: Ctx = { ...base(), actor }
+
+    for (let i = 0; i < 5; i++) {
+      // Demote each ADMIN from the other's session at the same time.
+      const results = await Promise.allSettled([
+        changeMemberRole(secondCtx, owner.ctx.actor.memberId, { role: 'MEMBER' }),
+        changeMemberRole(owner.ctx, secondMember.id, { role: 'MEMBER' }),
+      ])
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+      const failed = results.find((r) => r.status === 'rejected')
+      expect((failed as PromiseRejectedResult).reason).toMatchObject({ code: 'CONFLICT' })
+      const admins = await withTenant(db, owner.organization.id, (tx) =>
+        tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+      )
+      expect(admins).toBe(1)
+      // Promote whoever was demoted so the next round starts with two ADMINs again.
+      const survivor = results[0].status === 'fulfilled' ? secondCtx : owner.ctx
+      const demotedId =
+        results[0].status === 'fulfilled' ? owner.ctx.actor.memberId : secondMember.id
+      await changeMemberRole(survivor, demotedId, { role: 'ADMIN' })
+    }
+  })
+
+  it('concurrent disabling of two ADMINs leaves exactly one (R1.1)', async () => {
+    const owner = await personWithOrg()
+    const secondAccess = await accessAccount()
+    const { token } = await createInvitation(owner.ctx, { email: secondAccess.email })
+    const second = await ensureUser(base(), secondAccess.id)
+    const secondMember = await acceptInvitation(base(), { token, userId: second.id })
+    await changeMemberRole(owner.ctx, secondMember.id, { role: 'ADMIN' })
+    const { actor } = await resolveActor(db, {
+      userId: second.id,
+      organizationId: owner.organization.id,
+    })
+    const results = await Promise.allSettled([
+      disableMember({ ...base(), actor }, owner.ctx.actor.memberId),
+      disableMember(owner.ctx, secondMember.id),
+    ])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    const admins = await withTenant(db, owner.organization.id, (tx) =>
+      tx.organizationMember.count({ where: { role: 'ADMIN', status: 'ACTIVE' } }),
+    )
+    expect(admins).toBe(1)
   })
 
   it('a disabled member can no longer act in the organization', async () => {

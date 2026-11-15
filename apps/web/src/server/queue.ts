@@ -1,4 +1,5 @@
 import 'server-only'
+import { dbTimeoutsFromEnv } from '@saas/config/db-timeouts'
 import { createBoss, PgBossJobQueue, type PgBoss } from '@saas/adapters/queue'
 import type { EnqueueOptions, JobDefinition, JobQueue } from '@saas/core'
 import type { TenantTx } from '@saas/database'
@@ -14,7 +15,11 @@ const globalForQueue = globalThis as unknown as { __queue?: { boss: PgBoss; read
  */
 export async function queue(): Promise<JobQueue> {
   if (!globalForQueue.__queue) {
-    const boss = createBoss({ connectionString: env().DATABASE_URL, role: 'producer' })
+    const boss = createBoss({
+      connectionString: env().DATABASE_URL,
+      role: 'producer',
+      timeouts: dbTimeoutsFromEnv(env()),
+    })
     boss.on('error', (err) => logger().error({ err }, 'pg-boss error'))
     globalForQueue.__queue = { boss, ready: boss.start().then(() => undefined) }
   }

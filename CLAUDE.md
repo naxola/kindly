@@ -95,7 +95,7 @@ Dockerfile        Imágenes: web, site, worker, migrate, postgres (docs/deploy.m
 
 ## Comandos
 
-Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en el puerto **5441**.
+Node 24.21.0 (`.node-version`) y pnpm 12.21.0 vía corepack. Postgres local en el puerto **5441**.
 
 | Comando                                                  | Qué hace                                                                                                                                       |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -153,6 +153,28 @@ Convenciones al añadir código:
   de la transacción del efecto y con su clave de idempotencia; una función de pago se comprueba
   con `requireFeature(ctx, tx, …)` además de `authorize`. Nombres visibles de planes, métricas
   y unidades en `billing.*` de los mensajes. Dinero y cantidades: decimales, nunca `float`.
+- Auditoría (ADR 0018): se lee con `listActivity` (permiso `audit.read`), que nunca devuelve IP
+  ni `before`/`after`. Una acción nueva de la plantilla añade su nombre legible en
+  `settings.activity.actions` (los puntos del código pasan a `_`). El plazo de retención está en
+  el SQL: cambiarlo es una migración.
+- Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
+  `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
+  claves en hash. Cada límite nuevo lleva su `scope` propio.
+- Acceso (ADR 0016): el segundo factor y las contraseñas filtradas viven en `adapters/auth`; los
+  secretos de Better Auth van versionados (`BETTER_AUTH_SECRETS`) y no se retira uno mientras algo
+  siga cifrado con él. Todo código que cree una cuenta saltándose Better Auth (como la invitación)
+  debe pasar por `passwordBreachCheck`.
+- Borrado de cuenta (ADR 0019): solicitud con contraseña (`verifyAccountPassword` en `adapters/auth`),
+  plazo de 14 días y job diario `identity.process-account-deletions`; los datos que solo existan para
+  una persona (no del tenant) se tratan en `processAccountDeletions` y en `exportPersonalData` si
+  son personales. La anonimización conserva el `users.id` (el historial no se rompe); nada de
+  email en eventos ni logs.
+- Métricas (ADR 0008): `metrics().registry` (web) o el `MetricsRegistry` del worker, con etiquetas
+  de baja cardinalidad: nombres de ruta, de cola y de estado; nunca ids, emails ni IP. `/metrics`
+  exige `METRICS_TOKEN` y sin él responde 404.
+- Correo (ADR 0017): el worker comprueba la lista de supresión antes de enviar. Un correo
+  imprescindible para entrar en la cuenta lleva `category: 'access'`; el resto se detiene también
+  por queja. La tabla guarda solo hashes: nunca se registra una dirección.
 - Observabilidad (ADR 0008): los errores inesperados se reportan con `captureError`
   (`@saas/adapters/errors`) con ids y `correlationId`, nunca emails ni datos de la petición.
   Los `DomainError` esperados (4xx) no se reportan. Las alertas al móvil (`AlertSender`) son

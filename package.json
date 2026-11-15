@@ -2,7 +2,7 @@
   "name": "saas-template",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.34.6",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=24.21.0 <25"
   },
@@ -26,13 +26,17 @@
     "db:check": "pnpm --filter @saas/database migrate:check",
     "queue:install": "tsx scripts/install-queue.ts",
     "api:generate": "pnpm --filter @saas/web generate",
-    "ops:queue": "tsx scripts/ops-queue.ts"
+    "ops:queue": "tsx scripts/ops-queue.ts",
+    "ops:email": "tsx scripts/ops-email.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@saas/adapters": "workspace:*",
     "@saas/config": "workspace:*",
+    "@saas/core": "workspace:*",
+    "@saas/database": "workspace:*",
     "@types/node": "24.19.1",
     "@types/pg": "8.23.1",
     "dotenv": "18.0.5",

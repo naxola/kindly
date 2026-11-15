@@ -11,4 +11,8 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL
 process.env.DATABASE_MIGRATOR_URL = process.env.TEST_DATABASE_MIGRATOR_URL
 // Tests sign up and sign in many times from the same IP.
 process.env.AUTH_RATE_LIMIT_ENABLED = 'false'
+// The tests must not call the Have I Been Pwned service.
+process.env.PASSWORD_BREACH_CHECK = 'false'
+// Tests identify a "client" with this header (see `x-test-ip` in the web tests).
+process.env.TRUSTED_IP_HEADER = 'x-test-ip'
 process.env.LOG_LEVEL = 'silent'

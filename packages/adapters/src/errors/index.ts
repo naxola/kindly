@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node'
+import { installFatalHandlers as install, type FatalDeps } from './fatal.ts'
 
 /**
  * Error tracking for Node processes (worker, scripts), Sentry protocol (Sentry or GlitchTip,
@@ -46,10 +47,16 @@ export function initErrorTracking({
   dsn,
   environment,
   service,
+  manualProcessErrors = false,
 }: {
   dsn?: string
   environment: string
   service: string
+  /**
+   * The process installs its own handlers for uncaught errors (`installFatalHandlers`), so the
+   * SDK's would report the same error twice.
+   */
+  manualProcessErrors?: boolean
 }) {
   if (!dsn || enabled()) return
   Sentry.init({
@@ -63,6 +70,14 @@ export function initErrorTracking({
     maxBreadcrumbs: 0,
     tracesSampleRate: 0,
     beforeSend: (event) => scrubEvent(event),
+    ...(manualProcessErrors
+      ? {
+          integrations: (defaults) =>
+            defaults.filter(
+              (i) => i.name !== 'OnUncaughtException' && i.name !== 'OnUnhandledRejection',
+            ),
+        }
+      : {}),
   })
 }
 
@@ -80,3 +95,16 @@ export function captureError(error: unknown, context: ErrorContext = {}) {
 /** Sends what is pending before the process exits. */
 export const flushErrors = (timeoutMs = 2000) =>
   enabled() ? Sentry.flush(timeoutMs) : Promise.resolve(true)
+
+/**
+ * Uncaught exceptions and unhandled rejections: log `fatal`, report, flush and exit 1
+ * (R5.3). For processes that own their lifecycle (the worker); Next handles its own.
+ */
+export const installFatalHandlers = (log: FatalDeps['log']) =>
+  install({
+    proc: process,
+    log,
+    capture: captureError,
+    flush: flushErrors,
+    exit: (code) => process.exit(code),
+  })

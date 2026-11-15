@@ -5,6 +5,7 @@ import {
   Button,
   Callout,
   ConfirmDialog,
+  EmptyState,
   Field,
   Input,
   Select,
@@ -14,6 +15,7 @@ import {
   TD,
   TH,
   THead,
+  toast,
   TR,
 } from '@saas/ui'
 import { PageContainer, PageHeader } from '@saas/ui/shell'
@@ -25,6 +27,8 @@ import { apiClient } from '@/client/api.ts'
 import { field } from '@/client/forms.ts'
 import { errorText, unwrap } from '@/client/errors.ts'
 import { keys, useInvitations, useMembers } from '@/client/queries.ts'
+import { QueryError } from '@/components/query-error.tsx'
+import { TableSkeleton } from '@/components/table-skeleton.tsx'
 import { useCan, useMemberId, useOrganizationId } from '@/components/workspace-context.tsx'
 
 type Member = NonNullable<ReturnType<typeof useMembers>['data']>[number]
@@ -52,6 +56,7 @@ export function MembersSettings() {
           body: { role },
         }),
       ),
+    onSuccess: () => toast.success(t('toasts.roleChanged')),
     onSettled: refresh,
   })
   const toggle = useMutation({
@@ -62,7 +67,8 @@ export function MembersSettings() {
           body: { status: m.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' },
         }),
       ),
-    onSuccess: async () => {
+    onSuccess: async (_, m) => {
+      toast.success(t(m.status === 'ACTIVE' ? 'toasts.memberDisabled' : 'toasts.memberEnabled'))
       setToggling(null)
       await refresh()
     },
@@ -84,65 +90,73 @@ export function MembersSettings() {
       />
       <PageContainer className="space-y-8">
         {error ? <Callout variant="destructive">{errorText(t, error)}</Callout> : null}
-        <Table>
-          <THead>
-            <tr>
-              <TH>{t('settings.members.name')}</TH>
-              <TH>{t('settings.members.role')}</TH>
-              <TH>{t('settings.members.status')}</TH>
-              <TH>
-                <span className="sr-only">{t('common.actions')}</span>
-              </TH>
-            </tr>
-          </THead>
-          <TBody>
-            {(members.data ?? []).map((m) => (
-              <TR key={m.id}>
-                <TD>
-                  <p>{m.displayName}</p>
-                  <p className="text-xs text-foreground-lighter">{m.email ?? '—'}</p>
-                </TD>
-                <TD>
-                  {canManage ? (
-                    <Select
-                      aria-label={t('settings.members.roleOf', { name: m.displayName })}
-                      value={m.role}
-                      disabled={changeRole.isPending}
-                      onChange={(e) =>
-                        changeRole.mutate({ id: m.id, role: e.target.value as Role })
-                      }
-                      className="w-36"
-                    >
-                      <option value="ADMIN">{t('roles.ADMIN')}</option>
-                      <option value="MEMBER">{t('roles.MEMBER')}</option>
-                    </Select>
-                  ) : (
-                    <Badge>{t(`roles.${m.role}`)}</Badge>
-                  )}
-                </TD>
-                <TD>
-                  <Badge variant={m.status === 'ACTIVE' ? 'success' : 'warning'}>
-                    {t(`settings.members.statuses.${m.status}`)}
-                  </Badge>
-                  <p className="mt-0.5 text-xs text-foreground-lighter">
-                    {t('settings.members.since', {
-                      date: format.dateTime(new Date(m.joinedAt), { dateStyle: 'medium' }),
-                    })}
-                  </p>
-                </TD>
-                <TD className="text-right">
-                  {canManage && m.id !== myMemberId ? (
-                    <Button size="tiny" variant="ghost" onClick={() => setToggling(m)}>
-                      {m.status === 'ACTIVE'
-                        ? t('settings.members.disable')
-                        : t('settings.members.enable')}
-                    </Button>
-                  ) : null}
-                </TD>
-              </TR>
-            ))}
-          </TBody>
-        </Table>
+        {members.isPending ? (
+          <TableSkeleton label={t('states.loading')} />
+        ) : members.isError ? (
+          <QueryError error={members.error} onRetry={() => void members.refetch()} />
+        ) : members.data.length === 0 ? (
+          <EmptyState title={t('settings.members.empty')} />
+        ) : (
+          <Table>
+            <THead>
+              <tr>
+                <TH>{t('settings.members.name')}</TH>
+                <TH>{t('settings.members.role')}</TH>
+                <TH>{t('settings.members.status')}</TH>
+                <TH>
+                  <span className="sr-only">{t('common.actions')}</span>
+                </TH>
+              </tr>
+            </THead>
+            <TBody>
+              {(members.data ?? []).map((m) => (
+                <TR key={m.id}>
+                  <TD>
+                    <p>{m.displayName}</p>
+                    <p className="text-xs text-foreground-lighter">{m.email ?? '—'}</p>
+                  </TD>
+                  <TD>
+                    {canManage ? (
+                      <Select
+                        aria-label={t('settings.members.roleOf', { name: m.displayName })}
+                        value={m.role}
+                        disabled={changeRole.isPending}
+                        onChange={(e) =>
+                          changeRole.mutate({ id: m.id, role: e.target.value as Role })
+                        }
+                        className="w-36"
+                      >
+                        <option value="ADMIN">{t('roles.ADMIN')}</option>
+                        <option value="MEMBER">{t('roles.MEMBER')}</option>
+                      </Select>
+                    ) : (
+                      <Badge>{t(`roles.${m.role}`)}</Badge>
+                    )}
+                  </TD>
+                  <TD>
+                    <Badge variant={m.status === 'ACTIVE' ? 'success' : 'warning'}>
+                      {t(`settings.members.statuses.${m.status}`)}
+                    </Badge>
+                    <p className="mt-0.5 text-xs text-foreground-lighter">
+                      {t('settings.members.since', {
+                        date: format.dateTime(new Date(m.joinedAt), { dateStyle: 'medium' }),
+                      })}
+                    </p>
+                  </TD>
+                  <TD className="text-right">
+                    {canManage && m.id !== myMemberId ? (
+                      <Button size="tiny" variant="ghost" onClick={() => setToggling(m)}>
+                        {m.status === 'ACTIVE'
+                          ? t('settings.members.disable')
+                          : t('settings.members.enable')}
+                      </Button>
+                    ) : null}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
         {canInvite ? <PendingInvitations /> : null}
       </PageContainer>
       {inviting ? <InvitePanel onClose={() => setInviting(false)} /> : null}
@@ -184,7 +198,8 @@ function InvitePanel({ onClose }: { onClose: () => void }) {
   const invite = useMutation({
     mutationFn: async (body: { email: string; role: Role }) =>
       unwrap(await apiClient.POST('/api/v1/invitations', { body })),
-    onSuccess: async () => {
+    onSuccess: async (_, body) => {
+      toast.success(t('toasts.invited', { email: body.email }))
       await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
       onClose()
     },
@@ -244,50 +259,81 @@ function PendingInvitations() {
   const revoke = useMutation({
     mutationFn: async (id: string) =>
       unwrap(await apiClient.POST('/api/v1/invitations/{id}/revoke', { params: { path: { id } } })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.invitations(orgId) }),
+    onSuccess: async () => {
+      toast.success(t('toasts.revoked'))
+      await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
+    },
+  })
+  const resend = useMutation({
+    mutationFn: async (i: { id: string; email: string }) =>
+      unwrap(
+        await apiClient.POST('/api/v1/invitations/{id}/resend', { params: { path: { id: i.id } } }),
+      ),
+    onSuccess: async (_, i) => {
+      toast.success(t('toasts.resent', { email: i.email }))
+      await qc.invalidateQueries({ queryKey: keys.invitations(orgId) })
+    },
   })
   const items = invitations.data ?? []
-  if (items.length === 0) return null
 
   return (
     <section className="space-y-3">
       <h2 className="text-sm text-foreground">{t('settings.members.invitations')}</h2>
-      {revoke.error ? <Callout variant="destructive">{errorText(t, revoke.error)}</Callout> : null}
-      <Table>
-        <THead>
-          <tr>
-            <TH>{t('auth.fields.email')}</TH>
-            <TH>{t('settings.members.role')}</TH>
-            <TH>{t('settings.members.expires')}</TH>
-            <TH>
-              <span className="sr-only">{t('common.actions')}</span>
-            </TH>
-          </tr>
-        </THead>
-        <TBody>
-          {items.map((i) => (
-            <TR key={i.id}>
-              <TD>{i.email}</TD>
-              <TD>
-                <Badge>{t(`roles.${i.role}`)}</Badge>
-              </TD>
-              <TD className="text-xs text-foreground-light">
-                {format.dateTime(new Date(i.expiresAt), { dateStyle: 'medium' })}
-              </TD>
-              <TD className="text-right">
-                <Button
-                  size="tiny"
-                  variant="ghost"
-                  disabled={revoke.isPending}
-                  onClick={() => revoke.mutate(i.id)}
-                >
-                  {t('settings.members.revoke')}
-                </Button>
-              </TD>
-            </TR>
-          ))}
-        </TBody>
-      </Table>
+      {(revoke.error ?? resend.error) ? (
+        <Callout variant="destructive">{errorText(t, revoke.error ?? resend.error)}</Callout>
+      ) : null}
+      {invitations.isPending ? <TableSkeleton rows={2} label={t('states.loading')} /> : null}
+      {invitations.isError ? (
+        <QueryError error={invitations.error} onRetry={() => void invitations.refetch()} />
+      ) : null}
+      {invitations.isSuccess && items.length === 0 ? (
+        <EmptyState title={t('settings.members.noInvitations')} />
+      ) : null}
+      {items.length > 0 ? (
+        <Table>
+          <THead>
+            <tr>
+              <TH>{t('auth.fields.email')}</TH>
+              <TH>{t('settings.members.role')}</TH>
+              <TH>{t('settings.members.expires')}</TH>
+              <TH>
+                <span className="sr-only">{t('common.actions')}</span>
+              </TH>
+            </tr>
+          </THead>
+          <TBody>
+            {items.map((i) => (
+              <TR key={i.id}>
+                <TD>{i.email}</TD>
+                <TD>
+                  <Badge>{t(`roles.${i.role}`)}</Badge>
+                </TD>
+                <TD className="text-xs text-foreground-light">
+                  {format.dateTime(new Date(i.expiresAt), { dateStyle: 'medium' })}
+                </TD>
+                <TD className="text-right">
+                  <Button
+                    size="tiny"
+                    variant="ghost"
+                    disabled={resend.isPending}
+                    onClick={() => resend.mutate({ id: i.id, email: i.email })}
+                  >
+                    {t('settings.organization.resend')}
+                  </Button>
+                  <Button
+                    size="tiny"
+                    variant="ghost"
+                    disabled={revoke.isPending}
+                    onClick={() => revoke.mutate(i.id)}
+                  >
+                    {t('settings.members.revoke')}
+                  </Button>
+                </TD>
+              </TR>
+            ))}
+          </TBody>
+        </Table>
+      ) : null}
     </section>
   )
 }

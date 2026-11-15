@@ -3,10 +3,14 @@ import { DomainError } from '@saas/core'
 import { auth } from '../auth.ts'
 import { errorBody, handleError, validationError } from './errors.ts'
 import { requestContext } from './middleware.ts'
+import { sessionLimit } from './rate-limit.ts'
+import { activityRoutes } from './routes/activity.ts'
 import { billingRoutes } from './routes/billing.ts'
+import { emailWebhookRoutes } from './routes/email-webhook.ts'
 import { healthRoutes } from './routes/health.ts'
 import { invitationRoutes } from './routes/invitations.ts'
 import { memberRoutes } from './routes/members.ts'
+import { metricsRoutes } from './routes/metrics.ts'
 import { meRoutes } from './routes/me.ts'
 import { organizationRoutes } from './routes/organizations.ts'
 import { paymentWebhookRoutes } from './routes/payments-webhook.ts'
@@ -28,17 +32,20 @@ function newApp() {
 
 /** Versioned business API (/api/v1). Modules register their routes here. */
 const v1 = newApp()
-v1.use('*', csrfGuard, session)
+v1.use('*', csrfGuard, session, sessionLimit)
 v1.route('/', meRoutes)
 v1.route('/', organizationRoutes)
 v1.route('/', memberRoutes)
 v1.route('/', invitationRoutes)
 v1.route('/', billingRoutes)
+v1.route('/', activityRoutes)
 
 export const api = newApp().basePath('/api')
 api.use('*', requestContext)
 api.route('/', healthRoutes)
 api.route('/', paymentWebhookRoutes)
+api.route('/', emailWebhookRoutes)
+api.route('/', metricsRoutes)
 // Better Auth (ADR 0003): sign-up, sign-in, verification, recovery and sessions.
 api.on(['GET', 'POST'], '/auth/*', (c) => auth().handler(c.req.raw))
 api.route(`/${API_VERSION}`, v1)

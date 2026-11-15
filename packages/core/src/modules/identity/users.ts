@@ -1,6 +1,8 @@
 import { Prisma, withUser, type Db, type TenantTx, type User } from '@saas/database'
+import { z } from 'zod'
 import type { BaseCtx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
+import { writeAudit } from '../audit/index.ts'
 import { emitEvent } from '../events/index.ts'
 
 /**
@@ -77,5 +79,63 @@ export async function listMyOrganizations(db: Db, userId: string) {
       orderBy: { joinedAt: 'asc' },
     })
     return memberships.map((m) => ({ ...m.organization, role: m.role }))
+  })
+}
+
+export const UpdateProfileInput = z
+  .object({
+    displayName: z.string().trim().min(1).max(120).optional(),
+    /** `null` goes back to the organization's language. */
+    locale: z.enum(['es', 'en']).nullable().optional(),
+  })
+  .refine((v) => v.displayName !== undefined || v.locale !== undefined, {
+    message: 'Nothing to change',
+  })
+export type UpdateProfileInput = z.input<typeof UpdateProfileInput>
+
+/**
+ * A person changes their own profile: display name and preferred language. Personal data, so it
+ * is not an organization action (no permission, no tenant) and is audited without organization.
+ */
+export async function updateProfile(
+  ctx: BaseCtx,
+  userId: string,
+  input: UpdateProfileInput,
+): Promise<User> {
+  const parsed = UpdateProfileInput.safeParse(input)
+  if (!parsed.success) {
+    throw new DomainError(
+      'VALIDATION_FAILED',
+      'Invalid profile',
+      parsed.error.issues.map((i) => ({
+        path: i.path.join('.'),
+        code: i.code,
+        message: i.message,
+      })),
+    )
+  }
+  const { displayName, locale } = parsed.data
+  return ctx.db.$transaction(async (tx) => {
+    const before = await tx.user.findUnique({ where: { id: userId } })
+    if (!before || before.anonymizedAt) throw new DomainError('NOT_FOUND', 'User not found')
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: {
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(locale !== undefined ? { locale } : {}),
+      },
+    })
+    await writeAudit(tx, {
+      organizationId: null,
+      actorUserId: userId,
+      action: 'user.profile_updated',
+      resourceType: 'user',
+      resourceId: userId,
+      before: { displayName: before.displayName, locale: before.locale },
+      after: { displayName: updated.displayName, locale: updated.locale },
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+    })
+    return updated
   })
 }

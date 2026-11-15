@@ -71,11 +71,22 @@
       "description": "Al cambiarla se cerrarán tus otras sesiones.",
       "submit": "Guardar contraseña",
       "requestNew": "Pide un enlace nuevo"
+    },
+    "twoFactor": {
+      "title": "Verificación en dos pasos",
+      "description": "Introduce el código de 6 cifras de tu aplicación de autenticación.",
+      "recoveryDescription": "Introduce uno de tus códigos de recuperación. Cada uno sirve una sola vez.",
+      "code": "Código",
+      "recoveryCode": "Código de recuperación",
+      "useRecovery": "Usar un código de recuperación",
+      "useApp": "Usar la aplicación de autenticación",
+      "submit": "Verificar"
     }
   },
   "errors": {
     "UNKNOWN": "Algo ha fallado. Inténtalo de nuevo.",
     "INTERNAL": "Error interno. Si persiste, contacta con soporte indicando la hora.",
+    "SERVICE_UNAVAILABLE": "El servicio no está disponible un momento. Inténtalo de nuevo en unos segundos.",
     "VALIDATION_FAILED": "Revisa los datos del formulario.",
     "UNAUTHENTICATED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
     "FORBIDDEN": "No tienes permiso para esta acción.",
@@ -86,6 +97,7 @@
     "CSRF": "Petición rechazada por seguridad. Recarga la página.",
     "NO_ACTIVE_ORGANIZATION": "Elige una organización.",
     "LAST_ADMIN": "La organización debe conservar al menos un Administrador activo.",
+    "ACCOUNT_CREATED_JOIN_FAILED": "La cuenta se ha creado, pero no hemos podido unirte a la organización. Inicia sesión para unirte.",
     "ALREADY_MEMBER": "Esa persona ya es miembro de la organización.",
     "EMAIL_MISMATCH": "La invitación es para otra dirección de correo.",
     "INVITATION_ACCEPTED": "La invitación ya se aceptó.",
@@ -112,7 +124,15 @@
     "NO_SUBSCRIPTION": "La organización no tiene un plan de pago.",
     "PAYMENTS_DISABLED": "Los pagos no están configurados.",
     "ALREADY_SUBSCRIBED": "La organización ya tiene una suscripción: gestiónala desde el portal.",
-    "PLAN_NOT_FOUND": "Ese plan no está disponible."
+    "PLAN_NOT_FOUND": "Ese plan no está disponible.",
+    "INVALID_CODE": "El código no es correcto.",
+    "INVALID_BACKUP_CODE": "El código de recuperación no es válido.",
+    "INVALID_TWO_FACTOR_COOKIE": "La verificación ha caducado. Vuelve a iniciar sesión.",
+    "PASSWORD_BREACHED": "Esa contraseña aparece en filtraciones de datos conocidas. Elige otra.",
+    "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Demasiados intentos. Vuelve a iniciar sesión.",
+    "TWO_FACTOR_NOT_ENABLED": "La verificación en dos pasos no está activada.",
+    "TOTP_ALREADY_ENABLED": "La verificación en dos pasos ya está activada.",
+    "ORGANIZATION_HAS_SUBSCRIPTION": "Una organización tiene una suscripción de pago activa: cancélala antes."
   },
   "home": {
     "title": "Inicio",
@@ -128,7 +148,10 @@
     "settings": {
       "title": "Ajustes",
       "members": "Miembros",
-      "billing": "Plan y consumo"
+      "billing": "Plan y consumo",
+      "account": "Cuenta",
+      "organization": "Organización",
+      "activity": "Actividad"
     }
   },
   "orgSwitcher": {
@@ -214,7 +237,9 @@
       "role": "Rol",
       "roleOf": "Rol de {name}",
       "roleHint": "Un administrador gestiona miembros e invitaciones.",
-      "enableDescription": "{name} recuperará el acceso con su rol actual."
+      "enableDescription": "{name} recuperará el acceso con su rol actual.",
+      "empty": "Aún no hay miembros.",
+      "noInvitations": "No hay invitaciones pendientes."
     },
     "billing": {
       "title": "Plan y consumo",
@@ -255,6 +280,7 @@
       "periodStatuses": {
         "NO_CHARGE": "Sin excedente",
         "PENDING_CHARGE": "Pendiente de cobro",
+        "CHARGING": "Cobrando",
         "CHARGED": "Cobrado",
         "CHARGE_FAILED": "Cobro fallido"
       },
@@ -264,6 +290,122 @@
       "choosePlan": "Contratar un plan",
       "subscribe": "Contratar",
       "afterCheckout": "Tras el pago, el plan se activa en cuanto el proveedor lo confirma (unos segundos)."
+    },
+    "account": {
+      "title": "Cuenta",
+      "description": "Tus datos personales. No dependen de ninguna organización.",
+      "profile": "Perfil",
+      "profileHint": "Cómo te ven los demás miembros y en qué idioma usas la aplicación.",
+      "language": "Idioma",
+      "languageHint": "Tu preferencia; este navegador puede tener otra elegida en el menú de ajustes.",
+      "languageDefault": "El de la organización",
+      "password": "Contraseña",
+      "passwordHint": "Al cambiarla se cierran tus sesiones en otros dispositivos.",
+      "currentPassword": "Contraseña actual",
+      "changePassword": "Cambiar contraseña",
+      "email": "Email de acceso",
+      "emailHint": "Con este email entras. Para cambiarlo confirmas primero desde el correo actual y después desde el nuevo; hasta entonces sigue valiendo el actual.",
+      "currentEmail": "Email actual",
+      "newEmail": "Email nuevo",
+      "changeEmail": "Cambiar email",
+      "emailRequested": "Te hemos enviado un correo a {current} para confirmar el cambio a {email}. Cuando lo confirmes, te enviaremos otro a {email} para terminar.",
+      "export": "Descargar mis datos",
+      "exportHint": "Un archivo JSON con tu perfil, tus organizaciones y las acciones que has realizado en ellas.",
+      "exportButton": "Descargar (JSON)",
+      "delete": "Borrar la cuenta",
+      "deleteHint": "Se elimina tu acceso y se anonimizan tus datos personales; el historial de las organizaciones se conserva sin tu nombre. Hay un plazo de 14 días para arrepentirte.",
+      "deletePassword": "Tu contraseña",
+      "deleteButton": "Solicitar el borrado",
+      "deleteBlockedTitle": "Todavía no puedes borrar la cuenta",
+      "deleteBlockers": {
+        "LAST_ADMIN": "Eres el último administrador de «{name}», que tiene más miembros. Nombra a otro administrador o archívala.",
+        "ORGANIZATION_HAS_SUBSCRIPTION": "«{name}» tiene una suscripción de pago activa. Cancélala antes en Plan y consumo."
+      },
+      "deleteArchive": "Se archivarán las organizaciones donde eres el único miembro: {names}.",
+      "deletePendingTitle": "Borrado programado",
+      "deletePending": "Tu cuenta se eliminará el {date} (en {days} días). Hasta entonces puedes seguir usándola.",
+      "deleteCancel": "Cancelar el borrado"
+    },
+    "organization": {
+      "title": "Organización",
+      "description": "Datos generales de la organización activa.",
+      "general": "General",
+      "name": "Nombre",
+      "slug": "Identificador",
+      "slugHint": "No se puede cambiar.",
+      "language": "Idioma por defecto",
+      "languageHint": "Lo usan los correos y quien no haya elegido otro.",
+      "leave": "Salir de la organización",
+      "leaveHint": "Dejas de ver sus datos. Un administrador puede volver a activarte. La organización siempre conserva al menos un administrador.",
+      "leaveButton": "Salir",
+      "leaveConfirm": "¿Seguro que quieres salir de esta organización?",
+      "archive": "Archivar la organización",
+      "archiveHint": "Nadie podrá entrar en ella y desaparece de las listas. Los datos se conservan. Si tiene una suscripción de pago, cancélala antes en Plan y consumo.",
+      "archiveType": "Escribe «{name}» para confirmar",
+      "archiveButton": "Archivar",
+      "resend": "Reenviar"
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "Quién ha hecho qué en la organización. Se conserva durante 24 meses.",
+      "filter": "Mostrar",
+      "all": "Todo",
+      "areas": {
+        "organization": "Organización",
+        "member": "Miembros",
+        "invitation": "Invitaciones",
+        "billing": "Cobros"
+      },
+      "when": "Cuándo",
+      "who": "Quién",
+      "what": "Qué",
+      "system": "Sistema",
+      "empty": "No hay actividad con ese filtro.",
+      "more": "Cargar más",
+      "actions": {
+        "organization_created": "Organización creada",
+        "organization_updated": "Organización modificada",
+        "organization_archived": "Organización archivada",
+        "member_role_changed": "Rol de un miembro cambiado",
+        "member_enabled": "Miembro activado",
+        "member_disabled": "Miembro desactivado",
+        "member_left": "Un miembro ha salido",
+        "invitation_created": "Invitación enviada",
+        "invitation_resent": "Invitación reenviada",
+        "invitation_revoked": "Invitación revocada",
+        "invitation_accepted": "Invitación aceptada",
+        "billing_subscription_synced": "Suscripción actualizada",
+        "billing_spend_cap_changed": "Tope de gasto cambiado",
+        "billing_period_closed": "Periodo de cobro cerrado",
+        "billing_provider_event_rejected": "Evento del proveedor de pago rechazado",
+        "billing_usage_counter_mismatch": "Descuadre del contador de uso corregido"
+      }
+    },
+    "security": {
+      "twoFactor": "Verificación en dos pasos",
+      "twoFactorHint": "Además de la contraseña, se pide un código de 6 cifras de una aplicación de autenticación al iniciar sesión.",
+      "turnOn": "Activar",
+      "turnOff": "Desactivar",
+      "newCodes": "Generar códigos de recuperación nuevos",
+      "on": "Activada",
+      "confirmPassword": "Confirma tu contraseña para: {action}",
+      "scan": "Escanea el código con tu aplicación de autenticación y escribe el código que muestra.",
+      "qrLabel": "Código QR para la aplicación de autenticación",
+      "manualKey": "¿No puedes escanearlo? Clave:",
+      "activate": "Activar",
+      "codesTitle": "Códigos de recuperación",
+      "codesHint": "Guárdalos ahora en un lugar seguro: no se volverán a mostrar. Cada código sirve una sola vez si pierdes tu aplicación.",
+      "copy": "Copiar",
+      "download": "Descargar",
+      "saved": "Los he guardado",
+      "sessions": "Sesiones abiertas",
+      "sessionsHint": "Dispositivos donde tu cuenta tiene la sesión iniciada. Cierra los que no reconozcas.",
+      "thisSession": "Esta sesión",
+      "unknownDevice": "Dispositivo desconocido",
+      "lastActive": "Última actividad: {date}",
+      "close": "Cerrar sesión",
+      "closeConfirm": "Ese dispositivo tendrá que volver a iniciar sesión.",
+      "closeOthers": "Cerrar todas las demás"
     }
   },
   "billing": {
@@ -272,5 +414,37 @@
     },
     "metrics": {},
     "units": {}
+  },
+  "states": {
+    "loading": "Cargando…",
+    "loadFailed": "No se han podido cargar los datos",
+    "retry": "Reintentar",
+    "reference": "Referencia: {id}",
+    "errorTitle": "Algo ha fallado",
+    "errorBody": "No hemos podido mostrar esta página. Inténtalo de nuevo; si persiste, indica la referencia a soporte.",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundBody": "La dirección no existe o se ha movido.",
+    "goHome": "Ir al inicio"
+  },
+  "toasts": {
+    "invited": "Invitación enviada a {email}",
+    "revoked": "Invitación revocada",
+    "roleChanged": "Rol actualizado",
+    "memberDisabled": "Miembro desactivado",
+    "memberEnabled": "Miembro activado",
+    "spendCapSaved": "Tope de gasto guardado",
+    "profileSaved": "Perfil guardado",
+    "passwordChanged": "Contraseña cambiada. Se han cerrado las demás sesiones.",
+    "organizationSaved": "Organización guardada",
+    "left": "Has salido de la organización",
+    "archived": "Organización archivada",
+    "resent": "Invitación reenviada a {email}",
+    "twoFactorOn": "Verificación en dos pasos activada",
+    "twoFactorOff": "Verificación en dos pasos desactivada",
+    "copied": "Copiado",
+    "sessionClosed": "Sesión cerrada",
+    "sessionsClosed": "Las demás sesiones se han cerrado",
+    "deletionRequested": "Borrado de la cuenta programado",
+    "deletionCancelled": "Borrado de la cuenta cancelado"
   }
 }

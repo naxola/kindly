@@ -1,4 +1,5 @@
 import 'server-only'
+import { dbTimeoutsFromEnv } from '@saas/config/db-timeouts'
 import { createDb, type Db } from '@saas/database'
 import { env } from './env.ts'
 
@@ -6,6 +7,9 @@ import { env } from './env.ts'
 const globalForDb = globalThis as unknown as { __db?: Db }
 
 export function db(): Db {
-  globalForDb.__db ??= createDb({ connectionString: env().DATABASE_URL })
+  globalForDb.__db ??= createDb({
+    connectionString: env().DATABASE_URL,
+    timeouts: dbTimeoutsFromEnv(env()),
+  })
   return globalForDb.__db
 }

@@ -78,5 +78,14 @@
   "footer": {
     "rights": "© {year} {company}",
     "legal": "Legal"
+  },
+  "states": {
+    "errorTitle": "Something went wrong",
+    "errorBody": "We could not show this page. Try again.",
+    "retry": "Try again",
+    "reference": "Reference: {id}",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The address does not exist or has moved.",
+    "goHome": "Go to the start"
   }
 }

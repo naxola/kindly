@@ -34,6 +34,16 @@ export async function listMembers(ctx: Ctx) {
   })
 }
 
+/**
+ * Serializes every change that can remove an ADMIN from an organization (transaction-scoped
+ * advisory lock). Without it, two concurrent changes on different ADMINs both pass
+ * `assertAnotherActiveAdmin` and the organization is left with none. Call it first in any use
+ * case that demotes, disables or removes an ADMIN, before reading the admin count.
+ */
+export async function lockOrganizationMembers(tx: TenantTx, organizationId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`members:${organizationId}`}, 0))`
+}
+
 async function assertAnotherActiveAdmin(tx: TenantTx, memberId: string) {
   const admins = await tx.organizationMember.count({
     where: { role: 'ADMIN', status: 'ACTIVE', id: { not: memberId } },
@@ -56,6 +66,7 @@ export async function changeMemberRole(
   authorize(ctx.actor, 'members.manage')
   const { role } = ChangeRoleInput.parse(input)
   return tenantTx(ctx, async (tx) => {
+    await lockOrganizationMembers(tx, ctx.actor.organizationId)
     const member = await tx.organizationMember.findUnique({ where: { id: memberId } })
     if (!member) throw new DomainError('NOT_FOUND', 'Member not found')
     if (member.role === role) return member
@@ -73,6 +84,33 @@ export async function changeMemberRole(
       ip: ctx.ip,
     })
     return updated
+  })
+}
+
+/**
+ * The person leaves the organization. Their membership is disabled (history stays) and an ADMIN
+ * can re-enable it; the organization always keeps an active ADMIN, also when two leave at once.
+ */
+export async function leaveOrganization(ctx: Ctx) {
+  return tenantTx(ctx, async (tx) => {
+    await lockOrganizationMembers(tx, ctx.actor.organizationId)
+    const member = await tx.organizationMember.findUnique({ where: { id: ctx.actor.memberId } })
+    if (!member || member.status !== 'ACTIVE')
+      throw new DomainError('NOT_FOUND', 'Member not found')
+    if (member.role === 'ADMIN') await assertAnotherActiveAdmin(tx, member.id)
+    await tx.organizationMember.update({
+      where: { id: member.id },
+      data: { status: 'DISABLED', disabledAt: nowOf(ctx) },
+    })
+    await writeAudit(tx, {
+      organizationId: ctx.actor.organizationId,
+      actorUserId: ctx.actor.userId,
+      action: 'member.left',
+      resourceType: 'organization_member',
+      resourceId: member.id,
+      correlationId: ctx.correlationId,
+      ip: ctx.ip,
+    })
   })
 }
 
@@ -104,6 +142,7 @@ export async function enableMember(ctx: Ctx, memberId: string) {
 export async function disableMember(ctx: Ctx, memberId: string) {
   authorize(ctx.actor, 'members.manage')
   return tenantTx(ctx, async (tx) => {
+    await lockOrganizationMembers(tx, ctx.actor.organizationId)
     const member = await tx.organizationMember.findUnique({ where: { id: memberId } })
     if (!member) throw new DomainError('NOT_FOUND', 'Member not found')
     if (member.status === 'DISABLED') return member

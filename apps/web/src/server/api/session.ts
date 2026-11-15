@@ -1,3 +1,4 @@
+import { clientIp } from '@saas/config/client-ip'
 import {
   DomainError,
   findUserByAuthId,
@@ -53,14 +54,17 @@ export const csrfGuard = createMiddleware<ApiEnv>(async (c, next) => {
   await next()
 })
 
+/** Client IP from the trusted header only (see `clientIp`); null when unknown. */
+export const requestIp = (c: Context<ApiEnv>) =>
+  clientIp(c.req.raw.headers, env().TRUSTED_IP_HEADER)
+
 /** Use-case context shared by every route. */
 export async function baseCtx(c: Context<ApiEnv>): Promise<BaseCtx> {
-  const forwarded = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
   return {
     db: db(),
     queue: await queue(),
     correlationId: c.get('correlationId'),
-    ip: forwarded || null,
+    ip: requestIp(c),
     appUrl: env().APP_URL,
   }
 }

@@ -9,7 +9,9 @@ import {
   PgBossJobQueue,
   queueSnapshot,
   registerWorker,
+  failedJobsSince,
   stuckQueues,
+  syncQueues,
   type FinalFailure,
   type PgBoss,
 } from '../src/queue/index.ts'
@@ -30,6 +32,12 @@ const recordJob = defineJob({
   name: `test-${run}.record`,
   schema: z.object({ note: z.string().min(1) }),
   retryLimit: 1,
+  retryDelaySeconds: 1,
+})
+const backlogJob = defineJob({
+  name: `test-${run}.backlog`,
+  schema: z.object({ n: z.number() }),
+  retryLimit: 0,
   retryDelaySeconds: 1,
 })
 const failingJob = defineJob({
@@ -232,5 +240,149 @@ describe('queue health', () => {
     expect(idle?.oldestWaitingSeconds).toBeGreaterThanOrEqual(3600)
     expect(stuckQueues(snapshot, 900).map((q) => q.name)).toContain(idleJob.name)
     expect(stuckQueues(snapshot, 7200).map((q) => q.name)).not.toContain(idleJob.name)
+  })
+})
+
+describe('queue settings (R1.3)', () => {
+  it('a queue redefined with other retries is updated in pg-boss when the consumer registers', async () => {
+    const name = `test-${run}.redefined`
+    const v1 = defineJob({ name, schema: z.object({}), retryLimit: 1, retryDelaySeconds: 1 })
+    await syncQueues(boss, [v1])
+    expect(await boss.getQueue(name)).toMatchObject({ retryLimit: 1, retryDelay: 1 })
+
+    const v2 = defineJob({
+      name,
+      schema: z.object({}),
+      retryLimit: 3,
+      retryDelaySeconds: 7,
+      expireInSeconds: 120,
+    })
+    // The producer only creates missing queues: it must not touch an existing one.
+    await withTenant(db, orgId, (tx) =>
+      new PgBossJobQueue(boss).enqueue(tx, v2, {}, { ...meta(), idempotencyKey: newId() }),
+    )
+    expect(await boss.getQueue(name)).toMatchObject({ retryLimit: 1, retryDelay: 1 })
+
+    await registerWorker(boss, v2, () => Promise.resolve(), { log })
+    expect(await boss.getQueue(name)).toMatchObject({
+      retryLimit: 3,
+      retryDelay: 7,
+      retryBackoff: true,
+      expireInSeconds: 120,
+    })
+  })
+})
+
+describe('failed jobs sweep (R1.3)', () => {
+  it('finds jobs that failed without the handler running, only in the given queues and window', async () => {
+    const name = `test-${run}.expired`
+    const other = `test-${run}.expired-other`
+    const job = defineJob({ name, schema: z.object({}), retryLimit: 0 })
+    const otherJob = defineJob({ name: other, schema: z.object({}), retryLimit: 0 })
+    await syncQueues(boss, [job, otherJob])
+    const before = (await failedJobsSince(boss, [name], new Date())).now
+    const m = meta()
+    const ids: string[] = []
+    for (const j of [job, otherJob]) {
+      const { id } = await withTenant(db, orgId, (tx) =>
+        queue.enqueue(
+          tx,
+          j,
+          {},
+          { ...m, idempotencyKey: newId(), startAfter: new Date(Date.now() + 3_600_000) },
+        ),
+      )
+      ids.push(id)
+    }
+    // What pg-boss does when a job expires with no retries left.
+    await boss
+      .getDb()
+      .executeSql(
+        `UPDATE pgboss.job SET state = 'failed', completed_on = now(), output = '{"message":"job failed by expiration"}' WHERE id = ANY($1)`,
+        [ids],
+      )
+    const { jobs, now } = await failedJobsSince(boss, [name], before)
+    expect(jobs.map((j) => j.id)).toEqual([ids[0]])
+    expect(jobs[0]).toMatchObject({
+      name,
+      correlationId: m.correlationId,
+      organizationId: orgId,
+      message: 'job failed by expiration',
+    })
+    // Nothing new after the returned clock. The window is inclusive (`>=`, callers deduplicate)
+    // and a JS Date drops the microseconds, so a job that failed in the same millisecond as the
+    // read is returned again: ask from the next millisecond. (This made the CI fail once.)
+    expect((await failedJobsSince(boss, [name], new Date(now.getTime() + 1))).jobs).toEqual([])
+  })
+})
+
+describe('throughput (R5.3 follow-up)', () => {
+  it('drains a backlog at the speed of the handler, not one job per polling interval', async () => {
+    const total = 40
+    await withTenant(db, orgId, async (tx) => {
+      for (let n = 0; n < total; n++) {
+        await queue.enqueue(tx, backlogJob, { n }, { ...meta(), idempotencyKey: `backlog-${n}` })
+      }
+    })
+    const done = new Set<number>()
+    await registerWorker(
+      boss,
+      backlogJob,
+      (payload) => {
+        done.add(payload.n)
+        return Promise.resolve()
+      },
+      { log, concurrency: 2 },
+    )
+    const started = Date.now()
+    while (done.size < total) {
+      if (Date.now() - started > 8_000) throw new Error(`only ${done.size}/${total} in 8 s`)
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    // Before the fix: one job per worker every 2 s (40 jobs ≈ 40 s).
+    expect(Date.now() - started).toBeLessThan(8_000)
+  })
+
+  it('a failing job in a batch is retried on its own and does not fail its neighbours', async () => {
+    const mixedJob = defineJob({
+      name: `test-${run}.mixed`,
+      schema: z.object({ n: z.number() }),
+      retryLimit: 0,
+      retryDelaySeconds: 1,
+    })
+    const finals: FinalFailure[] = []
+    const ok: number[] = []
+    const ids: string[] = []
+    await withTenant(db, orgId, async (tx) => {
+      for (let n = 0; n < 6; n++) {
+        ids.push(
+          (await queue.enqueue(tx, mixedJob, { n }, { ...meta(), idempotencyKey: `mixed-${n}` }))
+            .id,
+        )
+      }
+    })
+    await registerWorker(
+      boss,
+      mixedJob,
+      (payload) => {
+        if (payload.n === 3) return Promise.reject(new Error('only this one fails'))
+        ok.push(payload.n)
+        return Promise.resolve()
+      },
+      { log, concurrency: 1, onFinalFailure: (f) => void finals.push(f) },
+    )
+    const states = await Promise.all(
+      ids.map((id) => waitForState(mixedJob.name, id, ['completed', 'failed'])),
+    )
+    expect(states.map((j) => j.state)).toEqual([
+      'completed',
+      'completed',
+      'completed',
+      'failed',
+      'completed',
+      'completed',
+    ])
+    expect(ok.sort()).toEqual([0, 1, 2, 4, 5])
+    expect(finals).toHaveLength(1)
   })
 })

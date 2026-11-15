@@ -14,6 +14,7 @@ export {
   MemberStatus,
   SubscriptionStatus,
   BillingPeriodStatus,
+  EmailSuppressionReason,
 } from './generated/prisma/client.ts'
 export type {
   Organization,

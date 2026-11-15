@@ -2,7 +2,14 @@ import { z } from 'zod'
 import type { EmailSender } from '../../email.ts'
 import { LOCALES } from '../../i18n.ts'
 import { defineJob, type JobContext } from '../../jobs.ts'
-import { invitationEmail, passwordResetEmail, verificationEmail } from './emails.ts'
+import { accountDeletionEmailJob } from './account-deletion.ts'
+import {
+  accountDeletionEmail,
+  changeEmailConfirmationEmail,
+  invitationEmail,
+  passwordResetEmail,
+  verificationEmail,
+} from './emails.ts'
 
 const locale = z.enum(LOCALES)
 
@@ -18,6 +25,11 @@ export const verificationEmailJob = defineJob({
 export const passwordResetEmailJob = defineJob({
   name: 'identity.password-reset-email',
   schema: z.object({ to: z.email(), name: z.string(), locale, url: z.url() }),
+})
+
+export const changeEmailConfirmationEmailJob = defineJob({
+  name: 'identity.change-email-confirmation-email',
+  schema: z.object({ to: z.email(), name: z.string(), newEmail: z.email(), locale, url: z.url() }),
 })
 
 export const invitationEmailJob = defineJob({
@@ -43,6 +55,7 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
     await sender.send({
       to: p.to,
       idempotencyKey: `${verificationEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
       ...verificationEmail(p.locale, p.name, p.url),
     })
   },
@@ -50,7 +63,19 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
     await sender.send({
       to: p.to,
       idempotencyKey: `${passwordResetEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
       ...passwordResetEmail(p.locale, p.name, p.url),
+    })
+  },
+  changeEmailConfirmation: async (
+    p: Payload<typeof changeEmailConfirmationEmailJob>,
+    ctx: JobContext,
+  ) => {
+    await sender.send({
+      to: p.to,
+      idempotencyKey: `${changeEmailConfirmationEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
+      ...changeEmailConfirmationEmail(p.locale, p.name, p.newEmail, p.url),
     })
   },
   invitation: async (p: Payload<typeof invitationEmailJob>, ctx: JobContext) => {
@@ -58,6 +83,18 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
       to: p.to,
       idempotencyKey: `${invitationEmailJob.name}:${ctx.jobId}`,
       ...invitationEmail(p.locale, p.organizationName, p.inviterName, p.url, p.expiresInDays),
+    })
+  },
+  accountDeletion: async (p: Payload<typeof accountDeletionEmailJob>, ctx: JobContext) => {
+    await sender.send({
+      to: p.to,
+      idempotencyKey: `${accountDeletionEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
+      ...accountDeletionEmail(p.locale, p.name, {
+        kind: p.kind,
+        url: p.url,
+        ...(p.scheduledFor ? { scheduledFor: new Date(p.scheduledFor) } : {}),
+      }),
     })
   },
 })
