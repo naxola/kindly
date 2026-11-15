@@ -43,7 +43,15 @@ export {
 } from './close.ts'
 export type { DuePeriod, OverageLine } from './close.ts'
 export { SetSpendCapInput, listBillingPeriods, setSpendCap } from './manage.ts'
-export { quotaAlertEmail } from './emails.ts'
+export { dunningEmail, quotaAlertEmail } from './emails.ts'
+export type { DunningNotice } from './emails.ts'
+export {
+  DUNNING_REMINDER_DAYS_BEFORE,
+  dunningEmailJob,
+  enqueueDunningFollowUps,
+  enqueuePastDueNotice,
+} from './dunning.ts'
+export type { DunningKind } from './dunning.ts'
 export { InvalidWebhookError } from './provider.ts'
 export type {
   CheckoutSession,

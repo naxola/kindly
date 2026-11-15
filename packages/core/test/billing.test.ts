@@ -11,6 +11,7 @@ import {
   periodContaining,
   publicPlans,
   quotaAlertEmail,
+  dunningEmail,
   RecordUsageInput,
   type Catalog,
 } from '../src/index.ts'
@@ -241,5 +242,26 @@ describe('RecordUsageInput quantity', () => {
     expect(parse('0')).toBe(false)
     expect(parse('0.000')).toBe(false)
     expect(parse('-1')).toBe(false)
+  })
+})
+
+describe('dunningEmail', () => {
+  const base = {
+    organizationName: 'Acme',
+    restrictsOn: new Date('2026-11-13T00:00:00Z'),
+    url: 'https://app.example.com/settings/billing',
+  }
+  it('explains each stage in both languages, with the date and the link', () => {
+    for (const locale of ['es', 'en'] as const) {
+      for (const kind of ['PAST_DUE', 'REMINDER', 'RESTRICTED'] as const) {
+        const email = dunningEmail(locale, { ...base, kind })
+        expect(email.subject).toContain('Acme')
+        expect(email.text).toContain(base.url)
+        expect(email.html).toContain(base.url)
+      }
+    }
+    expect(dunningEmail('es', { ...base, kind: 'PAST_DUE' }).text).toContain('13 de noviembre')
+    expect(dunningEmail('en', { ...base, kind: 'REMINDER' }).text).toContain('13 November')
+    expect(dunningEmail('es', { ...base, kind: 'RESTRICTED' }).text).toContain('no se ha borrado')
   })
 })

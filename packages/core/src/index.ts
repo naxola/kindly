@@ -20,6 +20,7 @@ import {
   closeDuePeriodsScanJob,
   chargePeriodJob,
   closePeriodsJob,
+  dunningEmailJob,
   providerEventJob,
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
@@ -41,6 +42,7 @@ export const ALL_JOBS = [
   invitationEmailJob,
   deliverEventJob,
   quotaAlertEmailJob,
+  dunningEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
   chargePeriodJob,

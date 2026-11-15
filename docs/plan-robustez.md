@@ -39,7 +39,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R2.4   | `feat/rate-limit-store`        | Límites en Postgres; límites por usuario y organización   | nuevo (0015)   | R1.2       | ✅     |
 | R2.5   | `feat/auth-hardening`          | MFA TOTP, contraseñas filtradas, sesiones                 | nuevo (0016)   | R4.3       | 🟡     |
 | R3.1   | `chore/db-check-constraints`   | Restricciones `CHECK` de cobros                           | —              | —          | ✅     |
-| R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ⬜     |
+| R3.2   | `feat/billing-dunning-emails`  | Avisos de impago a los administradores                    | —              | —          | ✅     |
 | R3.3   | `feat/usage-counters`          | Contadores de uso por periodo                             | enmienda 0012  | R1.6       | ⬜     |
 | R3.4   | `feat/email-suppression`       | Rebotes, quejas y lista de supresión                      | nuevo (0017)   | —          | ✅     |
 | R3.5   | `feat/audit-log-read`          | Lectura de la auditoría y retención                       | nuevo (0018)   | —          | ⬜     |
@@ -453,7 +453,21 @@ the business events` era **inestable** en la suite completa de integración (4 n
 - **Antes de aplicar:** consulta que confirme que staging no tiene filas que las incumplan.
 - **Test:** `db:check` y un caso por restricción en `packages/database/test`.
 
-### R3.2 · Avisos de impago — `feat/billing-dunning-emails`
+### R3.2 · Avisos de impago — `feat/billing-dunning-emails` ✅ (2026-11-15)
+
+- **Entregado:** job `billing.dunning-email` (`core/billing/dunning.ts`) con tres avisos a los
+  ADMIN, **una vez por impago**: al entrar en `PAST_DUE` (encolado en `applyProviderEvent`, en la
+  misma transacción), recordatorio 2 días antes de la restricción y aviso al restringir. Los dos
+  últimos se evalúan en la pasada **horaria** del cierre de periodos por organización (no en un
+  job diario aparte: ya existía la pasada y avisa antes). La clave de idempotencia es suscripción +
+  fecha del impago + etapa, así que un impago posterior vuelve a avisar. Plantillas es/en en
+  `emails.ts`, con la fecha de restricción y el enlace a Plan y consumo; el de restricción dice que
+  no se ha borrado nada.
+- **Tests:** unitarios de las plantillas; integración (un aviso al entrar y no en eventos
+  repetidos; recordatorio y restricción una vez cada uno tras varias pasadas; nada tras pagar; un
+  impago posterior avisa de nuevo; sin suscripción, nada). Verificado: 144 de integración,
+  129 unitarias, tipos, lint y fronteras.
+- **Sin verificar:** el envío real (depende de Paddle en sandbox para provocar un impago).
 
 - **Problema:** al pasar a `PAST_DUE` solo cambia un aviso en pantalla; nadie recibe correo y a los
   7 días la organización cae al plan por defecto sin haber sido avisada.

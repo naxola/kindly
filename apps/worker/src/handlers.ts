@@ -12,6 +12,7 @@ import {
   closePeriodsJob,
   deliverEventHandler,
   deliverEventJob,
+  dunningEmailJob,
   identityEmailHandlers,
   invitationEmailJob,
   passwordResetEmailJob,
@@ -71,6 +72,11 @@ export const registrations: Registration[] = [
   register({
     job: quotaAlertEmailJob,
     handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
+    sendsEmail: true,
+  }),
+  register({
+    job: dunningEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).dunning,
     sendsEmail: true,
   }),
   register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
