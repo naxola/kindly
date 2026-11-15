@@ -2,7 +2,7 @@
 
 **Estado:** Aceptado (2026-11-14). El usuario validó el diseño: las organizaciones **unipersonales
 se archivan** al ejecutar el borrado, la auditoría **conserva el id del actor** tras anonimizar, y
-el plazo de gracia es de **14 días para todas las cuentas**. Pendiente de implementar (R4.5).
+el plazo de gracia es de **14 días para todas las cuentas**. Implementado el 2026-11-15 (R4.5).
 
 ## Problema
 

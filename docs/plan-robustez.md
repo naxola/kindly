@@ -47,7 +47,7 @@ Estados: `⬜` pendiente · `🟡` en curso · `✅` entregado · `🔒` espera 
 | R4.2   | `feat/ui-feedback`             | Confirmaciones y sesión caducada                          | —              | —          | ✅     |
 | R4.3   | `feat/account-settings`        | Ajustes de la cuenta: perfil, contraseña, sesiones        | —              | R4.2       | ⬜     |
 | R4.4   | `feat/organization-settings`   | Ajustes de la organización, salir, reenviar invitación    | —              | R1.1, R4.2 | ✅     |
-| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ⬜     |
+| R4.5   | `feat/account-deletion`        | Borrado de la cuenta (RGPD)                               | nuevo (0019)   | R4.3       | ✅     |
 | R4.6   | `feat/browser-errors-a11y`     | Errores del navegador; accesibilidad en los E2E           | enmienda 0008  | R2.1       | ✅     |
 | R5.1   | `chore/renovate`               | Actualización automática de dependencias                  | enmienda 0009  | —          | 🟡     |
 | R5.2   | `chore/ci-images`              | Caché de capas, escaneo de imágenes y SBOM                | —              | —          | 🟡     |
@@ -85,7 +85,7 @@ validación antes de implementar (regla 1 de `CLAUDE.md`).
 | D11 | Supresión de correo: solo el hash SHA-256 del email normalizado. ADR 0017 por redactar                       | ✅ Decidido      |
 
 **Los cinco ADR nuevos están Aceptados (2026-11-14):** 0015 y 0017 ya implementados (R2.4, R3.4);
-0016, 0018 y 0019 validados y pendientes de implementar (R2.5, R3.5, R4.5).
+0016, 0018 y 0019 validados e implementados (R2.5, R3.5, R4.5).
 
 **Numeración de ADR nuevos** (por orden de bloque; las enmiendas a 0008, 0009 y 0012 no consumen
 número): R2.4 → 0015 · R2.5 → 0016 · R3.4 → 0017 · R3.5 → 0018 · R4.5 → 0019.
@@ -684,13 +684,37 @@ the business events` era **inestable** en la suite completa de integración (4 n
   no se cambia: decisión aparte si algún producto lo pide.
 - **Test:** integración de cada caso de uso (permisos, último ADMIN, token anterior inválido); E2E.
 
-### R4.5 · Borrado de la cuenta — `feat/account-deletion` ⬜ (D6 decidida)
+### R4.5 · Borrado de la cuenta — `feat/account-deletion` ✅ (2026-11-15, ADR 0019)
 
-- **Contenido (ADR 0019):** el esquema ya lo prevé (`users.anonymized_at`, `auth_user_id` nulo al
-  borrar el acceso). Falta el flujo: solicitud con contraseña, plazo de gracia, job que borra el
-  acceso, anonimiza `users.display_name` y desactiva las membresías; regla del último ADMIN;
-  evento de negocio `user.deleted` para el CRM; exportación de los datos personales.
-- **Test:** integración del job y de las reglas; E2E de la solicitud y su cancelación.
+- **Entregado:** migración aditiva (`users.deletion_requested_at` y `deletion_scheduled_for`, con
+  índice). `core/identity/account-deletion.ts`: `requestAccountDeletion` (plazo de 14 días, idempotente,
+  correo de confirmación), `cancelAccountDeletion`, `previewAccountDeletion` (qué bloquea y qué se
+  archivaría), `exportPersonalData` y `processAccountDeletions`, que ejecuta el job diario
+  `identity.process-account-deletions` (04:11 UTC, registrado en el worker). Reglas: se bloquea al
+  **último ADMIN de una organización con más miembros** (`LAST_ADMIN`) y a quien es el único miembro
+  de una organización con **suscripción de pago viva** (`ORGANIZATION_HAS_SUBSCRIPTION`); las
+  organizaciones unipersonales se **archivan** al ejecutar. Si una regla empieza a bloquear durante
+  el plazo, el job **cancela la solicitud** y avisa por correo (`BLOCKED`). Al ejecutar: desactiva las
+  membresías, borra el acceso (`auth_users` con sus sesiones, cuentas y segundo factor, y los
+  tokens de verificación de su dirección), anonimiza (`display_name` «Deleted user», `locale` nulo,
+  `anonymized_at`), audita `user.deleted` (conserva el id del actor), emite el evento de negocio
+  **`user.deleted`** (solo el id) y envía el correo de despedida a la dirección capturada antes de
+  borrarla. Cuatro correos (`REQUESTED`, `CANCELLED`, `BLOCKED`, `COMPLETED`; es/en, categoría
+  `access`). `adapters/auth/reauth.ts` (`verifyAccountPassword`: la contraseña se comprueba allí, el
+  hash no sale del adaptador). API: `GET/POST/DELETE /api/v1/me/deletion` (POST pide la contraseña,
+  5 intentos por 15 min), `GET /api/v1/me/export` (descarga JSON, 5 por hora), `GET /me` añade
+  `deletionScheduledFor`. Pantalla: Ajustes → Cuenta, «Descargar mis datos» y «Borrar la cuenta»
+  (bloqueos con nombre, aviso de organizaciones que se archivan, cuenta atrás y cancelar).
+- **Tests:** 8 de integración en `core` (plazo, bloqueo por último ADMIN, por suscripción, cancelar,
+  no ejecutar antes de plazo, ejecutar —acceso, sesiones, anonimización, membresías, archivado,
+  auditoría, evento sin email y correo final—, idempotencia, bloqueo sobrevenido, exportación),
+  2 de API y un E2E con axe en el formulario y en el estado pendiente.
+- **Límites conocidos:** la exportación no incluye las entradas de auditoría sin organización (no las
+  lee el rol de la aplicación por diseño) y se limita a 5000 por organización; el nombre «Deleted
+  user» no está traducido (se guarda, no se muestra por clave); las **copias de seguridad** conservan
+  los datos hasta caducar (R5.5, depende de D5); quien borró su cuenta puede volver a registrarse
+  con el mismo email como persona nueva, sin vínculo con la anterior; no se cancela una suscripción
+  de pago por la persona, se bloquea hasta que ella la cancele.
 
 ### R4.6 · Errores del navegador y accesibilidad — `feat/browser-errors-a11y` ✅ (2026-11-14)
 

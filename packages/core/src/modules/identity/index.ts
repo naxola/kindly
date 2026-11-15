@@ -54,3 +54,17 @@ export {
   acceptInvitation,
 } from './invitations.ts'
 export type { InvitationStatus, InvitationView } from './invitations.ts'
+export {
+  ACCOUNT_DELETION_GRACE_DAYS,
+  IDENTITY_SCHEDULES,
+  accountDeletionEmailJob,
+  accountDeletionState,
+  cancelAccountDeletion,
+  exportPersonalData,
+  previewAccountDeletion,
+  processAccountDeletions,
+  processAccountDeletionsJob,
+  requestAccountDeletion,
+} from './account-deletion.ts'
+export type { AccountDeletionState, DeletionBlocker } from './account-deletion.ts'
+export { accountDeletionEmail } from './emails.ts'

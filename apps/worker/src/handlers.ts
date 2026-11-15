@@ -10,6 +10,9 @@ import {
   purgeExpiredAuditLogs,
   purgeRateLimitsJob,
   billingEmailHandlers,
+  accountDeletionEmailJob,
+  processAccountDeletionsJob,
+  processAccountDeletions,
   changeEmailConfirmationEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
@@ -75,6 +78,25 @@ export const registrations: Registration[] = [
     job: changeEmailConfirmationEmailJob,
     handler: ({ email }) => identityEmailHandlers(email()).changeEmailConfirmation,
     sendsEmail: true,
+  }),
+  register({
+    job: accountDeletionEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).accountDeletion,
+    sendsEmail: true,
+  }),
+  register({
+    job: processAccountDeletionsJob,
+    handler:
+      ({ db, queue, appUrl }) =>
+      async (_payload, { log, jobId }) => {
+        const result = await processAccountDeletions({
+          db,
+          queue,
+          appUrl,
+          correlationId: jobId,
+        })
+        log.info(result, 'account deletions processed')
+      },
   }),
   register({ job: deliverEventJob, handler: ({ events }) => deliverEventHandler(events) }),
   register({

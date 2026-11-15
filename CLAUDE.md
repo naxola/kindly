@@ -164,6 +164,11 @@ Convenciones al añadir código:
   secretos de Better Auth van versionados (`BETTER_AUTH_SECRETS`) y no se retira uno mientras algo
   siga cifrado con él. Todo código que cree una cuenta saltándose Better Auth (como la invitación)
   debe pasar por `passwordBreachCheck`.
+- Borrado de cuenta (ADR 0019): solicitud con contraseña (`verifyAccountPassword` en `adapters/auth`),
+  plazo de 14 días y job diario `identity.process-account-deletions`; los datos que solo existan para
+  una persona (no del tenant) se tratan en `processAccountDeletions` y en `exportPersonalData` si
+  son personales. La anonimización conserva el `users.id` (el historial no se rompe); nada de
+  email en eventos ni logs.
 - Métricas (ADR 0008): `metrics().registry` (web) o el `MetricsRegistry` del worker, con etiquetas
   de baja cardinalidad: nombres de ruta, de cola y de estado; nunca ids, emails ni IP. `/metrics`
   exige `METRICS_TOKEN` y sin él responde 404.

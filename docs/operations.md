@@ -170,6 +170,25 @@ Si el servicio no responde en 3 s la contraseña se **acepta** y se registra `pa
 unavailable`; si lo ves a menudo, comprueba que la red de staging permite ese host. Para apagarlo:
 `PASSWORD_BREACH_CHECK=false`.
 
+## Borrado de cuentas (ADR 0019)
+
+El job `identity.process-account-deletions` corre cada día a las 04:11 UTC y ejecuta las solicitudes
+cuyo plazo (14 días) ha vencido. Es idempotente: si falla a medias, la siguiente ejecución sigue donde
+quedó (las membresías ya desactivadas se saltan). Ver pendientes y ejecutados:
+
+```sql
+-- solicitudes en curso (como app_platform)
+SELECT id, deletion_requested_at, deletion_scheduled_for FROM users WHERE deletion_scheduled_for IS NOT NULL ORDER BY 3;
+-- ejecutados: acciones user.deleted en la auditoría (sin organización)
+SELECT actor_id, created_at FROM audit_logs WHERE action = 'user.deleted' ORDER BY created_at DESC LIMIT 20;
+```
+
+Si una solicitud deja de ser posible durante el plazo (la persona se quedó como último ADMIN, o su
+organización unipersonal contrató un plan de pago) el job la **cancela** y le escribe
+(`user.deletion_blocked`). La anonimización no se deshace: antes de activarlo en producción pruébalo
+en staging con una cuenta real. **Las copias de seguridad** conservan los datos hasta caducar: la
+retención de R5.5 debe encajar con lo que se responda a una petición RGPD.
+
 ## Pendiente
 
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).

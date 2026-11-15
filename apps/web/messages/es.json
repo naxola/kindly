@@ -131,7 +131,8 @@
     "PASSWORD_BREACHED": "Esa contraseña aparece en filtraciones de datos conocidas. Elige otra.",
     "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Demasiados intentos. Vuelve a iniciar sesión.",
     "TWO_FACTOR_NOT_ENABLED": "La verificación en dos pasos no está activada.",
-    "TOTP_ALREADY_ENABLED": "La verificación en dos pasos ya está activada."
+    "TOTP_ALREADY_ENABLED": "La verificación en dos pasos ya está activada.",
+    "ORGANIZATION_HAS_SUBSCRIPTION": "Una organización tiene una suscripción de pago activa: cancélala antes."
   },
   "home": {
     "title": "Inicio",
@@ -307,7 +308,23 @@
       "currentEmail": "Email actual",
       "newEmail": "Email nuevo",
       "changeEmail": "Cambiar email",
-      "emailRequested": "Te hemos enviado un correo a {current} para confirmar el cambio a {email}. Cuando lo confirmes, te enviaremos otro a {email} para terminar."
+      "emailRequested": "Te hemos enviado un correo a {current} para confirmar el cambio a {email}. Cuando lo confirmes, te enviaremos otro a {email} para terminar.",
+      "export": "Descargar mis datos",
+      "exportHint": "Un archivo JSON con tu perfil, tus organizaciones y las acciones que has realizado en ellas.",
+      "exportButton": "Descargar (JSON)",
+      "delete": "Borrar la cuenta",
+      "deleteHint": "Se elimina tu acceso y se anonimizan tus datos personales; el historial de las organizaciones se conserva sin tu nombre. Hay un plazo de 14 días para arrepentirte.",
+      "deletePassword": "Tu contraseña",
+      "deleteButton": "Solicitar el borrado",
+      "deleteBlockedTitle": "Todavía no puedes borrar la cuenta",
+      "deleteBlockers": {
+        "LAST_ADMIN": "Eres el último administrador de «{name}», que tiene más miembros. Nombra a otro administrador o archívala.",
+        "ORGANIZATION_HAS_SUBSCRIPTION": "«{name}» tiene una suscripción de pago activa. Cancélala antes en Plan y consumo."
+      },
+      "deleteArchive": "Se archivarán las organizaciones donde eres el único miembro: {names}.",
+      "deletePendingTitle": "Borrado programado",
+      "deletePending": "Tu cuenta se eliminará el {date} (en {days} días). Hasta entonces puedes seguir usándola.",
+      "deleteCancel": "Cancelar el borrado"
     },
     "organization": {
       "title": "Organización",
@@ -425,6 +442,8 @@
     "twoFactorOff": "Verificación en dos pasos desactivada",
     "copied": "Copiado",
     "sessionClosed": "Sesión cerrada",
-    "sessionsClosed": "Las demás sesiones se han cerrado"
+    "sessionsClosed": "Las demás sesiones se han cerrado",
+    "deletionRequested": "Borrado de la cuenta programado",
+    "deletionCancelled": "Borrado de la cuenta cancelado"
   }
 }
