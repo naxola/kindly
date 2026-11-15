@@ -95,7 +95,7 @@ Dockerfile        Imágenes: web, site, worker, migrate, postgres (docs/deploy.m
 
 ## Comandos
 
-Node 24.21.0 (`.node-version`) y pnpm 10.34.6 vía corepack. Postgres local en el puerto **5441**.
+Node 24.21.0 (`.node-version`) y pnpm 12.21.0 vía corepack. Postgres local en el puerto **5441**.
 
 | Comando                                                  | Qué hace                                                                                                                                       |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |

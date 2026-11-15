@@ -17,7 +17,7 @@ Estado actual: ver [`docs/roadmap.md`](docs/roadmap.md). Operación:
 
 - **Node 24.21.0** (fijado en `.node-version`; `fnm` o `nvm` lo eligen solos).
 - **Docker** en marcha (Postgres).
-- **pnpm 10.34.6** vía corepack:
+- **pnpm 12.21.0** vía corepack:
 
 ```bash
 corepack enable
