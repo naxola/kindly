@@ -13,6 +13,7 @@ import { field } from '@/client/forms.ts'
 import { QueryError } from '@/components/query-error.tsx'
 import { TableSkeleton } from '@/components/table-skeleton.tsx'
 import { LOCALE_COOKIE } from '@/i18n/locales.ts'
+import { PrivacyPanels } from './privacy.tsx'
 import { SessionsPanel, TwoFactorPanel } from './security.tsx'
 
 /**
@@ -43,6 +44,7 @@ export function AccountSettings() {
             <PasswordForm />
             <TwoFactorPanel />
             <SessionsPanel />
+            <PrivacyPanels />
           </>
         ) : null}
       </PageContainer>

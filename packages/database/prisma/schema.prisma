@@ -170,6 +170,10 @@ model User {
   /// Preferred locale (es/en). Null = the organization's default.
   locale       String?
   anonymizedAt DateTime? @map("anonymized_at") @db.Timestamptz(3)
+  /// Account deletion asked by the person (ADR 0019); executed by a daily job once the grace
+  /// period ends. Both null = no request.
+  deletionRequestedAt  DateTime? @map("deletion_requested_at") @db.Timestamptz(3)
+  deletionScheduledFor DateTime? @map("deletion_scheduled_for") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -177,6 +181,7 @@ model User {
   memberships         OrganizationMember[]
   acceptedInvitations Invitation[]         @relation("AcceptedInvitations")
 
+  @@index([deletionScheduledFor])
   @@map("users")
 }
 

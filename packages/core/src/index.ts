@@ -31,6 +31,9 @@ import {
   purgeRateLimitsJob,
 } from './modules/platform/index.ts'
 import {
+  IDENTITY_SCHEDULES,
+  accountDeletionEmailJob,
+  processAccountDeletionsJob,
   changeEmailConfirmationEmailJob,
   invitationEmailJob,
   passwordResetEmailJob,
@@ -55,7 +58,13 @@ export const ALL_JOBS = [
   providerEventJob,
   purgeRateLimitsJob,
   purgeAuditLogsJob,
+  accountDeletionEmailJob,
+  processAccountDeletionsJob,
 ] as const
 
 /** Recurring jobs (cron, UTC). The worker registers them on start. */
-export const ALL_SCHEDULES = [...BILLING_SCHEDULES, ...PLATFORM_SCHEDULES] as const
+export const ALL_SCHEDULES = [
+  ...BILLING_SCHEDULES,
+  ...PLATFORM_SCHEDULES,
+  ...IDENTITY_SCHEDULES,
+] as const

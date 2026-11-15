@@ -2,7 +2,9 @@ import { z } from 'zod'
 import type { EmailSender } from '../../email.ts'
 import { LOCALES } from '../../i18n.ts'
 import { defineJob, type JobContext } from '../../jobs.ts'
+import { accountDeletionEmailJob } from './account-deletion.ts'
 import {
+  accountDeletionEmail,
   changeEmailConfirmationEmail,
   invitationEmail,
   passwordResetEmail,
@@ -81,6 +83,18 @@ export const identityEmailHandlers = (sender: EmailSender) => ({
       to: p.to,
       idempotencyKey: `${invitationEmailJob.name}:${ctx.jobId}`,
       ...invitationEmail(p.locale, p.organizationName, p.inviterName, p.url, p.expiresInDays),
+    })
+  },
+  accountDeletion: async (p: Payload<typeof accountDeletionEmailJob>, ctx: JobContext) => {
+    await sender.send({
+      to: p.to,
+      idempotencyKey: `${accountDeletionEmailJob.name}:${ctx.jobId}`,
+      category: 'access',
+      ...accountDeletionEmail(p.locale, p.name, {
+        kind: p.kind,
+        url: p.url,
+        ...(p.scheduledFor ? { scheduledFor: new Date(p.scheduledFor) } : {}),
+      }),
     })
   },
 })

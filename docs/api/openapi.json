@@ -20,53 +20,34 @@
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok"
-            ]
+            "enum": ["ok"]
           }
         },
-        "required": [
-          "status"
-        ]
+        "required": ["status"]
       },
       "Ready": {
         "type": "object",
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok",
-              "fail"
-            ]
+            "enum": ["ok", "fail"]
           },
           "checks": {
             "type": "object",
             "properties": {
               "database": {
                 "type": "string",
-                "enum": [
-                  "ok",
-                  "fail"
-                ]
+                "enum": ["ok", "fail"]
               },
               "queue": {
                 "type": "string",
-                "enum": [
-                  "ok",
-                  "fail"
-                ]
+                "enum": ["ok", "fail"]
               }
             },
-            "required": [
-              "database",
-              "queue"
-            ]
+            "required": ["database", "queue"]
           }
         },
-        "required": [
-          "status",
-          "checks"
-        ]
+        "required": ["status", "checks"]
       },
       "ErrorResponse": {
         "type": "object",
@@ -96,25 +77,17 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "code"
-                  ]
+                  "required": ["code"]
                 }
               },
               "correlationId": {
                 "type": "string"
               }
             },
-            "required": [
-              "code",
-              "message",
-              "correlationId"
-            ]
+            "required": ["code", "message", "correlationId"]
           }
         },
-        "required": [
-          "error"
-        ]
+        "required": ["error"]
       },
       "Me": {
         "type": "object",
@@ -130,16 +103,10 @@
                 "type": "boolean"
               }
             },
-            "required": [
-              "email",
-              "emailVerified"
-            ]
+            "required": ["email", "emailVerified"]
           },
           "user": {
-            "type": [
-              "object",
-              "null"
-            ],
+            "type": ["object", "null"],
             "properties": {
               "id": {
                 "type": "string",
@@ -149,28 +116,18 @@
                 "type": "string"
               },
               "locale": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "enum": [
-                  "es",
-                  "en",
-                  null
-                ]
+                "type": ["string", "null"],
+                "enum": ["es", "en", null]
               }
             },
-            "required": [
-              "id",
-              "displayName",
-              "locale"
-            ]
+            "required": ["id", "displayName", "locale"]
+          },
+          "deletionScheduledFor": {
+            "type": ["string", "null"],
+            "format": "date-time"
           },
           "activeOrganizationId": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "uuid"
           },
           "organizations": {
@@ -190,27 +147,70 @@
                 },
                 "role": {
                   "type": "string",
-                  "enum": [
-                    "ADMIN",
-                    "MEMBER"
-                  ]
+                  "enum": ["ADMIN", "MEMBER"]
                 }
               },
-              "required": [
-                "id",
-                "name",
-                "slug",
-                "role"
-              ]
+              "required": ["id", "name", "slug", "role"]
             }
           }
         },
         "required": [
           "access",
           "user",
+          "deletionScheduledFor",
           "activeOrganizationId",
           "organizations"
         ]
+      },
+      "AccountDeletion": {
+        "type": "object",
+        "properties": {
+          "requestedAt": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": ["LAST_ADMIN", "ORGANIZATION_HAS_SUBSCRIPTION"]
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "organizationName": {
+                  "type": "string"
+                }
+              },
+              "required": ["code", "organizationId", "organizationName"]
+            }
+          },
+          "archive": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": ["id", "name"]
+            }
+          }
+        },
+        "required": ["requestedAt", "scheduledFor", "blockers", "archive"]
       },
       "Organization": {
         "type": "object",
@@ -226,11 +226,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "slug"
-        ]
+        "required": ["id", "name", "slug"]
       },
       "CurrentOrganization": {
         "type": "object",
@@ -245,15 +241,10 @@
                 "properties": {
                   "defaultLocale": {
                     "type": "string",
-                    "enum": [
-                      "es",
-                      "en"
-                    ]
+                    "enum": ["es", "en"]
                   }
                 },
-                "required": [
-                  "defaultLocale"
-                ]
+                "required": ["defaultLocale"]
               }
             ]
           },
@@ -266,10 +257,7 @@
               },
               "role": {
                 "type": "string",
-                "enum": [
-                  "ADMIN",
-                  "MEMBER"
-                ]
+                "enum": ["ADMIN", "MEMBER"]
               },
               "permissions": {
                 "type": "array",
@@ -278,17 +266,10 @@
                 }
               }
             },
-            "required": [
-              "id",
-              "role",
-              "permissions"
-            ]
+            "required": ["id", "role", "permissions"]
           }
         },
-        "required": [
-          "organization",
-          "member"
-        ]
+        "required": ["organization", "member"]
       },
       "Member": {
         "type": "object",
@@ -305,40 +286,23 @@
             "type": "string"
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "email"
           },
           "role": {
             "type": "string",
-            "enum": [
-              "ADMIN",
-              "MEMBER"
-            ]
+            "enum": ["ADMIN", "MEMBER"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "ACTIVE",
-              "DISABLED"
-            ]
+            "enum": ["ACTIVE", "DISABLED"]
           },
           "joinedAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "userId",
-          "displayName",
-          "email",
-          "role",
-          "status",
-          "joinedAt"
-        ]
+        "required": ["id", "userId", "displayName", "email", "role", "status", "joinedAt"]
       },
       "Invitation": {
         "type": "object",
@@ -353,22 +317,14 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "ADMIN",
-              "MEMBER"
-            ]
+            "enum": ["ADMIN", "MEMBER"]
           },
           "expiresAt": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": [
-          "id",
-          "email",
-          "role",
-          "expiresAt"
-        ]
+        "required": ["id", "email", "role", "expiresAt"]
       },
       "InvitationPreview": {
         "type": "object",
@@ -382,19 +338,11 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "ADMIN",
-              "MEMBER"
-            ]
+            "enum": ["ADMIN", "MEMBER"]
           },
           "status": {
             "type": "string",
-            "enum": [
-              "PENDING",
-              "EXPIRED",
-              "REVOKED",
-              "ACCEPTED"
-            ]
+            "enum": ["PENDING", "EXPIRED", "REVOKED", "ACCEPTED"]
           },
           "expiresAt": {
             "type": "string",
@@ -404,14 +352,7 @@
             "type": "boolean"
           }
         },
-        "required": [
-          "organizationName",
-          "email",
-          "role",
-          "status",
-          "expiresAt",
-          "emailRegistered"
-        ]
+        "required": ["organizationName", "email", "role", "status", "expiresAt", "emailRegistered"]
       },
       "BillingOverview": {
         "type": "object",
@@ -421,13 +362,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "DEFAULT",
-              "TRIALING",
-              "ACTIVE",
-              "PAST_DUE",
-              "CANCELED"
-            ]
+            "enum": ["DEFAULT", "TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"]
           },
           "period": {
             "type": "object",
@@ -441,10 +376,7 @@
                 "format": "date-time"
               }
             },
-            "required": [
-              "start",
-              "end"
-            ]
+            "required": ["start", "end"]
           },
           "cancelAtPeriodEnd": {
             "type": "boolean"
@@ -456,10 +388,7 @@
             "type": "boolean"
           },
           "spendCap": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "example": "29.00"
           },
           "metrics": {
@@ -478,42 +407,22 @@
                   "example": "29.00"
                 },
                 "included": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": ["string", "null"],
                   "example": "29.00"
                 },
                 "limit": {
                   "type": "string",
-                  "enum": [
-                    "hard",
-                    "soft"
-                  ]
+                  "enum": ["hard", "soft"]
                 },
                 "overagePrice": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": ["string", "null"],
                   "example": "29.00"
                 },
                 "percent": {
-                  "type": [
-                    "number",
-                    "null"
-                  ]
+                  "type": ["number", "null"]
                 }
               },
-              "required": [
-                "key",
-                "unit",
-                "used",
-                "included",
-                "limit",
-                "overagePrice",
-                "percent"
-              ]
+              "required": ["key", "unit", "used", "included", "limit", "overagePrice", "percent"]
             }
           }
         },
@@ -539,17 +448,11 @@
           },
           "interval": {
             "type": "string",
-            "enum": [
-              "month",
-              "year"
-            ]
+            "enum": ["month", "year"]
           },
           "currency": {
             "type": "string",
-            "enum": [
-              "EUR",
-              "USD"
-            ]
+            "enum": ["EUR", "USD"]
           },
           "price": {
             "type": "string",
@@ -562,14 +465,7 @@
             }
           }
         },
-        "required": [
-          "key",
-          "version",
-          "interval",
-          "currency",
-          "price",
-          "features"
-        ]
+        "required": ["key", "version", "interval", "currency", "price", "features"]
       },
       "PlanOffer": {
         "allOf": [
@@ -588,39 +484,23 @@
                       "type": "string"
                     },
                     "included": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "29.00"
                     },
                     "limit": {
                       "type": "string",
-                      "enum": [
-                        "hard",
-                        "soft"
-                      ]
+                      "enum": ["hard", "soft"]
                     },
                     "overagePrice": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "29.00"
                     }
                   },
-                  "required": [
-                    "metric",
-                    "included",
-                    "limit",
-                    "overagePrice"
-                  ]
+                  "required": ["metric", "included", "limit", "overagePrice"]
                 }
               }
             },
-            "required": [
-              "quotas"
-            ]
+            "required": ["quotas"]
           }
         ]
       },
@@ -641,10 +521,7 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "key",
-              "version"
-            ]
+            "required": ["key", "version"]
           },
           "currency": {
             "type": "string"
@@ -666,10 +543,7 @@
             "example": "29.00"
           },
           "spendCap": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "example": "29.00"
           },
           "amountDue": {
@@ -678,13 +552,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "NO_CHARGE",
-              "PENDING_CHARGE",
-              "CHARGING",
-              "CHARGED",
-              "CHARGE_FAILED"
-            ]
+            "enum": ["NO_CHARGE", "PENDING_CHARGE", "CHARGING", "CHARGED", "CHARGE_FAILED"]
           },
           "closedAt": {
             "type": "string",
@@ -706,10 +574,7 @@
                   "example": "29.00"
                 },
                 "included": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": ["string", "null"],
                   "example": "29.00"
                 },
                 "overageUnits": {
@@ -760,10 +625,7 @@
           },
           "environment": {
             "type": "string",
-            "enum": [
-              "sandbox",
-              "production"
-            ]
+            "enum": ["sandbox", "production"]
           },
           "clientToken": {
             "type": "string"
@@ -772,12 +634,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "provider",
-          "environment",
-          "clientToken",
-          "transactionId"
-        ]
+        "required": ["provider", "environment", "clientToken", "transactionId"]
       },
       "ActivityEntry": {
         "type": "object",
@@ -794,16 +651,10 @@
             "type": "string"
           },
           "resourceId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "actor": {
-            "type": [
-              "object",
-              "null"
-            ],
+            "type": ["object", "null"],
             "properties": {
               "userId": {
                 "type": "string"
@@ -812,16 +663,10 @@
                 "type": "string"
               }
             },
-            "required": [
-              "userId",
-              "displayName"
-            ]
+            "required": ["userId", "displayName"]
           },
           "correlationId": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "createdAt": {
             "type": "string",
@@ -844,9 +689,7 @@
   "paths": {
     "/api/health": {
       "get": {
-        "tags": [
-          "ops"
-        ],
+        "tags": ["ops"],
         "summary": "Liveness: the process answers",
         "responses": {
           "200": {
@@ -864,9 +707,7 @@
     },
     "/api/ready": {
       "get": {
-        "tags": [
-          "ops"
-        ],
+        "tags": ["ops"],
         "summary": "Readiness: dependencies available",
         "responses": {
           "200": {
@@ -894,9 +735,7 @@
     },
     "/api/v1/me": {
       "patch": {
-        "tags": [
-          "identity"
-        ],
+        "tags": ["identity"],
         "summary": "Change my display name and language",
         "security": [
           {
@@ -916,15 +755,8 @@
                     "maxLength": 120
                   },
                   "locale": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
-                    "enum": [
-                      "es",
-                      "en",
-                      null
-                    ]
+                    "type": ["string", "null"],
+                    "enum": ["es", "en", null]
                   }
                 }
               }
@@ -947,22 +779,11 @@
                       "type": "string"
                     },
                     "locale": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "enum": [
-                        "es",
-                        "en",
-                        null
-                      ]
+                      "type": ["string", "null"],
+                      "enum": ["es", "en", null]
                     }
                   },
-                  "required": [
-                    "id",
-                    "displayName",
-                    "locale"
-                  ]
+                  "required": ["id", "displayName", "locale"]
                 }
               }
             }
@@ -1000,9 +821,7 @@
         }
       },
       "get": {
-        "tags": [
-          "identity"
-        ],
+        "tags": ["identity"],
         "summary": "Current person and their organizations",
         "security": [
           {
@@ -1033,11 +852,230 @@
         }
       }
     },
+    "/api/v1/me/deletion": {
+      "get": {
+        "tags": ["identity"],
+        "summary": "State of my account deletion and what would block or be archived",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "State",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["identity"],
+        "summary": "Ask to delete my account (password required); it is executed after 14 days",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": ["password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["identity"],
+        "summary": "Cancel my pending account deletion",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled"
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "tags": ["identity"],
+        "summary": "Download my personal data (JSON)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Personal data as a JSON attachment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations": {
       "post": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Create an organization (its creator becomes ADMIN) and make it active",
         "security": [
           {
@@ -1062,17 +1100,11 @@
                   },
                   "defaultLocale": {
                     "type": "string",
-                    "enum": [
-                      "es",
-                      "en"
-                    ],
+                    "enum": ["es", "en"],
                     "default": "es"
                   }
                 },
-                "required": [
-                  "name",
-                  "slug"
-                ]
+                "required": ["name", "slug"]
               }
             }
           }
@@ -1123,9 +1155,7 @@
     },
     "/api/v1/me/organization": {
       "put": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Change the active organization",
         "security": [
           {
@@ -1144,9 +1174,7 @@
                     "format": "uuid"
                   }
                 },
-                "required": [
-                  "organizationId"
-                ]
+                "required": ["organizationId"]
               }
             }
           }
@@ -1200,9 +1228,7 @@
     },
     "/api/v1/organization": {
       "get": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Active organization and the effective permissions in it",
         "security": [
           {
@@ -1253,9 +1279,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Rename the active organization or change its default language (ADMIN)",
         "security": [
           {
@@ -1276,10 +1300,7 @@
                   },
                   "defaultLocale": {
                     "type": "string",
-                    "enum": [
-                      "es",
-                      "en"
-                    ]
+                    "enum": ["es", "en"]
                   }
                 }
               }
@@ -1301,15 +1322,10 @@
                       "properties": {
                         "defaultLocale": {
                           "type": "string",
-                          "enum": [
-                            "es",
-                            "en"
-                          ]
+                          "enum": ["es", "en"]
                         }
                       },
-                      "required": [
-                        "defaultLocale"
-                      ]
+                      "required": ["defaultLocale"]
                     }
                   ]
                 }
@@ -1361,9 +1377,7 @@
     },
     "/api/v1/organization/archive": {
       "post": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Archive the active organization; its exact name must be typed (ADMIN)",
         "security": [
           {
@@ -1381,9 +1395,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "confirmName"
-                ]
+                "required": ["confirmName"]
               }
             }
           }
@@ -1437,9 +1449,7 @@
     },
     "/api/v1/me/organization/leave": {
       "post": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Leave the active organization (the last active ADMIN cannot)",
         "security": [
           {
@@ -1495,9 +1505,7 @@
     },
     "/api/v1/members": {
       "get": {
-        "tags": [
-          "members"
-        ],
+        "tags": ["members"],
         "summary": "Members of the active organization",
         "security": [
           {
@@ -1519,9 +1527,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ]
+                  "required": ["items"]
                 }
               }
             }
@@ -1551,9 +1557,7 @@
     },
     "/api/v1/members/{id}/role": {
       "put": {
-        "tags": [
-          "members"
-        ],
+        "tags": ["members"],
         "summary": "Change a member's role (an active ADMIN always remains)",
         "security": [
           {
@@ -1580,15 +1584,10 @@
                 "properties": {
                   "role": {
                     "type": "string",
-                    "enum": [
-                      "ADMIN",
-                      "MEMBER"
-                    ]
+                    "enum": ["ADMIN", "MEMBER"]
                   }
                 },
-                "required": [
-                  "role"
-                ]
+                "required": ["role"]
               }
             }
           }
@@ -1652,9 +1651,7 @@
     },
     "/api/v1/members/{id}/status": {
       "put": {
-        "tags": [
-          "members"
-        ],
+        "tags": ["members"],
         "summary": "Disable or re-enable a member",
         "security": [
           {
@@ -1681,15 +1678,10 @@
                 "properties": {
                   "status": {
                     "type": "string",
-                    "enum": [
-                      "ACTIVE",
-                      "DISABLED"
-                    ]
+                    "enum": ["ACTIVE", "DISABLED"]
                   }
                 },
-                "required": [
-                  "status"
-                ]
+                "required": ["status"]
               }
             }
           }
@@ -1753,9 +1745,7 @@
     },
     "/api/v1/invitations": {
       "get": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Pending invitations of the active organization",
         "security": [
           {
@@ -1777,9 +1767,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ]
+                  "required": ["items"]
                 }
               }
             }
@@ -1807,9 +1795,7 @@
         }
       },
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Invite someone by email (the worker sends the email)",
         "security": [
           {
@@ -1829,16 +1815,11 @@
                   },
                   "role": {
                     "type": "string",
-                    "enum": [
-                      "ADMIN",
-                      "MEMBER"
-                    ],
+                    "enum": ["ADMIN", "MEMBER"],
                     "default": "MEMBER"
                   }
                 },
-                "required": [
-                  "email"
-                ]
+                "required": ["email"]
               }
             }
           }
@@ -1909,9 +1890,7 @@
     },
     "/api/v1/invitations/{id}/resend": {
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Send a pending invitation again with a new link (the old one stops working)",
         "security": [
           {
@@ -1975,9 +1954,7 @@
     },
     "/api/v1/invitations/{id}/revoke": {
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Revoke a pending invitation",
         "security": [
           {
@@ -2034,9 +2011,7 @@
     },
     "/api/v1/invitations/preview": {
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Public view of an invitation by its token (no session needed)",
         "requestBody": {
           "required": true,
@@ -2051,9 +2026,7 @@
                     "maxLength": 200
                   }
                 },
-                "required": [
-                  "token"
-                ]
+                "required": ["token"]
               }
             }
           }
@@ -2104,9 +2077,7 @@
     },
     "/api/v1/invitations/register": {
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Create the account of an invited email (already verified by the link), sign in and join",
         "requestBody": {
           "required": true,
@@ -2131,11 +2102,7 @@
                     "maxLength": 128
                   }
                 },
-                "required": [
-                  "token",
-                  "name",
-                  "password"
-                ]
+                "required": ["token", "name", "password"]
               }
             }
           }
@@ -2153,9 +2120,7 @@
                       "format": "uuid"
                     }
                   },
-                  "required": [
-                    "organizationId"
-                  ]
+                  "required": ["organizationId"]
                 }
               }
             }
@@ -2205,9 +2170,7 @@
     },
     "/api/v1/invitations/accept": {
       "post": {
-        "tags": [
-          "invitations"
-        ],
+        "tags": ["invitations"],
         "summary": "Accept an invitation with the signed-in account (same email) and make it active",
         "security": [
           {
@@ -2227,9 +2190,7 @@
                     "maxLength": 200
                   }
                 },
-                "required": [
-                  "token"
-                ]
+                "required": ["token"]
               }
             }
           }
@@ -2247,9 +2208,7 @@
                       "format": "uuid"
                     }
                   },
-                  "required": [
-                    "organizationId"
-                  ]
+                  "required": ["organizationId"]
                 }
               }
             }
@@ -2309,9 +2268,7 @@
     },
     "/api/v1/billing": {
       "get": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Plan, current period and usage of the active organization",
         "security": [
           {
@@ -2354,9 +2311,7 @@
     },
     "/api/v1/billing/plans": {
       "get": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Plans available to new subscriptions",
         "security": [
           {
@@ -2378,9 +2333,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ]
+                  "required": ["items"]
                 }
               }
             }
@@ -2400,9 +2353,7 @@
     },
     "/api/v1/billing/periods": {
       "get": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Closed billing periods of the active organization (newest first)",
         "security": [
           {
@@ -2424,9 +2375,7 @@
                       }
                     }
                   },
-                  "required": [
-                    "items"
-                  ]
+                  "required": ["items"]
                 }
               }
             }
@@ -2456,9 +2405,7 @@
     },
     "/api/v1/billing/spend-cap": {
       "put": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Set or remove the maximum overage per period",
         "security": [
           {
@@ -2473,16 +2420,11 @@
                 "type": "object",
                 "properties": {
                   "spendCap": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
                   }
                 },
-                "required": [
-                  "spendCap"
-                ]
+                "required": ["spendCap"]
               }
             }
           }
@@ -2496,16 +2438,11 @@
                   "type": "object",
                   "properties": {
                     "spendCap": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": ["string", "null"],
                       "example": "29.00"
                     }
                   },
-                  "required": [
-                    "spendCap"
-                  ]
+                  "required": ["spendCap"]
                 }
               }
             }
@@ -2555,9 +2492,7 @@
     },
     "/api/v1/billing/checkout": {
       "post": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Data to open the payment provider checkout for a plan",
         "security": [
           {
@@ -2576,9 +2511,7 @@
                     "minLength": 1
                   }
                 },
-                "required": [
-                  "plan"
-                ]
+                "required": ["plan"]
               }
             }
           }
@@ -2649,9 +2582,7 @@
     },
     "/api/v1/billing/portal": {
       "post": {
-        "tags": [
-          "billing"
-        ],
+        "tags": ["billing"],
         "summary": "Link to the payment provider customer portal",
         "security": [
           {
@@ -2671,9 +2602,7 @@
                       "format": "uri"
                     }
                   },
-                  "required": [
-                    "url"
-                  ]
+                  "required": ["url"]
                 }
               }
             }
@@ -2713,9 +2642,7 @@
     },
     "/api/v1/audit-logs": {
       "get": {
-        "tags": [
-          "organization"
-        ],
+        "tags": ["organization"],
         "summary": "Activity (audit log) of the active organization, newest first (ADMIN)",
         "security": [
           {
@@ -2794,16 +2721,10 @@
                       }
                     },
                     "nextCursor": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
+                      "type": ["string", "null"]
                     }
                   },
-                  "required": [
-                    "items",
-                    "nextCursor"
-                  ]
+                  "required": ["items", "nextCursor"]
                 }
               }
             }

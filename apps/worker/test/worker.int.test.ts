@@ -79,7 +79,7 @@ async function until<T>(read: () => T | undefined, timeoutMs = 20_000): Promise<
 
 describe('worker', () => {
   it('consumes every template queue and registers the schedules', async () => {
-    expect(worker.queues).toHaveLength(13)
+    expect(worker.queues).toHaveLength(15)
     const schedules = await worker.boss.getSchedules()
     expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
       'billing.close-due-periods',

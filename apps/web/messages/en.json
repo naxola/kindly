@@ -106,7 +106,7 @@
     "EMAIL_NOT_VERIFIED": "Confirm your email first.",
     "INVALID_EMAIL_OR_PASSWORD": "Incorrect email or password.",
     "INVALID_EMAIL": "The email is not valid.",
-    "INVALID_PASSWORD": "The password is incorrect.",
+    "INVALID_PASSWORD": "The password is not correct.",
     "PASSWORD_TOO_SHORT": "The password is too short.",
     "PASSWORD_TOO_LONG": "The password is too long.",
     "USER_ALREADY_EXISTS": "An account with that email already exists.",
@@ -131,7 +131,8 @@
     "PASSWORD_BREACHED": "That password appears in known data breaches. Choose another one.",
     "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Sign in again.",
     "TWO_FACTOR_NOT_ENABLED": "Two-step verification is not enabled.",
-    "TOTP_ALREADY_ENABLED": "Two-step verification is already enabled."
+    "TOTP_ALREADY_ENABLED": "Two-step verification is already enabled.",
+    "ORGANIZATION_HAS_SUBSCRIPTION": "An organization has an active paid subscription: cancel it first."
   },
   "home": {
     "title": "Home",
@@ -307,7 +308,23 @@
       "currentEmail": "Current email",
       "newEmail": "New email",
       "changeEmail": "Change email",
-      "emailRequested": "We sent an email to {current} to confirm the change to {email}. Once you confirm it, we will send another to {email} to finish."
+      "emailRequested": "We sent an email to {current} to confirm the change to {email}. Once you confirm it, we will send another to {email} to finish.",
+      "export": "Download my data",
+      "exportHint": "A JSON file with your profile, your organizations and the actions you took in them.",
+      "exportButton": "Download (JSON)",
+      "delete": "Delete the account",
+      "deleteHint": "Your access is removed and your personal data anonymized; the organizations keep their history without your name. You have 14 days to change your mind.",
+      "deletePassword": "Your password",
+      "deleteButton": "Request deletion",
+      "deleteBlockedTitle": "You cannot delete the account yet",
+      "deleteBlockers": {
+        "LAST_ADMIN": "You are the last administrator of \"{name}\", which has other members. Name another administrator or archive it.",
+        "ORGANIZATION_HAS_SUBSCRIPTION": "\"{name}\" has an active paid subscription. Cancel it first in Plan and usage."
+      },
+      "deleteArchive": "Organizations where you are the only member will be archived: {names}.",
+      "deletePendingTitle": "Deletion scheduled",
+      "deletePending": "Your account will be deleted on {date} (in {days} days). Until then you can keep using it.",
+      "deleteCancel": "Cancel the deletion"
     },
     "organization": {
       "title": "Organization",
@@ -425,6 +442,8 @@
     "twoFactorOff": "Two-step verification turned off",
     "copied": "Copied",
     "sessionClosed": "Session closed",
-    "sessionsClosed": "The other sessions were closed"
+    "sessionsClosed": "The other sessions were closed",
+    "deletionRequested": "Account deletion scheduled",
+    "deletionCancelled": "Account deletion cancelled"
   }
 }

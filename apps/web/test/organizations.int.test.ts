@@ -613,6 +613,76 @@ describe('billing through the API', () => {
   })
 })
 
+describe('account deletion and export through the API (R4.5, ADR 0019)', () => {
+  it('needs the password, shows the countdown, can be cancelled, and exports the data', async () => {
+    const owner = await person('leaver')
+    const created = await owner.browser.call('POST', '/api/v1/organizations', {
+      name: 'Solo',
+      slug: `solo-${newId().slice(-12)}`,
+    })
+    expect(created.status).toBe(201)
+
+    let res = await owner.browser.call('GET', '/api/v1/me/deletion')
+    expect(res.body).toMatchObject({ scheduledFor: null, blockers: [] })
+    expect(res.body.archive).toEqual([{ id: created.body.id, name: 'Solo' }])
+
+    // Wrong password: nothing is scheduled.
+    res = await owner.browser.call('POST', '/api/v1/me/deletion', {
+      password: 'not the password!!',
+    })
+    expect(res.status).toBe(400)
+    expect(res.body.error.details).toEqual([{ path: 'password', code: 'INVALID_PASSWORD' }])
+    expect((await owner.browser.call('GET', '/api/v1/me')).body.deletionScheduledFor).toBeNull()
+
+    // Right password: scheduled in 14 days; the person keeps using the product.
+    res = await owner.browser.call('POST', '/api/v1/me/deletion', { password: PASSWORD })
+    expect(res.status).toBe(200)
+    const scheduled = new Date(res.body.scheduledFor as string).getTime()
+    expect(scheduled - Date.now()).toBeGreaterThan(13.9 * 86_400_000)
+    expect(scheduled - Date.now()).toBeLessThan(14.1 * 86_400_000)
+    const me = await owner.browser.call('GET', '/api/v1/me')
+    expect(me.body.deletionScheduledFor).toBe(res.body.scheduledFor)
+    expect((await owner.browser.call('GET', '/api/v1/organization')).status).toBe(200)
+
+    // Export: JSON attachment with profile, access, organizations; no secrets.
+    res = await owner.browser.call('GET', '/api/v1/me/export')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-disposition')).toContain('attachment')
+    expect(res.body.access.email).toBe(owner.email.toLowerCase())
+    expect(res.body.organizations.map((o: { name: string }) => o.name)).toEqual(['Solo'])
+    expect(JSON.stringify(res.body)).not.toMatch(/password|token/i)
+
+    // Cancel.
+    expect((await owner.browser.call('DELETE', '/api/v1/me/deletion')).status).toBe(204)
+    expect((await owner.browser.call('GET', '/api/v1/me')).body.deletionScheduledFor).toBeNull()
+  })
+
+  it('names the organizations that block it, and refuses anonymous callers', async () => {
+    const admin = await person('lastadmin')
+    const mate = await person('mate')
+    await admin.browser.call('POST', '/api/v1/organizations', {
+      name: 'Team',
+      slug: `team-${newId().slice(-12)}`,
+    })
+    await admin.browser.call('POST', '/api/v1/invitations', { email: mate.email })
+    const token = await invitationToken(mate.email)
+    expect((await mate.browser.call('POST', '/api/v1/invitations/accept', { token })).status).toBe(
+      200,
+    )
+
+    let res = await admin.browser.call('GET', '/api/v1/me/deletion')
+    expect(res.body.blockers).toMatchObject([{ code: 'LAST_ADMIN', organizationName: 'Team' }])
+    res = await admin.browser.call('POST', '/api/v1/me/deletion', { password: PASSWORD })
+    expect(res.status).toBe(409)
+    expect(res.body.error.details[0]).toMatchObject({ code: 'LAST_ADMIN', path: 'Team' })
+
+    expect((await new Browser().call('GET', '/api/v1/me/export')).status).toBe(401)
+    expect(
+      (await new Browser().call('POST', '/api/v1/me/deletion', { password: 'x' })).status,
+    ).toBe(401)
+  })
+})
+
 describe('metrics (R5.4, ADR 0008)', () => {
   const read = (token?: string) =>
     api.request(`${ORIGIN}/api/metrics`, {
