@@ -116,6 +116,42 @@ export function duePeriods(
 }
 
 /**
+ * The events are the evidence and the counters only a shortcut (ADR 0012, R3.3): at the close the
+ * sum wins. A counter that disagrees is rewritten and the difference audited, so a bug in the
+ * shortcut never changes what is billed and never goes unnoticed.
+ */
+async function reconcileCounters(
+  ctx: BaseCtx,
+  tx: TenantTx,
+  organizationId: string,
+  usage: Map<string, Decimal>,
+  period: { start: Date; end: Date },
+) {
+  const counters = await tx.usageCounter.findMany({
+    where: { organizationId, periodStart: period.start },
+  })
+  for (const counter of counters) {
+    const events = usage.get(counter.metric)
+    if (!events || events.equals(counter.value)) continue
+    await tx.usageCounter.update({ where: { id: counter.id }, data: { value: events } })
+    await writeAudit(tx, {
+      organizationId,
+      actorUserId: null,
+      action: 'billing.usage_counter_mismatch',
+      resourceType: 'usage_counter',
+      resourceId: counter.id,
+      after: {
+        metric: counter.metric,
+        periodStart: period.start.toISOString(),
+        counter: counter.value.toString(),
+        events: events.toString(),
+      },
+      correlationId: ctx.correlationId,
+    })
+  }
+}
+
+/**
  * Closes the due periods of the organization's subscription, once each (ADR 0012): computes
  * usage and overage, stores the immutable snapshot, audits it and emits an event. Charging
  * the amount due is the payment provider's job (B3).
@@ -160,6 +196,7 @@ export async function closeDuePeriods(
     })
     if (exists) continue
     const usage = await usageOf(tx, organizationId, catalog.metrics, period)
+    await reconcileCounters(ctx, tx, organizationId, usage, period)
     const { lines, total } = overageOf(plan, usage, catalog)
     const amountDue = amountDueOf(total, sub.spendCap)
     const record = await tx.billingPeriod.create({

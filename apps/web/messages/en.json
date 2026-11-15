@@ -377,7 +377,8 @@
         "billing_subscription_synced": "Subscription updated",
         "billing_spend_cap_changed": "Spend cap changed",
         "billing_period_closed": "Billing period closed",
-        "billing_provider_event_rejected": "Payment provider event rejected"
+        "billing_provider_event_rejected": "Payment provider event rejected",
+        "billing_usage_counter_mismatch": "Usage counter mismatch fixed"
       }
     },
     "security": {

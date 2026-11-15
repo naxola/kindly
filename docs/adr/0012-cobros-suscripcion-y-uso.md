@@ -225,6 +225,38 @@ hacerlo (`docs/deploy.md`).
 - Periodo de gracia por impago: **7 días**.
 - Planes **mensuales y anuales** desde la primera versión (el catálogo admite ambos).
 
+### Enmienda R3.3 — contadores de uso (2026-11-15) · **Propuesta, pendiente de validar**
+
+**Problema.** La implementación de B1 + B2 calcula el consumo del periodo con una agregación sobre
+`usage_events` y `recordUsage` la repite en **cada escritura** (para la cuota y el tope de gasto).
+El coste crece con el número de eventos del periodo: lineal por evento, cuadrático por periodo.
+
+**Decisión.**
+
+1. Tabla `usage_counters` (tenant, RLS): un total por organización, métrica y periodo
+   (`value`, `period_start`, `period_end`). `recordUsage` lo lee (una lectura por índice), calcula el
+   nuevo total según la agregación (`sum`, `max` o `unique`) y lo escribe **en la misma transacción**
+   que el evento, bajo el mismo bloqueo por organización y métrica que ya serializa la cuota.
+2. `usage_events` sigue siendo la **evidencia** (solo se añade). El contador es un atajo.
+3. **Sin migración de datos:** un periodo sin contador (anterior a esta enmienda o el primero de un
+   periodo) lo empieza sumando sus eventos una vez, bajo el bloqueo.
+4. **Cierre:** el cierre sigue calculando el consumo con la suma de eventos (la foto inmutable no
+   depende del atajo). Si el contador de un periodo difiere, **gana la suma**: se reescribe el
+   contador y se audita `billing.usage_counter_mismatch` (visible en Actividad).
+5. Los `unique` buscan el sujeto con un índice nuevo (`organization_id, metric, subject_key,
+occurred_at`).
+6. La pantalla de plan y el cierre no cambian de fuente: siguen sumando eventos (lecturas
+   infrecuentes). Solo se acelera el camino caliente, la escritura.
+
+**Alternativas.** (a) Agregados diarios (la idea inicial del ADR): más piezas y el total del periodo
+sigue siendo una suma. (b) Contador sin comparar con la suma: más simple, pero un fallo silencioso
+cambiaría lo que se cobra. (c) No hacer nada hasta que el volumen lo pida: válido hoy, pero el
+cambio es pequeño y aditivo, y es más barato hacerlo antes de que haya datos.
+
+**Impacto.** Una tabla y un índice nuevos (migración aditiva), una escritura más por consumo
+registrado, y se quita la agregación de cada escritura. El cálculo del tope de gasto con cuota
+flexible sigue sumando eventos de las demás métricas (solo en excedente con tope).
+
 ## Pendiente de decidir por el usuario
 
 - Confirmar o cambiar los SUPUESTOS de arriba.
