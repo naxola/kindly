@@ -13,7 +13,7 @@ ENV PNPM_HOME=/pnpm \
     COREPACK_HOME=/corepack \
     NEXT_TELEMETRY_DISABLED=1 \
     CI=true
-RUN corepack enable && corepack prepare pnpm@10.34.6 --activate && chmod -R a+rX /corepack
+RUN corepack enable && corepack prepare pnpm@12.21.0 --activate && chmod -R a+rX /corepack
 WORKDIR /app
 
 FROM base AS build
