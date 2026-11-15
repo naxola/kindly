@@ -29,12 +29,12 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs      AuditLog[]
-  members        OrganizationMember[]
-  invitations    Invitation[]
-  subscription   Subscription?
-  usageEvents    UsageEvent[]
-  billingPeriods BillingPeriod[]
+  auditLogs           AuditLog[]
+  members             OrganizationMember[]
+  invitations         Invitation[]
+  subscription        Subscription?
+  usageEvents         UsageEvent[]
+  billingPeriods      BillingPeriod[]
   subscriptionPeriods SubscriptionPeriod[]
 
   @@map("organizations")
@@ -69,18 +69,21 @@ model AuditLog {
 // ============================================================================
 
 model AuthUser {
-  id            String   @id @db.Uuid
+  id               String   @id @db.Uuid
   /// Required by Better Auth. Technical minimum: the visible name lives in `users`.
-  name          String
-  email         String   @unique @db.Citext
-  emailVerified Boolean  @default(false) @map("email_verified")
-  image         String?
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  name             String
+  email            String   @unique @db.Citext
+  emailVerified    Boolean  @default(false) @map("email_verified")
+  image            String?
+  /// Second factor active (ADR 0016). Managed by Better Auth; the business never reads it.
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions AuthSession[]
-  accounts AuthAccount[]
-  user     User?
+  sessions   AuthSession[]
+  accounts   AuthAccount[]
+  twoFactors AuthTwoFactor[]
+  user       User?
 
   @@map("auth_users")
 }
@@ -99,6 +102,25 @@ model AuthSession {
 
   @@index([userId])
   @@map("auth_sessions")
+}
+
+/// TOTP secret and recovery codes of a person (ADR 0016). Both are stored encrypted by Better Auth
+/// with the application secret (versioned, see BETTER_AUTH_SECRETS); never returned or logged.
+model AuthTwoFactor {
+  id                      String    @id @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  /// False until the first code is verified: an unfinished set-up never protects the account.
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_two_factors")
 }
 
 model AuthAccount {
@@ -277,7 +299,7 @@ model Subscription {
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   periods      SubscriptionPeriod[]
 
   @@unique([organizationId, id])

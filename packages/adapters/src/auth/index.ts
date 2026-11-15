@@ -1,8 +1,10 @@
+import { createPasswordBreachCheck, type PasswordBreachCheck } from './password-breach.ts'
 import { betterAuthRateLimitStorage } from '../rate-limit/index.ts'
 import { newId, type Db } from '@saas/database'
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { isAPIError } from 'better-auth/api'
+import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api'
+import { twoFactor } from 'better-auth/plugins'
 
 /**
  * Access layer (ADR 0003): Better Auth on the auth_* tables. It only knows who can sign
@@ -17,6 +19,13 @@ export const PASSWORD_MIN_LENGTH = 12
 export const PASSWORD_MAX_LENGTH = 128
 
 const ONE_HOUR = 60 * 60
+
+/** Endpoints where someone chooses a password, and the body field that carries it. */
+const BREACH_CHECKED_PATHS: Record<string, string> = {
+  '/sign-up/email': 'password',
+  '/change-password': 'newPassword',
+  '/reset-password': 'newPassword',
+}
 
 export interface AuthEmail {
   to: string
@@ -38,6 +47,13 @@ export interface CreateAuthOptions {
   baseURL: string
   /** At least 32 characters. */
   secret: string
+  /**
+   * Versioned secrets (first = current, the rest only decrypt), so rotating the secret does not
+   * lose the TOTP secrets encrypted with the old one (ADR 0016). Default: `secret` as version 1.
+   */
+  secrets?: { version: number; value: string }[]
+  /** Refuses breached passwords (ADR 0016). Default: off (the apps turn it on). */
+  passwordBreachCheck?: PasswordBreachCheck
   rateLimit: boolean
   /** Header with the trusted client IP (TRUSTED_IP_HEADER). Unset: IP unknown. */
   trustedIpHeader?: string
@@ -68,6 +84,8 @@ export function createAuth({
   db,
   baseURL,
   secret,
+  secrets,
+  passwordBreachCheck = createPasswordBreachCheck({ enabled: false }),
   rateLimit,
   trustedIpHeader,
   requireEmailVerification = true,
@@ -81,6 +99,8 @@ export function createAuth({
     baseURL,
     basePath: AUTH_BASE_PATH,
     secret,
+    // Always versioned: the TOTP secrets are encrypted with the first entry (ADR 0016).
+    secrets: secrets ?? [{ version: 1, value: secret }],
     database: prismaAdapter(db, { provider: 'postgresql' }),
     telemetry: { enabled: false },
     ...(onUnexpectedError
@@ -134,6 +154,29 @@ export function createAuth({
         '/change-email': { window: 60, max: 3 },
       },
     },
+    // Breached passwords are refused wherever a person chooses one (ADR 0016).
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        const field = BREACH_CHECKED_PATHS[ctx.path]
+        const password = field ? (ctx.body as Record<string, unknown> | undefined)?.[field] : null
+        if (typeof password === 'string' && (await passwordBreachCheck(password))) {
+          throw new APIError('BAD_REQUEST', {
+            message: 'This password appears in a data breach',
+            code: 'PASSWORD_BREACHED',
+          })
+        }
+      }),
+    },
+    plugins: [
+      // Second factor: TOTP with recovery codes, optional per person (ADR 0016). Enabling it asks
+      // for the password and a first valid code; failed attempts lock the account for a while.
+      twoFactor({
+        issuer: new URL(baseURL).host,
+        twoFactorTable: 'authTwoFactor',
+        backupCodeOptions: { amount: 10, length: 10 },
+        skipVerificationOnEnable: false,
+      }),
+    ],
     emailAndPassword: {
       enabled: true,
       requireEmailVerification,
@@ -158,6 +201,8 @@ export function createAuth({
 
 export type Auth = ReturnType<typeof createAuth>
 
+export { createPasswordBreachCheck } from './password-breach.ts'
+export type { PasswordBreachCheck } from './password-breach.ts'
 export { queuedAuthEmails } from './queued-emails.ts'
 export { createInvitedAccount } from './invited-account.ts'
 export type { InvitedAccountResult } from './invited-account.ts'

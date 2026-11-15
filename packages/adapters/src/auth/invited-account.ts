@@ -1,9 +1,12 @@
 import type { Auth } from './index.ts'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './index.ts'
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, type PasswordBreachCheck } from './index.ts'
 
 export type InvitedAccountResult =
   | { ok: true; authUserId: string }
-  | { ok: false; code: 'USER_ALREADY_EXISTS' | 'PASSWORD_TOO_SHORT' | 'PASSWORD_TOO_LONG' }
+  | {
+      ok: false
+      code: 'USER_ALREADY_EXISTS' | 'PASSWORD_TOO_SHORT' | 'PASSWORD_TOO_LONG' | 'PASSWORD_BREACHED'
+    }
 
 /**
  * Creates an access account whose email is ALREADY verified, for someone who arrived from
@@ -15,9 +18,12 @@ export type InvitedAccountResult =
 export async function createInvitedAccount(
   auth: Auth,
   { email, name, password }: { email: string; name: string; password: string },
+  { passwordBreachCheck }: { passwordBreachCheck?: PasswordBreachCheck } = {},
 ): Promise<InvitedAccountResult> {
   if (password.length < PASSWORD_MIN_LENGTH) return { ok: false, code: 'PASSWORD_TOO_SHORT' }
   if (password.length > PASSWORD_MAX_LENGTH) return { ok: false, code: 'PASSWORD_TOO_LONG' }
+  // This path creates the account itself, so Better Auth's own checks do not run (ADR 0016).
+  if (await passwordBreachCheck?.(password)) return { ok: false, code: 'PASSWORD_BREACHED' }
   const ctx = await auth.$context
   const normalized = email.toLowerCase()
   if (await ctx.internalAdapter.findUserByEmail(normalized)) {

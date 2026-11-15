@@ -415,7 +415,37 @@ revoked_at IS NULL` (migración aditiva; antes de crear, marcar como revocadas l
   de invitaciones por organización.
 - **Test:** integración: el límite sobrevive a recrear la app; tope de invitaciones.
 
-### R2.5 · Refuerzo del acceso — `feat/auth-hardening` ⬜ (D4 decidida)
+### R2.5 · Refuerzo del acceso — `feat/auth-hardening` ✅ (2026-11-15, ADR 0016)
+
+- **Entregado:**
+  1. **Segundo factor TOTP**, opcional por persona (plugin `twoFactor` de Better Auth): alta con
+     contraseña, QR y un primer código (hasta entonces **no protege** la cuenta), **10 códigos de
+     recuperación** de un solo uso mostrados una vez, paso del código al iniciar sesión (o un
+     código de recuperación), desactivar con contraseña y regenerar códigos. Tablas de acceso
+     `auth_two_factors` y `auth_users.two_factor_enabled` (migración `20261115120000`); solo las toca
+     `adapters/auth`. Bloqueo de cuenta tras 10 fallos (15 min) y límites de Better Auth.
+  2. **Contraseñas filtradas:** `createPasswordBreachCheck` (k-anonimato: solo 5 caracteres del
+     SHA-1; `Add-Padding`; 3 s de plazo; **si falla se acepta y se avisa**) en el registro, el cambio
+     y la recuperación, **y en el alta por invitación**, que crea la cuenta por su cuenta y se
+     saltaba los controles de Better Auth. `PASSWORD_BREACH_CHECK` (por defecto activo; los tests lo
+     apagan para no usar la red).
+  3. **Secretos versionados** (`BETTER_AUTH_SECRETS`) en lugar de `MFA_ENCRYPTION_KEY` (ver ADR).
+  4. **Sesiones activas:** lista con dispositivo (navegador y sistema) y última actividad, la actual
+     marcada, cerrar una o todas las demás.
+     Ajustes → Cuenta. Una dependencia nueva, `uqr` 0.1.3 (MIT, sin dependencias, del 2026-04-03) para
+     dibujar el QR en el navegador sin enviar el secreto a nadie.
+- **Tests:** unitarios del comprobador de brechas (6) y de los secretos (5) y del dispositivo;
+  integración de Better Auth (alta que solo protege tras verificar, código incorrecto y correcto,
+  código de recuperación de un solo uso, secreto y códigos cifrados en la base, bloqueo,
+  desactivar, **rotación: con el secreto anterior en la lista sigue valiendo y sin él se rompe**);
+  `e2e/security.spec.ts` (alta con QR, entrar con código y con código de recuperación, y una
+  sesión de otro dispositivo cerrada desde aquí) y axe sobre las pantallas nuevas.
+- **Sin verificar:** HIBP real (los tests usan un servidor simulado; en staging la red debe permitir
+  `api.pwnedpasswords.com`), y una aplicación de autenticación real (los tests generan el código
+  con el mismo algoritmo, RFC 6238).
+- **Límites conocidos:** «dispositivo de confianza» no está activado (siempre se pide el código);
+  no hay obligación por organización (queda para más adelante, D4); la recuperación si se pierden
+  el autenticador **y** los códigos es manual (`docs/operations.md`).
 
 - **Contenido (ADR 0016, amplía el 0003):** MFA TOTP con códigos de recuperación (plugin de Better
   Auth: tablas `auth_*` nuevas, solo tocadas por `adapters/auth`), rechazo de contraseñas

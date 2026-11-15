@@ -1,13 +1,12 @@
 # 0016 — Refuerzo del acceso: segundo factor, contraseñas filtradas y sesiones
 
-**Estado:** Aceptado (2026-11-14). El usuario validó el diseño: una contraseña se rechaza si
-aparece **en cualquier brecha**; si Have I Been Pwned no responde **se acepta** y se registra un
-aviso; y el secreto TOTP se cifra con una **variable propia, `MFA_ENCRYPTION_KEY`** (no con
-`BETTER_AUTH_SECRET`), para poder rotar una sin la otra. Amplía el ADR 0003. Pendiente de
-implementar (R2.5).
-
-> A comprobar al implementar: que el plugin de MFA de Better Auth admita una clave de cifrado
-> propia. Si no la admite, se vuelve al usuario con las alternativas antes de escribir nada.
+**Estado:** Aceptado (2026-11-14, ajustado el 2026-11-15). El usuario validó el diseño: una
+contraseña se rechaza si aparece **en cualquier brecha**; si Have I Been Pwned no responde **se
+acepta** y se registra un aviso. **Ajuste del 2026-11-15, aceptado por el usuario:** el plugin de MFA
+de Better Auth no admite una clave de cifrado propia (`MFA_ENCRYPTION_KEY`): cifra con el secreto de
+la aplicación. En su lugar se usan los **secretos versionados** de Better Auth (`BETTER_AUTH_SECRETS`,
+`2:nuevo,1:anterior`): el primero cifra y firma, los demás solo descifran, y así rotar el secreto no
+invalida los segundos factores ya dados de alta. Amplía el ADR 0003. Implementado en R2.5.
 
 ## Problema
 
@@ -53,9 +52,10 @@ sesiones abiertas.
 - Migración aditiva en `auth_*`; un cambio en `packages/adapters/src/auth`; pantallas en Ajustes →
   Cuenta; `docs/operations.md` explica qué hacer si alguien pierde el autenticador y los códigos
   (recuperación asistida por una persona, fuera de la aplicación).
-- **Clave de cifrado:** variable nueva `MFA_ENCRYPTION_KEY` (en `.env.example`,
-  `infra/staging/compose.yml` e `infra/staging/.env.example`). Rotarla invalida los factores ya
-  dados de alta (se anota en el runbook); rotar `BETTER_AUTH_SECRET` ya no los afecta.
+- **Clave de cifrado:** la de la aplicación, **versionada** (`BETTER_AUTH_SECRETS`, opcional; vacío
+  = `BETTER_AUTH_SECRET` es la versión 1). Rotar = poner el nuevo delante y **dejar el anterior
+  detrás mientras exista algo cifrado con él**; quitarlo antes rompe esos factores (hay un test).
+  Rotar cierra además las sesiones (la cookie se firma con el primero). Sin `MFA_ENCRYPTION_KEY`.
 
 ## Decisiones tomadas (2026-11-14)
 

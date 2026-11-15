@@ -20,6 +20,29 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null)
   const [unverified, setUnverified] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  // Second step: the account has a second factor, the password alone does not open a session.
+  const [second, setSecond] = useState<'totp' | 'recovery' | null>(null)
+
+  function done() {
+    // Nothing cached while signed out (e.g. "no session") survives the sign-in.
+    qc.clear()
+    router.push(next)
+    router.refresh()
+  }
+
+  async function onSecondStep(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setPending(true)
+    setError(null)
+    const code = field(new FormData(e.currentTarget), 'code').replaceAll(/\s|-/g, '')
+    const res = await authRequest(
+      second === 'recovery' ? '/two-factor/verify-backup-code' : '/two-factor/verify-totp',
+      { code },
+    )
+    setPending(false)
+    if (res.ok) return done()
+    setError(errorText(t, res.code))
+  }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -33,15 +56,63 @@ export function SignInForm() {
       password: field(form, 'password'),
     })
     setPending(false)
-    if (res.ok) {
-      // Nothing cached while signed out (e.g. "no session") survives the sign-in.
-      qc.clear()
-      router.push(next)
-      router.refresh()
+    if (res.ok && (res.data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      setSecond('totp')
       return
     }
+    if (res.ok) return done()
     if (res.code === 'EMAIL_NOT_VERIFIED') setUnverified(email)
     else setError(errorText(t, res.code))
+  }
+
+  if (second) {
+    const recovery = second === 'recovery'
+    return (
+      <AuthCard
+        title={t('auth.twoFactor.title')}
+        description={t(
+          recovery ? 'auth.twoFactor.recoveryDescription' : 'auth.twoFactor.description',
+        )}
+      >
+        <form className="space-y-4" onSubmit={(e) => void onSecondStep(e)}>
+          {error ? <Callout variant="destructive">{error}</Callout> : null}
+          <Field label={t(recovery ? 'auth.twoFactor.recoveryCode' : 'auth.twoFactor.code')}>
+            {(p) => (
+              <Input
+                {...p}
+                key={second}
+                name="code"
+                autoComplete="one-time-code"
+                inputMode={recovery ? 'text' : 'numeric'}
+                required
+                autoFocus
+              />
+            )}
+          </Field>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="text-xs text-foreground-light underline"
+              onClick={() => {
+                setError(null)
+                setSecond(recovery ? 'totp' : 'recovery')
+              }}
+            >
+              {t(recovery ? 'auth.twoFactor.useApp' : 'auth.twoFactor.useRecovery')}
+            </button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="small"
+              disabled={pending}
+              aria-busy={pending}
+            >
+              {t('auth.twoFactor.submit')}
+            </Button>
+          </div>
+        </form>
+      </AuthCard>
+    )
   }
 
   return (

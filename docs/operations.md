@@ -147,6 +147,29 @@ instalar nada: `curl -H "Authorization: Bearer $METRICS_TOKEN" http://worker:300
 Prometheus y Grafana no están desplegados (D10); cuando lo estén, su configuración de raspado apunta
 a estas dos rutas.
 
+## Acceso: segundo factor, secretos y contraseñas (ADR 0016)
+
+**He perdido el autenticador y los códigos de recuperación.** No hay recuperación automática
+(sería la puerta de atrás). Tras comprobar por otro medio que es la misma persona, un operador
+desactiva su factor y la persona vuelve a darlo de alta:
+
+```sql
+-- como app_migrator o app_platform, con el email del acceso
+UPDATE auth_users SET two_factor_enabled = false WHERE email = 'persona@ejemplo.com';
+DELETE FROM auth_two_factors WHERE user_id = (SELECT id FROM auth_users WHERE email = 'persona@ejemplo.com');
+```
+
+**Rotar `BETTER_AUTH_SECRET`.** No lo cambies sin más: cifra los secretos del segundo factor. Pon el
+nuevo **delante** y deja el anterior detrás: `BETTER_AUTH_SECRETS=2:<nuevo>,1:<anterior>`. Las
+sesiones abiertas se cierran (la cookie se firma con el primero) y los factores siguen valiendo.
+Quita una versión antigua solo cuando ya nada esté cifrado con ella; hoy no hay forma de saberlo sin
+mirar la tabla, así que en la práctica se deja.
+
+**Contraseñas filtradas.** La web consulta `api.pwnedpasswords.com` (solo 5 caracteres de un hash).
+Si el servicio no responde en 3 s la contraseña se **acepta** y se registra `password breach check
+unavailable`; si lo ves a menudo, comprueba que la red de staging permite ese host. Para apagarlo:
+`PASSWORD_BREACH_CHECK=false`.
+
 ## Pendiente
 
 - Centralizar los logs (Loki o Better Stack) y el monitor externo: con el despliegue (fase 6).

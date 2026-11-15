@@ -15,7 +15,7 @@ import {
 import { captureError } from '@saas/adapters/errors'
 import type { Context } from 'hono'
 import { clientKey } from '@saas/config/client-ip'
-import { auth } from '../../auth.ts'
+import { auth, passwordBreachCheck } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
 import { enforceRateLimit, INVITATIONS_PER_ORGANIZATION_PER_DAY, rateLimit } from '../rate-limit.ts'
 import { accessCtx, actorCtx, baseCtx, requestIp, setActiveOrganization } from '../session.ts'
@@ -214,7 +214,11 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
         { code: `INVITATION_${view.status}` },
       ])
     }
-    const created = await createInvitedAccount(auth(), { email: view.email, name, password })
+    const created = await createInvitedAccount(
+      auth(),
+      { email: view.email, name, password },
+      { passwordBreachCheck: passwordBreachCheck() },
+    )
     if (!created.ok) {
       throw new DomainError(
         created.code === 'USER_ALREADY_EXISTS' ? 'CONFLICT' : 'VALIDATION_FAILED',

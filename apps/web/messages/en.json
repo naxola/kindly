@@ -71,6 +71,16 @@
       "description": "Changing it signs out your other sessions.",
       "submit": "Save password",
       "requestNew": "Request a new link"
+    },
+    "twoFactor": {
+      "title": "Two-step verification",
+      "description": "Enter the 6-digit code from your authenticator app.",
+      "recoveryDescription": "Enter one of your recovery codes. Each one works only once.",
+      "code": "Code",
+      "recoveryCode": "Recovery code",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use the authenticator app",
+      "submit": "Verify"
     }
   },
   "errors": {
@@ -114,7 +124,14 @@
     "NO_SUBSCRIPTION": "The organization has no paid plan.",
     "PAYMENTS_DISABLED": "Payments are not configured.",
     "ALREADY_SUBSCRIBED": "The organization already has a subscription: manage it from the portal.",
-    "PLAN_NOT_FOUND": "That plan is not available."
+    "PLAN_NOT_FOUND": "That plan is not available.",
+    "INVALID_CODE": "The code is not correct.",
+    "INVALID_BACKUP_CODE": "The recovery code is not valid.",
+    "INVALID_TWO_FACTOR_COOKIE": "The verification has expired. Sign in again.",
+    "PASSWORD_BREACHED": "That password appears in known data breaches. Choose another one.",
+    "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Too many attempts. Sign in again.",
+    "TWO_FACTOR_NOT_ENABLED": "Two-step verification is not enabled.",
+    "TOTP_ALREADY_ENABLED": "Two-step verification is already enabled."
   },
   "home": {
     "title": "Home",
@@ -345,6 +362,32 @@
         "billing_period_closed": "Billing period closed",
         "billing_provider_event_rejected": "Payment provider event rejected"
       }
+    },
+    "security": {
+      "twoFactor": "Two-step verification",
+      "twoFactorHint": "Besides the password, a 6-digit code from an authenticator app is asked for when you sign in.",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "newCodes": "Generate new recovery codes",
+      "on": "On",
+      "confirmPassword": "Confirm your password to: {action}",
+      "scan": "Scan the code with your authenticator app and enter the code it shows.",
+      "qrLabel": "QR code for the authenticator app",
+      "manualKey": "Can't scan it? Key:",
+      "activate": "Turn on",
+      "codesTitle": "Recovery codes",
+      "codesHint": "Save them now somewhere safe: they will not be shown again. Each code works once if you lose your app.",
+      "copy": "Copy",
+      "download": "Download",
+      "saved": "I saved them",
+      "sessions": "Open sessions",
+      "sessionsHint": "Devices where your account is signed in. Close the ones you do not recognize.",
+      "thisSession": "This session",
+      "unknownDevice": "Unknown device",
+      "lastActive": "Last active: {date}",
+      "close": "Close session",
+      "closeConfirm": "That device will have to sign in again.",
+      "closeOthers": "Close all the others"
     }
   },
   "billing": {
@@ -377,6 +420,11 @@
     "organizationSaved": "Organization saved",
     "left": "You left the organization",
     "archived": "Organization archived",
-    "resent": "Invitation resent to {email}"
+    "resent": "Invitation resent to {email}",
+    "twoFactorOn": "Two-step verification turned on",
+    "twoFactorOff": "Two-step verification turned off",
+    "copied": "Copied",
+    "sessionClosed": "Session closed",
+    "sessionsClosed": "The other sessions were closed"
   }
 }

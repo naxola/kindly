@@ -71,6 +71,16 @@
       "description": "Al cambiarla se cerrarán tus otras sesiones.",
       "submit": "Guardar contraseña",
       "requestNew": "Pide un enlace nuevo"
+    },
+    "twoFactor": {
+      "title": "Verificación en dos pasos",
+      "description": "Introduce el código de 6 cifras de tu aplicación de autenticación.",
+      "recoveryDescription": "Introduce uno de tus códigos de recuperación. Cada uno sirve una sola vez.",
+      "code": "Código",
+      "recoveryCode": "Código de recuperación",
+      "useRecovery": "Usar un código de recuperación",
+      "useApp": "Usar la aplicación de autenticación",
+      "submit": "Verificar"
     }
   },
   "errors": {
@@ -114,7 +124,14 @@
     "NO_SUBSCRIPTION": "La organización no tiene un plan de pago.",
     "PAYMENTS_DISABLED": "Los pagos no están configurados.",
     "ALREADY_SUBSCRIBED": "La organización ya tiene una suscripción: gestiónala desde el portal.",
-    "PLAN_NOT_FOUND": "Ese plan no está disponible."
+    "PLAN_NOT_FOUND": "Ese plan no está disponible.",
+    "INVALID_CODE": "El código no es correcto.",
+    "INVALID_BACKUP_CODE": "El código de recuperación no es válido.",
+    "INVALID_TWO_FACTOR_COOKIE": "La verificación ha caducado. Vuelve a iniciar sesión.",
+    "PASSWORD_BREACHED": "Esa contraseña aparece en filtraciones de datos conocidas. Elige otra.",
+    "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE": "Demasiados intentos. Vuelve a iniciar sesión.",
+    "TWO_FACTOR_NOT_ENABLED": "La verificación en dos pasos no está activada.",
+    "TOTP_ALREADY_ENABLED": "La verificación en dos pasos ya está activada."
   },
   "home": {
     "title": "Inicio",
@@ -345,6 +362,32 @@
         "billing_period_closed": "Periodo de cobro cerrado",
         "billing_provider_event_rejected": "Evento del proveedor de pago rechazado"
       }
+    },
+    "security": {
+      "twoFactor": "Verificación en dos pasos",
+      "twoFactorHint": "Además de la contraseña, se pide un código de 6 cifras de una aplicación de autenticación al iniciar sesión.",
+      "turnOn": "Activar",
+      "turnOff": "Desactivar",
+      "newCodes": "Generar códigos de recuperación nuevos",
+      "on": "Activada",
+      "confirmPassword": "Confirma tu contraseña para: {action}",
+      "scan": "Escanea el código con tu aplicación de autenticación y escribe el código que muestra.",
+      "qrLabel": "Código QR para la aplicación de autenticación",
+      "manualKey": "¿No puedes escanearlo? Clave:",
+      "activate": "Activar",
+      "codesTitle": "Códigos de recuperación",
+      "codesHint": "Guárdalos ahora en un lugar seguro: no se volverán a mostrar. Cada código sirve una sola vez si pierdes tu aplicación.",
+      "copy": "Copiar",
+      "download": "Descargar",
+      "saved": "Los he guardado",
+      "sessions": "Sesiones abiertas",
+      "sessionsHint": "Dispositivos donde tu cuenta tiene la sesión iniciada. Cierra los que no reconozcas.",
+      "thisSession": "Esta sesión",
+      "unknownDevice": "Dispositivo desconocido",
+      "lastActive": "Última actividad: {date}",
+      "close": "Cerrar sesión",
+      "closeConfirm": "Ese dispositivo tendrá que volver a iniciar sesión.",
+      "closeOthers": "Cerrar todas las demás"
     }
   },
   "billing": {
@@ -377,6 +420,11 @@
     "organizationSaved": "Organización guardada",
     "left": "Has salido de la organización",
     "archived": "Organización archivada",
-    "resent": "Invitación reenviada a {email}"
+    "resent": "Invitación reenviada a {email}",
+    "twoFactorOn": "Verificación en dos pasos activada",
+    "twoFactorOff": "Verificación en dos pasos desactivada",
+    "copied": "Copiado",
+    "sessionClosed": "Sesión cerrada",
+    "sessionsClosed": "Las demás sesiones se han cerrado"
   }
 }
