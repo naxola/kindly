@@ -14,7 +14,7 @@ las actualizaciones siempre se revisan (ver la enmienda del final: Renovate prop
 | Componente | Versión                                  |
 | ---------- | ---------------------------------------- |
 | Node.js    | 24.21.0 LTS (`.node-version`, `engines`) |
-| pnpm       | 10.34.6 (corepack, `packageManager`)     |
+| pnpm       | 12.21.0 (corepack, `packageManager`)     |
 | PostgreSQL | 18.6 (`postgres:18.6-trixie`) en Docker  |
 
 ## Dependencias de la fase 1
