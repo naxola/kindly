@@ -377,7 +377,8 @@
         "billing_subscription_synced": "Suscripción actualizada",
         "billing_spend_cap_changed": "Tope de gasto cambiado",
         "billing_period_closed": "Periodo de cobro cerrado",
-        "billing_provider_event_rejected": "Evento del proveedor de pago rechazado"
+        "billing_provider_event_rejected": "Evento del proveedor de pago rechazado",
+        "billing_usage_counter_mismatch": "Descuadre del contador de uso corregido"
       }
     },
     "security": {

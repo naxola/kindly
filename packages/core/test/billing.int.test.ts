@@ -984,3 +984,104 @@ function fakeProvider(failWith?: Error) {
   }
   return provider
 }
+
+describe('usage counters (R3.3, ADR 0012 amendment)', () => {
+  const counterOf = (orgId: string, metric: string) =>
+    withTenant(db, orgId, (tx) => tx.usageCounter.findMany({ where: { metric } }))
+  const sumOf = (orgId: string, metric: string) =>
+    withTenant(db, orgId, async (tx) => {
+      const rows = await tx.usageEvent.findMany({ where: { metric } })
+      return rows.reduce((a, r) => a + Number(r.quantity), 0)
+    })
+
+  it('keeps one counter per organization, metric and period, up to date with each record', async () => {
+    const { orgId } = await orgWithAdmin()
+    await record(orgId, { metric: 'api_calls', quantity: 30 })
+    await record(orgId, { metric: 'api_calls', quantity: 12 })
+    await record(orgId, { metric: 'storage_gb', quantity: '0.4' })
+    await record(orgId, { metric: 'storage_gb', quantity: '0.2' })
+    await record(orgId, { metric: 'seats', subjectKey: 'a' })
+    await record(orgId, { metric: 'seats', subjectKey: 'a' })
+    await record(orgId, { metric: 'seats', subjectKey: 'b' })
+    const value = async (m: string) => {
+      const rows = await counterOf(orgId, m)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.periodStart.toISOString()).toBe('2026-11-01T00:00:00.000Z')
+      return rows[0]!.value.toString()
+    }
+    expect(await value('api_calls')).toBe('42')
+    expect(await value('storage_gb')).toBe('0.4')
+    expect(await value('seats')).toBe('2')
+  })
+
+  it('a repeated idempotency key or a rejected effect leaves the counter untouched', async () => {
+    const { orgId } = await orgWithAdmin()
+    const key = newId()
+    await record(orgId, { metric: 'api_calls', quantity: 90, idempotencyKey: key })
+    await record(orgId, { metric: 'api_calls', quantity: 90, idempotencyKey: key })
+    await errorOf(record(orgId, { metric: 'api_calls', quantity: 20 })) // 110 > hard limit 100
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('90')
+  })
+
+  it('starts from the events already recorded (no backfill needed)', async () => {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.usageEvent.create({
+        data: {
+          organizationId: orgId,
+          metric: 'api_calls',
+          quantity: 60,
+          occurredAt: new Date('2026-11-02T00:00:00Z'),
+          idempotencyKey: newId(),
+        },
+      }),
+    )
+    expect(await counterOf(orgId, 'api_calls')).toHaveLength(0)
+    expect((await record(orgId, { metric: 'api_calls', quantity: 15 })).used.toString()).toBe('75')
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('75')
+  })
+
+  it('concurrent records never lose an update: counter and events agree', async () => {
+    const { orgId } = await orgWithAdmin()
+    await subscribeToPro(orgId)
+    await Promise.all(
+      Array.from({ length: 20 }, () => record(orgId, { metric: 'api_calls', quantity: 5 })),
+    )
+    expect(await sumOf(orgId, 'api_calls')).toBe(100)
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('100')
+  })
+
+  it('the period close trusts the events: a wrong counter is repaired and audited', async () => {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date('2026-10-05T00:00:00Z'),
+          currentPeriodEnd: new Date('2026-11-05T00:00:00Z'),
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+        },
+      }),
+    )
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, { metric: 'api_calls', quantity: 1500, occurredAt: inOctober })
+    // Something corrupts the counter (a bug, a manual fix): it says 1 instead of 1500.
+    await withTenant(db, orgId, (tx) =>
+      tx.usageCounter.updateMany({ where: { metric: 'api_calls' }, data: { value: 1 } }),
+    )
+    const [period] = await withTenant(db, orgId, (tx) =>
+      closeDuePeriods(base(), tx, orgId, TEST_CATALOG),
+    )
+    // Billed on the evidence: 500 calls over the quota.
+    expect(period!.overageTotal.toString()).toBe('0.5')
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('1500')
+    const audit = await withTenant(db, orgId, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'billing.usage_counter_mismatch' } }),
+    )
+    expect(audit).toHaveLength(1)
+    expect(audit[0]!.after).toMatchObject({ metric: 'api_calls', counter: '1', events: '1500' })
+  })
+})
