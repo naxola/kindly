@@ -160,6 +160,10 @@ Convenciones al añadir código:
 - Límites de peticiones (ADR 0015): `rateLimit({ scope, … })` o `enforceRateLimit(c, …)` de
   `apps/web/src/server/api/rate-limit.ts`; los contadores viven en Postgres (`rate_limits`), con
   claves en hash. Cada límite nuevo lleva su `scope` propio.
+- Acceso (ADR 0016): el segundo factor y las contraseñas filtradas viven en `adapters/auth`; los
+  secretos de Better Auth van versionados (`BETTER_AUTH_SECRETS`) y no se retira uno mientras algo
+  siga cifrado con él. Todo código que cree una cuenta saltándose Better Auth (como la invitación)
+  debe pasar por `passwordBreachCheck`.
 - Métricas (ADR 0008): `metrics().registry` (web) o el `MetricsRegistry` del worker, con etiquetas
   de baja cardinalidad: nombres de ruta, de cola y de estado; nunca ids, emails ni IP. `/metrics`
   exige `METRICS_TOKEN` y sin él responde 404.

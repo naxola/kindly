@@ -13,6 +13,7 @@ import { field } from '@/client/forms.ts'
 import { QueryError } from '@/components/query-error.tsx'
 import { TableSkeleton } from '@/components/table-skeleton.tsx'
 import { LOCALE_COOKIE } from '@/i18n/locales.ts'
+import { SessionsPanel, TwoFactorPanel } from './security.tsx'
 
 /**
  * Personal settings: they belong to the person, not to the organization, so they need no
@@ -40,6 +41,8 @@ export function AccountSettings() {
             <ProfileForm name={me.data.user.displayName} locale={me.data.user.locale} />
             <EmailChangeForm current={me.data.access.email} />
             <PasswordForm />
+            <TwoFactorPanel />
+            <SessionsPanel />
           </>
         ) : null}
       </PageContainer>

@@ -30,6 +30,40 @@ const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' |
 export const authEnv = z.object({
   /** Better Auth secret (signs cookies and tokens). At least 32 characters. */
   BETTER_AUTH_SECRET: z.string().min(32),
+  /**
+   * Versioned secrets for rotating `BETTER_AUTH_SECRET` without losing what is encrypted with it
+   * (the TOTP secrets, ADR 0016): `2:new-secret,1:old-secret`. The FIRST one encrypts and signs;
+   * the rest only decrypt. Empty: `BETTER_AUTH_SECRET` is version 1. Never remove an old entry
+   * while something encrypted with it exists.
+   */
+  BETTER_AUTH_SECRETS: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) return undefined
+      const entries = value.split(',').map((entry) => {
+        const at = entry.indexOf(':')
+        return { version: Number(entry.slice(0, at)), value: entry.slice(at + 1) }
+      })
+      const versions = new Set(entries.map((e) => e.version))
+      const bad =
+        entries.some((e) => !Number.isInteger(e.version) || e.version < 1 || e.value.length < 32) ||
+        versions.size !== entries.length
+      if (bad) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Must be `version:secret` entries, unique versions, secrets of 32+ characters',
+        })
+        return z.NEVER
+      }
+      return entries
+    }),
+  /**
+   * Rejects passwords found in known breaches (Have I Been Pwned, k-anonymity: only 5 characters
+   * of the password's SHA-1 leave the server). If the service does not answer the password is
+   * accepted (ADR 0016). Tests turn it off to avoid the network.
+   */
+  PASSWORD_BREACH_CHECK: bool.default(true),
   /** Rate limiting of the authentication endpoints. */
   AUTH_RATE_LIMIT_ENABLED: bool.default(true),
   /**
@@ -43,6 +77,14 @@ export const authEnv = z.object({
     .transform((v) => v.toLowerCase())
     .optional(),
 })
+
+/** Secrets Better Auth encrypts with: the versioned list, or `BETTER_AUTH_SECRET` as version 1. */
+export function authSecretsOf(env: {
+  BETTER_AUTH_SECRET: string
+  BETTER_AUTH_SECRETS?: { version: number; value: string }[] | undefined
+}) {
+  return env.BETTER_AUTH_SECRETS ?? [{ version: 1, value: env.BETTER_AUTH_SECRET }]
+}
 
 export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
   /** Prints emails to the worker log. Local development and tests only. */
