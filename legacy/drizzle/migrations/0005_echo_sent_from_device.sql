@@ -1,1 +1,0 @@
-ALTER TABLE "messages" ADD COLUMN "sent_from_device" boolean DEFAULT false NOT NULL;

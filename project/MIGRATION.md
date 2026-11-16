@@ -1196,3 +1196,9 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   (`asNewClient`, `newPerson`): la cabecera debe ser una IP válida o cae en el cubo compartido.
 - **Verificado:** `format:check`, `lint`, `typecheck`, `test` (279), `test:integration` (350), `db:check` (sin diferencias),
   `build` y `test:e2e` (61).
+
+### 2026-11-16 — M13, paso 1: `legacy/` borrado
+
+Decisión del usuario: se borra `legacy/` entero (el historial de git conserva la app anterior y los casos aplazados; se
+retoman desde el commit anterior a este si hacen falta). Se quitan sus referencias en `.dockerignore`, `.prettierignore`,
+`.gitignore` y `eslint.config.js`. Verificado: `format:check`, `lint` y `typecheck`.

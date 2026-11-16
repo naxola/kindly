@@ -37,10 +37,3 @@ backups/
 **/src/generated/
 next-env.d.ts
 
-# legacy/ (app anterior a la migración, ver project/MIGRATION.md): dependencias y salidas propias
-/legacy/node_modules/
-/legacy/.next/
-/legacy/coverage/
-/legacy/test-results/
-/legacy/playwright-report/
-/legacy/drizzle/.drizzle
