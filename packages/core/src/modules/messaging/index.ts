@@ -1,5 +1,6 @@
 // Messaging (Kindly): channel accounts, the adapter port and the inbound webhook pipeline.
 export type {
+  MediaDownload,
   ConnectAccountInput,
   ConnectionResult,
   ConnectionStatus,
@@ -29,7 +30,7 @@ export {
 export type { MessagingAccountView, ConnectableChannel } from './accounts.ts'
 export { connectWithOnboarding, OnboardingInput } from './onboarding.ts'
 export { getConversationDetail, listThreadMessages } from './thread.ts'
-export type { ConversationDetail, ThreadMessage } from './thread.ts'
+export type { ConversationDetail, ThreadMessage, ThreadAttachment } from './thread.ts'
 export {
   sendMessage,
   signalTyping,
@@ -67,3 +68,20 @@ export {
 } from './retention.ts'
 export { FakeMessagingAdapter } from './testing/fake-adapter.ts'
 export type { FakeAdapterOptions } from './testing/fake-adapter.ts'
+export {
+  ATTACHMENT_KINDS,
+  MAX_MEDIA_BYTES,
+  MEDIA_DOWNLOADS_PER_MINUTE,
+  attachmentPlaceholder,
+  bodyForAttachment,
+  isMediaExpired,
+  readAttachment,
+  safeContentType,
+  safeDownloadName,
+  limitStream,
+  MediaUnavailableError,
+  MediaTooLargeError,
+} from './attachments.ts'
+export type { AttachmentKind, MessageAttachment } from './attachments.ts'
+export { openMessageMedia } from './media.ts'
+export type { OpenedMedia } from './media.ts'

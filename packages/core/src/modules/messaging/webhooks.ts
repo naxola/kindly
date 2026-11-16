@@ -3,6 +3,7 @@ import {
   withMessagingAccount,
   withTenant,
   type Db,
+  type Prisma,
   type MessagingAccount,
   type TenantTx,
 } from '@saas/database'
@@ -190,6 +191,7 @@ async function applyEvent(
     account,
     externalMessageId: e.externalMessageId,
     body: e.text,
+    attachment: (e.attachment ?? null) as unknown as Prisma.InputJsonValue | null,
     sourceWebhookEventId: webhookEventId,
     occurredAt: e.occurredAt,
   }

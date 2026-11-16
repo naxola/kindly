@@ -166,7 +166,10 @@
     "URL_NOT_HTTP": "La dirección web debe empezar por http:// o https://.",
     "URL_HAS_CREDENTIALS": "La dirección web no puede incluir usuario ni contraseña.",
     "EMBEDDINGS_NOT_CONFIGURED": "El servicio de embeddings no está configurado en este entorno.",
-    "ALREADY_RESOLVED": "Esta alta ya se resolvió."
+    "ALREADY_RESOLVED": "Esta alta ya se resolvió.",
+    "MEDIA_EXPIRED": "El archivo ya no está disponible en el proveedor.",
+    "MEDIA_UNAVAILABLE": "Este canal no permite descargar archivos.",
+    "MEDIA_TOO_LARGE": "El archivo es demasiado grande para descargarlo desde aquí."
   },
   "home": {
     "title": "Inicio",
@@ -611,7 +614,8 @@
         "AFFILIATE_REQUEST_RECEIVED": "Alta recibida",
         "AFFILIATE_REQUEST_CONFIRMED": "Alta confirmada",
         "AFFILIATE_REQUEST_DISCARDED": "Alta descartada",
-        "AFFILIATE_REQUEST_APPLIED": "Datos actualizados desde un alta"
+        "AFFILIATE_REQUEST_APPLIED": "Datos actualizados desde un alta",
+        "MESSAGE_MEDIA_DOWNLOADED": "Archivo descargado"
       }
     },
     "identify": {
@@ -741,7 +745,8 @@
       "today": "Hoy",
       "yesterday": "Ayer",
       "composerHint": "Intro para enviar · Mayús+Intro para un salto de línea",
-      "attendedByYou": "Ahora lo atiendes tú, pero esta conversación está en el número de {owner}."
+      "attendedByYou": "Ahora lo atiendes tú, pero esta conversación está en el número de {owner}.",
+      "insertDocumentsNotice": "Insertar aviso de documentos"
     },
     "ficha": {
       "title": "Ficha del afiliado",
@@ -762,6 +767,20 @@
       "others": "Otras conversaciones",
       "noOthers": "No hay otras conversaciones",
       "noMessages": "Sin mensajes"
+    },
+    "attachment": {
+      "kinds": {
+        "IMAGE": "Imagen",
+        "DOCUMENT": "Documento",
+        "AUDIO": "Audio",
+        "VIDEO": "Vídeo",
+        "STICKER": "Sticker"
+      },
+      "notStored": "Archivo no guardado en Kindly",
+      "download": "Descargar",
+      "downloading": "Descargando…",
+      "expired": "ya no está disponible en el proveedor",
+      "documentsNotice": "Kindly no guarda los documentos que envías: tu delegado los descarga para tramitarlos y no quedan almacenados en la plataforma."
     }
   },
   "channels": {

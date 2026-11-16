@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { apiClient } from '@/client/api.ts'
 import { errorText, unwrap } from '@/client/errors.ts'
 import { useMemberId, useOrganizationId } from '@/components/workspace-context.tsx'
+import { AttachmentChip } from './attachment-chip.tsx'
 import { DeliveryTicks, type DisplayStatus } from './delivery-ticks.tsx'
 import {
   inboxKeys,
@@ -38,6 +39,8 @@ interface Entry {
   sentFromDevice: boolean
   error?: string
   onRetry?: () => void
+  /** Only stored messages (not optimistic ones) can carry a file. */
+  attachment?: ThreadMessageData['attachment']
 }
 
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
@@ -236,6 +239,7 @@ export function ConversationChat({
       createdAt: m.createdAt,
       status: m.direction === 'OUTBOUND' ? m.deliveryStatus : 'READ',
       sentFromDevice: m.sentFromDevice,
+      attachment: m.attachment,
       // A send the provider rejected is stored as failed: sending the same text again is a new message.
       ...(m.direction === 'OUTBOUND' && m.deliveryStatus === 'FAILED' && detail.canReply
         ? { onRetry: () => submit(m.body) }
@@ -339,7 +343,17 @@ export function ConversationChat({
                             m.status === 'SENDING' && 'opacity-70',
                           )}
                         >
-                          <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                          {/* A message that is only a file does not repeat its placeholder. */}
+                          {!m.attachment || m.attachment.captioned ? (
+                            <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                          ) : null}
+                          {m.attachment ? (
+                            <AttachmentChip
+                              attachment={m.attachment}
+                              conversationId={conversationId}
+                              messageId={m.key}
+                            />
+                          ) : null}
                           <p className="mt-1 flex items-center justify-end gap-1.5 text-[11px] text-foreground-lighter">
                             {m.sentFromDevice ? <span>{c('fromDevice')} ·</span> : null}
                             <time dateTime={m.createdAt}>
@@ -398,8 +412,22 @@ export function ConversationChat({
               onKeyDown={onKeyDown}
               className="resize-none"
             />
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-foreground-lighter">{c('composerHint')}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs text-foreground-lighter">{c('composerHint')}</p>
+                {/* Inserts the notice; nothing is sent until the delegate reviews it and sends. */}
+                <Button
+                  type="button"
+                  size="tiny"
+                  onClick={() => {
+                    const notice = all('inbox.attachment.documentsNotice')
+                    changeDraft(draft.trim() ? `${draft.trimEnd()}\n\n${notice}` : notice)
+                    composer.current?.focus()
+                  }}
+                >
+                  {c('insertDocumentsNotice')}
+                </Button>
+              </div>
               <Button type="submit" variant="primary" size="small" disabled={!draft.trim()}>
                 <Send className="size-4" aria-hidden />
                 {c('send')}

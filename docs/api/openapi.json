@@ -1454,6 +1454,49 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "attachment": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "IMAGE",
+                  "DOCUMENT",
+                  "AUDIO",
+                  "VIDEO",
+                  "STICKER"
+                ]
+              },
+              "filename": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "mimeType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "downloadable": {
+                "type": "boolean"
+              },
+              "captioned": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "kind",
+              "filename",
+              "mimeType",
+              "downloadable",
+              "captioned"
+            ]
           }
         },
         "required": [
@@ -1462,7 +1505,8 @@
           "body",
           "deliveryStatus",
           "sentFromDevice",
-          "createdAt"
+          "createdAt",
+          "attachment"
         ]
       },
       "ChannelAccount": {
@@ -7131,6 +7175,92 @@
         "responses": {
           "204": {
             "description": "Accepted"
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/messages/{messageId}/media": {
+      "get": {
+        "tags": [
+          "conversations"
+        ],
+        "summary": "Download the file a message carries, streamed from the provider (never stored)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "messageId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, passed through",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           },
           "401": {
             "description": "No session",

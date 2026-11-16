@@ -6,10 +6,17 @@ import type {
   ConnectionStatus,
   MessagingAdapter,
   MessagingChannelCapabilities,
+  MediaDownload,
   NormalizedInboundEvent,
   OutboundMessage,
   SendResult,
 } from '../port.ts'
+import {
+  bodyForAttachment,
+  MediaUnavailableError,
+  readAttachment,
+  type MessageAttachment,
+} from '../attachments.ts'
 
 /**
  * Test double of `MessagingAdapter`, used by tests and, only when a variable that only the E2E
@@ -52,7 +59,30 @@ export class FakeMessagingAdapter implements MessagingAdapter {
       serviceWindowHours: options.serviceWindowHours ?? null,
       canDisconnect: options.canDisconnect ?? true,
       onboarding: options.onboarding ?? 'DIRECT',
+      inboundMediaDays: options.inboundMediaDays === undefined ? 7 : options.inboundMediaDays,
     }
+  }
+
+  /** Every file the proxy opened, so tests can assert what was (not) downloaded. */
+  downloads: MessageAttachment[] = []
+
+  /** A `mediaId` starting with `expired-` behaves like a file the provider no longer has. */
+  downloadMedia(_account: MessagingAccount, attachment: MessageAttachment): Promise<MediaDownload> {
+    this.downloads.push(attachment)
+    if (attachment.mediaId.startsWith('expired-')) {
+      return Promise.reject(new MediaUnavailableError())
+    }
+    const bytes = new TextEncoder().encode(`Contenido simulado del archivo ${attachment.mediaId}`)
+    return Promise.resolve({
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes)
+          controller.close()
+        },
+      }),
+      contentType: attachment.mimeType,
+      contentLength: bytes.byteLength,
+    })
   }
 
   connectAccount(input: ConnectAccountInput): Promise<ConnectionResult> {
@@ -105,13 +135,15 @@ export class FakeMessagingAdapter implements MessagingAdapter {
     const raw = (Array.isArray(payload) ? payload : [payload]) as RawEvent[]
     return raw.map((e): NormalizedInboundEvent => {
       const occurredAt = typeof e.occurredAt === 'string' ? new Date(e.occurredAt) : new Date()
+      const attachment = readAttachment(e.attachment)
       const message = () => ({
+        attachment,
         externalConversationId: String(e.externalConversationId),
         externalMessageId: String(e.externalMessageId),
         externalContactId: String(e.externalContactId),
         contactDisplayName: str(e.contactDisplayName),
         contactPhone: str(e.contactPhone),
-        text: String(e.text),
+        text: attachment ? bodyForAttachment(str(e.text), attachment) : String(e.text),
         occurredAt,
       })
       switch (e.kind) {

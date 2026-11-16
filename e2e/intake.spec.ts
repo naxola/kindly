@@ -26,9 +26,13 @@ test('an administrator creates a key, an alta arrives, and they confirm its dele
   await inviteDelegate(page, browser, 'Luis')
 
   await page.goto('/settings/integrations')
+  // Wait for the page to be interactive before submitting (under load the click could come first).
+  await page.waitForLoadState('networkidle')
   await page.getByLabel('Nombre de la clave').fill('n8n')
-  await press(page.getByRole('button', { name: 'Crear clave' }))
-  const token = (await page.locator('code', { hasText: /^kly_/ }).textContent())!.trim()
+  await page.getByRole('button', { name: 'Crear clave' }).click()
+  const tokenBox = page.locator('code', { hasText: /^kly_/ })
+  await expect(tokenBox).toBeVisible()
+  const token = (await tokenBox.textContent())!.trim()
   await press(page.getByRole('button', { name: 'Ya la he guardado' }))
   await expect(page.getByRole('cell', { name: 'n8n', exact: true })).toBeVisible()
 

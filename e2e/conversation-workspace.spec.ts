@@ -249,3 +249,45 @@ test('when the contact is reassigned, the conversation says who attends it now; 
   await expect(page.getByLabel('Mensaje')).toHaveCount(0)
   await shot(page, 'workspace-readonly')
 })
+
+test('a file in the conversation is downloaded through Kindly without being stored there', async ({
+  page,
+}) => {
+  await adminWithOrganization(page, 'Archivos')
+  const account = await fakeAccount(page)
+  await deliverFakeMessage(page, account, {
+    from: 'Rosa Archivo',
+    attachment: {
+      kind: 'DOCUMENT',
+      mediaId: 'media-e2e',
+      mimeType: 'application/pdf',
+      filename: 'parte.pdf',
+    },
+  })
+  await deliverFakeMessage(page, account, {
+    from: 'Rosa Archivo',
+    text: 'Y esta foto',
+    attachment: { kind: 'IMAGE', mediaId: 'expired-e2e', mimeType: 'image/jpeg' },
+  })
+  await page.goto('/inbox')
+  await press(page.getByRole('link', { name: /Rosa Archivo/ }))
+  const log = page.getByRole('log')
+  await expect(log.getByText('Documento: parte.pdf')).toBeVisible()
+  // A message that is only a file does not repeat its placeholder.
+  await expect(log.getByText('[Documento: parte.pdf]')).toHaveCount(0)
+  await expect(log.getByText('Y esta foto')).toBeVisible()
+
+  const download = page.waitForEvent('download')
+  await press(log.getByRole('button', { name: 'Descargar' }).first())
+  expect((await download).suggestedFilename()).toBe('parte.pdf')
+
+  // The provider no longer has the photo: the reason shows in the bubble, nothing is downloaded.
+  await press(log.getByRole('button', { name: 'Descargar' }).last())
+  await expect(log.getByText('El archivo ya no está disponible en el proveedor.')).toBeVisible()
+
+  // The notice is inserted in the composer, not sent: the delegate reviews it and sends it.
+  await press(page.getByRole('button', { name: 'Insertar aviso de documentos' }))
+  await expect(page.getByLabel('Mensaje', { exact: true })).toHaveValue(
+    /Kindly no guarda los documentos que envías/,
+  )
+})

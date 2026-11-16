@@ -206,7 +206,16 @@ export async function fakeAccount(page: Page): Promise<string> {
 export async function deliverFakeMessage(
   page: Page,
   accountId: string,
-  { from, text }: { from: string; text: string },
+  {
+    from,
+    text,
+    attachment,
+  }: {
+    from: string
+    text?: string
+    /** A file descriptor as the provider would send it (the fake serves its bytes). */
+    attachment?: { kind: string; mediaId: string; mimeType?: string; filename?: string }
+  },
 ) {
   const res = await page.request.post(`/api/webhooks/messaging/fake/${accountId}`, {
     headers: { 'x-fake-signature': FAKE_SECRET, 'content-type': 'application/json' },
@@ -216,7 +225,8 @@ export async function deliverFakeMessage(
       externalMessageId: `m-${crypto.randomUUID()}`,
       externalContactId: from,
       contactDisplayName: from,
-      text,
+      ...(text !== undefined ? { text } : {}),
+      ...(attachment ? { attachment } : {}),
     }),
   })
   if (res.status() !== 200) throw new Error(`webhook answered ${res.status()}`)

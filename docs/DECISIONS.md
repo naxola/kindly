@@ -4114,3 +4114,36 @@ stack nuevo.
 
 **Pendiente (no estaba en la app anterior):** mostrar el perfil de afiliado (DNI, domicilio…) en la ficha del contacto tras
 confirmar; hoy solo se ve al revisar el alta.
+
+## 2026-11-16 — Archivos en conversaciones: descriptor y descarga por proxy (portado de la rama `staging` antigua)
+
+**Origen.** UI-10c, incremento 2, de la app anterior (2026-10-11), que no llegó a `master`. El usuario pidió portarlo
+(2026-11-16). Se mantiene el diseño; cambia lo que exige el stack nuevo.
+
+**Se mantiene.**
+- **Kindly no guarda el archivo.** Un mensaje guarda solo un descriptor (`messages.attachment`: `kind`, `mediaId`,
+  `mimeType`, `filename`). El texto es el pie de foto o un marcador (`[Documento: x.pdf]`). El `mediaId` nunca sale del
+  servidor: el hilo recibe `kind`, `filename`, `mimeType`, `downloadable` y `captioned`.
+- **Descarga por proxy** en streaming del proveedor al navegador, sin escribir en disco, storage, base de datos, logs ni caché
+  (`Cache-Control: no-store, private`, `nosniff`, CSP `sandbox`, nombre y tipo saneados). Límite de 25 MB y de 20 descargas por
+  minuto y persona. Cada descarga queda registrada (actividad `MESSAGE_MEDIA_DOWNLOADED` y auditoría), nunca su contenido.
+- Puerto: `inboundMediaDays` (capacidad del canal; el número de prueba de Meta declara 7) y `downloadMedia` opcional. Errores
+  reconocidos por nombre (`MediaUnavailableError`, `MediaTooLargeError`). En el adaptador de Meta: descarga en dos pasos, URL
+  `https` y pública (guarda SSRF), sin seguir redirecciones.
+- UI: la burbuja muestra el archivo con «Archivo no guardado en Kindly · Descargar» (o «ya no está disponible en el proveedor»);
+  un fallo se muestra en la burbuja. Botón **«Insertar aviso de documentos»** en el compositor: añade el texto, no envía nada.
+
+**Cambia con el stack nuevo.**
+1. Una conversación que la persona no puede ver responde **404**, como en el resto del stack nuevo (la app anterior usaba 403
+   aquí): no se distingue «no existe» de «no es tuya».
+2. Un archivo caducado o que el canal no puede descargar responde **404 con motivo** (`MEDIA_EXPIRED`, `MEDIA_UNAVAILABLE`) en
+   vez de 410, y uno demasiado grande 413 (`MEDIA_TOO_LARGE`): los códigos de error del contrato no tienen 410.
+3. El límite de descargas usa el limitador de la plantilla en Postgres (ADR 0015, ámbito `messages.media`), no el recuento del
+   historial de actividad.
+4. Ruta: `GET /api/v1/conversations/{id}/messages/{messageId}/media`.
+
+**Pendiente antes de producción (sin cambios respecto a la app anterior).** Validar con un archivo real en staging los plazos y
+campos de Meta (`inboundMediaDays` de 7 días; audio, vídeo y sticker no confirmados); revisión jurídica del texto del aviso y su
+reflejo en la política de privacidad; base jurídica para datos de salud en tránsito (art. 9 RGPD). El adaptador real de
+coexistence, cuando exista, debe implementar `downloadMedia` y declarar su plazo. Fuera: eco de archivos enviados desde el móvil
+y archivos del historial importado.

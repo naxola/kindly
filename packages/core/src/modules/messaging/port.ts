@@ -1,4 +1,5 @@
 import type { Conversation, MessagingAccount } from '@saas/database'
+import type { MessageAttachment } from './attachments.ts'
 
 /**
  * `MessagingAdapter`: the only way the domain talks to a messaging provider (docs/ARCHITECTURE.md
@@ -57,7 +58,10 @@ interface MessageEventBase {
   contactDisplayName?: string | null
   /** Opportunistic; never used as technical identity. */
   contactPhone?: string | null
+  /** The message text; for a file, its caption or a placeholder (`bodyForAttachment`). */
   text: string
+  /** The file the message carries, if any: a descriptor only, never the file. */
+  attachment?: MessageAttachment | null
   occurredAt: Date
 }
 
@@ -124,6 +128,18 @@ export interface MessagingChannelCapabilities {
   canDisconnect: boolean
   /** Which onboarding the channel needs before it can be connected. */
   onboarding: MessagingOnboardingKind
+  /**
+   * Days an inbound file stays downloadable from the provider, counted from when the message
+   * arrived; null when the channel cannot download files. WhatsApp Cloud API: 7.
+   */
+  inboundMediaDays: number | null
+}
+
+/** A file being passed through from the provider to a person's browser. Never stored. */
+export interface MediaDownload {
+  body: ReadableStream<Uint8Array>
+  contentType: string | null
+  contentLength: number | null
 }
 
 export interface MessagingAdapter {
@@ -149,6 +165,13 @@ export interface MessagingAdapter {
    * back, or null to reject. Channels without one omit it.
    */
   verifyWebhookChallenge?(query: URLSearchParams): string | null
+  /**
+   * Optional: opens an inbound file at the provider and hands back its bytes as a stream, piped to
+   * the person's browser and never written to disk, storage, logs or cache. Throws an error named
+   * `MediaUnavailableError` when the provider no longer has it, `MediaTooLargeError` past the
+   * limit. Channels that cannot download declare `inboundMediaDays: null` and omit it.
+   */
+  downloadMedia?(account: MessagingAccount, attachment: MessageAttachment): Promise<MediaDownload>
   /** Optional: show "typing..." to the contact, anchored to their latest inbound message. */
   sendTypingIndicator?(
     account: MessagingAccount,

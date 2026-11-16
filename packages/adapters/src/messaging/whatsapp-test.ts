@@ -1,13 +1,22 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
-import type {
-  ConnectionResult,
-  ConnectionStatus,
-  MessagingAdapter,
-  MessagingChannelCapabilities,
-  NormalizedInboundEvent,
-  OutboundMessage,
-  SendResult,
+import {
+  bodyForAttachment,
+  limitStream,
+  MAX_MEDIA_BYTES,
+  MediaTooLargeError,
+  MediaUnavailableError,
+  type AttachmentKind,
+  type ConnectionResult,
+  type ConnectionStatus,
+  type MediaDownload,
+  type MessageAttachment,
+  type MessagingAdapter,
+  type MessagingChannelCapabilities,
+  type NormalizedInboundEvent,
+  type OutboundMessage,
+  type SendResult,
 } from '@saas/core'
+import { assertPublicHost, type HostResolver } from '../knowledge/network-guard.ts'
 import type { Conversation, MessagingAccount } from '@saas/database'
 
 /**
@@ -30,6 +39,8 @@ export interface WhatsAppTestAdapterConfig {
   graphApiVersion?: string
   /** Injectable for unit tests: CI never makes a real network call. */
   fetchImpl?: typeof fetch
+  /** Injectable for unit tests: how a media download host is resolved (SSRF guard). */
+  resolveHost?: HostResolver
 }
 
 const DEFAULT_GRAPH_API_VERSION = 'v25.0'
@@ -41,12 +52,63 @@ const STATUS_MAP: Record<string, 'SENT' | 'DELIVERED' | 'READ' | 'FAILED'> = {
   failed: 'FAILED',
 }
 
+interface MetaMedia {
+  id?: string
+  mime_type?: string
+  caption?: string
+  filename?: string
+}
+
 interface MetaMessage {
   id: string
   from: string
   timestamp: string
   type: string
   text?: { body?: string }
+  image?: MetaMedia
+  document?: MetaMedia
+  audio?: MetaMedia
+  video?: MetaMedia
+  sticker?: MetaMedia
+}
+
+const MEDIA_TYPES: Record<string, AttachmentKind> = {
+  image: 'IMAGE',
+  document: 'DOCUMENT',
+  audio: 'AUDIO',
+  video: 'VIDEO',
+  sticker: 'STICKER',
+}
+
+/** An error from Meta's Graph API with its HTTP status, so a caller can tell "gone" from "broken". */
+class GraphApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+    this.name = 'GraphApiError'
+  }
+}
+
+/** The descriptor of an inbound media message, or null for any other type (or one without an id). */
+function readMedia(
+  message: MetaMessage,
+): { attachment: MessageAttachment; caption: string | null } | null {
+  const kind = MEDIA_TYPES[message.type]
+  const media = kind
+    ? (message as unknown as Record<string, MetaMedia | undefined>)[message.type]
+    : undefined
+  if (!kind || !media?.id) return null
+  return {
+    attachment: {
+      kind,
+      mediaId: media.id,
+      mimeType: media.mime_type ?? null,
+      filename: kind === 'DOCUMENT' ? (media.filename ?? null) : null,
+    },
+    caption: media.caption ?? null,
+  }
 }
 
 interface MetaStatus {
@@ -74,6 +136,9 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
     serviceWindowHours: 24,
     canDisconnect: true,
     onboarding: 'DIRECT',
+    // "Media IDs in webhooks expire after 7 days" (Cloud API media reference; to confirm against
+    // the current documentation and a real file in staging before production).
+    inboundMediaDays: 7,
   }
   private readonly config: WhatsAppTestAdapterConfig
   private readonly fetchImpl: typeof fetch
@@ -103,7 +168,10 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
     if (!response.ok) {
       // Only Meta's error message, never the request (it carries the token).
       const error = payload.error as { message?: string } | undefined
-      throw new Error(`Meta Graph API ${response.status}: ${error?.message ?? 'unknown error'}`)
+      throw new GraphApiError(
+        `Meta Graph API ${response.status}: ${error?.message ?? 'unknown error'}`,
+        response.status,
+      )
     }
     return payload
   }
@@ -219,6 +287,58 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
       : null
   }
 
+  /**
+   * Opens an inbound file at Meta and returns its bytes as a stream, for the download proxy. Two
+   * steps, as Meta documents: `GET /{media-id}` returns a short-lived URL, which is then fetched with
+   * the same bearer token. The bytes are only piped through.
+   */
+  async downloadMedia(
+    _account: MessagingAccount,
+    attachment: MessageAttachment,
+  ): Promise<MediaDownload> {
+    let meta: Record<string, unknown>
+    try {
+      meta = await this.graphRequest(encodeURIComponent(attachment.mediaId), { method: 'GET' })
+    } catch (error) {
+      // An expired or unknown media id answers 404, or 400 "Object ... does not exist".
+      if (
+        error instanceof GraphApiError &&
+        (error.status === 404 ||
+          (error.status === 400 && /does not exist|expired/i.test(error.message)))
+      ) {
+        throw new MediaUnavailableError()
+      }
+      throw error
+    }
+    const url = typeof meta.url === 'string' ? new URL(meta.url) : null
+    if (!url || url.protocol !== 'https:') {
+      throw new Error('Meta returned no usable download address.')
+    }
+    // The address comes from Meta's response: never let it point at our own network.
+    await assertPublicHost(url, this.config.resolveHost)
+    const response = await this.fetchImpl(url, {
+      headers: { Authorization: `Bearer ${this.config.accessToken}` },
+      redirect: 'manual',
+    })
+    if (response.status === 404 || response.status === 410) throw new MediaUnavailableError()
+    if (!response.ok || !response.body) {
+      throw new Error(`Meta media download failed with status ${response.status}.`)
+    }
+    const length = Number(response.headers.get('content-length'))
+    const contentLength = Number.isFinite(length) && length > 0 ? length : null
+    if (contentLength !== null && contentLength > MAX_MEDIA_BYTES) {
+      await response.body.cancel()
+      throw new MediaTooLargeError(MAX_MEDIA_BYTES)
+    }
+    return {
+      body: limitStream(response.body, MAX_MEDIA_BYTES),
+      contentType:
+        response.headers.get('content-type') ??
+        (typeof meta.mime_type === 'string' ? meta.mime_type : null),
+      contentLength,
+    }
+  }
+
   parseWebhookEvents(rawBody: string): NormalizedInboundEvent[] {
     const payload = JSON.parse(rawBody) as {
       object?: string
@@ -241,6 +361,7 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
         }
         for (const message of value.messages ?? []) {
           const contact = value.contacts?.find((c) => c.wa_id === message.from)
+          const media = readMedia(message)
           events.push({
             kind: 'MESSAGE',
             // WhatsApp has no conversation id: a 1:1 chat is identified by the contact's wa_id.
@@ -249,10 +370,12 @@ export class WhatsAppTestAdapter implements MessagingAdapter {
             externalContactId: message.from,
             contactDisplayName: contact?.profile?.name ?? null,
             contactPhone: `+${message.from}`,
-            text:
-              message.type === 'text'
+            text: media
+              ? bodyForAttachment(media.caption, media.attachment)
+              : message.type === 'text'
                 ? (message.text?.body ?? '')
                 : `[Message of type "${message.type}": Kindly does not display this content yet]`,
+            attachment: media?.attachment ?? null,
             occurredAt: new Date(Number(message.timestamp) * 1000),
           })
         }

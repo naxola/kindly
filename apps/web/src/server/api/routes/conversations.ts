@@ -7,13 +7,16 @@ import {
   listConversations,
   listThreadMessages,
   markConversationRead,
+  MEDIA_DOWNLOADS_PER_MINUTE,
+  openMessageMedia,
+  type ThreadAttachment,
   sendMessage,
   signalTyping,
   type ConversationPreview,
 } from '@saas/core'
 import { messaging } from '../../messaging.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
-import { rateLimit } from '../rate-limit.ts'
+import { enforceRateLimit, rateLimit } from '../rate-limit.ts'
 import { actorCtx } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json } from './schemas.ts'
@@ -34,6 +37,16 @@ const MessageSchema = z
     deliveryStatus: z.enum(['PENDING', 'SENT', 'DELIVERED', 'READ', 'FAILED']),
     sentFromDevice: z.boolean(),
     createdAt: z.iso.datetime(),
+    /** The file the message carries: what it is, never the provider's handle. */
+    attachment: z
+      .object({
+        kind: z.enum(['IMAGE', 'DOCUMENT', 'AUDIO', 'VIDEO', 'STICKER']),
+        filename: z.string().nullable(),
+        mimeType: z.string().nullable(),
+        downloadable: z.boolean(),
+        captioned: z.boolean(),
+      })
+      .nullable(),
   })
   .openapi('Message')
 
@@ -234,6 +247,23 @@ const typing = createRoute({
   responses: { 204: { description: 'Accepted' }, ...errorResponses(401, 403, 404, 429) },
 })
 
+const media = createRoute({
+  method: 'get',
+  path: '/conversations/{id}/messages/{messageId}/media',
+  tags: ['conversations'],
+  summary: 'Download the file a message carries, streamed from the provider (never stored)',
+  security: cookieAuth,
+  request: { params: z.object({ id: z.uuid(), messageId: z.uuid() }) },
+  responses: {
+    200: {
+      description: 'The file, passed through',
+      content: { 'application/octet-stream': { schema: z.string().openapi({ format: 'binary' }) } },
+    },
+    // 404 also when the provider no longer has the file; a file over the limit answers 413.
+    ...errorResponses(401, 403, 404, 429),
+  },
+})
+
 const read = createRoute({
   method: 'post',
   path: '/conversations/{id}/read',
@@ -251,7 +281,9 @@ const toMessage = (m: {
   deliveryStatus: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED'
   sentFromDevice: boolean
   createdAt: Date
+  attachment?: ThreadAttachment | null
 }) => ({
+  attachment: m.attachment ?? null,
   id: m.id,
   direction: m.direction,
   body: m.body,
@@ -294,7 +326,7 @@ export const conversationRoutes = new OpenAPIHono<ApiEnv>()
     )
   })
   .openapi(thread, async (c) => {
-    const items = await listThreadMessages(await actorCtx(c), c.req.valid('param').id)
+    const items = await listThreadMessages(await actorCtx(c), c.req.valid('param').id, messaging())
     return c.json({ items: items.map(toMessage) }, 200)
   })
   .openapi(send, async (c) => {
@@ -306,7 +338,8 @@ export const conversationRoutes = new OpenAPIHono<ApiEnv>()
     // The reason of a rejected send is not stored: it goes to the log with the request's id.
     if (failureReason)
       c.get('log').warn({ conversationId: id, failureReason }, 'message send failed')
-    return c.json(toMessage(message), 201)
+    // What Kindly sends carries no file.
+    return c.json(toMessage({ ...message, attachment: null }), 201)
   })
   .openapi(typing, async (c) => {
     const { id } = c.req.valid('param')
@@ -314,6 +347,27 @@ export const conversationRoutes = new OpenAPIHono<ApiEnv>()
     if (result.status === 'FAILED')
       c.get('log').warn({ conversationId: id, error: result.error }, 'typing indicator failed')
     return c.body(null, 204)
+  })
+  .openapi(media, async (c) => {
+    const { id, messageId } = c.req.valid('param')
+    const ctx = await actorCtx(c)
+    await enforceRateLimit(c, {
+      scope: 'messages.media',
+      key: ctx.actor.memberId,
+      limit: MEDIA_DOWNLOADS_PER_MINUTE,
+      windowSeconds: 60,
+    })
+    const file = await openMessageMedia(ctx, messaging(), id, messageId)
+    const ascii = file.filename.replace(/[^\x20-\x7e]/g, '_')
+    const headers: Record<string, string> = {
+      'Content-Type': file.contentType,
+      'Content-Disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
+      'Cache-Control': 'no-store, private',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; sandbox",
+    }
+    if (file.contentLength !== null) headers['Content-Length'] = String(file.contentLength)
+    return c.body(file.body, 200, headers)
   })
   .openapi(read, async (c) => {
     await markConversationRead(await actorCtx(c), c.req.valid('param').id)

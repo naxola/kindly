@@ -166,7 +166,10 @@
     "URL_NOT_HTTP": "The web address must start with http:// or https://.",
     "URL_HAS_CREDENTIALS": "The web address cannot include a user or password.",
     "EMBEDDINGS_NOT_CONFIGURED": "The embeddings service is not configured in this environment.",
-    "ALREADY_RESOLVED": "This alta was already resolved."
+    "ALREADY_RESOLVED": "This alta was already resolved.",
+    "MEDIA_EXPIRED": "The file is no longer available at the provider.",
+    "MEDIA_UNAVAILABLE": "This channel cannot download files.",
+    "MEDIA_TOO_LARGE": "The file is too large to download from here."
   },
   "home": {
     "title": "Home",
@@ -611,7 +614,8 @@
         "AFFILIATE_REQUEST_RECEIVED": "Alta received",
         "AFFILIATE_REQUEST_CONFIRMED": "Alta confirmed",
         "AFFILIATE_REQUEST_DISCARDED": "Alta discarded",
-        "AFFILIATE_REQUEST_APPLIED": "Data updated from an alta"
+        "AFFILIATE_REQUEST_APPLIED": "Data updated from an alta",
+        "MESSAGE_MEDIA_DOWNLOADED": "File downloaded"
       }
     },
     "identify": {
@@ -741,7 +745,8 @@
       "today": "Today",
       "yesterday": "Yesterday",
       "composerHint": "Enter to send · Shift+Enter for a new line",
-      "attendedByYou": "You are now attending this contact, but this conversation is on {owner}'s number."
+      "attendedByYou": "You are now attending this contact, but this conversation is on {owner}'s number.",
+      "insertDocumentsNotice": "Insert documents notice"
     },
     "ficha": {
       "title": "Member profile",
@@ -762,6 +767,20 @@
       "others": "Other conversations",
       "noOthers": "No other conversations",
       "noMessages": "No messages"
+    },
+    "attachment": {
+      "kinds": {
+        "IMAGE": "Image",
+        "DOCUMENT": "Document",
+        "AUDIO": "Audio",
+        "VIDEO": "Video",
+        "STICKER": "Sticker"
+      },
+      "notStored": "File not stored in Kindly",
+      "download": "Download",
+      "downloading": "Downloading…",
+      "expired": "no longer available at the provider",
+      "documentsNotice": "Kindly does not keep the documents you send: your delegate downloads them to process them and they are not stored on the platform."
     }
   },
   "channels": {

@@ -1,4 +1,5 @@
 import type {
+  Prisma,
   Conversation,
   Message,
   MessageDeliveryStatus,
@@ -72,6 +73,8 @@ export interface RecordMessageInput {
   body: string
   sourceWebhookEventId: string
   occurredAt: Date
+  /** Descriptor of the file the message carries (messaging's `MessageAttachment`), never the file. */
+  attachment?: Prisma.InputJsonValue | null
   /**
    * INBOUND: the contact wrote (delivered). ECHO: the delegate wrote it on their own phone and the
    * provider echoed it back (outbound, sent from device). HISTORY: replayed from the past, in
@@ -108,6 +111,7 @@ export async function recordMessage(
       body: input.body,
       deliveryStatus,
       sourceWebhookEventId: input.sourceWebhookEventId,
+      ...(input.attachment ? { attachment: input.attachment } : {}),
       createdAt: input.occurredAt,
       updatedAt: input.occurredAt,
     },

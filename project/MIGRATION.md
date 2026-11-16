@@ -1238,3 +1238,20 @@ retoman desde el commit anterior a este si hacen falta). Se quitan sus referenci
 - **Verificado:** `format:check`, `lint`, `typecheck`, `test` (294), `test:integration` (375), `db:check`, `api:generate`, `build`
   y `test:e2e` (64).
 - **Siguiente:** (3/4) archivos en conversaciones (descarga por proxy, sin almacenar).
+
+### 2026-11-16 — Portado de `staging` (3/4): archivos en conversaciones
+
+- **Migración** `20261116130000_message_attachment` (aditiva): `messages.attachment` JSONB.
+- **Core:** `messaging/attachments.ts` (descriptor, marcadores, caducidad, saneado, `limitStream`, errores con nombre),
+  `messaging/media.ts` (`openMessageMedia`), puerto con `inboundMediaDays` y `downloadMedia`, adaptador falso con descarga;
+  `recordMessage` guarda el descriptor y el hilo devuelve `attachment` (sin `mediaId`).
+- **Adaptadores:** el del número de prueba de Meta lee imagen, documento, audio, vídeo y sticker y descarga en dos pasos con guarda
+  SSRF.
+- **API:** `GET /api/v1/conversations/{id}/messages/{messageId}/media` (streaming, límite `messages.media` 20/min).
+- **UI:** `AttachmentChip` en la burbuja y «Insertar aviso de documentos» en el compositor.
+- **Tests:** 5 unitarios de core, 3 del adaptador de Meta, 4 de integración en core, 2 de la ruta HTTP y 1 E2E (descarga real del
+  navegador, archivo caducado y aviso sin enviar).
+- **Verificado:** `format:check`, `lint`, `typecheck`, `test` (302), `test:integration` (381), `db:check`, `api:generate`,
+  `build` y `test:e2e` (65). El E2E de altas esperaba al formulario de claves antes de hidratarse en la batería completa: ahora
+  espera a la red y usa un clic real.
+- **Siguiente:** (4/4) fuentes web de conocimiento por sitemap.

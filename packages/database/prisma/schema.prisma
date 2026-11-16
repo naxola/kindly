@@ -816,6 +816,9 @@ model Message {
   body                 String
   deliveryStatus       MessageDeliveryStatus @default(PENDING) @map("delivery_status")
   sourceWebhookEventId String?               @map("source_webhook_event_id") @db.Uuid
+  /// Descriptor of the file the message carries ({ kind, mediaId, mimeType, filename }); never the
+  /// file itself (Kindly does not store the affiliates' files).
+  attachment           Json?
   editedAt             DateTime?             @map("edited_at") @db.Timestamptz(3)
   deletedAt            DateTime?             @map("deleted_at") @db.Timestamptz(3)
   createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)

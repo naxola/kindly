@@ -3,6 +3,12 @@ import type { Ctx } from '../../context.ts'
 import { assertConversationVisible, type ServiceWindowState } from '../conversations/index.ts'
 import { authorize } from '../identity/index.ts'
 import { displayNamesOf } from '../team/index.ts'
+import {
+  attachmentPlaceholder,
+  isMediaExpired,
+  readAttachment,
+  type AttachmentKind,
+} from './attachments.ts'
 import { describeAccountStatus } from './domain.ts'
 import type { MessagingRegistry } from './port.ts'
 import { getConversationServiceWindow } from './send.ts'
@@ -84,6 +90,16 @@ export async function getConversationDetail(
   })
 }
 
+export interface ThreadAttachment {
+  kind: AttachmentKind
+  filename: string | null
+  mimeType: string | null
+  /** False once the provider no longer serves the file (or the channel cannot download). */
+  downloadable: boolean
+  /** Whether the message text is the sender's caption (false: it is only the file's placeholder). */
+  captioned: boolean
+}
+
 export interface ThreadMessage {
   id: string
   direction: 'INBOUND' | 'OUTBOUND'
@@ -91,6 +107,8 @@ export interface ThreadMessage {
   deliveryStatus: MessageDeliveryStatus
   sentFromDevice: boolean
   createdAt: Date
+  /** The file the message carries: what it is, never the provider's handle. */
+  attachment: ThreadAttachment | null
 }
 
 const THREAD_LIMIT = 500
@@ -99,10 +117,15 @@ const THREAD_LIMIT = 500
 export async function listThreadMessages(
   ctx: Ctx,
   conversationId: string,
+  /** To know how long the channel serves files; without it no file is offered for download. */
+  registry?: MessagingRegistry,
 ): Promise<ThreadMessage[]> {
   authorize(ctx.actor, 'conversations.read')
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-    await assertConversationVisible(tx, ctx, conversationId)
+    const conversation = await assertConversationVisible(tx, ctx, conversationId)
+    const adapter = registry?.get(conversation.channel)
+    const mediaDays = adapter?.downloadMedia ? adapter.capabilities.inboundMediaDays : null
+    const now = ctx.now?.() ?? new Date()
     const rows = await tx.message.findMany({
       where: { conversationId, deletedAt: null },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -114,8 +137,23 @@ export async function listThreadMessages(
         deliveryStatus: true,
         sentFromDevice: true,
         createdAt: true,
+        attachment: true,
       },
     })
-    return rows.reverse()
+    return rows.reverse().map(({ attachment: raw, ...m }) => {
+      const a = readAttachment(raw)
+      return {
+        ...m,
+        attachment: a
+          ? {
+              kind: a.kind,
+              filename: a.filename,
+              mimeType: a.mimeType,
+              downloadable: !isMediaExpired(m.createdAt, mediaDays, now),
+              captioned: m.body !== attachmentPlaceholder(a),
+            }
+          : null,
+      }
+    })
   })
 }
