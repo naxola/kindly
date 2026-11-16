@@ -6,6 +6,7 @@ import {
   PASSWORD,
   createOrganization,
   emailUrl,
+  newPerson,
   press,
   signUp,
   shot,
@@ -17,7 +18,7 @@ test.afterAll(closeDb)
 test('an admin creates an organization, invites someone, and manages members', async ({
   browser,
 }) => {
-  const adminPage = await (await browser.newContext()).newPage()
+  const adminPage = await newPerson(browser)
   await adminWithOrganization(adminPage, 'Acme')
   await expect(adminPage.getByText('Estás en Acme.')).toBeVisible()
   await shot(adminPage, 'home')
@@ -37,7 +38,7 @@ test('an admin creates an organization, invites someone, and manages members', a
 
   // The guest opens the emailed link (token in the fragment): only name and password.
   const invitationUrl = await emailUrl('identity.invitation-email', guestEmail)
-  const guestPage = await (await browser.newContext()).newPage()
+  const guestPage = await newPerson(browser)
   await guestPage.goto(invitationUrl)
   await expect(guestPage.getByRole('heading', { name: 'Únete a Acme' })).toBeVisible()
   // The token does not stay in the address bar.
@@ -52,7 +53,7 @@ test('an admin creates an organization, invites someone, and manages members', a
   await expect(guestPage.getByText('Estás en Acme.')).toBeVisible()
 
   // Opening the same link again: it was already used, so it only offers to sign in.
-  const later = await (await browser.newContext()).newPage()
+  const later = await newPerson(browser)
   await later.goto(invitationUrl)
   await expect(later.getByText('Este enlace ya se ha usado')).toBeVisible()
   await expect(later.getByRole('button', { name: 'Crear cuenta y unirme' })).toHaveCount(0)
@@ -104,11 +105,11 @@ test('someone who already has an account signs in from the invitation and joins'
 }) => {
   // An existing account (signed up elsewhere, no organization yet).
   const guestEmail = uniqueEmail('known')
-  const known = await (await browser.newContext()).newPage()
+  const known = await newPerson(browser)
   await signUp(known, { name: 'Kim Known', email: guestEmail })
   await known.context().clearCookies()
 
-  const adminPage = await (await browser.newContext()).newPage()
+  const adminPage = await newPerson(browser)
   await adminWithOrganization(adminPage, 'Gamma')
   await adminPage.goto('/settings/members')
   await press(adminPage.getByRole('button', { name: 'Invitar' }))
@@ -149,7 +150,7 @@ test('an admin sees the plan and usage of the organization', async ({ page }) =>
 test('positions: an admin manages them, assigns one, and a member edits their own data', async ({
   browser,
 }) => {
-  const adminPage = await (await browser.newContext()).newPage()
+  const adminPage = await newPerson(browser)
   await adminWithOrganization(adminPage, 'Cargos')
 
   // The catalog starts with the default position and grows by the admin's hand.
@@ -177,7 +178,7 @@ test('positions: an admin manages them, assigns one, and a member edits their ow
   await press(adminPage.getByRole('button', { name: 'Enviar invitación' }))
   await expect(adminPage.getByRole('cell', { name: guestEmail })).toBeVisible()
 
-  const guestPage = await (await browser.newContext()).newPage()
+  const guestPage = await newPerson(browser)
   await guestPage.goto(await emailUrl('identity.invitation-email', guestEmail))
   await guestPage.getByLabel('Nombre').fill('Cuenta de Eva')
   await guestPage.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)

@@ -43,6 +43,10 @@ export default defineConfig({
         APP_URL: BASE_URL,
         DATABASE_URL: process.env.TEST_DATABASE_URL!,
         AUTH_RATE_LIMIT_ENABLED: 'false',
+        // Each browser context is its own "client" (see `asNewClient` in e2e/helpers.ts): the
+        // per-IP limits of the invitation endpoints (5 sign-ups a minute) would otherwise be shared by
+        // the whole suite, which signs many invited people up from one address.
+        TRUSTED_IP_HEADER: 'x-e2e-ip',
         // A fake messaging channel so the tests can deliver signed webhooks (never set elsewhere).
         E2E_FAKE_MESSAGING_SECRET: 'e2e-fake-secret',
         // Deterministic embeddings so search works without OpenAI (refused in production).

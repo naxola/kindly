@@ -35,7 +35,11 @@ import {
 } from './modules/billing/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
 import { ingestVersionJob } from './modules/knowledge/index.ts'
-import { processWebhookJob } from './modules/messaging/index.ts'
+import {
+  MESSAGING_SCHEDULES,
+  processWebhookJob,
+  purgeWebhookEventsJob,
+} from './modules/messaging/index.ts'
 import {
   PLATFORM_SCHEDULES,
   purgeAuditLogsJob,
@@ -62,6 +66,7 @@ export const ALL_JOBS = [
   changeEmailConfirmationEmailJob,
   deliverEventJob,
   processWebhookJob,
+  purgeWebhookEventsJob,
   quotaAlertEmailJob,
   dunningEmailJob,
   closeDuePeriodsScanJob,
@@ -80,4 +85,5 @@ export const ALL_SCHEDULES = [
   ...BILLING_SCHEDULES,
   ...PLATFORM_SCHEDULES,
   ...IDENTITY_SCHEDULES,
+  ...MESSAGING_SCHEDULES,
 ] as const

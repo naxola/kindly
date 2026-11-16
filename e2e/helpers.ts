@@ -1,5 +1,11 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, type Browser, type Locator, type Page } from '@playwright/test'
+import {
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from '@playwright/test'
 import {
   createMessagingRegistry,
   FakeEmbeddingProvider,
@@ -11,6 +17,27 @@ import { createDb, type Db } from '@saas/database'
 import pg from 'pg'
 
 export const PASSWORD = 'una frase bastante larga'
+
+const identified = new WeakSet<BrowserContext>()
+/**
+ * Gives a browser context its own client address (the web reads it from `x-e2e-ip`), so the per-IP
+ * limits apply to one person at a time and not to the whole suite. Idempotent.
+ */
+export async function asNewClient(context: BrowserContext) {
+  if (identified.has(context)) return context
+  identified.add(context)
+  // The web accepts only a valid IP there; a random address of the documentation range
+  // (2001:db8::/32) cannot collide with a real one.
+  const [a, b, c] = crypto.randomUUID().split('-')
+  await context.setExtraHTTPHeaders({
+    'x-e2e-ip': `2001:db8:${a!.slice(0, 4)}:${a!.slice(4)}:${b}:${c}::1`,
+  })
+  return context
+}
+
+/** A new person: a fresh browser context with its own client address. */
+export const newPerson = async (browser: Browser) =>
+  (await asNewClient(await browser.newContext())).newPage()
 
 let pool: pg.Pool | undefined
 const db = () => (pool ??= new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 2 }))
@@ -49,6 +76,7 @@ export const uniqueEmail = (label: string) => `${label}-${crypto.randomUUID()}@e
 
 /** Sign-up + verification through the emailed link. Ends signed in. */
 export async function signUp(page: Page, { name, email }: { name: string; email: string }) {
+  await asNewClient(page.context())
   // If already on sign-up (e.g. coming from an invitation), keep its `?next=`.
   if (!new URL(page.url(), 'http://x').pathname.startsWith('/sign-up')) await page.goto('/sign-up')
   await page.getByLabel('Nombre').fill(name)
@@ -68,6 +96,7 @@ export async function shot(page: Page, name: string) {
 
 /** Full sign-up of an administrator with their organization (ends signed in, inside it). */
 export async function adminWithOrganization(page: Page, orgName: string) {
+  await asNewClient(page.context())
   const email = uniqueEmail('admin')
   await signUp(page, { name: 'Ana Admin', email })
   await expect(page).toHaveURL(/\/onboarding/)
@@ -129,7 +158,7 @@ export async function inviteDelegate(adminPage: Page, browser: Browser, firstNam
   await adminPage.getByLabel('Nombre').fill(firstName)
   await press(adminPage.getByRole('button', { name: 'Enviar invitación' }))
   await expect(adminPage.getByRole('cell', { name: email })).toBeVisible()
-  const page = await (await browser.newContext()).newPage()
+  const page = await newPerson(browser)
   await page.goto(await emailUrl('identity.invitation-email', email))
   await page.getByLabel('Nombre').fill(`Cuenta de ${firstName}`)
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD)

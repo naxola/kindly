@@ -4,7 +4,6 @@ import { DomainError } from '@saas/core'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import { db } from '../db.ts'
-import { env } from '../env.ts'
 import type { ApiEnv } from './types.ts'
 
 /**
@@ -45,11 +44,6 @@ export async function enforceRateLimit(
   }
 }
 
-/**
- * Kindly: `AUTH_RATE_LIMIT_ENABLED=false` (only the end-to-end tests set it) turns these
- * per-route limits off, like the ones of Better Auth: a suite that signs many invited people up
- * from one address in a minute would otherwise trip the limit of the invitation endpoints.
- */
 export function rateLimit(opts: {
   scope: string
   limit: number
@@ -58,7 +52,6 @@ export function rateLimit(opts: {
   keys: (c: Context<ApiEnv>) => (string | null)[]
 }) {
   return createMiddleware<ApiEnv>(async (c, next) => {
-    if (!env().AUTH_RATE_LIMIT_ENABLED) return next()
     for (const key of opts.keys(c)) {
       if (!key) continue
       await enforceRateLimit(c, {

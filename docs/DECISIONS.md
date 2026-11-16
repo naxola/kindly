@@ -4044,4 +4044,14 @@ deben cubrir el periodo de reenvío de cada proveedor, que hay que contrastar co
 implementar. El coste de almacenamiento y copias frente a 60 días es pequeño (estimación en `project/MIGRATION.md`).
 Ampliar el plazo más adelante es sencillo; reducirlo, no.
 
-**Pendiente.** Implementar la purga y la migración: aún no está hecho.
+**Implementado (2026-11-16).** Migración `20261116100000_webhook_events_retention`: función `app.purge_expired_webhook_events()`
+(`SECURITY DEFINER`, sin argumentos, lotes de 1000, los más antiguos primero) que primero pone a `NULL` el enlace de
+`messages` y después borra el evento; políticas de RLS para el propietario acotadas a los eventos caducados (patrón de la
+auditoría, ADR 0018); índices `webhook_events(received_at)` y `messages(source_webhook_event_id)`. Se queda
+`ON DELETE RESTRICT` en la clave foránea: cambiarla a `SET NULL` no se puede expresar en Prisma con una clave compuesta.
+Job diario `messaging.purge-webhook-events` (04:17 UTC), que deja una entrada de auditoría `webhook_events.purged` sin
+organización. «Fallido» incluye lo nunca procesado: la regla es `processed_at` no nulo y más de 30 días, o más de 90 días.
+
+**Plazos de reenvío de los proveedores** (contrastados el 2026-11-16, **sin documentación oficial a la vista**): Meta,
+unas 8 horas según un foro; Telegram, 24 horas según un foro. Ambos quedan muy por debajo de 30 días, pero conviene
+confirmarlo en la documentación oficial antes de producción.

@@ -1146,7 +1146,7 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   2. **Staging en el homelab** (docs/deploy.md): variables de repositorio `STAGING_SITE_URL`, `STAGING_APP_URL`, `STAGING_FACEBOOK_DOMAIN_VERIFICATION`;
      `db:deploy` + `queue:install`; **comprobar la imagen `postgres` con pgvector y `docker build`/compose, que no se han podido probar aquí (sin Docker)**; el CI de GitHub tampoco se ha visto correr.
   3. **Datos (D3):** staging empieza con base nueva; confirmar que no hay nada que conservar.
-  4. **Antes de publicar:** el **CIF** B42637348 lo ha confirmado el usuario (2026-11-16; el código anterior tenía B53487885); falta contrastarlo con el Registro Mercantil. Retención de `webhook_events` decidida (30/90 días, `docs/DECISIONS.md`, 2026-11-16; la purga está pendiente). Rellenar los
+  4. **Antes de publicar:** el **CIF** B42637348 lo ha confirmado el usuario (2026-11-16; el código anterior tenía B53487885); falta contrastarlo con el Registro Mercantil. Retención de `webhook_events` decidida e implementada (30/90 días, `docs/DECISIONS.md`, 2026-11-16). Rellenar los
      `REVISAR` de los legales, revisar los textos con una asesoría y solo entonces `reviewed: true`.
   5. **El usuario fusiona `migration/saas-template` en `master`** y se etiqueta `kindly-v0.2.0`. No fusiono yo en `master`.
 
@@ -1171,7 +1171,7 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
 - **Archivos de la plantilla modificados (a proponer a la plantilla o a vigilar en el próximo merge):**
   - `packages/core/src/modules/identity/account-deletion.ts`: gancho genérico `DeletionRules.memberBlockers` (sin
     dominio) y `DeletionBlockerCode` abierto a códigos del producto.
-  - `apps/web/src/server/api/rate-limit.ts`: `rateLimit` vuelve a respetar `AUTH_RATE_LIMIT_ENABLED=false` (solo lo
+  - ~~`apps/web/src/server/api/rate-limit.ts`: `rateLimit` respeta `AUTH_RATE_LIMIT_ENABLED=false`~~ **Retirado el mismo día** (rompía el test R1.2 de la plantilla): el archivo vuelve a ser idéntico al de la plantilla y el E2E usa `TRUSTED_IP_HEADER=x-e2e-ip` con una IP propia por contexto (`asNewClient` en `e2e/helpers.ts`). Texto original: (solo lo
     pone el E2E); sin ello, el registro por invitación (5/min por IP) salta en la suite.
   - `apps/web/src/server/api/routes/me.ts`: el código del bloqueo es `string`.
   - Specs de la plantilla adaptadas a la ficha de Kindly: `e2e/{a11y,states,feedback,activity,organization-settings}.spec.ts`
@@ -1181,3 +1181,18 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   por la plantilla (`project/TASKS.md`).
 - **Verificado en esta sesión:** `format:check`, `lint`, `typecheck`, `test` (279), `test:integration` (346),
   `db:check` (sin diferencias), `api:generate`, `build` y `test:e2e` (61).
+
+### 2026-11-16 — M13 previo: purga de `webhook_events` (30 días procesados, 90 fallidos)
+
+- **Migración** `20261116100000_webhook_events_retention` (aditiva: políticas, función e índices; no borra datos hasta que corre el
+  job). Hay que aplicarla con `pnpm db:deploy` + `pnpm queue:install` en cada entorno; el worker nuevo registra 18 colas.
+- **Código:** `core/messaging/retention.ts` (`purgeWebhookEventsJob`, `MESSAGING_SCHEDULES`, `purgeExpiredWebhookEvents`),
+  registrado en `ALL_JOBS`/`ALL_SCHEDULES` y en `apps/worker/src/handlers.ts`. Diseño y razones en `docs/DECISIONS.md` (2026-11-16).
+- **Tests:** `packages/core/test/webhook-retention.int.test.ts` (4): plazos 30/90 para procesado, fallido y pendiente; mensajes
+  conservados sin enlace; varias organizaciones; auditoría y segunda ejecución vacía; la función no admite argumentos.
+- **Hallazgo:** Postgres comprueba la fila _nueva_ de un `UPDATE` contra las políticas de lectura, así que la política de
+  `messages` para el propietario deja ver también las filas sin enlace (la función no las lee).
+- **E2E:** `TRUSTED_IP_HEADER=x-e2e-ip` en `playwright.config.ts` y una IPv6 de documentación por contexto de navegador
+  (`asNewClient`, `newPerson`): la cabecera debe ser una IP válida o cae en el cubo compartido.
+- **Verificado:** `format:check`, `lint`, `typecheck`, `test` (279), `test:integration` (350), `db:check` (sin diferencias),
+  `build` y `test:e2e` (61).

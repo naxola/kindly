@@ -777,8 +777,8 @@ infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usua
 
 ### R2 — Datos, cumplimiento y seguridad
 
-- [ ] R2a — **Retención de `webhook_events`**: job que purga los procesados tras N días. **Decidir antes:** N (los legales
-      tienen ese plazo como `REVISAR`).
+- [x] R2a — **Retención de `webhook_events`**: 30 días procesados, 90 fallidos o pendientes; job diario `messaging.purge-webhook-events`
+      (decisión `docs/DECISIONS.md` 2026-11-16, hecho el mismo día). El texto legal de privacidad ya recoge el plazo.
 - [ ] R2b — **Borrado y exportación reales**: casos de uso para eliminar un contacto, un miembro y una organización, y para _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae borrado de cuenta y exportación de datos personales (ADR 0019), con la regla de Kindly de delegado de referencia y canal; faltan contacto, miembro y organización)_
       exportar los datos de una persona (acceso y portabilidad). Hoy los legales prometen 30 días y 72 horas y el proceso es
       manual por correo.

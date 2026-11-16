@@ -60,5 +60,10 @@ export {
   verifyWebhookSubscription,
 } from './webhooks.ts'
 export type { WebhookOutcome, ReceiveDeps, ProcessDeps } from './webhooks.ts'
+export {
+  MESSAGING_SCHEDULES,
+  purgeExpiredWebhookEvents,
+  purgeWebhookEventsJob,
+} from './retention.ts'
 export { FakeMessagingAdapter } from './testing/fake-adapter.ts'
 export type { FakeAdapterOptions } from './testing/fake-adapter.ts'

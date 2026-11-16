@@ -760,6 +760,8 @@ model WebhookEvent {
 
   @@unique([organizationId, id])
   @@index([organizationId, receivedAt])
+  // The retention purge scans every organization by age.
+  @@index([receivedAt])
   @@map("webhook_events")
 }
 
@@ -814,6 +816,8 @@ model Message {
   @@unique([organizationId, id])
   @@unique([messagingAccountId, externalMessageId])
   @@index([organizationId, conversationId, createdAt])
+  // The retention of webhook events unlinks the messages that point at the ones it deletes.
+  @@index([sourceWebhookEventId])
   @@map("messages")
 }
 

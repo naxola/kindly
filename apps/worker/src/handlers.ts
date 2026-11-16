@@ -8,6 +8,8 @@ import {
   providerEventJob,
   purgeAuditLogsJob,
   purgeExpiredAuditLogs,
+  purgeExpiredWebhookEvents,
+  purgeWebhookEventsJob,
   purgeRateLimitsJob,
   billingEmailHandlers,
   accountDeletionEmailJob,
@@ -143,6 +145,14 @@ export const registrations: Registration[] = [
       ({ db }) =>
       async (_payload, { log }) => {
         log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
+      },
+  }),
+  register({
+    job: purgeWebhookEventsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredWebhookEvents(db) }, 'expired webhook events purged')
       },
   }),
   register({

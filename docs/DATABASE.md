@@ -32,8 +32,7 @@
 >
 > **Convenciones:** UUID v7; fechas con zona; claves compuestas con la organización para impedir referencias cruzadas entre tenants
 > (salvo en conocimiento, donde la organización puede ser nula y se usan claves simples); los secretos nunca en la base
-> (`credentials_reference`). Retención: `webhook_events` guarda el cuerpo del mensaje; **retención decidida el 2026-11-16: 30 días los procesados, 90 los fallidos** (la purga aún no está implementada; decisión del
-> usuario antes de producción).
+> (`credentials_reference`). Retención: `webhook_events` guarda el cuerpo del mensaje; **retención decidida el 2026-11-16: 30 días los procesados, 90 los fallidos** (job diario `messaging.purge-webhook-events`; `docs/operations.md`).
 
 
 PostgreSQL + pgvector. Drizzle ORM. Este documento describe el modelo

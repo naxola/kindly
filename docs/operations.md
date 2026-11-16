@@ -129,6 +129,15 @@ Los administradores la ven en Ajustes → Actividad. Cada noche el worker ejecut
 Cada purga deja una entrada `audit.purged` con el recuento. Si la tabla llega a decenas de millones
 de filas, es el momento de particionarla por mes (ADR 0018) para borrar particiones enteras.
 
+## Eventos de webhook: retención
+
+`webhook_events` guarda el cuerpo crudo de cada webhook (teléfonos y texto). Cada noche el worker ejecuta
+`messaging.purge-webhook-events`, que llama a `app.purge_expired_webhook_events()`: borra los eventos **procesados con más de
+30 días** y **todos los de más de 90** (fallidos o nunca procesados; así se pueden reintentar y diagnosticar durante ese
+tiempo). Los mensajes se conservan con su texto y solo pierden el enlace al evento (`source_webhook_event_id` pasa a nulo).
+Los plazos están fijos en la función (cambiarlos es una migración). Cada purga deja una entrada `webhook_events.purged` con el
+recuento. Un evento fallido que se quiera conservar para investigar hay que reintentarlo o copiarlo antes de los 90 días.
+
 ## Métricas (ADR 0008, enmienda)
 
 `web` publica `GET /api/metrics` y el worker `GET /metrics` (en su puerto de salud, 3002), ambos con

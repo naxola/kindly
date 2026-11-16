@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { totp } from '../packages/adapters/test/totp.ts'
-import { adminWithOrganization, closeDb, PASSWORD, press } from './helpers.ts'
+import { adminWithOrganization, closeDb, newPerson, PASSWORD, press } from './helpers.ts'
 
 test.afterAll(closeDb)
 
@@ -70,7 +70,7 @@ test('the open sessions are listed and another device can be signed out from her
   browser,
 }) => {
   const email = await adminWithOrganization(page, 'Sesiones')
-  const other = await (await browser.newContext()).newPage()
+  const other = await newPerson(browser)
   await signIn(other, email)
   await expect(other).toHaveURL(/\/$/)
 

@@ -14,6 +14,9 @@ candidate: la `v1.1.0` final se traerá con otro `git merge` entre fases.
 Detalle y archivos de la plantilla tocados: `project/MIGRATION.md` §8 (2026-11-16). Requiere en cada entorno
 `pnpm db:deploy` + `pnpm queue:install` (10 migraciones nuevas) y revisar las variables nuevas de `.env.example`.
 
+**Purga de `webhook_events` (2026-11-16, R2a):** hecha (30 días procesados, 90 fallidos) con migración `20261116100000`; en cada
+entorno `pnpm db:deploy` + `pnpm queue:install`. Detalle en `project/MIGRATION.md` §8 (2026-11-16, «M13 previo»).
+
 **Después del corte:** fases de robustez R1–R5 planificadas en `project/TASKS.md` («Robustez y profesionalización»),
 sin empezar; varias necesitan una decisión del usuario antes (marcadas «Decidir antes»).
 
