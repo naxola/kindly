@@ -1,5 +1,6 @@
 import { z } from '@hono/zod-openapi'
 import { captureError } from '@saas/adapters/errors'
+import { isDbTimeoutError } from '@saas/config/db-timeouts'
 import { DomainError, isDomainError } from '@saas/core'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
@@ -56,6 +57,15 @@ export function handleError(err: unknown, c: Context<ApiEnv>) {
   // is the caller's mistake, not a failure of ours.
   if (err instanceof z.ZodError) {
     return c.json(errorBody(c, validationError(err.issues)), 400)
+  }
+  // A Postgres time limit was hit (R2.2): the service is overloaded, not the request wrong.
+  if (isDbTimeoutError(err)) {
+    logOf(c).error({ err }, 'database time limit')
+    captureError(err, { correlationId: c.get('correlationId'), tags: { code: 'DB_TIMEOUT' } })
+    return c.json(
+      errorBody(c, new DomainError('SERVICE_UNAVAILABLE', 'Service temporarily unavailable')),
+      503,
+    )
   }
   // Unhandled: logged in detail, reported and answered without leaking internal information.
   logOf(c).error({ err }, 'unhandled error')

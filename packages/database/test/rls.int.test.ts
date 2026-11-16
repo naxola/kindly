@@ -13,8 +13,14 @@ const GLOBAL_TABLES = new Set<string>([
   'auth_sessions',
   'auth_accounts',
   'auth_verifications',
+  // Second factor (ADR 0016): secret and recovery codes of the access account.
+  'auth_two_factors',
   // Business person, shared by all the organizations they belong to (ADR 0003).
   'users',
+  // Request limiter counters (ADR 0015): hashed keys, no tenant data.
+  'rate_limits',
+  // Suppressed addresses (ADR 0017): only hashes, shared by the whole product.
+  'email_suppressions',
 ])
 
 let db: Db

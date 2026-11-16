@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { createMiddleware } from 'hono/factory'
 import { logger } from '../logger.ts'
+import { recordRequest } from '../metrics.ts'
 import type { ApiEnv } from './types.ts'
 
 const CORRELATION_HEADER = 'x-correlation-id'
@@ -18,6 +19,8 @@ export const requestContext = createMiddleware<ApiEnv>(async (c, next) => {
   c.set('log', log)
   const start = performance.now()
   await next()
+  // The route template (`/members/:id`), never the real path.
+  recordRequest(c.req.method, c.req.routePath, c.res.status, (performance.now() - start) / 1000)
   log.info(
     {
       method: c.req.method,

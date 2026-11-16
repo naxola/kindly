@@ -34,6 +34,7 @@ let producer: PgBoss
 let worker: RunningWorker
 
 beforeAll(async () => {
+  process.env.METRICS_TOKEN = 'a-metrics-token-of-16+'
   db = createDb({ connectionString: process.env.DATABASE_URL! })
   // Jobs enqueued by the test files that ran before (API journeys enqueue emails and events)
   // would make the worker chew through a backlog before reaching this file's own jobs: the
@@ -100,7 +101,7 @@ async function untilAsync<T>(read: () => Promise<T | undefined>, timeoutMs = 20_
 
 describe('worker', () => {
   it('consumes every template queue and registers the schedules', async () => {
-    expect(worker.queues).toHaveLength(11)
+    expect(worker.queues).toHaveLength(17)
     const schedules = await worker.boss.getSchedules()
     expect(schedules.map((x) => [x.name, x.cron])).toContainEqual([
       'billing.close-due-periods',
@@ -149,12 +150,61 @@ describe('worker', () => {
   })
 })
 
+describe('worker metrics (R5.4, ADR 0008)', () => {
+  const read = (token?: string) =>
+    fetch(`http://127.0.0.1:${HEALTH_PORT}/metrics`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+
+  it('serves jobs, durations and queue depth only with the token', async () => {
+    expect((await read()).status).toBe(401)
+    expect((await read('wrong-token-wrong-token')).status).toBe(401)
+    const res = await read('a-metrics-token-of-16+')
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    // The earlier test of this file ran an invitation email and its events through the worker.
+    expect(text).toMatch(
+      /worker_jobs_total\{queue="identity\.invitation-email",result="completed"\} [1-9]/,
+    )
+    expect(text).toContain('worker_job_duration_seconds_bucket{')
+    expect(text).toContain('worker_queue_jobs{queue="')
+    expect(text).toContain('worker_queue_oldest_wait_seconds{queue="')
+    expect(text).toContain('process_uptime_seconds')
+    // Labels are queue names and states: no ids or addresses.
+    expect(text).not.toMatch(/@example\.com/)
+  })
+})
+
 describe('worker health', () => {
   it('answers /health and /ready', async () => {
     const health = await fetch(`http://127.0.0.1:${HEALTH_PORT}/health`)
     const ready = await fetch(`http://127.0.0.1:${HEALTH_PORT}/ready`)
     const other = await fetch(`http://127.0.0.1:${HEALTH_PORT}/other`)
     expect([health.status, ready.status, other.status]).toEqual([200, 200, 404])
+  })
+
+  it('alerts about a job that failed for good without its handler running (expired or lost)', async () => {
+    const name = worker.queues[0]!
+    const correlationId = `corr-${newId()}`
+    const id = await producer.send(
+      name,
+      { meta: { organizationId: null, correlationId }, payload: {} },
+      { startAfter: 3600 },
+    )
+    // What pg-boss does when a job expires and no retries are left.
+    await producer
+      .getDb()
+      .executeSql(`UPDATE pgboss.job SET state = 'failed', completed_on = now() WHERE id = $1`, [
+        id,
+      ])
+    await worker.checkQueues()
+    const alert = alerts.find((a) => a.key === `job-failed:${name}`)
+    expect(alert?.severity).toBe('critical')
+    expect(alert?.body).toContain(id!)
+    expect(alert?.body).toContain(correlationId)
+    // The same job is not reported twice by later sweeps.
+    await worker.checkQueues()
+    expect(alerts.filter((a) => a.key === `job-failed:${name}`)).toHaveLength(1)
   })
 
   it('alerts when a queue is not draining', async () => {

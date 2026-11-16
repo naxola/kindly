@@ -8,6 +8,12 @@
 
 Último commit: ver `git log` (este commit incluye el registro; `docs(M0): …`).
 
+**Plantilla `v1.1.0-rc.1` (2026-11-16):** integrada en `migration/saas-template` (rama `chore/template-v1.1.0-rc.1`,
+commit `ebd6084`, fusionada con `--no-ff` por decisión del usuario), con toda la batería en verde. Es una release
+candidate: la `v1.1.0` final se traerá con otro `git merge` entre fases.
+Detalle y archivos de la plantilla tocados: `project/MIGRATION.md` §8 (2026-11-16). Requiere en cada entorno
+`pnpm db:deploy` + `pnpm queue:install` (10 migraciones nuevas) y revisar las variables nuevas de `.env.example`.
+
 **Después del corte:** fases de robustez R1–R5 planificadas en `project/TASKS.md` («Robustez y profesionalización»),
 sin empezar; varias necesitan una decisión del usuario antes (marcadas «Decidir antes»).
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   authEnv,
+  authSecretsOf,
   baseEnv,
   databaseEnv,
   emailEnv,
@@ -37,6 +38,18 @@ describe('parseEnv', () => {
     expect(message).not.toContain('hunter2')
   })
 
+  it('reads the optional database time limits and rejects bad values', () => {
+    const base = { APP_URL: 'http://localhost:3000', DATABASE_URL: 'postgresql://u:p@h:5432/d' }
+    const schema = baseEnv.extend(databaseEnv.shape)
+    expect(parseEnv(schema, base).DB_STATEMENT_TIMEOUT_MS).toBeUndefined()
+    expect(
+      parseEnv(schema, { ...base, DB_STATEMENT_TIMEOUT_MS: '' }).DB_STATEMENT_TIMEOUT_MS,
+    ).toBeUndefined()
+    expect(parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: '2500' }).DB_LOCK_TIMEOUT_MS).toBe(2500)
+    expect(() => parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: '0' })).toThrow(EnvError)
+    expect(() => parseEnv(schema, { ...base, DB_LOCK_TIMEOUT_MS: 'fast' })).toThrow(EnvError)
+  })
+
   it('requires a long auth secret and parses the rate-limit flag', () => {
     expect(() => parseEnv(authEnv, { BETTER_AUTH_SECRET: 'short' })).toThrow(EnvError)
     const env = parseEnv(authEnv, {
@@ -44,6 +57,16 @@ describe('parseEnv', () => {
       AUTH_RATE_LIMIT_ENABLED: 'false',
     })
     expect(env.AUTH_RATE_LIMIT_ENABLED).toBe(false)
+  })
+
+  it('normalizes TRUSTED_IP_HEADER, treats it as optional and rejects non-header values', () => {
+    const base = { BETTER_AUTH_SECRET: 'x'.repeat(32) }
+    expect(parseEnv(authEnv, base).TRUSTED_IP_HEADER).toBeUndefined()
+    expect(parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: '' }).TRUSTED_IP_HEADER).toBeUndefined()
+    expect(
+      parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: 'CF-Connecting-IP' }).TRUSTED_IP_HEADER,
+    ).toBe('cf-connecting-ip')
+    expect(() => parseEnv(authEnv, { ...base, TRUSTED_IP_HEADER: 'a b' })).toThrow(EnvError)
   })
 
   it('validates the email provider by its own fields', () => {
@@ -108,5 +131,44 @@ describe('messaging env', () => {
     expect(() => loadMessagingEnv({ ...complete, APP_ENV: 'production' })).toThrow(
       /not allowed in production/,
     )
+  })
+})
+
+describe('versioned auth secrets (ADR 0016)', () => {
+  const current = 'x'.repeat(32)
+  const old = 'y'.repeat(32)
+  const base = { BETTER_AUTH_SECRET: current }
+
+  it('without a list, BETTER_AUTH_SECRET is version 1', () => {
+    expect(authSecretsOf(parseEnv(authEnv, base))).toEqual([{ version: 1, value: current }])
+  })
+
+  it('parses a rotation list, the first entry being the current one', () => {
+    const env = parseEnv(authEnv, { ...base, BETTER_AUTH_SECRETS: `2:${current},1:${old}` })
+    expect(authSecretsOf(env)).toEqual([
+      { version: 2, value: current },
+      { version: 1, value: old },
+    ])
+  })
+
+  it('rejects short secrets, repeated or invalid versions', () => {
+    for (const bad of ['1:short', `1:${old},1:${current}`, `x:${old}`, `0:${old}`, old]) {
+      expect(() => parseEnv(authEnv, { ...base, BETTER_AUTH_SECRETS: bad })).toThrow(EnvError)
+    }
+  })
+
+  it('never leaks a secret in the error', () => {
+    try {
+      parseEnv(authEnv, { ...base, BETTER_AUTH_SECRETS: `1:${old},1:${current}` })
+    } catch (e) {
+      expect((e as Error).message).not.toContain(old)
+    }
+  })
+
+  it('the breach check is on by default and can be turned off', () => {
+    expect(parseEnv(authEnv, base).PASSWORD_BREACH_CHECK).toBe(true)
+    expect(
+      parseEnv(authEnv, { ...base, PASSWORD_BREACH_CHECK: 'false' }).PASSWORD_BREACH_CHECK,
+    ).toBe(false)
   })
 })

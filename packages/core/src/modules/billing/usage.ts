@@ -42,11 +42,70 @@ export async function usageOf(
   return result
 }
 
+/**
+ * Usage of ONE metric in a period from its running counter (R3.3), the cost of one indexed read
+ * instead of adding every event. A period without a counter yet (usage recorded before counters
+ * existed, or the first record of the period) starts it from the events once. The caller holds the
+ * per-organization, per-metric lock, so nobody else writes this counter meanwhile.
+ */
+async function counterUsage(
+  tx: TenantTx,
+  organizationId: string,
+  metric: MetricDef,
+  period: Period,
+): Promise<Decimal> {
+  const counter = await tx.usageCounter.findUnique({
+    where: {
+      organizationId_metric_periodStart: {
+        organizationId,
+        metric: metric.key,
+        periodStart: period.start,
+      },
+    },
+    select: { value: true },
+  })
+  if (counter) return counter.value
+  return (await usageOf(tx, organizationId, [metric], period)).get(metric.key)!
+}
+
+/** Stores the new running total of a metric in a period. */
+async function saveCounter(
+  tx: TenantTx,
+  organizationId: string,
+  metric: MetricDef,
+  period: Period,
+  value: Decimal,
+) {
+  await tx.usageCounter.upsert({
+    where: {
+      organizationId_metric_periodStart: {
+        organizationId,
+        metric: metric.key,
+        periodStart: period.start,
+      },
+    },
+    create: {
+      organizationId,
+      metric: metric.key,
+      periodStart: period.start,
+      periodEnd: period.end,
+      value,
+    },
+    update: { value },
+  })
+}
+
 export const RecordUsageInput = z.object({
   organizationId: z.uuid(),
   metric: z.string().min(1),
   /** Positive decimal: for `max` metrics, the current sample (e.g. GB stored now). */
-  quantity: z.union([z.number().positive(), z.string().regex(/^\d+(\.\d+)?$/)]),
+  quantity: z.union([
+    z.number().positive(),
+    z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .refine((v) => Number(v) > 0, 'Must be greater than zero'),
+  ]),
   /** One usage per business effect: retries never count twice. */
   idempotencyKey: z.string().min(1).max(200),
   /** Required for `unique` metrics (what is counted once per period). */
@@ -65,7 +124,8 @@ export interface RecordUsageResult {
 /**
  * Records usage inside the transaction of the business effect it measures (ADR 0012). With
  * a hard limit it rejects the effect (QUOTA_EXCEEDED) instead of recording beyond the quota,
- * so the caller's whole transaction rolls back. Serialized per organization and metric.
+ * so the caller's whole transaction rolls back. Serialized per organization and metric; the
+ * running total comes from a counter updated in the same transaction (R3.3).
  */
 export async function recordUsage(
   ctx: BaseCtx,
@@ -86,7 +146,7 @@ export async function recordUsage(
 
   const state = await billingStateOf(tx, data.organizationId, occurredAt, catalog)
   const quota = state.plan.quotas[metric.key]!
-  const used = (await usageOf(tx, data.organizationId, [metric], state.period)).get(metric.key)!
+  const used = await counterUsage(tx, data.organizationId, metric, state.period)
 
   const duplicate = await tx.usageEvent.findUnique({
     where: {
@@ -98,6 +158,24 @@ export async function recordUsage(
     select: { id: true },
   })
   if (duplicate) return { recorded: false, used, quota }
+
+  // Usage of a period that is already closed would never be billed: refuse it instead of
+  // recording it silently (ADR 0014). Only the subscription's own periods are closed.
+  if (state.subscriptionId) {
+    const closedPeriod = await tx.billingPeriod.findFirst({
+      where: {
+        subscriptionId: state.subscriptionId,
+        periodStart: { lte: occurredAt },
+        periodEnd: { gt: occurredAt },
+      },
+      select: { id: true },
+    })
+    if (closedPeriod) {
+      throw new DomainError('CONFLICT', 'The billing period of this usage is already closed', [
+        { code: 'PERIOD_CLOSED', path: metric.key },
+      ])
+    }
+  }
 
   let next: Decimal
   if (metric.aggregation === 'sum') next = used.plus(quantity)
@@ -147,6 +225,7 @@ export async function recordUsage(
       idempotencyKey: data.idempotencyKey,
     },
   })
+  await saveCounter(tx, data.organizationId, metric, state.period, next)
 
   if (quota.included !== null && new Decimal(quota.included).gt(0)) {
     const included = new Decimal(quota.included)

@@ -1,47 +1,92 @@
+import { consumeRateLimit, rateLimitKey } from '@saas/adapters/rate-limit'
+import { captureError } from '@saas/adapters/errors'
 import { DomainError } from '@saas/core'
+import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
+import { db } from '../db.ts'
 import { env } from '../env.ts'
 import type { ApiEnv } from './types.ts'
 
-interface Bucket {
-  count: number
-  resetAt: number
+/**
+ * Fixed-window rate limiter per key, stored in Postgres (ADR 0015): the counters survive a
+ * restart and are shared by every replica. Answers 429 with `Retry-After`.
+ *
+ * If the store fails the request goes through (fail-open, decided in ADR 0015): a broken
+ * limiter must not take the API down. The access endpoints (`/api/auth/*`) use the same store
+ * through Better Auth and fail closed there.
+ */
+export async function enforceRateLimit(
+  c: Context<ApiEnv>,
+  {
+    scope,
+    key,
+    limit,
+    windowSeconds,
+  }: {
+    /** Separates limits that share a key (e.g. `api` and `invitations`). */
+    scope: string
+    key: string
+    limit: number
+    windowSeconds: number
+  },
+) {
+  let result
+  try {
+    result = await consumeRateLimit(db(), rateLimitKey(scope, key), { max: limit, windowSeconds })
+  } catch (err) {
+    const log = c.get('log') as ApiEnv['Variables']['log'] | undefined
+    log?.error({ err, scope }, 'rate limiter unavailable: request allowed')
+    captureError(err, { correlationId: c.get('correlationId'), tags: { layer: 'rate-limit' } })
+    return
+  }
+  if (!result.allowed) {
+    c.header('retry-after', String(result.retryAfterSeconds))
+    throw new DomainError('RATE_LIMITED', 'Too many requests')
+  }
 }
 
 /**
- * Fixed-window rate limiter per key, in process memory (a single web instance). With
- * several replicas it must move to Postgres or a shared store. Answers 429.
- *
- * `AUTH_RATE_LIMIT_ENABLED=false` (only the end-to-end tests set it) turns it off, like the ones of
- * Better Auth: a suite that signs several people up in a minute would otherwise trip the limit of
- * the invitation endpoints.
+ * Kindly: `AUTH_RATE_LIMIT_ENABLED=false` (only the end-to-end tests set it) turns these
+ * per-route limits off, like the ones of Better Auth: a suite that signs many invited people up
+ * from one address in a minute would otherwise trip the limit of the invitation endpoints.
  */
 export function rateLimit(opts: {
+  scope: string
   limit: number
   windowMs: number
-  /** Keys to limit; `null` ones (e.g. unknown IP) are skipped. */
-  keys: (c: Parameters<Parameters<typeof createMiddleware<ApiEnv>>[0]>[0]) => (string | null)[]
+  /** Keys to limit; `null` ones are skipped. Unknown IPs must map to a shared key, not `null`. */
+  keys: (c: Context<ApiEnv>) => (string | null)[]
 }) {
-  const buckets = new Map<string, Bucket>()
   return createMiddleware<ApiEnv>(async (c, next) => {
     if (!env().AUTH_RATE_LIMIT_ENABLED) return next()
-    const now = Date.now()
-    if (buckets.size > 10_000) {
-      for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k)
-    }
     for (const key of opts.keys(c)) {
       if (!key) continue
-      let b = buckets.get(key)
-      if (!b || b.resetAt <= now) {
-        b = { count: 0, resetAt: now + opts.windowMs }
-        buckets.set(key, b)
-      }
-      b.count += 1
-      if (b.count > opts.limit) {
-        c.header('retry-after', String(Math.ceil((b.resetAt - now) / 1000)))
-        throw new DomainError('RATE_LIMITED', 'Too many requests')
-      }
+      await enforceRateLimit(c, {
+        scope: opts.scope,
+        key,
+        limit: opts.limit,
+        windowSeconds: Math.ceil(opts.windowMs / 1000),
+      })
     }
     await next()
   })
 }
+
+/** SUPUESTO (ADR 0015): requests per minute of one signed-in person across `/api/v1`. */
+export const SESSION_LIMIT_PER_MINUTE = 300
+/** SUPUESTO (ADR 0015): invitations (new or resent) an organization may send per day. */
+export const INVITATIONS_PER_ORGANIZATION_PER_DAY = 50
+
+/** General limit of `/api/v1` per signed-in person. Anonymous requests have their own limits. */
+export const sessionLimit = createMiddleware<ApiEnv>(async (c, next) => {
+  const access = c.get('access')
+  if (access) {
+    await enforceRateLimit(c, {
+      scope: 'api',
+      key: access.authUserId,
+      limit: SESSION_LIMIT_PER_MINUTE,
+      windowSeconds: 60,
+    })
+  }
+  await next()
+})

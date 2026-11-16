@@ -1,0 +1,88 @@
+// Renovate (R5.1, ADR 0009 amended, decision D9). It only opens pull requests against `staging`:
+// nothing merges by itself and every update goes through the usual CI and a human review.
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
+  baseBranchPatterns: ['staging'],
+  timezone: 'Europe/Madrid',
+  // One run a week, early on Monday, so a week's updates arrive together.
+  schedule: ['before 6am on monday'],
+  labels: ['dependencies'],
+  dependencyDashboard: true,
+  automerge: false,
+  // Exact versions (`save-exact=true`, ADR 0009): never ranges.
+  rangeStrategy: 'pin',
+  // ADR 0009: «stable and published at least 14 days ago».
+  minimumReleaseAge: '14 days',
+  internalChecksFilter: 'strict',
+  prConcurrentLimit: 6,
+  // Security fixes skip the schedule and the 14 days (Renovate's default for alerts): a critical or
+  // high fix wins over the age rule, as ADR 0009 says.
+  vulnerabilityAlerts: { labels: ['dependencies', 'security'] },
+  packageRules: [
+    // D9: patches and minors together, majors one at a time (each needs its own reading).
+    {
+      description: 'Patches and minors of npm packages in one pull request',
+      matchManagers: ['npm'],
+      matchUpdateTypes: ['patch', 'minor'],
+      groupName: 'npm patches and minors',
+    },
+    {
+      description: 'Patches and minors of GitHub Actions and base images in one pull request',
+      matchManagers: ['github-actions', 'dockerfile', 'docker-compose', 'custom.regex'],
+      matchUpdateTypes: ['patch', 'minor', 'digest', 'pin', 'pinDigest'],
+      groupName: 'CI and image updates',
+    },
+    {
+      description: 'Majors one by one, flagged',
+      matchUpdateTypes: ['major'],
+      addLabels: ['major'],
+    },
+    {
+      description: 'Packages that must move together, even on a major',
+      matchPackageNames: ['prisma', '@prisma/client', '@prisma/adapter-pg'],
+      groupName: 'prisma',
+    },
+    {
+      description: 'Node: .node-version, Dockerfile and CI always agree, and stay on the 24 LTS line',
+      matchPackageNames: ['node'],
+      groupName: 'node',
+      allowedVersions: '/^24\\./',
+    },
+    {
+      description: 'pnpm: package.json and the Dockerfile always agree',
+      matchPackageNames: ['pnpm'],
+      groupName: 'pnpm',
+    },
+    {
+      description: 'A major Postgres is a database upgrade (an operation), not a dependency bump',
+      matchPackageNames: ['postgres'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
+    {
+      description: '`engines.node` is a range the template manages by hand with .node-version',
+      matchDepTypes: ['engines'],
+      enabled: false,
+    },
+  ],
+  customManagers: [
+    {
+      description: 'Trivy image of the CI scan (tag and digest)',
+      customType: 'regex',
+      managerFilePatterns: ['/^\\.github/workflows/.+\\.ya?ml$/'],
+      matchStrings: [
+        'TRIVY_IMAGE: (?<depName>[^:\\s@]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',
+      ],
+      datasourceTemplate: 'docker',
+    },
+    {
+      description: 'pnpm version in the Dockerfile (corepack prepare)',
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)Dockerfile$/'],
+      matchStrings: ['corepack prepare pnpm@(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'pnpm',
+      datasourceTemplate: 'npm',
+    },
+  ],
+}

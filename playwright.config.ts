@@ -47,6 +47,9 @@ export default defineConfig({
         E2E_FAKE_MESSAGING_SECRET: 'e2e-fake-secret',
         // Deterministic embeddings so search works without OpenAI (refused in production).
         E2E_FAKE_EMBEDDINGS: 'true',
+        PASSWORD_BREACH_CHECK: 'false',
+        // Browser errors go to a local port that the E2E intercepts (e2e/browser-errors.spec.ts).
+        SENTRY_BROWSER_DSN: 'http://e2ekey@localhost:3199/1',
         LOG_LEVEL: 'warn',
       },
     },

@@ -4007,3 +4007,21 @@ identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.
 3. **Lectura para todos, escritura solo ADMIN**: el delegado necesita ver qué documentos faltan por pedir.
 4. **Solo la definición**: ni archivos de afiliados ni su estado por documento (eso es la UI-10c, no aquí).
    Sin `activities`: no hay línea de tiempo de un trámite; basta la auditoría de seguridad.
+
+## 2026-11-16 — Borrado de cuenta: bloqueado mientras otros dependan de la persona (plantilla v1.1.0-rc.1)
+
+**Problema.** La plantilla `v1.1.0-rc.1` añade el borrado de cuenta (ADR 0019): a los 14 días la persona se anonimiza
+y deja sus organizaciones. En Kindly eso dejaría afiliados sin delegado de referencia y canales de WhatsApp/Telegram
+conectados a nombre de nadie.
+
+**Alternativas.** (a) Reasignar automáticamente a un ADMIN al ejecutar el borrado; (b) dejar los afiliados sin
+delegado; (c) bloquear el borrado hasta que alguien reasigne y desconecte.
+
+**Decisión (aceptada por el usuario).** (c). La cuenta no se puede borrar mientras la persona sea delegado de
+referencia de algún afiliado (`REFERENCE_DELEGATE`) o tenga un canal sin desconectar (`CHANNEL_CONNECTED`). Se
+comprueba al solicitarlo y de nuevo al ejecutarlo: si la condición aparece durante el plazo, el borrado se cancela en
+vez de ejecutarse.
+
+**Impacto.** `identity` gana un gancho genérico sin dominio (`DeletionRules.memberBlockers`) y la regla vive en
+`core/team` (`kindlyDeletionRules`), pasada por la ruta `me` y por el job diario. El gancho es un cambio sobre un
+archivo de la plantilla: se propondrá allí. La integración de la rc se fusionó en `migration/saas-template` el mismo día, por decisión del usuario.

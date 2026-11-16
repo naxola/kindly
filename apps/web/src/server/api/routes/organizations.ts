@@ -1,18 +1,28 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import {
+  archiveOrganization,
   createOrganizationWithTeam,
   CreateOrganizationInput,
   ensureUser,
+  leaveOrganization,
   resolveActor,
+  updateOrganization,
 } from '@saas/core'
+import { deleteCookie } from 'hono/cookie'
 import { cookieAuth, errorResponses } from '../openapi.ts'
-import { accessCtx, actorCtx, setActiveOrganization, userCtx } from '../session.ts'
+import {
+  accessCtx,
+  ACTIVE_ORG_COOKIE,
+  actorCtx,
+  setActiveOrganization,
+  userCtx,
+} from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json, OrganizationSchema, Role } from './schemas.ts'
 
 const CurrentSchema = z
   .object({
-    organization: OrganizationSchema,
+    organization: OrganizationSchema.extend({ defaultLocale: z.enum(['es', 'en']) }),
     member: z.object({ id: z.uuid(), role: Role, permissions: z.array(z.string()) }),
   })
   .openapi('CurrentOrganization')
@@ -52,6 +62,51 @@ const current = createRoute({
   },
 })
 
+const update = createRoute({
+  method: 'patch',
+  path: '/organization',
+  tags: ['organization'],
+  summary: 'Rename the active organization or change its default language (ADMIN)',
+  security: cookieAuth,
+  request: {
+    body: {
+      required: true,
+      ...json(
+        z.object({
+          name: z.string().trim().min(2).max(120).optional(),
+          defaultLocale: z.enum(['es', 'en']).optional(),
+        }),
+      ),
+    },
+  },
+  responses: {
+    200: {
+      description: 'Updated',
+      ...json(OrganizationSchema.extend({ defaultLocale: z.enum(['es', 'en']) })),
+    },
+    ...errorResponses(400, 401, 403, 404),
+  },
+})
+
+const archive = createRoute({
+  method: 'post',
+  path: '/organization/archive',
+  tags: ['organization'],
+  summary: 'Archive the active organization; its exact name must be typed (ADMIN)',
+  security: cookieAuth,
+  request: { body: { required: true, ...json(z.object({ confirmName: z.string() })) } },
+  responses: { 204: { description: 'Archived' }, ...errorResponses(400, 401, 403, 404) },
+})
+
+const leave = createRoute({
+  method: 'post',
+  path: '/me/organization/leave',
+  tags: ['organization'],
+  summary: 'Leave the active organization (the last active ADMIN cannot)',
+  security: cookieAuth,
+  responses: { 204: { description: 'Left' }, ...errorResponses(401, 403, 404, 409) },
+})
+
 export const organizationRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(create, async (c) => {
     const ctx = await accessCtx(c)
@@ -76,7 +131,12 @@ export const organizationRoutes = new OpenAPIHono<ApiEnv>()
     })
     return c.json(
       {
-        organization: { id: organization.id, name: organization.name, slug: organization.slug },
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          defaultLocale: organization.defaultLocale === 'en' ? ('en' as const) : ('es' as const),
+        },
         member: {
           id: ctx.actor.memberId,
           role: ctx.actor.role,
@@ -85,4 +145,26 @@ export const organizationRoutes = new OpenAPIHono<ApiEnv>()
       },
       200,
     )
+  })
+  .openapi(update, async (c) => {
+    const organization = await updateOrganization(await actorCtx(c), c.req.valid('json'))
+    return c.json(
+      {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        defaultLocale: organization.defaultLocale === 'en' ? ('en' as const) : ('es' as const),
+      },
+      200,
+    )
+  })
+  .openapi(archive, async (c) => {
+    await archiveOrganization(await actorCtx(c), c.req.valid('json'))
+    deleteCookie(c, ACTIVE_ORG_COOKIE, { path: '/' })
+    return c.body(null, 204)
+  })
+  .openapi(leave, async (c) => {
+    await leaveOrganization(await actorCtx(c))
+    deleteCookie(c, ACTIVE_ORG_COOKIE, { path: '/' })
+    return c.body(null, 204)
   })

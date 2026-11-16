@@ -7,14 +7,14 @@
 Se toma la **combinación ya probada en procurement** (ADR 0013 de procurement,
 fijada el 2026-10-17 con el criterio «estable y publicada hace al menos 14 días»).
 Funciona en conjunto y lleva semanas en uso. Versiones exactas (`save-exact=true`);
-las actualizaciones se hacen a mano y revisadas, nunca automáticas.
+las actualizaciones siempre se revisan (ver la enmienda del final: Renovate propone, nunca fusiona).
 
 ## Runtime e infraestructura
 
 | Componente | Versión                                  |
 | ---------- | ---------------------------------------- |
 | Node.js    | 24.21.0 LTS (`.node-version`, `engines`) |
-| pnpm       | 10.34.6 (corepack, `packageManager`)     |
+| pnpm       | 12.21.0 (corepack, `packageManager`)     |
 | PostgreSQL | 18.6 (`postgres:18.6-trixie`) en Docker  |
 
 ## Dependencias de la fase 1
@@ -89,6 +89,40 @@ ejecución. La corrección exige `glob` 14 y `minimatch` 11 (versión mayor, pub
 con avisos altos o críticos.
 
 Las fases siguientes añaden sus dependencias con el mismo criterio.
+
+## Excepciones del escaneo de imágenes
+
+Las excepciones aceptadas viven en `.trivyignore.yaml`, cada una acotada a su fichero, con su
+motivo y una **fecha de caducidad**: al vencer, el escaneo vuelve a fallar y se revisa.
+
+- **CVE-2025-68121** (crítica, `crypto/tls` de Go) en `usr/local/bin/gosu` de la imagen oficial
+  `postgres:18.6-trixie`. `gosu` solo cambia de usuario al arrancar el contenedor y no abre
+  conexiones TLS. Aceptada por el usuario el 2026-11-14, **caduca el 2026-12-14**. Salida prevista:
+  subir a `postgres:18.7-trixie` cuando cumpla 14 días (2026-11-26) y comprobar que trae `gosu`
+  recompilado.
+
+## Enmienda (2026-11-14): actualizaciones con Renovate
+
+Decisión D9 del usuario. `.github/renovate.json5` hace que Renovate **abra pull requests contra
+`staging`**; nunca fusiona (`automerge: false`) y cada actualización pasa por el CI y por revisión.
+
+- **Cuándo:** una ejecución semanal, el lunes antes de las 6:00 (Europa/Madrid).
+- **Cómo se agrupan:** parches y menores de npm en un solo PR; acciones de GitHub e imágenes base
+  en otro; **cada mayor en su propio PR**, con la etiqueta `major`. Prisma (`prisma`,
+  `@prisma/client`, `@prisma/adapter-pg`), Node (`.node-version`, `Dockerfile`) y pnpm
+  (`packageManager`, `Dockerfile`) se mueven siempre juntos.
+- **La regla de los 14 días se mantiene:** `minimumReleaseAge: 14 days`. Los avisos de seguridad
+  se saltan el calendario y esa espera, como ya fijaba el criterio de la fase 4a.
+- **Versiones exactas:** `rangeStrategy: pin` (coherente con `save-exact=true`); las acciones de
+  GitHub siguen fijadas por hash y se actualizan con él.
+- **Límites deliberados:** Node se queda en la línea 24 LTS (un salto de mayor es decisión
+  humana); un Postgres mayor no se propone (es una operación de base de datos, no un bump);
+  `engines.node` se gestiona a mano con `.node-version`.
+- **Cubre también** la imagen de Trivy del CI (etiqueta y digest) y la versión de pnpm del
+  `Dockerfile`, que Renovate no reconoce por sí solo (gestores `regex`).
+- **Para activarlo** hay que instalar la app de GitHub de Renovate en el repositorio
+  (https://github.com/apps/renovate); sin ella el fichero no hace nada. Los avisos de seguridad
+  de Renovate requieren además tener activadas las alertas de Dependabot del repositorio.
 
 ## Desviación respecto a procurement
 

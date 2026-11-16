@@ -1149,3 +1149,35 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   4. **Antes de publicar:** contrastar el **NIF** (B42637348 frente al B53487885 del código anterior) con el Registro Mercantil, rellenar los
      `REVISAR` de los legales, definir la **retención de `webhook_events`**, revisar los textos con una asesoría y solo entonces `reviewed: true`.
   5. **El usuario fusiona `migration/saas-template` en `master`** y se etiqueta `kindly-v0.2.0`. No fusiono yo en `master`.
+
+### 2026-11-16 — Plantilla `v1.1.0-rc.1` (rama `chore/template-v1.1.0-rc.1`, fusionada en la de integración)
+
+`git merge --no-ff v1.1.0-rc.1` desde `migration/saas-template`. Es una release candidate; el usuario decidió el mismo día fusionarla ya en `migration/saas-template` (`--no-ff`). La `v1.1.0` final se traerá con otro `git merge`.
+
+- **Qué trae la plantilla:** limitador de peticiones en Postgres (ADR 0015), cabeceras de seguridad y CSP, segundo
+  factor y contraseñas filtradas (ADR 0016), lista de supresión de correo (ADR 0017), lectura de la auditoría
+  (ADR 0018), borrado de cuenta con plazo de 14 días y exportación (ADR 0019), métricas, tiempos límite de la base de
+  datos, estados de carga/error/vacío en la interfaz, pnpm 12 y 10 migraciones (`20261114…`–`20261115…`).
+- **Conflictos (25):** unión de ambos lados en `package.json`, `.env.example`, CI, `playwright.config.ts`,
+  `CLAUDE.md`, índices de `core` y `database`, `app.ts`, `errors.ts`, esquema Prisma, handlers y worker; `pnpm-lock.yaml`
+  regenerado; mensajes `es`/`en` con fusión a tres bandas; `members.tsx`, `invitations.ts` y `organizations.ts` con la
+  versión de la plantilla más la ficha, el cargo y los hooks de Kindly.
+- **Ajustes de Kindly:** el tipo `ActivityEntry` del módulo `activity` pasa a `TimelineEntry` (la plantilla exporta
+  otro con ese nombre desde `identity`); los límites de `conversations.ts` llevan `scope` (`messages.send`,
+  `messages.typing`); el worker registra 17 colas.
+- **Regla nueva (decisión del usuario, `docs/DECISIONS.md` 2026-11-16):** no se puede borrar la cuenta mientras la
+  persona sea delegado de referencia de algún afiliado o tenga un canal conectado (`kindlyDeletionRules` en
+  `core/team`; se comprueba al pedirlo y otra vez al ejecutarlo).
+- **Archivos de la plantilla modificados (a proponer a la plantilla o a vigilar en el próximo merge):**
+  - `packages/core/src/modules/identity/account-deletion.ts`: gancho genérico `DeletionRules.memberBlockers` (sin
+    dominio) y `DeletionBlockerCode` abierto a códigos del producto.
+  - `apps/web/src/server/api/rate-limit.ts`: `rateLimit` vuelve a respetar `AUTH_RATE_LIMIT_ENABLED=false` (solo lo
+    pone el E2E); sin ello, el registro por invitación (5/min por IP) salta en la suite.
+  - `apps/web/src/server/api/routes/me.ts`: el código del bloqueo es `string`.
+  - Specs de la plantilla adaptadas a la ficha de Kindly: `e2e/{a11y,states,feedback,activity,organization-settings}.spec.ts`
+    (celda del nombre con `.first()`, nombre obligatorio en la invitación) y `apps/web/test/organizations.int.test.ts`.
+- **Pendiente de revisar:** hay dos specs de accesibilidad (`e2e/a11y.spec.ts` de la plantilla y
+  `e2e/accessibility.spec.ts` de M11); pasan las dos, conviene unificarlas. Las fases R2d, R2e y R4d quedan cubiertas
+  por la plantilla (`project/TASKS.md`).
+- **Verificado en esta sesión:** `format:check`, `lint`, `typecheck`, `test` (279), `test:integration` (346),
+  `db:check` (sin diferencias), `api:generate`, `build` y `test:e2e` (61).

@@ -24,7 +24,8 @@
 
   --foreground: #171717;
   --foreground-light: #525252;
-  --foreground-lighter: #737373;
+  /* 4.5:1 or more on every light surface (WCAG AA); #737373 reached only 4.42 on #f7f7f7. */
+  --foreground-lighter: #6b6b6b;
   --foreground-muted: #a3a3a3;
 
   --brand: #3b5bdb;
@@ -33,6 +34,8 @@
   --brand-subtle: #e8edfc;
 
   --destructive: #d93f2e;
+  /* Background of a solid destructive button: white text on it reaches 4.5:1 (WCAG AA). */
+  --destructive-solid: #d03a28;
   --destructive-subtle: #fdecea;
   --warning: #b86b00;
   --warning-subtle: #fdf3e2;
@@ -69,6 +72,7 @@
   --brand-subtle: #1c2340;
 
   --destructive: #ef6a57;
+  --destructive-solid: #c9402e;
   --destructive-subtle: #3a1a16;
   --warning: #e6a23c;
   --warning-subtle: #33240f;
@@ -104,6 +108,7 @@
   --color-brand-subtle: var(--brand-subtle);
 
   --color-destructive: var(--destructive);
+  --color-destructive-solid: var(--destructive-solid);
   --color-destructive-subtle: var(--destructive-subtle);
   --color-warning: var(--warning);
   --color-warning-subtle: var(--warning-subtle);

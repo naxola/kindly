@@ -113,6 +113,43 @@ describe('Paddle events', () => {
 })
 
 describe('Paddle API calls', () => {
+  it('creates the checkout transaction on the server, bound to the organization (R1.4)', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('{"data":{"id":"txn_01abc","status":"draft"}}', { status: 201 }),
+      )
+    const session = await new PaddlePaymentProvider(config, fetch).checkout({
+      priceId: 'pri_pro',
+      organizationId: '0192f4a0-0000-7000-8000-000000000001',
+    })
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('https://sandbox-api.paddle.com/transactions')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({
+      items: [{ price_id: 'pri_pro', quantity: 1 }],
+      custom_data: { organizationId: '0192f4a0-0000-7000-8000-000000000001' },
+      collection_mode: 'automatic',
+    })
+    // The browser gets the transaction and the public token, never the organization to claim.
+    expect(session).toEqual({
+      provider: 'paddle',
+      environment: 'sandbox',
+      clientToken: 'test_client_token',
+      transactionId: 'txn_01abc',
+    })
+  })
+
+  it('rejects a Paddle answer without a transaction id', async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response('{"data":{}}', { status: 201 }))
+    await expect(
+      new PaddlePaymentProvider(config, fetch).checkout({
+        priceId: 'pri_pro',
+        organizationId: 'o',
+      }),
+    ).rejects.toThrow('without id')
+  })
+
   it('charges the overage as a non-catalog price in minor units', async () => {
     const fetch = vi.fn().mockResolvedValue(new Response('{"data":{}}', { status: 201 }))
     await new PaddlePaymentProvider(config, fetch).chargeOverage({

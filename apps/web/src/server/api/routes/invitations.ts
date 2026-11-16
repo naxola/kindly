@@ -7,12 +7,17 @@ import {
   getInvitationByToken,
   inviteMember,
   listTeamInvitations,
+  isDomainError,
+  resendInvitation,
   revokeInvitation,
 } from '@saas/core'
-import { auth } from '../../auth.ts'
+import { captureError } from '@saas/adapters/errors'
+import type { Context } from 'hono'
+import { clientKey } from '@saas/config/client-ip'
+import { auth, passwordBreachCheck } from '../../auth.ts'
 import { cookieAuth, errorResponses, IdParam } from '../openapi.ts'
-import { rateLimit } from '../rate-limit.ts'
-import { accessCtx, actorCtx, baseCtx, setActiveOrganization } from '../session.ts'
+import { enforceRateLimit, INVITATIONS_PER_ORGANIZATION_PER_DAY, rateLimit } from '../rate-limit.ts'
+import { accessCtx, actorCtx, baseCtx, requestIp, setActiveOrganization } from '../session.ts'
 import type { ApiEnv } from '../types.ts'
 import { json, Role } from './schemas.ts'
 
@@ -80,7 +85,7 @@ const create = createRoute({
   request: { body: { required: true, ...json(InviteBody) } },
   responses: {
     201: { description: 'Created', ...json(InvitationSchema) },
-    ...errorResponses(400, 401, 403, 409),
+    ...errorResponses(400, 401, 403, 409, 429),
   },
 })
 
@@ -94,18 +99,33 @@ const revoke = createRoute({
   responses: { 204: { description: 'Revoked' }, ...errorResponses(401, 403, 404) },
 })
 
+const resend = createRoute({
+  method: 'post',
+  path: '/invitations/{id}/resend',
+  tags: ['invitations'],
+  summary: 'Send a pending invitation again with a new link (the old one stops working)',
+  security: cookieAuth,
+  request: { params: IdParam },
+  responses: {
+    200: { description: 'Sent', ...json(InvitationSchema) },
+    ...errorResponses(401, 403, 404),
+  },
+})
+
 // The preview is public: limit guessing attempts per IP (tokens are 256-bit, this is hygiene).
 const previewLimit = rateLimit({
+  scope: 'invitation-preview',
   limit: 30,
   windowMs: 60_000,
-  keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
+  keys: (c) => [clientKey(requestIp(c))],
 })
 
 // Creating accounts from a public endpoint: stricter per-IP limit.
 const registerLimit = rateLimit({
+  scope: 'invitation-register',
   limit: 5,
   windowMs: 60_000,
-  keys: (c) => [c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null],
+  keys: (c) => [clientKey(requestIp(c))],
 })
 
 const preview = createRoute({
@@ -168,6 +188,18 @@ const toJson = (i: {
   profile: i.profile,
 })
 
+/**
+ * Daily cap of emails an organization can make the product send to arbitrary addresses
+ * (ADR 0015). New invitations and resends count the same: each one is an email.
+ */
+const invitationCap = (c: Context<ApiEnv>, organizationId: string) =>
+  enforceRateLimit(c, {
+    scope: 'invitations',
+    key: organizationId,
+    limit: INVITATIONS_PER_ORGANIZATION_PER_DAY,
+    windowSeconds: 86_400,
+  })
+
 export const invitationRoutes = new OpenAPIHono<ApiEnv>()
   .openapi(list, async (c) => {
     const items = await listTeamInvitations(await actorCtx(c))
@@ -175,10 +207,19 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
   })
   .openapi(create, async (c) => {
     const ctx = await actorCtx(c)
+    await invitationCap(c, ctx.actor.organizationId)
     const input = c.req.valid('json')
     const { invitation } = await inviteMember(ctx, input)
     const [created] = (await listTeamInvitations(ctx)).filter((i) => i.id === invitation.id)
     return c.json(toJson(created ?? { ...invitation, profile: null }), 201)
+  })
+  .openapi(resend, async (c) => {
+    const ctx = await actorCtx(c)
+    await invitationCap(c, ctx.actor.organizationId)
+    const { invitation } = await resendInvitation(ctx, c.req.valid('param').id)
+    // With the profile (name, position) the invitation was created with.
+    const [sent] = (await listTeamInvitations(ctx)).filter((i) => i.id === invitation.id)
+    return c.json(toJson(sent ?? { ...invitation, profile: null }), 200)
   })
   .openapi(revoke, async (c) => {
     await revokeInvitation(await actorCtx(c), c.req.valid('param').id)
@@ -209,7 +250,11 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
         { code: `INVITATION_${view.status}` },
       ])
     }
-    const created = await createInvitedAccount(auth(), { email: view.email, name, password })
+    const created = await createInvitedAccount(
+      auth(),
+      { email: view.email, name, password },
+      { passwordBreachCheck: passwordBreachCheck() },
+    )
     if (!created.ok) {
       throw new DomainError(
         created.code === 'USER_ALREADY_EXISTS' ? 'CONFLICT' : 'VALIDATION_FAILED',
@@ -222,17 +267,32 @@ export const invitationRoutes = new OpenAPIHono<ApiEnv>()
         ],
       )
     }
-    // Signed in straight away: the session cookie goes back with this answer.
-    const signIn = await auth().api.signInEmail({
-      body: { email: view.email, password },
-      returnHeaders: true,
-    })
-    for (const cookie of signIn.headers.getSetCookie())
-      c.header('set-cookie', cookie, { append: true })
-    const user = await ensureUser(ctx, created.authUserId)
-    const member = await acceptInvitationWithProfile(ctx, { token, userId: user.id })
-    setActiveOrganization(c, member.organizationId)
-    return c.json({ organizationId: member.organizationId }, 201)
+    // The account now exists, and Better Auth cannot share a transaction with the business
+    // tables. If any later step fails there is no way back, so the answer says so and the
+    // screen offers "sign in and join" instead of leaving the person with an unexplained error.
+    try {
+      // Signed in straight away: the session cookie goes back with this answer.
+      const signIn = await auth().api.signInEmail({
+        body: { email: view.email, password },
+        returnHeaders: true,
+      })
+      for (const cookie of signIn.headers.getSetCookie())
+        c.header('set-cookie', cookie, { append: true })
+      const user = await ensureUser(ctx, created.authUserId)
+      const member = await acceptInvitationWithProfile(ctx, { token, userId: user.id })
+      setActiveOrganization(c, member.organizationId)
+      return c.json({ organizationId: member.organizationId }, 201)
+    } catch (error) {
+      if (!isDomainError(error)) {
+        captureError(error, {
+          correlationId: c.get('correlationId'),
+          tags: { route: 'invitations/register' },
+        })
+      }
+      throw new DomainError('CONFLICT', 'Account created, but joining the organization failed', [
+        { code: 'ACCOUNT_CREATED_JOIN_FAILED' },
+      ])
+    }
   })
   .openapi(accept, async (c) => {
     const ctx = await accessCtx(c)

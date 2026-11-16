@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg'
+import { DEFAULT_DB_TIMEOUTS, dbTimeoutOptions, type DbTimeouts } from '@saas/config/db-timeouts'
 import { validate as isUuid } from 'uuid'
 import { PrismaClient, type Prisma } from './generated/prisma/client.ts'
 
@@ -10,10 +11,16 @@ export interface CreateDbOptions {
   connectionString: string
   /** Maximum size of the pg pool. */
   max?: number
+  /** Postgres time limits of every connection (R2.2). Defaults to `DEFAULT_DB_TIMEOUTS`. */
+  timeouts?: Partial<DbTimeouts>
 }
 
-export function createDb({ connectionString, max = 10 }: CreateDbOptions): Db {
-  const adapter = new PrismaPg({ connectionString, max })
+export function createDb({ connectionString, max = 10, timeouts }: CreateDbOptions): Db {
+  const adapter = new PrismaPg({
+    connectionString,
+    max,
+    options: dbTimeoutOptions({ ...DEFAULT_DB_TIMEOUTS, ...timeouts }),
+  })
   return new PrismaClient({ adapter })
 }
 

@@ -106,9 +106,19 @@ const DetailSchema = z
 const conversationKey = (c: { req: { param: (name: string) => string | undefined } }) => [
   c.req.param('id') ?? null,
 ]
-const sendLimit = rateLimit({ limit: 30, windowMs: 60_000, keys: conversationKey })
+const sendLimit = rateLimit({
+  scope: 'messages.send',
+  limit: 30,
+  windowMs: 60_000,
+  keys: conversationKey,
+})
 // The composer asks at most once every 20 s; this only stops a misbehaving client.
-const typingLimit = rateLimit({ limit: 12, windowMs: 60_000, keys: conversationKey })
+const typingLimit = rateLimit({
+  scope: 'messages.typing',
+  limit: 12,
+  windowMs: 60_000,
+  keys: conversationKey,
+})
 
 const list = createRoute({
   method: 'get',

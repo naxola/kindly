@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     "./env": "./src/env.ts",
+    "./db-timeouts": "./src/db-timeouts.ts",
+    "./client-ip": "./src/client-ip.ts",
+    "./security-headers": "./src/security-headers.ts",
     "./tsconfig/*": "./tsconfig/*"
   },
   "scripts": {

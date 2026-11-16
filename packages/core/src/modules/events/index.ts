@@ -13,6 +13,7 @@ import { defineJob, type JobContext } from '../../jobs.ts'
  */
 export const BUSINESS_EVENT_TYPES = [
   'user.created',
+  'user.deleted',
   'organization.created',
   'invitation.created',
   'member.joined',

@@ -1,9 +1,10 @@
 import { createDb, type Db } from '@saas/database'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { createAuth, type AuthEmail } from '../src/auth/index.ts'
+import { createAuth, type AuthEmail, type ChangeEmailConfirmation } from '../src/auth/index.ts'
 
 let db: Db
 const sent: AuthEmail[] = []
+const confirmations: ChangeEmailConfirmation[] = []
 
 const authWith = (requireEmailVerification: boolean) =>
   createAuth({
@@ -14,6 +15,9 @@ const authWith = (requireEmailVerification: boolean) =>
     requireEmailVerification,
     sendVerificationEmail: async (email) => {
       sent.push(email)
+    },
+    sendChangeEmailConfirmation: async (email) => {
+      confirmations.push(email)
     },
   })
 
@@ -72,5 +76,50 @@ describe('access layer (Better Auth on auth_*)', () => {
     expect(sent[0]?.to).toBe(address)
     expect(sent[0]?.url).toContain('/api/auth/verify-email')
     await expect(auth.api.signInEmail({ body: { email: address, password } })).rejects.toThrow()
+  })
+
+  it('changing the access email needs the old address and then the new one (R4.3)', async () => {
+    const auth = authWith(true)
+    const oldAddress = email()
+    const newAddress = email()
+    await auth.api.signUpEmail({ body: { email: oldAddress, password, name: 'Ana' } })
+    await db.authUser.update({ where: { email: oldAddress }, data: { emailVerified: true } })
+    const signedIn = await auth.api.signInEmail({
+      body: { email: oldAddress, password },
+      returnHeaders: true,
+    })
+    const cookie = signedIn.headers
+      .getSetCookie()
+      .map((c) => c.split(';')[0])
+      .join('; ')
+    sent.length = 0
+    confirmations.length = 0
+
+    await auth.api.changeEmail({
+      body: { newEmail: newAddress, callbackURL: '/settings/account' },
+      headers: new Headers({ cookie }),
+    })
+    // Step 1: a confirmation to the CURRENT address; nothing changed yet, nothing sent to the new.
+    expect(confirmations).toHaveLength(1)
+    expect(confirmations[0]).toMatchObject({ to: oldAddress, newEmail: newAddress })
+    expect(sent).toHaveLength(0)
+    expect((await db.authUser.findUnique({ where: { email: oldAddress } }))?.email).toBe(oldAddress)
+
+    // Step 2: following the link sends the verification to the NEW address.
+    await auth.handler(new Request(confirmations[0]!.url, { headers: { cookie } }))
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.to).toBe(newAddress)
+    expect(await db.authUser.findUnique({ where: { email: newAddress } })).toBeNull()
+
+    // Step 3: verifying the new address moves the account.
+    await auth.handler(new Request(sent[0]!.url, { headers: { cookie } }))
+    expect(await db.authUser.findUnique({ where: { email: oldAddress } })).toBeNull()
+    expect((await db.authUser.findUnique({ where: { email: newAddress } }))?.emailVerified).toBe(
+      true,
+    )
+    await expect(auth.api.signInEmail({ body: { email: oldAddress, password } })).rejects.toThrow()
+    expect(
+      (await auth.api.signInEmail({ body: { email: newAddress, password } })).token,
+    ).toBeTruthy()
   })
 })
