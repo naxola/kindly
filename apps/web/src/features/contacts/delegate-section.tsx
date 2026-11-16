@@ -1,6 +1,6 @@
 'use client'
 
-import { Callout, ConfirmDialog, Select } from '@saas/ui'
+import { Button, Callout, Checkbox, ConfirmDialog, Select, toast } from '@saas/ui'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useFormatter, useTranslations } from 'next-intl'
 import { useState } from 'react'
@@ -17,11 +17,13 @@ import { contactKeys, useContactDelegates } from './queries.ts'
 export function DelegateSection({
   contactId,
   contactName,
+  contactEmail,
   current,
 }: {
   contactId: string
   contactName: string
-  current: { memberId: string; name: string } | null
+  contactEmail: string | null
+  current: { memberId: string; name: string; welcomeSentAt: string | null } | null
 }) {
   const t = useTranslations('contacts.delegate')
   const all = useTranslations()
@@ -33,6 +35,8 @@ export function DelegateSection({
   // Only administrators can read the member list, and only they reassign.
   const members = useMembers(orgId)
   const [pending, setPending] = useState<string | null>(null)
+  const canWrite = useCan()('contacts.write')
+  const [notify, setNotify] = useState(false)
   const candidates = (members.data ?? []).filter((m) => m.status === 'ACTIVE')
   const pendingName = candidates.find((m) => m.id === pending)?.displayName
 
@@ -41,21 +45,36 @@ export function DelegateSection({
       unwrap(
         await apiClient.PUT('/api/v1/contacts/{id}/delegate', {
           params: { path: { id: contactId } },
-          body: { delegateId },
+          body: { delegateId, notifyContact: notify },
         }),
       ),
+    onSuccess: () => {
+      if (notify) toast.success(t('welcomeQueued'))
+    },
     onSettled: async () => {
       setPending(null)
+      setNotify(false)
       await qc.invalidateQueries({ queryKey: contactKeys.all(orgId) })
     },
+  })
+  const welcome = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await apiClient.POST('/api/v1/contacts/{id}/welcome', {
+          params: { path: { id: contactId } },
+        }),
+      ),
+    onSuccess: () => toast.success(t('welcomeQueued')),
   })
   const date = (iso: string) => format.dateTime(new Date(iso), { dateStyle: 'medium' })
   const rows = history.data ?? []
 
   return (
     <div className="space-y-3">
-      {reassign.error ? (
-        <Callout variant="destructive">{errorText(all, reassign.error)}</Callout>
+      {(reassign.error ?? welcome.error) ? (
+        <Callout variant="destructive">
+          {errorText(all, (reassign.error ?? welcome.error)!)}
+        </Callout>
       ) : null}
       {canAssign && current ? (
         <Select
@@ -76,6 +95,24 @@ export function DelegateSection({
       ) : (
         <p className="text-sm text-foreground-lighter">{t('none')}</p>
       )}
+      {current && canWrite ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            size="small"
+            disabled={!contactEmail || welcome.isPending}
+            onClick={() => welcome.mutate()}
+          >
+            {current.welcomeSentAt ? t('welcomeResend') : t('welcomeSend')}
+          </Button>
+          <span className="text-xs text-foreground-lighter">
+            {!contactEmail
+              ? t('welcomeNeedsEmail')
+              : current.welcomeSentAt
+                ? t('welcomeSentOn', { date: date(current.welcomeSentAt) })
+                : t('welcomeNever')}
+          </span>
+        </div>
+      ) : null}
       {rows.length > 1 ? (
         <ul className="space-y-1 border-t border-border pt-3 text-xs text-foreground-lighter">
           {rows.map((a) => (
@@ -103,7 +140,15 @@ export function DelegateSection({
         onConfirm={() => {
           if (pending) reassign.mutate(pending)
         }}
-      />
+      >
+        <Checkbox
+          checked={notify}
+          disabled={!contactEmail}
+          onChange={(e) => setNotify(e.target.checked)}
+          label={t('notifyContact')}
+          description={contactEmail ? t('notifyContactHint') : t('welcomeNeedsEmail')}
+        />
+      </ConfirmDialog>
     </div>
   )
 }

@@ -11,6 +11,7 @@ import {
   listContactActivity,
   listContacts,
   markContactIdentified,
+  sendContactWelcome,
   updateAffiliation,
   updateContact,
   type AffiliationView,
@@ -39,7 +40,13 @@ const ContactSchema = z
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     referenceDelegate: z
-      .object({ memberId: z.uuid(), name: z.string(), since: z.iso.datetime() })
+      .object({
+        memberId: z.uuid(),
+        name: z.string(),
+        since: z.iso.datetime(),
+        /** Last welcome email introducing this delegate; null if never sent. */
+        welcomeSentAt: z.iso.datetime().nullable(),
+      })
       .nullable(),
   })
   .openapi('Contact')
@@ -57,6 +64,7 @@ const toContact = (c: ContactView) => ({
     memberId: c.referenceDelegate.memberId,
     name: c.referenceDelegate.name,
     since: c.referenceDelegate.since.toISOString(),
+    welcomeSentAt: c.referenceDelegate.welcomeSentAt?.toISOString() ?? null,
   },
 })
 
@@ -68,6 +76,11 @@ const ContactBody = z
     notes: z.string().max(4000).nullish(),
   })
   .openapi('ContactInput')
+
+const ContactCreateBody = ContactBody.extend({
+  delegateId: z.uuid().optional().describe('Reference delegate (default: whoever creates it)'),
+  sendWelcome: z.boolean().optional().describe('Email the contact to introduce the delegate'),
+}).openapi('ContactCreateInput')
 
 const AssignmentSchema = z
   .object({
@@ -139,9 +152,9 @@ const create = createRoute({
   method: 'post',
   path: '/contacts',
   tags: ['contacts'],
-  summary: 'Create a contact; its creator becomes the reference delegate',
+  summary: 'Create a contact with its reference delegate (default: its creator)',
   security: cookieAuth,
-  request: { body: { required: true, ...json(ContactBody) } },
+  request: { body: { required: true, ...json(ContactCreateBody) } },
   responses: {
     201: { description: 'Created', ...json(ContactSchema) },
     ...errorResponses(400, 401, 403),
@@ -208,10 +221,31 @@ const assign = createRoute({
   security: cookieAuth,
   request: {
     params: IdParam,
-    body: { required: true, ...json(z.object({ delegateId: z.uuid() })) },
+    body: {
+      required: true,
+      ...json(
+        z.object({
+          delegateId: z.uuid(),
+          notifyContact: z.boolean().optional().describe('Email the contact to introduce them'),
+        }),
+      ),
+    },
   },
   responses: {
     200: { description: 'Assigned', ...json(AssignmentSchema) },
+    ...errorResponses(400, 401, 403, 404, 409),
+  },
+})
+
+const welcome = createRoute({
+  method: 'post',
+  path: '/contacts/{id}/welcome',
+  tags: ['contacts'],
+  summary: 'Send (again) the welcome email that introduces the reference delegate',
+  security: cookieAuth,
+  request: { params: IdParam },
+  responses: {
+    202: { description: 'Queued', ...json(z.object({ queued: z.literal(true) })) },
     ...errorResponses(400, 401, 403, 404, 409),
   },
 })
@@ -308,6 +342,9 @@ export const contactRoutes = new OpenAPIHono<ApiEnv>()
     )
     return c.json(toContact(contact), 200)
   })
+  .openapi(welcome, async (c) => {
+    return c.json(await sendContactWelcome(await actorCtx(c), c.req.valid('param').id), 202)
+  })
   .openapi(identified, async (c) => {
     const contact = await markContactIdentified(await actorCtx(c), c.req.valid('param').id)
     return c.json(toContact(contact), 200)
@@ -329,10 +366,14 @@ export const contactRoutes = new OpenAPIHono<ApiEnv>()
     )
   })
   .openapi(assign, async (c) => {
+    const body = c.req.valid('json')
     const a = await assignContactToDelegate(
       await actorCtx(c),
       c.req.valid('param').id,
-      c.req.valid('json').delegateId,
+      body.delegateId,
+      {
+        notifyContact: body.notifyContact ?? false,
+      },
     )
     return c.json(
       {

@@ -587,6 +587,9 @@ model ContactAssignment {
   endedAt        DateTime? @map("ended_at") @db.Timestamptz(3)
   /// Null for an automatic assignment (first inbound message): there is no human actor.
   assignedById   String?   @map("assigned_by_id") @db.Uuid
+  /// When the welcome email that introduces this delegate to the contact was last sent. Per
+  /// assignment: a new delegate means a new introduction.
+  welcomeSentAt  DateTime? @map("welcome_sent_at") @db.Timestamptz(3)
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)

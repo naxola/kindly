@@ -19,6 +19,8 @@ import {
   changeEmailConfirmationEmailJob,
   closeDuePeriodsScanJob,
   closePeriodsJob,
+  contactWelcomeEmailJob,
+  contactWelcomeHandler,
   deliverEventHandler,
   deliverEventJob,
   dunningEmailJob,
@@ -146,6 +148,11 @@ export const registrations: Registration[] = [
       async (_payload, { log }) => {
         log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
       },
+  }),
+  register({
+    job: contactWelcomeEmailJob,
+    handler: ({ db, email }) => contactWelcomeHandler({ db, email: email() }),
+    sendsEmail: true,
   }),
   register({
     job: purgeWebhookEventsJob,

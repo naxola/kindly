@@ -26,9 +26,8 @@ delegados y bienvenida, archivos en conversaciones, fuentes web de conocimiento 
 (5) la base es una rc de la plantilla, no la `v1.1.0` final.
 
 **Decisiones del usuario (2026-11-16):** `legacy/` borrado (paso 1 de M13); canal real no obligatorio para producción;
-staging con base vacía; CIF confirmado; fusión en `master` la hace el usuario. Pendiente de portar desde la rama `staging`
-antigua: altas de afiliados por webhook de n8n, correos de alta y bienvenida de delegados, archivos en conversaciones y
-fuentes web por sitemap. Pendiente de confirmar: el punto 7 (textos legales) — **no** se pone `reviewed: true` hasta la revisión.
+staging con base vacía; CIF confirmado; fusión en `master` la hace el usuario. Portado desde la rama `staging` antigua, en este orden: (1) bienvenida al afiliado ✅ (2026-11-16); (2) altas de
+afiliados por webhook de n8n — **siguiente**; (3) archivos en conversaciones (proxy sin almacenar); (4) fuentes web por sitemap. Pendiente de confirmar: el punto 7 (textos legales) — **no** se pone `reviewed: true` hasta la revisión.
 
 **Después del corte:** fases de robustez R1–R5 planificadas en `project/TASKS.md` («Robustez y profesionalización»),
 sin empezar; varias necesitan una decisión del usuario antes (marcadas «Decidir antes»).

@@ -5,8 +5,9 @@ import { listActivitiesForEntity, recordActivity } from '../activity/index.ts'
 import { writeAudit } from '../audit/index.ts'
 import { authorize } from '../identity/index.ts'
 import { displayNamesOf } from '../team/index.ts'
-import { ContactInput } from './schemas.ts'
+import { ContactCreateInput, ContactInput } from './schemas.ts'
 import { contactVisibilityWhere } from './visibility.ts'
+import { enqueueContactWelcome } from './welcome.ts'
 
 /**
  * Every query runs in a tenant transaction (RLS) and also filters by what the actor may see
@@ -16,11 +17,17 @@ import { contactVisibilityWhere } from './visibility.ts'
 
 export interface ContactView extends Contact {
   /** Current reference delegate (null only for a contact that was never assigned). */
-  referenceDelegate: { memberId: string; name: string; since: Date } | null
+  referenceDelegate: {
+    memberId: string
+    name: string
+    since: Date
+    /** When the welcome email introducing this delegate was last sent (null: never). */
+    welcomeSentAt: Date | null
+  } | null
 }
 
 type WithOpenAssignment = Contact & {
-  assignments: { delegateId: string; startedAt: Date }[]
+  assignments: { delegateId: string; startedAt: Date; welcomeSentAt: Date | null }[]
 }
 
 const openAssignment = { where: { endedAt: null }, take: 1 } as const
@@ -39,6 +46,7 @@ async function withReference(tx: TenantTx, rows: WithOpenAssignment[]): Promise<
             memberId: current.delegateId,
             name: names.get(current.delegateId) ?? '',
             since: current.startedAt,
+            welcomeSentAt: current.welcomeSentAt,
           }
         : null,
     }
@@ -88,14 +96,33 @@ export async function assertContactVisible(
 }
 
 /**
- * A contact created by hand is assigned to its creator as the reference delegate, in the same
- * transaction: a contact is never observable without one. (No delegate picker in the form on
- * purpose: reassigning is a separate action for administrators.)
+ * A contact created by hand gets its reference delegate in the same transaction (the creator, or
+ * the member an administrator chooses): a contact is never observable without one. Optionally it
+ * enqueues the welcome email that introduces the delegate.
  */
-export async function createContact(ctx: Ctx, input: ContactInput): Promise<ContactView> {
+export async function createContact(ctx: Ctx, input: ContactCreateInput): Promise<ContactView> {
   authorize(ctx.actor, 'contacts.write')
-  const data = ContactInput.parse(input)
+  const data = ContactCreateInput.parse(input)
+  const delegateId = data.delegateId ?? ctx.actor.memberId
+  // Choosing someone else as the delegate is a reassignment: the same rule as reassigning.
+  if (delegateId !== ctx.actor.memberId) authorize(ctx.actor, 'contacts.assign')
+  if (data.sendWelcome && !data.email) {
+    throw new DomainError('VALIDATION_FAILED', 'The welcome email needs the contact email', [
+      { path: 'email', code: 'WELCOME_NO_EMAIL' },
+    ])
+  }
   return withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
+    if (delegateId !== ctx.actor.memberId) {
+      const delegate = await tx.organizationMember.findFirst({
+        where: { id: delegateId, status: 'ACTIVE' },
+        select: { id: true },
+      })
+      if (!delegate) {
+        throw new DomainError('VALIDATION_FAILED', 'The delegate is not an active member', [
+          { path: 'delegateId', code: 'INVALID_DELEGATE' },
+        ])
+      }
+    }
     const created = await tx.contact.create({
       data: {
         organizationId: ctx.actor.organizationId,
@@ -105,14 +132,15 @@ export async function createContact(ctx: Ctx, input: ContactInput): Promise<Cont
         notes: data.notes ?? null,
       },
     })
-    await tx.contactAssignment.create({
+    const assignment = await tx.contactAssignment.create({
       data: {
         organizationId: ctx.actor.organizationId,
         contactId: created.id,
-        delegateId: ctx.actor.memberId,
+        delegateId,
         assignedById: ctx.actor.memberId,
       },
     })
+    if (data.sendWelcome) await enqueueContactWelcome(ctx, tx, assignment.id, 'assignment')
     const contact = await tx.contact.findUniqueOrThrow({
       where: { id: created.id },
       include: { assignments: openAssignment },

@@ -4055,3 +4055,27 @@ organización. «Fallido» incluye lo nunca procesado: la regla es `processed_at
 **Plazos de reenvío de los proveedores** (contrastados el 2026-11-16, **sin documentación oficial a la vista**): Meta,
 unas 8 horas según un foro; Telegram, 24 horas según un foro. Ambos quedan muy por debajo de 30 días, pero conviene
 confirmarlo en la documentación oficial antes de producción.
+
+## 2026-11-16 — Bienvenida al afiliado que presenta a su delegado (portado de la rama `staging` antigua)
+
+**Problema.** La app anterior, en su rama `staging` (2026-11-05), enviaba al afiliado un correo que le presenta a su delegado
+de referencia (nombre, email y teléfono), y permitía elegir delegado al crear el contacto. No llegó a `master`, así que la
+migración no lo traía. El usuario pidió portarlo (2026-11-16).
+
+**Decisión.**
+1. **Asíncrono y por la cola** (ADR 0004): el caso de uso encola `contacts.welcome-email` en la transacción del cambio; el
+   worker envía, y solo después sella `contact_assignments.welcome_sent_at` y registra la actividad `CONTACT_WELCOME_SENT`.
+   El sello va en la asignación, no en el contacto: un delegado nuevo es una presentación nueva.
+2. **Tres disparadores, siempre por una persona:** casilla al crear el contacto, casilla «Avisar al contacto» al reasignar y
+   botón «Enviar / Reenviar bienvenida» en la ficha. Clave de idempotencia `contact-welcome:{asignación}` en los dos primeros
+   (como mucho uno por asignación) y una por petición en el reenvío.
+3. **Si el contacto cambia de delegado antes de que corra el job, no se envía** (presentaría a la persona equivocada); tampoco
+   si el delegado está desactivado o el contacto ya no tiene email.
+4. **Datos del delegado:** nombre de su ficha, `contactEmail` y teléfono de `member_profiles` (la invitación ya rellena el email
+   de contacto con el invitado). El email del delegado va también como `Reply-To`. No se lee `auth_*` desde contactos.
+5. **Elegir delegado al crear** exige `contacts.assign` si no es uno mismo (la misma regla que reasignar); supersede «sin selector
+   de delegado en el alta».
+6. Plantilla escrita por personas (es/en según el idioma de la organización); **la AI no interviene**.
+
+**Fuera de este paso:** las invitaciones por correo y el teléfono del delegado de aquel commit ya existían en el stack nuevo
+(plantilla + `member_profiles`).

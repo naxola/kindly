@@ -756,6 +756,12 @@ solo la vista de conjunto.
 - [x] M11 — Accesibilidad y pulido: axe en claro y oscuro, 320 px, F6, contraste, `docs/ui/` al nuevo stack (2026-11-13).
 - [x] M12 — Documentación al nuevo stack: `ARCHITECTURE`, `DATABASE`, `INTEGRATIONS`, `tests/README`, `README` (2026-11-13).
 - [ ] M13 — Corte (con el usuario): vaciar `legacy/`, staging, datos, fusión en `master`. **Siguiente.**
+  - [x] `legacy/` borrado (2026-11-16).
+  - [x] Portar de `staging` (1/4): bienvenida al afiliado que presenta a su delegado (2026-11-16).
+  - [ ] Portar de `staging` (2/4): altas de afiliados por webhook de n8n.
+  - [ ] Portar de `staging` (3/4): archivos en conversaciones (descarga por proxy, sin almacenar).
+  - [ ] Portar de `staging` (4/4): fuentes web de conocimiento por sitemap.
+  - [ ] Desplegar staging (homelab) y aplicar migraciones + `queue:install`.
 
 ## Robustez y profesionalización (planificado 2026-11-13, sin empezar)
 

@@ -4,7 +4,10 @@ import {
   Badge,
   Button,
   Callout,
+  Checkbox,
   EmptyState,
+  Field,
+  Select,
   SidePanel,
   Table,
   TBody,
@@ -12,6 +15,7 @@ import {
   TH,
   THead,
   TR,
+  toast,
 } from '@saas/ui'
 import { PageContainer, PageHeader } from '@saas/ui/shell'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -21,9 +25,10 @@ import { useTranslations } from 'next-intl'
 import { useState, type FormEvent } from 'react'
 import { apiClient } from '@/client/api.ts'
 import { errorText, unwrap } from '@/client/errors.ts'
-import { useCan, useOrganizationId } from '@/components/workspace-context.tsx'
+import { field } from '@/client/forms.ts'
+import { useCan, useMemberId, useOrganizationId } from '@/components/workspace-context.tsx'
 import { ContactFields, readContactForm } from './contact-fields.tsx'
-import { contactKeys, useContacts } from './queries.ts'
+import { contactKeys, useAssignableMembers, useContacts } from './queries.ts'
 
 /** Contacts the person may see: all of them for administrators, their own for delegates. */
 export function ContactsList() {
@@ -103,18 +108,31 @@ function NewContactPanel({ onClose }: { onClose: () => void }) {
   const orgId = useOrganizationId()
   const qc = useQueryClient()
   const formId = 'new-contact-form'
+  const canAssign = useCan()('contacts.assign')
+  const me = useMemberId()
+  // Only whoever may assign someone else reads the member list.
+  const candidates = useAssignableMembers(orgId, canAssign).data ?? []
+  const [email, setEmail] = useState('')
   const create = useMutation({
-    mutationFn: async (body: ReturnType<typeof readContactForm>) =>
-      unwrap(await apiClient.POST('/api/v1/contacts', { body })),
-    onSuccess: async () => {
+    mutationFn: async (
+      body: ReturnType<typeof readContactForm> & { delegateId?: string; sendWelcome: boolean },
+    ) => unwrap(await apiClient.POST('/api/v1/contacts', { body })),
+    onSuccess: async (_c, body) => {
       await qc.invalidateQueries({ queryKey: contactKeys.all(orgId) })
+      if (body.sendWelcome) toast.success(t('welcome.queued'))
       onClose()
     },
   })
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    create.mutate(readContactForm(new FormData(e.currentTarget)))
+    const form = new FormData(e.currentTarget)
+    const delegateId = field(form, 'delegateId')
+    create.mutate({
+      ...readContactForm(form),
+      ...(delegateId ? { delegateId } : {}),
+      sendWelcome: form.get('sendWelcome') === 'on',
+    })
   }
 
   return (
@@ -136,7 +154,33 @@ function NewContactPanel({ onClose }: { onClose: () => void }) {
         {create.error ? (
           <Callout variant="destructive">{errorText(all, create.error)}</Callout>
         ) : null}
-        <ContactFields autoFocus />
+        <div
+          onChange={(e) => {
+            const target = e.target as HTMLInputElement
+            if (target.name === 'email') setEmail(target.value.trim())
+          }}
+        >
+          <ContactFields autoFocus />
+        </div>
+        {canAssign && candidates.length > 0 ? (
+          <Field label={t('delegate.title')}>
+            {(p) => (
+              <Select {...p} name="delegateId" defaultValue={me ?? undefined}>
+                {candidates.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        ) : null}
+        <Checkbox
+          name="sendWelcome"
+          disabled={!email}
+          label={t('welcome.onCreate')}
+          description={email ? t('welcome.onCreateHint') : t('welcome.needsEmail')}
+        />
       </form>
     </SidePanel>
   )

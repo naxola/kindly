@@ -109,3 +109,37 @@ test('a delegate sees only their contacts; the admin reassigns and the visibilit
   await expect(luis.getByRole('link', { name: 'De Luis' })).toHaveCount(0)
   await expect(luis.getByText('Todavía no hay contactos')).toBeVisible()
 })
+
+test('an administrator creates a contact for a delegate and sends the welcome that introduces them', async ({
+  page,
+  browser,
+}) => {
+  await adminWithOrganization(page, 'Bienvenidas')
+  await inviteDelegate(page, browser, 'Luis')
+  await page.goto('/contacts')
+  await press(page.getByRole('button', { name: 'Nuevo contacto' }))
+  await page.getByLabel('Nombre').fill('Marta Bienvenida')
+  // Without an email the welcome cannot be asked for.
+  await expect(page.getByLabel('Enviar email de bienvenida')).toBeDisabled()
+  await page.getByLabel('Email', { exact: true }).fill('marta.bienvenida@example.test')
+  await page.getByLabel('Delegado de referencia', { exact: true }).selectOption({ label: 'Luis' })
+  await page.getByLabel('Enviar email de bienvenida').check()
+  await press(page.getByRole('button', { name: 'Crear contacto' }))
+  await expect(
+    page.getByText('Contacto creado. El correo de bienvenida está en camino.'),
+  ).toBeVisible()
+  const row = page.getByRole('row', { name: /Marta Bienvenida/ })
+  await expect(row.getByText('Luis')).toBeVisible()
+
+  // From the contact page it can be sent again; reassigning offers to let the contact know.
+  await page.getByRole('link', { name: 'Marta Bienvenida' }).click()
+  await press(page.getByRole('button', { name: /bienvenida/ }))
+  await expect(page.getByText('Correo de bienvenida en camino.')).toBeVisible()
+  await page
+    .getByLabel('Delegado de referencia de Marta Bienvenida')
+    .selectOption({ label: 'Ana Admin' })
+  const dialog = page.getByRole('alertdialog')
+  await dialog.getByLabel('Avisar al contacto por email').check()
+  await press(dialog.getByRole('button', { name: 'Reasignar' }))
+  await expect(page.getByText('Correo de bienvenida en camino.').first()).toBeVisible()
+})

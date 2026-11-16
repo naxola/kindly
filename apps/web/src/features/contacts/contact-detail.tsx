@@ -92,7 +92,12 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           </Panel>
         </form>
         <Panel title={t('delegate.title')}>
-          <DelegateSection contactId={c.id} contactName={c.name} current={c.referenceDelegate} />
+          <DelegateSection
+            contactId={c.id}
+            contactName={c.name}
+            contactEmail={c.email}
+            current={c.referenceDelegate}
+          />
         </Panel>
         <Panel title={t('affiliation.title')}>
           <AffiliationSection contactId={c.id} />

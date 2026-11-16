@@ -1202,3 +1202,20 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
 Decisión del usuario: se borra `legacy/` entero (el historial de git conserva la app anterior y los casos aplazados; se
 retoman desde el commit anterior a este si hacen falta). Se quitan sus referencias en `.dockerignore`, `.prettierignore`,
 `.gitignore` y `eslint.config.js`. Verificado: `format:check`, `lint` y `typecheck`.
+
+### 2026-11-16 — Portado de `staging` (1/4): bienvenida al afiliado
+
+- **Migración** `20261116110000_contact_welcome_email` (`contact_assignments.welcome_sent_at`, aditiva).
+- **Core:** `contacts/welcome.ts` (job `contacts.welcome-email`, `sendContactWelcome`, plantilla `welcomeEmail`, handler);
+  `createContact` acepta `delegateId` y `sendWelcome`; `assignContactToDelegate` acepta `notifyContact`. Worker: 19 colas.
+- **API:** `POST /contacts` con `delegateId`/`sendWelcome`, `PUT /contacts/{id}/delegate` con `notifyContact`,
+  `POST /contacts/{id}/welcome` (202); `referenceDelegate.welcomeSentAt` en `Contact`.
+- **UI:** selector de delegado (con `contacts.assign`) y casilla en el alta; casilla en la confirmación de reasignar; botón y estado
+  de la bienvenida en la ficha.
+- **Tests:** 3 unitarios (plantilla), 8 de integración, 1 E2E del camino feliz.
+- **Dependencia:** `next` 16.4.3 → 16.4.5 (commit aparte): `next build` se negaba a construir por un aviso de seguridad moderado
+  (información de `use cache` vía `unstable_cache`). Queda `hono` < 4.13.16 con avisos moderados (CSRF, middleware en `mount()`);
+  conviene subirlo en la plantilla.
+- **Verificado:** `format:check`, `lint`, `typecheck`, `test` (282), `test:integration` (358), `db:check`, `api:generate`, `build`
+  y `test:e2e` (62).
+- **Siguiente:** (2/4) altas de afiliados por webhook de n8n.

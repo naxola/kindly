@@ -137,6 +137,8 @@
     "INVALID_POSITION": "That position does not exist or is archived.",
     "ALREADY_AFFILIATED": "This contact already has an active affiliation.",
     "NO_ACTIVE_AFFILIATION": "This affiliation is no longer active.",
+    "WELCOME_NO_EMAIL": "The contact needs an email to receive the welcome.",
+    "WELCOME_NO_DELEGATE": "The contact has no reference delegate.",
     "INVALID_DELEGATE": "That delegate is not an active member of the organization.",
     "CONCURRENT_ASSIGNMENT": "Someone reassigned this contact at the same time. Reload and try again.",
     "INVALID_CONTACT": "That contact does not exist or you do not have access to it.",
@@ -558,7 +560,15 @@
       "history": "Delegate history",
       "current": "current",
       "range": "{from} to {to}",
-      "since": "since {from}"
+      "since": "since {from}",
+      "notifyContact": "Let the contact know by email",
+      "notifyContactHint": "We send an email that introduces their new delegate, with their contact email and phone.",
+      "welcomeSend": "Send welcome",
+      "welcomeResend": "Resend welcome",
+      "welcomeNeedsEmail": "The contact has no email.",
+      "welcomeNever": "The welcome email has not been sent yet.",
+      "welcomeSentOn": "Welcome sent on {date}.",
+      "welcomeQueued": "Welcome email on its way."
     },
     "affiliation": {
       "title": "Affiliation",
@@ -592,6 +602,7 @@
         "CONTACT_UPDATED": "Contact edited",
         "CONTACT_IDENTIFIED": "Contact identified",
         "CONTACT_DELEGATE_ASSIGNED": "Reference delegate changed",
+        "CONTACT_WELCOME_SENT": "Welcome email sent",
         "AFFILIATION_CREATED": "Affiliation registered",
         "AFFILIATION_UPDATED": "Affiliation edited",
         "AFFILIATION_ENDED": "Affiliation ended"
@@ -600,6 +611,12 @@
     "identify": {
       "notice": "Kindly created this contact with the name the channel provides. Confirm it is who it seems to be.",
       "action": "Mark as identified"
+    },
+    "welcome": {
+      "onCreate": "Send welcome email",
+      "onCreateHint": "Introduces the reference delegate with their contact email and phone.",
+      "needsEmail": "Enter the contact's email to be able to send it.",
+      "queued": "Contact created. The welcome email is on its way."
     }
   },
   "tasks": {

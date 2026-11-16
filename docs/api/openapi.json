@@ -793,12 +793,20 @@
               "since": {
                 "type": "string",
                 "format": "date-time"
+              },
+              "welcomeSentAt": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
               }
             },
             "required": [
               "memberId",
               "name",
-              "since"
+              "since",
+              "welcomeSentAt"
             ]
           }
         },
@@ -812,6 +820,27 @@
           "createdAt",
           "updatedAt",
           "referenceDelegate"
+        ]
+      },
+      "ContactCreateInput": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ContactInput"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "delegateId": {
+                "type": "string",
+                "format": "uuid",
+                "description": "Reference delegate (default: whoever creates it)"
+              },
+              "sendWelcome": {
+                "type": "boolean",
+                "description": "Email the contact to introduce the delegate"
+              }
+            }
+          }
         ]
       },
       "ContactInput": {
@@ -4753,7 +4782,7 @@
         "tags": [
           "contacts"
         ],
-        "summary": "Create a contact; its creator becomes the reference delegate",
+        "summary": "Create a contact with its reference delegate (default: its creator)",
         "security": [
           {
             "cookieAuth": []
@@ -4764,7 +4793,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ContactInput"
+                "$ref": "#/components/schemas/ContactCreateInput"
               }
             }
           }
@@ -4963,6 +4992,103 @@
         }
       }
     },
+    "/api/v1/contacts/{id}/welcome": {
+      "post": {
+        "tags": [
+          "contacts"
+        ],
+        "summary": "Send (again) the welcome email that introduces the reference delegate",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "queued": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "queued"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contacts/{id}/identified": {
       "post": {
         "tags": [
@@ -5138,6 +5264,10 @@
                   "delegateId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "notifyContact": {
+                    "type": "boolean",
+                    "description": "Email the contact to introduce them"
                   }
                 },
                 "required": [

@@ -6,6 +6,7 @@ import { writeAudit } from '../audit/index.ts'
 import { authorize } from '../identity/index.ts'
 import { displayNamesOf } from '../team/index.ts'
 import { contactVisibilityWhere } from './visibility.ts'
+import { enqueueContactWelcome } from './welcome.ts'
 
 /**
  * Who answers for a contact (docs/DECISIONS.md, "Asignación de afiliados" and "Delegado de
@@ -67,15 +68,22 @@ export async function assignContactToDelegate(
   ctx: Ctx,
   contactId: string,
   delegateId: string,
+  /** Also email the contact to introduce the new delegate (needs the contact's email). */
+  options: { notifyContact?: boolean } = {},
 ): Promise<AssignmentView> {
   authorize(ctx.actor, 'contacts.assign')
   try {
     return await withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
       const contact = await tx.contact.findUnique({
         where: { organizationId_id: { organizationId: ctx.actor.organizationId, id: contactId } },
-        select: { id: true },
+        select: { id: true, email: true },
       })
       if (!contact) throw new DomainError('NOT_FOUND', 'Contact not found')
+      if (options.notifyContact && !contact.email) {
+        throw new DomainError('VALIDATION_FAILED', 'The welcome email needs the contact email', [
+          { path: 'email', code: 'WELCOME_NO_EMAIL' },
+        ])
+      }
       const delegate = await tx.organizationMember.findFirst({
         where: { id: delegateId, status: 'ACTIVE' },
         select: { id: true },
@@ -105,6 +113,7 @@ export async function assignContactToDelegate(
           assignedById: ctx.actor.memberId,
         },
       })
+      if (options.notifyContact) await enqueueContactWelcome(ctx, tx, created.id, 'assignment')
       await recordActivity(tx, {
         organizationId: ctx.actor.organizationId,
         type: 'CONTACT_DELEGATE_ASSIGNED',

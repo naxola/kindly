@@ -137,6 +137,8 @@
     "INVALID_POSITION": "Ese cargo no existe o está archivado.",
     "ALREADY_AFFILIATED": "Este contacto ya tiene una afiliación activa.",
     "NO_ACTIVE_AFFILIATION": "Esta afiliación ya no está activa.",
+    "WELCOME_NO_EMAIL": "Para enviar la bienvenida, el contacto necesita un email.",
+    "WELCOME_NO_DELEGATE": "El contacto no tiene delegado de referencia.",
     "INVALID_DELEGATE": "Ese delegado no es un miembro activo de la organización.",
     "CONCURRENT_ASSIGNMENT": "Alguien reasignó este contacto a la vez. Recarga e inténtalo de nuevo.",
     "INVALID_CONTACT": "Ese contacto no existe o no tienes acceso a él.",
@@ -558,7 +560,15 @@
       "history": "Historial de delegados",
       "current": "actual",
       "range": "{from} a {to}",
-      "since": "desde {from}"
+      "since": "desde {from}",
+      "notifyContact": "Avisar al contacto por email",
+      "notifyContactHint": "Le enviamos un correo que presenta a su nuevo delegado, con su email y teléfono de contacto.",
+      "welcomeSend": "Enviar bienvenida",
+      "welcomeResend": "Reenviar bienvenida",
+      "welcomeNeedsEmail": "El contacto no tiene email.",
+      "welcomeNever": "Aún no se le ha enviado el correo de bienvenida.",
+      "welcomeSentOn": "Bienvenida enviada el {date}.",
+      "welcomeQueued": "Correo de bienvenida en camino."
     },
     "affiliation": {
       "title": "Afiliación",
@@ -592,6 +602,7 @@
         "CONTACT_UPDATED": "Contacto editado",
         "CONTACT_IDENTIFIED": "Contacto identificado",
         "CONTACT_DELEGATE_ASSIGNED": "Delegado de referencia cambiado",
+        "CONTACT_WELCOME_SENT": "Bienvenida enviada",
         "AFFILIATION_CREATED": "Afiliación dada de alta",
         "AFFILIATION_UPDATED": "Afiliación editada",
         "AFFILIATION_ENDED": "Afiliación dada de baja"
@@ -600,6 +611,12 @@
     "identify": {
       "notice": "Este contacto lo creó Kindly con el nombre que trae el canal. Confirma que es quien parece.",
       "action": "Marcar como identificado"
+    },
+    "welcome": {
+      "onCreate": "Enviar email de bienvenida",
+      "onCreateHint": "Presenta al delegado de referencia con su email y teléfono de contacto.",
+      "needsEmail": "Escribe el email del contacto para poder enviarlo.",
+      "queued": "Contacto creado. El correo de bienvenida está en camino."
     }
   },
   "tasks": {

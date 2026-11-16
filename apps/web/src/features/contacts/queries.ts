@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/client/api.ts'
 import { unwrap } from '@/client/errors.ts'
+import { keys } from '@/client/queries.ts'
 
 /** TanStack Query keys of the CRM. They include the active organization. */
 export const contactKeys = {
@@ -57,5 +58,15 @@ export function useContactActivity(orgId: string, id: string) {
     queryFn: async () =>
       unwrap(await apiClient.GET('/api/v1/contacts/{id}/activity', { params: { path: { id } } }))
         .items,
+  })
+}
+
+/** Active members to choose a delegate from; only asked for by whoever may assign someone else. */
+export function useAssignableMembers(orgId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.members(orgId),
+    enabled,
+    queryFn: async () => unwrap(await apiClient.GET('/api/v1/members')).items,
+    select: (items) => items.filter((m) => m.status === 'ACTIVE'),
   })
 }

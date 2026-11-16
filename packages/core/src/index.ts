@@ -33,6 +33,7 @@ import {
   providerEventJob,
   quotaAlertEmailJob,
 } from './modules/billing/index.ts'
+import { contactWelcomeEmailJob } from './modules/contacts/index.ts'
 import { deliverEventJob } from './modules/events/index.ts'
 import { ingestVersionJob } from './modules/knowledge/index.ts'
 import {
@@ -78,6 +79,7 @@ export const ALL_JOBS = [
   purgeAuditLogsJob,
   accountDeletionEmailJob,
   processAccountDeletionsJob,
+  contactWelcomeEmailJob,
 ] as const
 
 /** Recurring jobs (cron, UTC). The worker registers them on start. */
