@@ -18,8 +18,7 @@ Detalle y archivos de la plantilla tocados: `project/MIGRATION.md` §8 (2026-11-
 entorno `pnpm db:deploy` + `pnpm queue:install`. Detalle en `project/MIGRATION.md` §8 (2026-11-16, «M13 previo»).
 
 **Revisión para producción (2026-11-16): NO lista.** Hallazgos: (1) el CI de GitHub fallaba desde M11 por 1 px de
-desbordamiento a 320 px en `/settings/channels` (en local pasaba; arreglo subido, **confirmar que el CI queda verde**), y
-por eso el job de imágenes Docker nunca ha corrido en esta rama; (2) producción no tiene ningún canal real de mensajería
+desbordamiento a 320 px en `/settings/channels` (en local pasaba). **Arreglado en `90d96ce`: el CI completo quedó verde**, incluido por primera vez el job de imágenes Docker (build, escaneo y prueba de humo con el compose de staging); (2) producción no tiene ningún canal real de mensajería
 (solo los falsos de E2E y el número de prueba de Meta) ni AI Copilot; (3) la rama `staging` antigua tiene 35 commits que no
 están en `master` ni en `legacy/` y **no se han portado** (altas de afiliados por webhook de n8n, correos de alta de
 delegados y bienvenida, archivos en conversaciones, fuentes web de conocimiento por sitemap…): decidir cuáles se portan;
