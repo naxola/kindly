@@ -38,7 +38,11 @@ export interface TenantTxOptions {
 }
 
 type ContextSetting =
-  'app.org_id' | 'app.user_id' | 'app.invitation_token_hash' | 'app.messaging_account_id'
+  | 'app.org_id'
+  | 'app.user_id'
+  | 'app.invitation_token_hash'
+  | 'app.messaging_account_id'
+  | 'app.integration_key_hash'
 
 async function withContext<T>(
   db: Db,
@@ -112,4 +116,18 @@ export async function withMessagingAccount<T>(
 ): Promise<T> {
   if (!isUuid(accountId)) throw new InvalidTenantError()
   return withContext(db, 'app.messaging_account_id', accountId, fn, options)
+}
+
+/**
+ * Context to resolve an integration key (Kindly, altas from an automation) by the hash of its
+ * token, before the organization is known: RLS only lets that row be READ.
+ */
+export async function withIntegrationKey<T>(
+  db: Db,
+  keyHash: string,
+  fn: (tx: TenantTx) => Promise<T>,
+  options: TenantTxOptions = {},
+): Promise<T> {
+  if (!SHA256_HEX.test(keyHash)) throw new InvalidTenantError()
+  return withContext(db, 'app.integration_key_hash', keyHash, fn, options)
 }

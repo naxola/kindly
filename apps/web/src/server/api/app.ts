@@ -13,6 +13,7 @@ import { knowledgeRoutes } from './routes/knowledge.ts'
 import { conversationRoutes } from './routes/conversations.ts'
 import { emailWebhookRoutes } from './routes/email-webhook.ts'
 import { healthRoutes } from './routes/health.ts'
+import { intakeRoutes, intakeWebhookRoutes } from './routes/intake.ts'
 import { invitationRoutes } from './routes/invitations.ts'
 import { memberRoutes } from './routes/members.ts'
 import { metricsRoutes } from './routes/metrics.ts'
@@ -54,12 +55,14 @@ v1.route('/', knowledgeRoutes)
 v1.route('/', procedureRoutes)
 v1.route('/', billingRoutes)
 v1.route('/', activityRoutes)
+v1.route('/', intakeRoutes)
 
 export const api = newApp().basePath('/api')
 api.use('*', requestContext)
 api.route('/', healthRoutes)
 api.route('/', paymentWebhookRoutes)
 api.route('/', messagingWebhookRoutes)
+api.route('/', intakeWebhookRoutes)
 api.route('/', emailWebhookRoutes)
 api.route('/', metricsRoutes)
 // Better Auth (ADR 0003): sign-up, sign-in, verification, recovery and sessions.

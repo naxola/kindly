@@ -758,7 +758,7 @@ solo la vista de conjunto.
 - [ ] M13 — Corte (con el usuario): vaciar `legacy/`, staging, datos, fusión en `master`. **Siguiente.**
   - [x] `legacy/` borrado (2026-11-16).
   - [x] Portar de `staging` (1/4): bienvenida al afiliado que presenta a su delegado (2026-11-16).
-  - [ ] Portar de `staging` (2/4): altas de afiliados por webhook de n8n.
+  - [x] Portar de `staging` (2/4): altas de afiliados por webhook de n8n (2026-11-16).
   - [ ] Portar de `staging` (3/4): archivos en conversaciones (descarga por proxy, sin almacenar).
   - [ ] Portar de `staging` (4/4): fuentes web de conocimiento por sitemap.
   - [ ] Desplegar staging (homelab) y aplicar migraciones + `queue:install`.

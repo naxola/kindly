@@ -312,3 +312,37 @@ Todo webhook (WhatsApp, Telegram) se valida por firma/secreto antes de
 procesar, según el mecanismo oficial de cada proveedor (X-Hub-Signature para
 Meta, secret token de Telegram). Ver `docs/ARCHITECTURE.md` sección 7 para el
 pipeline completo.
+
+## 7. Altas de afiliados desde una automatización (n8n)
+
+Entrada de datos, no un canal de mensajería: una automatización externa envía cada alta (extraída de un email) a Kindly, que la
+guarda **pendiente de asignar** hasta que un ADMIN confirma el delegado (`docs/DECISIONS.md`, 2026-11-16, «Altas de afiliados por
+webhook»).
+
+**Endpoint:** `POST {APP_URL}/api/integrations/affiliate-requests` (fuera de `/api/v1`: sin sesión ni CSRF). Límite: 60 peticiones
+por minuto e IP.
+
+**Autenticación:** `Authorization: Bearer kly_…`. La clave se crea en Ajustes → Integraciones (solo ADMIN), se muestra una vez y se
+guarda solo su SHA-256; la organización se deduce de la clave, nunca del cuerpo. Una clave revocada o desconocida responde 401.
+
+**Cuerpo:** `Content-Type: application/json`, el array que produce la automatización tal cual (o un único objeto). Máximo 50
+elementos y 512 KB. Cada elemento debe traer `tipoSolicitud: "alta"`, `validoParaProcesar: true`, `errores` vacío y un `afiliado`
+con nombre, apellidos y DNI/NIE con formato válido; el resto de campos son opcionales pero, si vienen, deben ser legibles (fecha
+`DD-MM-YYYY`, teléfono español, email, cuota como `11.5 €`).
+
+**Respuesta:** `202` con un resultado por elemento, en el mismo orden:
+
+```json
+{ "results": [
+  { "index": 0, "status": "RECEIVED",  "requestId": "…", "repeated": false },
+  { "index": 1, "status": "DUPLICATE", "requestId": "…", "repeated": false },
+  { "index": 2, "status": "INVALID",   "errors": ["El DNI/NIE no tiene un formato válido."] }
+] }
+```
+
+- `RECEIVED`: guardada, pendiente de que el ADMIN confirme el delegado.
+- `DUPLICATE`: ese DNI ya es un afiliado; no se crea nada y el ADMIN decide (actualizar sus datos o descartar el alta).
+- `INVALID`: no se guarda; `errors` dice por qué. Un elemento inválido no impide los demás.
+- `repeated: true`: el mismo DNI ya estaba esperando decisión; se devuelve la misma solicitud (reenviar es seguro).
+
+Otros códigos: `400` (no es JSON, vacío o más de 50 elementos), `401`, `413`, `429`. No se registra ningún dato personal en logs.

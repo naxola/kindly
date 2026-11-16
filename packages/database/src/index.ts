@@ -4,6 +4,7 @@ export {
   withUser,
   withInvitationToken,
   withMessagingAccount,
+  withIntegrationKey,
   InvalidTenantError,
 } from './client.ts'
 export type { Db, TenantTx, CreateDbOptions, TenantTxOptions } from './client.ts'
@@ -25,6 +26,7 @@ export {
   IngestionStatus,
   ProcedureVersionStatus,
   EmailSuppressionReason,
+  AffiliateRequestStatus,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -55,4 +57,7 @@ export type {
   ProcedureVersion,
   ProcedureStep,
   ProcedureRequiredDocument,
+  AffiliateProfile,
+  AffiliateRequest,
+  IntegrationKey,
 } from './generated/prisma/client.ts'

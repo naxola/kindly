@@ -75,6 +75,8 @@ for (const scheme of ['light', 'dark'] as const) {
         ['/knowledge?q=baja', 'knowledge with results'],
         ['/knowledge/procedures', 'procedures'],
         ['/settings/channels', 'channels'],
+        ['/contacts/requests', 'altas'],
+        ['/settings/integrations', 'integrations'],
         ['/settings/members', 'members'],
         ['/settings/positions', 'positions'],
       ]
@@ -117,6 +119,8 @@ test.describe('320 px', () => {
       '/knowledge',
       '/knowledge/procedures',
       '/settings/channels',
+      '/contacts/requests',
+      '/settings/integrations',
       '/settings/members',
     ]
     for (const path of screens) {

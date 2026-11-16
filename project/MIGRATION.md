@@ -1219,3 +1219,22 @@ retoman desde el commit anterior a este si hacen falta). Se quitan sus referenci
 - **Verificado:** `format:check`, `lint`, `typecheck`, `test` (282), `test:integration` (358), `db:check`, `api:generate`, `build`
   y `test:e2e` (62).
 - **Siguiente:** (2/4) altas de afiliados por webhook de n8n.
+
+### 2026-11-16 — Portado de `staging` (2/4): altas de afiliados por webhook de n8n
+
+- **Migración** `20261116120000_affiliate_intake` (aditiva): `affiliate_profiles`, `affiliate_requests` (enum
+  `AffiliateRequestStatus`, índice único parcial por DNI abierto), `integration_keys` con política `key_lookup` y
+  `app.current_integration_key_hash()`; RLS en las tres. `packages/database`: `withIntegrationKey`.
+- **Core:** módulo `intake` (normalización y propuesta portadas tal cual; claves; recepción y decisiones). `contacts` exporta
+  `assignContactInTx`. Permisos `affiliate_requests.manage` e `integrations.manage`. Actividades `AFFILIATE_REQUEST_*`.
+- **API:** `POST /api/integrations/affiliate-requests` (Bearer); `/api/v1/affiliate-requests` (lista, recuento, confirmar,
+  confirmar todas, descartar, aplicar duplicado) y `/api/v1/integration-keys` (lista, crear, revocar).
+- **UI:** `/contacts/requests` (pendientes, duplicados, panel de revisión con la carga de cada delegado), Ajustes → Integraciones,
+  botón «Altas (N)» en Contactos y aviso en toda la app (`RequestsNotifier`, montado en `app/(app)/layout.tsx`).
+- **Tests:** 12 unitarios (normalización y propuesta, con datos ficticios), 14 de integración en core, 3 del endpoint HTTP y 2 E2E;
+  las dos pantallas nuevas entran en la auditoría de accesibilidad.
+- **Aviso:** los tests de la app anterior en la rama `staging` usaban como ejemplo lo que parecen datos personales reales (nombre,
+  DNI, email); aquí se han sustituido por datos ficticios. Conviene revisarlo en esa rama.
+- **Verificado:** `format:check`, `lint`, `typecheck`, `test` (294), `test:integration` (375), `db:check`, `api:generate`, `build`
+  y `test:e2e` (64).
+- **Siguiente:** (3/4) archivos en conversaciones (descarga por proxy, sin almacenar).

@@ -165,7 +165,8 @@
     "INVALID_URL": "The web address is not valid.",
     "URL_NOT_HTTP": "The web address must start with http:// or https://.",
     "URL_HAS_CREDENTIALS": "The web address cannot include a user or password.",
-    "EMBEDDINGS_NOT_CONFIGURED": "The embeddings service is not configured in this environment."
+    "EMBEDDINGS_NOT_CONFIGURED": "The embeddings service is not configured in this environment.",
+    "ALREADY_RESOLVED": "This alta was already resolved."
   },
   "home": {
     "title": "Home",
@@ -190,7 +191,8 @@
       "organization": "Organization",
       "activity": "Activity",
       "positions": "Positions",
-      "channels": "Channels"
+      "channels": "Channels",
+      "integrations": "Integrations"
     }
   },
   "orgSwitcher": {
@@ -605,7 +607,11 @@
         "CONTACT_WELCOME_SENT": "Welcome email sent",
         "AFFILIATION_CREATED": "Affiliation registered",
         "AFFILIATION_UPDATED": "Affiliation edited",
-        "AFFILIATION_ENDED": "Affiliation ended"
+        "AFFILIATION_ENDED": "Affiliation ended",
+        "AFFILIATE_REQUEST_RECEIVED": "Alta received",
+        "AFFILIATE_REQUEST_CONFIRMED": "Alta confirmed",
+        "AFFILIATE_REQUEST_DISCARDED": "Alta discarded",
+        "AFFILIATE_REQUEST_APPLIED": "Data updated from an alta"
       }
     },
     "identify": {
@@ -1019,5 +1025,100 @@
     "documents": "Required documents",
     "noDocuments": "No required documents.",
     "published": "Published on {date}"
+  },
+  "intake": {
+    "title": "Altas",
+    "description": "Affiliate altas received from the automation. Nothing is assigned until you confirm the delegate.",
+    "linkWithCount": "Altas ({count})",
+    "backToContacts": "Back to contacts",
+    "notice": "{count, plural, one {You have # alta to review} other {You have # altas to review}}",
+    "review": "Review",
+    "reviewFor": "Review the alta of {name}",
+    "reviewDescription": "Check the data and confirm who will be their reference delegate.",
+    "emptyTitle": "No altas waiting",
+    "emptyDescription": "Altas sent by the automation will appear here.",
+    "pendingTitle": "Waiting for a delegate ({count})",
+    "duplicatesTitle": "Possible duplicates ({count})",
+    "duplicatesHint": "That DNI already is an affiliate. You can update their data with the new alta or discard it; their delegate does not change.",
+    "noProposal": "No proposal",
+    "proposed": "proposed",
+    "columns": {
+      "name": "Name",
+      "dni": "DNI/NIE",
+      "received": "Received",
+      "proposal": "Proposal",
+      "existing": "Existing affiliate",
+      "actions": "Actions",
+      "delegate": "Delegate",
+      "assigned": "Affiliates",
+      "pending": "To confirm",
+      "withThis": "With this alta"
+    },
+    "fields": {
+      "dni": "DNI/NIE",
+      "birthDate": "Date of birth",
+      "gender": "Gender",
+      "phone": "Phone",
+      "email": "Email",
+      "address": "Address",
+      "province": "Province",
+      "sector": "Sector",
+      "employment": "Employment status",
+      "fee": "Monthly fee",
+      "workplace": "Workplace"
+    },
+    "receivedData": "Data received",
+    "delegatesTitle": "Delegates",
+    "delegatesHint": "Load of each delegate: affiliates they answer for and altas proposed to them.",
+    "noDelegates": "The organization has no delegates. Invite one to be able to assign altas.",
+    "delegate": "Reference delegate",
+    "chooseDelegate": "Choose a delegate",
+    "notify": "Send welcome email",
+    "notifyHint": "Introduces the delegate with their contact email and phone.",
+    "notifyNoEmail": "The alta has no email.",
+    "confirm": "Confirm",
+    "discard": "Discard",
+    "apply": "Update data",
+    "applyFor": "Update the data of {name}",
+    "discardFor": "Discard the alta of {name}",
+    "discardTitle": "Discard alta",
+    "discardDescription": "The alta of {name} is discarded. If nothing depends on the contact it created yet, it is removed.",
+    "confirmAll": "Confirm all with the proposal",
+    "confirmAllTitle": "Confirm all",
+    "confirmAllDescription": "{count, plural, one {# alta will be assigned to its proposed delegate.} other {# altas will be assigned to their proposed delegate.}}",
+    "toasts": {
+      "confirmed": "Alta of {name} confirmed.",
+      "confirmedAll": "{count, plural, one {# alta confirmed.} other {# altas confirmed.}}",
+      "discarded": "Alta discarded.",
+      "applied": "Affiliate data updated."
+    }
+  },
+  "integrations": {
+    "title": "Integrations",
+    "description": "Keys for an automation to send data to this organization.",
+    "intakeTitle": "Affiliate altas (n8n)",
+    "intakeDescription": "The automation sends each alta to this endpoint with a key of the organization.",
+    "endpoint": "Endpoint",
+    "authHint": "Header: Authorization: Bearer <key>. The organization is deduced from the key.",
+    "name": "Key name",
+    "create": "Create key",
+    "tokenOnce": "Copy the key now: it will not be shown again.",
+    "copy": "Copy",
+    "copied": "Key copied.",
+    "saved": "I have saved it",
+    "columns": {
+      "name": "Name",
+      "key": "Key",
+      "created": "Created",
+      "lastUsed": "Last used",
+      "actions": "Actions"
+    },
+    "neverUsed": "Never",
+    "revoke": "Revoke",
+    "revokeFor": "Revoke the key {name}",
+    "revokedBadge": "Revoked",
+    "revoked": "Key revoked.",
+    "revokeTitle": "Revoke key",
+    "revokeDescription": "The key {name} stops working right away. The automation that uses it will get a 401 error."
   }
 }

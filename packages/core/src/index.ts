@@ -21,6 +21,7 @@ export * from './modules/tasks/index.ts'
 export * from './modules/conversations/index.ts'
 export * from './modules/knowledge/index.ts'
 export * from './modules/procedures/index.ts'
+export * from './modules/intake/index.ts'
 export * from './modules/messaging/index.ts'
 export * from './modules/platform/index.ts'
 

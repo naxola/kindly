@@ -165,7 +165,8 @@
     "INVALID_URL": "La dirección web no es válida.",
     "URL_NOT_HTTP": "La dirección web debe empezar por http:// o https://.",
     "URL_HAS_CREDENTIALS": "La dirección web no puede incluir usuario ni contraseña.",
-    "EMBEDDINGS_NOT_CONFIGURED": "El servicio de embeddings no está configurado en este entorno."
+    "EMBEDDINGS_NOT_CONFIGURED": "El servicio de embeddings no está configurado en este entorno.",
+    "ALREADY_RESOLVED": "Esta alta ya se resolvió."
   },
   "home": {
     "title": "Inicio",
@@ -190,7 +191,8 @@
       "organization": "Organización",
       "activity": "Actividad",
       "positions": "Cargos",
-      "channels": "Canales"
+      "channels": "Canales",
+      "integrations": "Integraciones"
     }
   },
   "orgSwitcher": {
@@ -605,7 +607,11 @@
         "CONTACT_WELCOME_SENT": "Bienvenida enviada",
         "AFFILIATION_CREATED": "Afiliación dada de alta",
         "AFFILIATION_UPDATED": "Afiliación editada",
-        "AFFILIATION_ENDED": "Afiliación dada de baja"
+        "AFFILIATION_ENDED": "Afiliación dada de baja",
+        "AFFILIATE_REQUEST_RECEIVED": "Alta recibida",
+        "AFFILIATE_REQUEST_CONFIRMED": "Alta confirmada",
+        "AFFILIATE_REQUEST_DISCARDED": "Alta descartada",
+        "AFFILIATE_REQUEST_APPLIED": "Datos actualizados desde un alta"
       }
     },
     "identify": {
@@ -1019,5 +1025,100 @@
     "documents": "Documentos requeridos",
     "noDocuments": "Sin documentos requeridos.",
     "published": "Publicada el {date}"
+  },
+  "intake": {
+    "title": "Altas",
+    "description": "Altas de afiliados recibidas de la automatización. Nada se asigna hasta que confirmas el delegado.",
+    "linkWithCount": "Altas ({count})",
+    "backToContacts": "Volver a contactos",
+    "notice": "{count, plural, one {Tienes # alta pendiente de revisar} other {Tienes # altas pendientes de revisar}}",
+    "review": "Revisar",
+    "reviewFor": "Revisar el alta de {name}",
+    "reviewDescription": "Comprueba los datos y confirma quién será su delegado de referencia.",
+    "emptyTitle": "No hay altas pendientes",
+    "emptyDescription": "Las altas que envíe la automatización aparecerán aquí.",
+    "pendingTitle": "Pendientes de asignar ({count})",
+    "duplicatesTitle": "Posibles duplicados ({count})",
+    "duplicatesHint": "Ese DNI ya es un afiliado. Puedes actualizar sus datos con el alta nueva o descartarla; su delegado no cambia.",
+    "noProposal": "Sin propuesta",
+    "proposed": "propuesto",
+    "columns": {
+      "name": "Nombre",
+      "dni": "DNI/NIE",
+      "received": "Recibida",
+      "proposal": "Propuesta",
+      "existing": "Afiliado existente",
+      "actions": "Acciones",
+      "delegate": "Delegado",
+      "assigned": "Afiliados",
+      "pending": "Por confirmar",
+      "withThis": "Con esta alta"
+    },
+    "fields": {
+      "dni": "DNI/NIE",
+      "birthDate": "Fecha de nacimiento",
+      "gender": "Género",
+      "phone": "Teléfono",
+      "email": "Email",
+      "address": "Domicilio",
+      "province": "Provincia",
+      "sector": "Sector",
+      "employment": "Situación laboral",
+      "fee": "Cuota mensual",
+      "workplace": "Centro de trabajo"
+    },
+    "receivedData": "Datos recibidos",
+    "delegatesTitle": "Delegados",
+    "delegatesHint": "Carga de cada delegado: afiliados que atiende y altas que tiene propuestas.",
+    "noDelegates": "La organización no tiene delegados. Invita a alguno para poder asignar altas.",
+    "delegate": "Delegado de referencia",
+    "chooseDelegate": "Elige un delegado",
+    "notify": "Enviar email de bienvenida",
+    "notifyHint": "Presenta al delegado con su email y teléfono de contacto.",
+    "notifyNoEmail": "El alta no trae email.",
+    "confirm": "Confirmar",
+    "discard": "Descartar",
+    "apply": "Actualizar datos",
+    "applyFor": "Actualizar los datos de {name}",
+    "discardFor": "Descartar el alta de {name}",
+    "discardTitle": "Descartar alta",
+    "discardDescription": "Se descarta el alta de {name}. Si nada depende aún del contacto creado, se elimina.",
+    "confirmAll": "Confirmar todas con la propuesta",
+    "confirmAllTitle": "Confirmar todas",
+    "confirmAllDescription": "{count, plural, one {Se asignará # alta a su delegado propuesto.} other {Se asignarán # altas a su delegado propuesto.}}",
+    "toasts": {
+      "confirmed": "Alta de {name} confirmada.",
+      "confirmedAll": "{count, plural, one {# alta confirmada.} other {# altas confirmadas.}}",
+      "discarded": "Alta descartada.",
+      "applied": "Datos del afiliado actualizados."
+    }
+  },
+  "integrations": {
+    "title": "Integraciones",
+    "description": "Claves para que una automatización envíe datos a esta organización.",
+    "intakeTitle": "Altas de afiliados (n8n)",
+    "intakeDescription": "La automatización envía cada alta a este endpoint con una clave de la organización.",
+    "endpoint": "Endpoint",
+    "authHint": "Cabecera: Authorization: Bearer <clave>. La organización se deduce de la clave.",
+    "name": "Nombre de la clave",
+    "create": "Crear clave",
+    "tokenOnce": "Copia la clave ahora: no se volverá a mostrar.",
+    "copy": "Copiar",
+    "copied": "Clave copiada.",
+    "saved": "Ya la he guardado",
+    "columns": {
+      "name": "Nombre",
+      "key": "Clave",
+      "created": "Creada",
+      "lastUsed": "Último uso",
+      "actions": "Acciones"
+    },
+    "neverUsed": "Nunca",
+    "revoke": "Revocar",
+    "revokeFor": "Revocar la clave {name}",
+    "revokedBadge": "Revocada",
+    "revoked": "Clave revocada.",
+    "revokeTitle": "Revocar clave",
+    "revokeDescription": "La clave {name} dejará de funcionar de inmediato. La automatización que la use recibirá un error 401."
   }
 }

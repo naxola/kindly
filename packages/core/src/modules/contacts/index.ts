@@ -13,7 +13,7 @@ export {
   createContactFromInbound,
 } from './service.ts'
 export type { ContactView, ContactActivityView } from './service.ts'
-export { assignContactToDelegate, listAssignmentHistory } from './assignments.ts'
+export { assignContactToDelegate, assignContactInTx, listAssignmentHistory } from './assignments.ts'
 export type { AssignmentView } from './assignments.ts'
 export {
   contactWelcomeEmailJob,

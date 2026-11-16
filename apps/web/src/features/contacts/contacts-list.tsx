@@ -28,6 +28,7 @@ import { errorText, unwrap } from '@/client/errors.ts'
 import { field } from '@/client/forms.ts'
 import { useCan, useMemberId, useOrganizationId } from '@/components/workspace-context.tsx'
 import { ContactFields, readContactForm } from './contact-fields.tsx'
+import { useAffiliateRequestCount } from '@/features/intake/queries.ts'
 import { contactKeys, useAssignableMembers, useContacts } from './queries.ts'
 
 /** Contacts the person may see: all of them for administrators, their own for delegates. */
@@ -35,7 +36,10 @@ export function ContactsList() {
   const t = useTranslations('contacts')
   const all = useTranslations()
   const orgId = useOrganizationId()
-  const canWrite = useCan()('contacts.write')
+  const can = useCan()
+  const canWrite = can('contacts.write')
+  const canReviewAltas = can('affiliate_requests.manage')
+  const altas = useAffiliateRequestCount(orgId, canReviewAltas)
   const contacts = useContacts(orgId)
   const [creating, setCreating] = useState(false)
   const items = contacts.data ?? []
@@ -46,11 +50,20 @@ export function ContactsList() {
         title={t('title')}
         description={t('description')}
         actions={
-          canWrite ? (
-            <Button variant="primary" size="small" onClick={() => setCreating(true)}>
-              <Plus /> {t('new')}
-            </Button>
-          ) : null
+          <>
+            {canReviewAltas ? (
+              <Button asChild size="small">
+                <Link href="/contacts/requests">
+                  {all('intake.linkWithCount', { count: altas.data ?? 0 })}
+                </Link>
+              </Button>
+            ) : null}
+            {canWrite ? (
+              <Button variant="primary" size="small" onClick={() => setCreating(true)}>
+                <Plus /> {t('new')}
+              </Button>
+            ) : null}
+          </>
         }
       />
       <PageContainer>

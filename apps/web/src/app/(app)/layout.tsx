@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { AppFrame } from '@/components/app-frame.tsx'
+import { RequestsNotifier } from '@/features/intake/requests-notifier.tsx'
 import { getWorkspace } from '@/server/viewer.ts'
 
 /**
@@ -24,6 +25,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       permissions={workspace.active.permissions}
     >
       {children}
+      {/* Kindly: notice of altas waiting for an administrator (renders nothing). */}
+      <RequestsNotifier />
     </AppFrame>
   )
 }

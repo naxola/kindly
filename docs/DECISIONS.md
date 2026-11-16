@@ -4079,3 +4079,38 @@ migración no lo traía. El usuario pidió portarlo (2026-11-16).
 
 **Fuera de este paso:** las invitaciones por correo y el teléfono del delegado de aquel commit ya existían en el stack nuevo
 (plantilla + `member_profiles`).
+
+## 2026-11-16 — Altas de afiliados por webhook de una automatización (portado de la rama `staging` antigua)
+
+**Origen.** Decisión del 2026-10-26 en la app anterior («Altas de afiliados por webhook, con asignación semiautomática»), que
+no llegó a `master`. El usuario pidió portarla (2026-11-16). Se mantiene el diseño aceptado entonces; cambia lo que exige el
+stack nuevo.
+
+**Se mantiene.**
+- Recepción: crea contacto, perfil de afiliado (`affiliate_profiles`, DNI/NIE normalizado y único por organización) y una
+  afiliación ACTIVE, **sin delegado**: hasta que un ADMIN confirma, solo lo ve quien lee todos los contactos. Un DNI ya afiliado
+  genera una solicitud `DUPLICATE` sin crear nada; reenviar un DNI que espera decisión devuelve la misma (índice único parcial).
+- Propuesta por carga (afiliados asignados + propuestas pendientes), solo entre delegados (rol MEMBER activo), desempate por
+  antigüedad. Confirmar, «Confirmar todas con la propuesta», descartar (borra lo creado si nada cuelga del contacto) y, para un
+  duplicado, «Actualizar datos» (no cambia el delegado).
+- **Autenticación por clave Bearer por organización, no HMAC** (excepción acotada y ya aceptada a «todo webhook se valida por
+  firma», que se refiere a proveedores de mensajería): 256 bits, se muestra una vez, solo se guarda su SHA-256, revocable, con
+  último uso. La organización se deduce de la clave, nunca del cuerpo.
+- Validación del payload (`tipoSolicitud: "alta"`, `validoParaProcesar`, sin `errores`; DNI/NIE de forma, sin dígito de
+  control); un elemento inválido no bloquea los demás; sin datos personales en logs.
+
+**Cambia con el stack nuevo.**
+1. Módulo `core/intake`; tablas con RLS (`affiliate_profiles`, `affiliate_requests`, `integration_keys`). La clave se resuelve
+   antes de conocer la organización con el contexto `app.integration_key_hash` (`withIntegrationKey`), que solo deja **leer**
+   esa fila; lo demás corre en `withTenant` de la organización.
+2. Confirmar es **una transacción**: se reclama la solicitud, se asigna con `assignContactInTx` (que valida al delegado) y se
+   registra el delegado final; si algo falla, el alta sigue pendiente. El delegado puede ser cualquier miembro activo (regla de
+   Kindly), aunque la propuesta y el selector ofrecen solo delegados.
+3. Confirmar permite enviar a la vez la **bienvenida** al afiliado (portado 1/4).
+4. Permisos nuevos `affiliate_requests.manage` e `integrations.manage` (solo ADMIN).
+5. Endpoint fuera de `/v1`: `POST /api/integrations/affiliate-requests`, con límite por IP (`affiliate-intake`, 60/min).
+6. UI: «Altas (N)» en la cabecera de Contactos y página `/contacts/requests`; Ajustes → Integraciones; aviso en toda la app
+   para administradores (sondeo cada minuto, una vez por aumento y sesión del navegador).
+
+**Pendiente (no estaba en la app anterior):** mostrar el perfil de afiliado (DNI, domicilio…) en la ficha del contacto tras
+confirmar; hoy solo se ve al revisar el alta.

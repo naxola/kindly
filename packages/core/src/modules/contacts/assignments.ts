@@ -1,4 +1,4 @@
-import { Prisma, withTenant, type ContactAssignment } from '@saas/database'
+import { Prisma, withTenant, type ContactAssignment, type TenantTx } from '@saas/database'
 import type { Ctx } from '../../context.ts'
 import { DomainError } from '../../errors.ts'
 import { recordActivity } from '../activity/index.ts'
@@ -73,69 +73,9 @@ export async function assignContactToDelegate(
 ): Promise<AssignmentView> {
   authorize(ctx.actor, 'contacts.assign')
   try {
-    return await withTenant(ctx.db, ctx.actor.organizationId, async (tx) => {
-      const contact = await tx.contact.findUnique({
-        where: { organizationId_id: { organizationId: ctx.actor.organizationId, id: contactId } },
-        select: { id: true, email: true },
-      })
-      if (!contact) throw new DomainError('NOT_FOUND', 'Contact not found')
-      if (options.notifyContact && !contact.email) {
-        throw new DomainError('VALIDATION_FAILED', 'The welcome email needs the contact email', [
-          { path: 'email', code: 'WELCOME_NO_EMAIL' },
-        ])
-      }
-      const delegate = await tx.organizationMember.findFirst({
-        where: { id: delegateId, status: 'ACTIVE' },
-        select: { id: true },
-      })
-      if (!delegate) {
-        throw new DomainError('VALIDATION_FAILED', 'The delegate is not an active member', [
-          { path: 'delegateId', code: 'INVALID_DELEGATE' },
-        ])
-      }
-      const current = await tx.contactAssignment.findFirst({
-        where: { contactId, endedAt: null },
-      })
-      if (current?.delegateId === delegateId) {
-        const names = await displayNamesOf(tx, [delegateId])
-        return toView(current, names)
-      }
-      const now = ctx.now?.() ?? new Date()
-      if (current) {
-        await tx.contactAssignment.update({ where: { id: current.id }, data: { endedAt: now } })
-      }
-      const created = await tx.contactAssignment.create({
-        data: {
-          organizationId: ctx.actor.organizationId,
-          contactId,
-          delegateId,
-          startedAt: now,
-          assignedById: ctx.actor.memberId,
-        },
-      })
-      if (options.notifyContact) await enqueueContactWelcome(ctx, tx, created.id, 'assignment')
-      await recordActivity(tx, {
-        organizationId: ctx.actor.organizationId,
-        type: 'CONTACT_DELEGATE_ASSIGNED',
-        actorMemberId: ctx.actor.memberId,
-        entityType: 'contact',
-        entityId: contactId,
-        metadata: { from: current?.delegateId ?? null, to: delegateId },
-      })
-      await writeAudit(tx, {
-        organizationId: ctx.actor.organizationId,
-        actorUserId: ctx.actor.userId,
-        action: 'contact.delegate_assigned',
-        resourceType: 'contact',
-        resourceId: contactId,
-        before: { delegateId: current?.delegateId ?? null },
-        after: { delegateId },
-        correlationId: ctx.correlationId,
-        ip: ctx.ip,
-      })
-      const names = await displayNamesOf(tx, [delegateId])
-      return toView(created, names)
-    })
+    return await withTenant(ctx.db, ctx.actor.organizationId, (tx) =>
+      assignContactInTx(ctx, tx, contactId, delegateId, options),
+    )
   } catch (error) {
     // Two administrators reassigning at once: the unique index lets only one win.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -145,4 +85,79 @@ export async function assignContactToDelegate(
     }
     throw error
   }
+}
+
+/**
+ * The reassignment inside the caller's transaction, for use cases that assign as part of a larger
+ * change (confirming an alta). The caller has already authorized `contacts.assign`.
+ */
+export async function assignContactInTx(
+  ctx: Ctx,
+  tx: TenantTx,
+  contactId: string,
+  delegateId: string,
+  options: { notifyContact?: boolean } = {},
+): Promise<AssignmentView> {
+  authorize(ctx.actor, 'contacts.assign')
+  const contact = await tx.contact.findUnique({
+    where: { organizationId_id: { organizationId: ctx.actor.organizationId, id: contactId } },
+    select: { id: true, email: true },
+  })
+  if (!contact) throw new DomainError('NOT_FOUND', 'Contact not found')
+  if (options.notifyContact && !contact.email) {
+    throw new DomainError('VALIDATION_FAILED', 'The welcome email needs the contact email', [
+      { path: 'email', code: 'WELCOME_NO_EMAIL' },
+    ])
+  }
+  const delegate = await tx.organizationMember.findFirst({
+    where: { id: delegateId, status: 'ACTIVE' },
+    select: { id: true },
+  })
+  if (!delegate) {
+    throw new DomainError('VALIDATION_FAILED', 'The delegate is not an active member', [
+      { path: 'delegateId', code: 'INVALID_DELEGATE' },
+    ])
+  }
+  const current = await tx.contactAssignment.findFirst({
+    where: { contactId, endedAt: null },
+  })
+  if (current?.delegateId === delegateId) {
+    const names = await displayNamesOf(tx, [delegateId])
+    return toView(current, names)
+  }
+  const now = ctx.now?.() ?? new Date()
+  if (current) {
+    await tx.contactAssignment.update({ where: { id: current.id }, data: { endedAt: now } })
+  }
+  const created = await tx.contactAssignment.create({
+    data: {
+      organizationId: ctx.actor.organizationId,
+      contactId,
+      delegateId,
+      startedAt: now,
+      assignedById: ctx.actor.memberId,
+    },
+  })
+  if (options.notifyContact) await enqueueContactWelcome(ctx, tx, created.id, 'assignment')
+  await recordActivity(tx, {
+    organizationId: ctx.actor.organizationId,
+    type: 'CONTACT_DELEGATE_ASSIGNED',
+    actorMemberId: ctx.actor.memberId,
+    entityType: 'contact',
+    entityId: contactId,
+    metadata: { from: current?.delegateId ?? null, to: delegateId },
+  })
+  await writeAudit(tx, {
+    organizationId: ctx.actor.organizationId,
+    actorUserId: ctx.actor.userId,
+    action: 'contact.delegate_assigned',
+    resourceType: 'contact',
+    resourceId: contactId,
+    before: { delegateId: current?.delegateId ?? null },
+    after: { delegateId },
+    correlationId: ctx.correlationId,
+    ip: ctx.ip,
+  })
+  const names = await displayNamesOf(tx, [delegateId])
+  return toView(created, names)
 }

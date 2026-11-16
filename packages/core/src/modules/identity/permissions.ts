@@ -21,6 +21,9 @@ export const PERMISSIONS = [
   'contacts.read_all',
   'contacts.assign',
   'affiliations.manage',
+  // Kindly (altas from an automation): review and resolve them, and manage the integration keys.
+  'affiliate_requests.manage',
+  'integrations.manage',
   // Kindly (tasks): visible when they have no contact or the contact is visible.
   'tasks.read',
   'tasks.write',
