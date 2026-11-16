@@ -1,3 +1,4 @@
+import { enqueuePastDueNotice } from './dunning.ts'
 import { withTenant, type TenantTx } from '@saas/database'
 import { z } from 'zod'
 import { nowOf, type BaseCtx, type Ctx } from '../../context.ts'
@@ -31,6 +32,26 @@ export async function applyProviderEvent(
   if (s.organizationId !== organizationId) throw new Error('Event for another organization')
   const plan = planForPrice(catalog, s.priceId)
   const current = await tx.subscription.findUnique({ where: { organizationId } })
+  // Only the organization's live subscription may change it. A different subscription is
+  // accepted only when there is none, the last one is canceled, or it was never at a provider
+  // (ADR 0014). Anything else is rejected and audited, never retried.
+  if (
+    current &&
+    current.status !== 'CANCELED' &&
+    current.providerSubscriptionId &&
+    current.providerSubscriptionId !== s.ref
+  ) {
+    await writeAudit(tx, {
+      organizationId,
+      actorUserId: null,
+      action: 'billing.provider_event_rejected',
+      resourceType: 'subscription',
+      resourceId: current.id,
+      after: { reason: 'NOT_THE_LIVE_SUBSCRIPTION', providerEventId: event.id },
+      correlationId: ctx.correlationId,
+    })
+    return { applied: false as const, rejected: 'NOT_THE_LIVE_SUBSCRIPTION' as const }
+  }
   if (current?.providerUpdatedAt && current.providerUpdatedAt >= event.occurredAt) {
     return { applied: false as const }
   }
@@ -54,6 +75,36 @@ export async function applyProviderEvent(
   const saved = current
     ? await tx.subscription.update({ where: { id: current.id }, data })
     : await tx.subscription.create({ data: { organizationId, ...data } })
+  // Plan in force during this period, stored now so the close never has to guess the past
+  // (ADR 0014). A plan change inside the period updates its row: the latest plan governs it.
+  if (saved.currentPeriodEnd > saved.currentPeriodStart) {
+    await tx.subscriptionPeriod.upsert({
+      where: {
+        organizationId_subscriptionId_periodStart: {
+          organizationId,
+          subscriptionId: saved.id,
+          periodStart: saved.currentPeriodStart,
+        },
+      },
+      create: {
+        organizationId,
+        subscriptionId: saved.id,
+        periodStart: saved.currentPeriodStart,
+        periodEnd: saved.currentPeriodEnd,
+        planKey: plan.plan,
+        planVersion: plan.version,
+      },
+      update: {
+        periodEnd: saved.currentPeriodEnd,
+        planKey: plan.plan,
+        planVersion: plan.version,
+      },
+    })
+  }
+  // Entering PAST_DUE (not every event while it lasts): tell the ADMINs once (R3.2).
+  if (s.status === 'PAST_DUE' && current?.status !== 'PAST_DUE' && saved.pastDueSince) {
+    await enqueuePastDueNotice(ctx, tx, saved, saved.pastDueSince)
+  }
   await writeAudit(tx, {
     organizationId,
     actorUserId: null,
@@ -90,7 +141,6 @@ export async function startCheckout(
   ctx: Ctx,
   provider: PaymentProvider | null,
   input: z.input<typeof StartCheckoutInput>,
-  customerEmail: string | null,
   catalog: Catalog = CATALOG,
 ) {
   authorize(ctx.actor, 'billing.manage')
@@ -113,10 +163,10 @@ export async function startCheckout(
       { code: 'ALREADY_SUBSCRIBED' },
     ])
   }
+  // The server creates the transaction for the actor's organization (ADR 0014).
   return provider.checkout({
     priceId: plan.providerPriceId,
     organizationId: ctx.actor.organizationId,
-    customerEmail,
   })
 }
 

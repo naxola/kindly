@@ -3,9 +3,11 @@ import pg from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   applyProviderEvent,
+  enqueueDunningFollowUps,
   billingChargeHandler,
   billingCloseHandlers,
   chargePeriodJob,
+  ChargeOutcomeUnknownError,
   billingStateOf,
   closeDuePeriods,
   createOrganization,
@@ -387,6 +389,213 @@ describe('period close (B4)', () => {
   })
 })
 
+describe('period close with history (R1.6, ADR 0014)', () => {
+  const ev = (orgId: string, priceId: string, start: string, end: string, at: string) => ({
+    id: newId(),
+    occurredAt: new Date(at),
+    kind: 'subscription' as const,
+    subscription: {
+      ref: `sub_${orgId}`,
+      customerRef: 'ctm_1',
+      status: 'ACTIVE' as const,
+      priceId,
+      periodStart: new Date(start),
+      periodEnd: new Date(end),
+      cancelAtPeriodEnd: false,
+      organizationId: orgId,
+    },
+  })
+  const apply = (orgId: string, e: ReturnType<typeof ev>) =>
+    withTenant(db, orgId, (tx) => applyProviderEvent(base(), tx, orgId, e, 'paddle', TEST_CATALOG))
+  const addUsage = (orgId: string, occurredAt: string, quantity: number) =>
+    withTenant(db, orgId, (tx) =>
+      tx.usageEvent.create({
+        data: {
+          organizationId: orgId,
+          metric: 'api_calls',
+          quantity,
+          occurredAt: new Date(occurredAt),
+          idempotencyKey: newId(),
+        },
+      }),
+    )
+  const closeAt = (orgId: string, at: string) =>
+    withTenant(db, orgId, (tx) =>
+      closeDuePeriods({ ...base(), now: () => new Date(at) }, tx, orgId, TEST_CATALOG),
+    )
+
+  it('every provider event leaves the plan of its period on record', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    // The same period synced again (e.g. a cancellation flag) does not duplicate its row.
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-06T00:00:00Z',
+      ),
+    )
+    const rows = await withTenant(db, orgId, (tx) =>
+      tx.subscriptionPeriod.findMany({ orderBy: { periodStart: 'asc' } }),
+    )
+    expect(rows.map((r) => [r.periodStart.toISOString().slice(0, 10), r.planVersion])).toEqual([
+      ['2026-10-05', 1],
+      ['2026-11-05', 2],
+    ])
+  })
+
+  it('with the worker down for several periods, all are closed, each with the plan it had', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_2',
+        '2026-12-05T00:00:00Z',
+        '2027-01-05T00:00:00Z',
+        '2026-12-05T00:00:05Z',
+      ),
+    )
+    await addUsage(orgId, '2026-10-20T00:00:00Z', 3000)
+    await addUsage(orgId, '2026-11-20T00:00:00Z', 2000)
+    await addUsage(orgId, '2026-12-20T00:00:00Z', 1500)
+
+    // Nothing was closed until now: three periods are due at once.
+    const closed = await closeAt(orgId, '2027-01-06T12:00:00Z')
+    expect(
+      closed.map((p) => [
+        p.periodStart.toISOString().slice(0, 10),
+        p.planVersion,
+        p.fixedPrice.toString(),
+        p.overageTotal.toString(),
+      ]),
+    ).toEqual([
+      ['2026-10-05', 1, '29', '2'],
+      ['2026-11-05', 2, '39', '1'],
+      ['2026-12-05', 2, '39', '0.5'],
+    ])
+    expect(await closeAt(orgId, '2027-01-06T12:00:00Z')).toEqual([])
+  })
+
+  it('the grace is respected for a period that a renewal already replaced', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-11-05T00:00:00Z',
+        '2026-12-05T00:00:00Z',
+        '2026-11-05T00:00:05Z',
+      ),
+    )
+    expect(await closeAt(orgId, '2026-11-05T00:30:00Z')).toEqual([])
+    expect(
+      (await closeAt(orgId, '2026-11-05T01:00:00Z')).map((p) => p.periodEnd.toISOString()),
+    ).toEqual(['2026-11-05T00:00:00.000Z'])
+  })
+
+  it('usage of an already closed period is refused, but a repeated delivery stays harmless', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(
+      orgId,
+      ev(
+        orgId,
+        'pri_test_pro_1',
+        '2026-10-05T00:00:00Z',
+        '2026-11-05T00:00:00Z',
+        '2026-10-05T00:00:05Z',
+      ),
+    )
+    const key = newId()
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 5,
+      occurredAt: inOctober,
+      idempotencyKey: key,
+    })
+    await closeAt(orgId, '2026-11-10T12:00:00Z')
+
+    expect(
+      await errorOf(record(orgId, { metric: 'api_calls', quantity: 5, occurredAt: inOctober })),
+    ).toEqual({ code: 'CONFLICT', detail: 'PERIOD_CLOSED' })
+    // The same event delivered again after the close is a no-op, not an error.
+    expect(
+      (
+        await record(orgId, {
+          metric: 'api_calls',
+          quantity: 5,
+          occurredAt: inOctober,
+          idempotencyKey: key,
+        })
+      ).recorded,
+    ).toBe(false)
+    // Usage of the open period is still accepted.
+    expect(
+      (
+        await record(orgId, {
+          metric: 'api_calls',
+          quantity: 5,
+          occurredAt: new Date('2026-11-10T11:00:00Z'),
+        })
+      ).recorded,
+    ).toBe(true)
+  })
+})
+
 describe('payment provider (B3 + B5)', () => {
   const event = (
     orgId: string,
@@ -429,11 +638,121 @@ describe('payment provider (B3 + B5)', () => {
     ).toBe(true)
   })
 
+  it("an event of another subscription cannot change the organization's live one (R1.4)", async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId)) // live subscription sub_<orgId>, pro@2
+    const foreign = event(
+      orgId,
+      { ref: 'sub_someone_elses', priceId: 'pri_test_pro_1', status: 'CANCELED' },
+      '2026-11-09T00:00:00Z',
+    )
+    expect(await apply(orgId, foreign)).toEqual({
+      applied: false,
+      rejected: 'NOT_THE_LIVE_SUBSCRIPTION',
+    })
+    const state = await stateAt(orgId, NOW)
+    expect(state).toMatchObject({ status: 'ACTIVE' })
+    expect(`${state.plan.plan}@${state.plan.version}`).toBe('pro@2')
+    const audited = await withTenant(db, orgId, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'billing.provider_event_rejected' } }),
+    )
+    expect(audited).toHaveLength(1)
+    expect(audited[0]!.after).toMatchObject({ providerEventId: foreign.id })
+  })
+
+  it('a new subscription is accepted once the previous one is canceled', async () => {
+    const { orgId } = await orgWithAdmin()
+    await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
+    const fresh = event(
+      orgId,
+      { ref: 'sub_second', priceId: 'pri_test_pro_1' },
+      '2026-11-09T00:00:00Z',
+    )
+    expect((await apply(orgId, fresh)).applied).toBe(true)
+    const row = await withTenant(db, orgId, (tx) =>
+      tx.subscription.findUniqueOrThrow({ where: { organizationId: orgId } }),
+    )
+    expect(row).toMatchObject({ providerSubscriptionId: 'sub_second', planVersion: 1 })
+  })
+
   it('older events arriving late are ignored', async () => {
     const { orgId } = await orgWithAdmin()
     await apply(orgId, event(orgId, { status: 'CANCELED' }, '2026-11-06T00:00:00Z'))
     expect((await apply(orgId, event(orgId, {}, '2026-11-05T00:00:00Z'))).applied).toBe(false)
     expect((await stateAt(orgId, NOW)).status).toBe('DEFAULT')
+  })
+
+  describe('dunning notices (R3.2)', () => {
+    const dunning = () => queue.of('billing.dunning-email')
+    const kinds = () => dunning().map((j) => (j.payload as { kind: string }).kind)
+    const followUps = (orgId: string, at: string) =>
+      withTenant(db, orgId, (tx) =>
+        enqueueDunningFollowUps({ ...base(), now: () => new Date(at) }, tx, orgId),
+      )
+    const goPastDue = async (orgId: string) => {
+      await apply(orgId, event(orgId))
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-11-06T00:00:00Z'),
+        new Date('2026-11-06T00:00:00Z'),
+      )
+    }
+
+    it('entering PAST_DUE queues one notice with the date the plan will be restricted', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      expect(kinds()).toEqual(['PAST_DUE'])
+      expect(dunning()[0]!.payload).toMatchObject({
+        organizationId: orgId,
+        restrictsAt: '2026-11-13T00:00:00.000Z',
+        url: 'https://app.example.com/settings/billing',
+      })
+      // Another PAST_DUE event of the same non-payment does not notify again.
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-11-07T00:00:00Z'),
+        new Date('2026-11-07T00:00:00Z'),
+      )
+      expect(kinds()).toEqual(['PAST_DUE'])
+    })
+
+    it('reminds two days before the restriction and tells when it happens, once each', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      await followUps(orgId, '2026-11-08T00:00:00Z') // too early: nothing
+      expect(kinds()).toEqual(['PAST_DUE'])
+      await followUps(orgId, '2026-11-11T00:00:00Z') // 2 days before the 13th
+      await followUps(orgId, '2026-11-11T01:00:00Z') // the next hourly pass
+      await followUps(orgId, '2026-11-13T00:30:00Z') // grace over
+      await followUps(orgId, '2026-11-13T01:30:00Z')
+      // The queue deduplicates by key: one REMINDER and one RESTRICTED, however many passes.
+      const keys = new Set(dunning().map((j) => j.options.idempotencyKey))
+      expect([...new Set(kinds())].sort()).toEqual(['PAST_DUE', 'REMINDER', 'RESTRICTED'])
+      expect(keys.size).toBe(3)
+    })
+
+    it('says nothing once it is paid, and starts over on a later non-payment', async () => {
+      const { orgId } = await orgWithAdmin()
+      await goPastDue(orgId)
+      await apply(orgId, event(orgId, {}, '2026-11-09T00:00:00Z'), new Date('2026-11-09T00:00:00Z'))
+      await followUps(orgId, '2026-11-12T00:00:00Z')
+      await followUps(orgId, '2026-11-20T00:00:00Z')
+      expect(kinds()).toEqual(['PAST_DUE'])
+      await apply(
+        orgId,
+        event(orgId, { status: 'PAST_DUE' }, '2026-12-06T00:00:00Z'),
+        new Date('2026-12-06T00:00:00Z'),
+      )
+      expect(kinds()).toEqual(['PAST_DUE', 'PAST_DUE'])
+      const keys = new Set(dunning().map((j) => j.options.idempotencyKey))
+      expect(keys.size).toBe(2)
+    })
+
+    it('organizations without a subscription get nothing', async () => {
+      const { orgId } = await orgWithAdmin()
+      await followUps(orgId, '2026-11-20T00:00:00Z')
+      expect(dunning()).toEqual([])
+    })
   })
 
   it('past due keeps the plan during the grace period, then falls back (data kept)', async () => {
@@ -465,23 +784,22 @@ describe('payment provider (B3 + B5)', () => {
   it('checkout: only with a provider, a public paid plan and no live subscription', async () => {
     const { orgId, ctx } = await orgWithAdmin()
     const provider = fakeProvider()
-    expect(await errorOf(startCheckout(ctx, null, { plan: 'pro' }, null, TEST_CATALOG))).toEqual({
+    expect(await errorOf(startCheckout(ctx, null, { plan: 'pro' }, TEST_CATALOG))).toEqual({
       code: 'CONFLICT',
       detail: 'PAYMENTS_DISABLED',
     })
     expect(
-      await errorOf(startCheckout(ctx, provider, { plan: 'gold' }, null, TEST_CATALOG)),
+      await errorOf(startCheckout(ctx, provider, { plan: 'gold' }, TEST_CATALOG)),
     ).toMatchObject({
       detail: 'PLAN_NOT_FOUND',
     })
-    const session = await startCheckout(ctx, provider, { plan: 'pro' }, 'a@b.test', TEST_CATALOG)
-    expect(session).toMatchObject({
-      priceId: 'pri_test_pro_2',
-      customData: { organizationId: orgId },
-    })
+    // The transaction is created for the actor's organization, whatever the browser says.
+    const session = await startCheckout(ctx, provider, { plan: 'pro' }, TEST_CATALOG)
+    expect(session).toMatchObject({ transactionId: 'txn_test' })
+    expect(provider.checkouts).toEqual([{ priceId: 'pri_test_pro_2', organizationId: orgId }])
     await apply(orgId, event(orgId))
     expect(
-      await errorOf(startCheckout(ctx, provider, { plan: 'pro' }, null, TEST_CATALOG)),
+      await errorOf(startCheckout(ctx, provider, { plan: 'pro' }, TEST_CATALOG)),
     ).toMatchObject({
       detail: 'ALREADY_SUBSCRIBED',
     })
@@ -549,19 +867,114 @@ describe('payment provider (B3 + B5)', () => {
   })
 })
 
+describe('charge state (R1.5)', () => {
+  async function closedPeriod() {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date('2026-10-05T00:00:00Z'),
+          currentPeriodEnd: new Date('2026-11-05T00:00:00Z'),
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+          provider: 'paddle',
+          providerSubscriptionId: `sub_${newId()}`,
+          providerCustomerId: 'ctm_1',
+        },
+      }),
+    )
+    await record(orgId, {
+      metric: 'api_calls',
+      quantity: 3000,
+      occurredAt: new Date('2026-10-20T00:00:00Z'),
+    })
+    const [period] = await withTenant(db, orgId, (tx) =>
+      closeDuePeriods(base(), tx, orgId, TEST_CATALOG),
+    )
+    const statusOf = async () =>
+      (
+        await withTenant(db, orgId, (tx) =>
+          tx.billingPeriod.findUniqueOrThrow({ where: { id: period!.id } }),
+        )
+      ).status
+    return { orgId, periodId: period!.id, statusOf }
+  }
+  const jobCtx = { organizationId: null, correlationId: 'c', jobId: 'j', attempt: 0 }
+
+  it('the provider charges but recording the result fails: stays CHARGING, never CHARGE_FAILED, and a relaunch does not charge again', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    // Same database, but every transaction after the provider call fails to write.
+    let providerCalled = false
+    const flaky = new Proxy(db, {
+      get: (target, prop, receiver) =>
+        prop === '$transaction' && providerCalled
+          ? () => Promise.reject(new Error('connection lost'))
+          : Reflect.get(target, prop, receiver),
+    })
+    const provider = fakeProvider()
+    const charge = provider.chargeOverage.bind(provider)
+    provider.chargeOverage = async (c) => {
+      await charge(c)
+      providerCalled = true
+    }
+
+    await expect(
+      billingChargeHandler({ db: flaky, provider })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toBeInstanceOf(ChargeOutcomeUnknownError)
+    expect(provider.charges).toHaveLength(1)
+    expect(await statusOf()).toBe('CHARGING')
+
+    // The relaunched job refuses: it never calls the provider again.
+    await expect(
+      billingChargeHandler({ db, provider })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toBeInstanceOf(ChargeOutcomeUnknownError)
+    expect(provider.charges).toHaveLength(1)
+    expect(await statusOf()).toBe('CHARGING')
+  })
+
+  it('CHARGING is committed before the provider is called', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    let seenDuringCall: string | null = null
+    const provider = fakeProvider()
+    provider.chargeOverage = async () => {
+      seenDuringCall = await statusOf()
+    }
+    await billingChargeHandler({ db, provider })({ organizationId: orgId, periodId }, jobCtx)
+    expect(seenDuringCall).toBe('CHARGING')
+    expect(await statusOf()).toBe('CHARGED')
+  })
+
+  it('a configuration problem fails before anything is sent', async () => {
+    const { orgId, periodId, statusOf } = await closedPeriod()
+    await expect(
+      billingChargeHandler({ db, provider: null })({ organizationId: orgId, periodId }, jobCtx),
+    ).rejects.toThrow('No payment provider configured')
+    expect(await statusOf()).toBe('CHARGE_FAILED')
+  })
+})
+
 function fakeProvider(failWith?: Error) {
   const charges: OverageCharge[] = []
-  const provider: PaymentProvider & { charges: OverageCharge[] } = {
+  const checkouts: { priceId: string; organizationId: string }[] = []
+  const provider: PaymentProvider & {
+    charges: OverageCharge[]
+    checkouts: typeof checkouts
+  } = {
     name: 'paddle',
     charges,
-    checkout: (i) => ({
-      provider: 'paddle',
-      environment: 'sandbox',
-      clientToken: 'tok',
-      priceId: i.priceId,
-      customData: { organizationId: i.organizationId },
-      customerEmail: i.customerEmail,
-    }),
+    checkouts,
+    checkout: (i) => {
+      checkouts.push(i)
+      return Promise.resolve({
+        provider: 'paddle',
+        environment: 'sandbox' as const,
+        clientToken: 'tok',
+        transactionId: 'txn_test',
+      })
+    },
     portalUrl: () => Promise.resolve('https://portal.test'),
     chargeOverage: (c) =>
       failWith ? Promise.reject(failWith) : (charges.push(c), Promise.resolve()),
@@ -571,3 +984,104 @@ function fakeProvider(failWith?: Error) {
   }
   return provider
 }
+
+describe('usage counters (R3.3, ADR 0012 amendment)', () => {
+  const counterOf = (orgId: string, metric: string) =>
+    withTenant(db, orgId, (tx) => tx.usageCounter.findMany({ where: { metric } }))
+  const sumOf = (orgId: string, metric: string) =>
+    withTenant(db, orgId, async (tx) => {
+      const rows = await tx.usageEvent.findMany({ where: { metric } })
+      return rows.reduce((a, r) => a + Number(r.quantity), 0)
+    })
+
+  it('keeps one counter per organization, metric and period, up to date with each record', async () => {
+    const { orgId } = await orgWithAdmin()
+    await record(orgId, { metric: 'api_calls', quantity: 30 })
+    await record(orgId, { metric: 'api_calls', quantity: 12 })
+    await record(orgId, { metric: 'storage_gb', quantity: '0.4' })
+    await record(orgId, { metric: 'storage_gb', quantity: '0.2' })
+    await record(orgId, { metric: 'seats', subjectKey: 'a' })
+    await record(orgId, { metric: 'seats', subjectKey: 'a' })
+    await record(orgId, { metric: 'seats', subjectKey: 'b' })
+    const value = async (m: string) => {
+      const rows = await counterOf(orgId, m)
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.periodStart.toISOString()).toBe('2026-11-01T00:00:00.000Z')
+      return rows[0]!.value.toString()
+    }
+    expect(await value('api_calls')).toBe('42')
+    expect(await value('storage_gb')).toBe('0.4')
+    expect(await value('seats')).toBe('2')
+  })
+
+  it('a repeated idempotency key or a rejected effect leaves the counter untouched', async () => {
+    const { orgId } = await orgWithAdmin()
+    const key = newId()
+    await record(orgId, { metric: 'api_calls', quantity: 90, idempotencyKey: key })
+    await record(orgId, { metric: 'api_calls', quantity: 90, idempotencyKey: key })
+    await errorOf(record(orgId, { metric: 'api_calls', quantity: 20 })) // 110 > hard limit 100
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('90')
+  })
+
+  it('starts from the events already recorded (no backfill needed)', async () => {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.usageEvent.create({
+        data: {
+          organizationId: orgId,
+          metric: 'api_calls',
+          quantity: 60,
+          occurredAt: new Date('2026-11-02T00:00:00Z'),
+          idempotencyKey: newId(),
+        },
+      }),
+    )
+    expect(await counterOf(orgId, 'api_calls')).toHaveLength(0)
+    expect((await record(orgId, { metric: 'api_calls', quantity: 15 })).used.toString()).toBe('75')
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('75')
+  })
+
+  it('concurrent records never lose an update: counter and events agree', async () => {
+    const { orgId } = await orgWithAdmin()
+    await subscribeToPro(orgId)
+    await Promise.all(
+      Array.from({ length: 20 }, () => record(orgId, { metric: 'api_calls', quantity: 5 })),
+    )
+    expect(await sumOf(orgId, 'api_calls')).toBe(100)
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('100')
+  })
+
+  it('the period close trusts the events: a wrong counter is repaired and audited', async () => {
+    const { orgId } = await orgWithAdmin()
+    await withTenant(db, orgId, (tx) =>
+      tx.subscription.create({
+        data: {
+          organizationId: orgId,
+          planKey: 'pro',
+          planVersion: 1,
+          status: 'ACTIVE',
+          currentPeriodStart: new Date('2026-10-05T00:00:00Z'),
+          currentPeriodEnd: new Date('2026-11-05T00:00:00Z'),
+          createdAt: new Date('2026-10-05T00:00:00Z'),
+        },
+      }),
+    )
+    const inOctober = new Date('2026-10-20T10:00:00Z')
+    await record(orgId, { metric: 'api_calls', quantity: 1500, occurredAt: inOctober })
+    // Something corrupts the counter (a bug, a manual fix): it says 1 instead of 1500.
+    await withTenant(db, orgId, (tx) =>
+      tx.usageCounter.updateMany({ where: { metric: 'api_calls' }, data: { value: 1 } }),
+    )
+    const [period] = await withTenant(db, orgId, (tx) =>
+      closeDuePeriods(base(), tx, orgId, TEST_CATALOG),
+    )
+    // Billed on the evidence: 500 calls over the quota.
+    expect(period!.overageTotal.toString()).toBe('0.5')
+    expect((await counterOf(orgId, 'api_calls'))[0]!.value.toString()).toBe('1500')
+    const audit = await withTenant(db, orgId, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'billing.usage_counter_mismatch' } }),
+    )
+    expect(audit).toHaveLength(1)
+    expect(audit[0]!.after).toMatchObject({ metric: 'api_calls', counter: '1', events: '1500' })
+  })
+})

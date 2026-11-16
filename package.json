@@ -2,7 +2,7 @@
   "name": "kindly",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.34.6",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=24.21.0 <25"
   },
@@ -27,10 +27,11 @@
     "queue:install": "tsx scripts/install-queue.ts",
     "api:generate": "pnpm --filter @saas/web generate",
     "ops:queue": "tsx scripts/ops-queue.ts",
-    "knowledge:ingest": "tsx scripts/ingest-knowledge.ts"
+    "knowledge:ingest": "tsx scripts/ingest-knowledge.ts",
+    "ops:email": "tsx scripts/ops-email.ts"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.13.0",
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@saas/adapters": "workspace:*",

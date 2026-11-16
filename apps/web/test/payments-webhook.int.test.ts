@@ -88,4 +88,19 @@ describe('payment webhook', () => {
     )
     expect(rows).toEqual([{ org: orgId, event: eventId }])
   })
+
+  it('acknowledges, without queueing, an event for an organization that does not exist (R1.4)', async () => {
+    const unknownOrg = newId()
+    const eventId = `evt_${newId()}`
+    const raw = body(unknownOrg, eventId)
+    expect((await post(raw, sign(raw))).status).toBe(200)
+    // custom_data that is not even a valid id must not make the provider retry forever.
+    const garbage = body('not-a-uuid', `evt_${newId()}`)
+    expect((await post(garbage, sign(garbage))).status).toBe(200)
+    const { rows } = await jobs.query(
+      `SELECT 1 FROM pgboss.job WHERE name = 'billing.provider-event' AND data->'payload'->'event'->>'id' = $1`,
+      [eventId],
+    )
+    expect(rows).toHaveLength(0)
+  })
 })

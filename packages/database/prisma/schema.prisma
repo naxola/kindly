@@ -29,12 +29,14 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs          AuditLog[]
-  members            OrganizationMember[]
-  invitations        Invitation[]
-  subscription       Subscription?
-  usageEvents        UsageEvent[]
-  billingPeriods     BillingPeriod[]
+  auditLogs           AuditLog[]
+  members             OrganizationMember[]
+  invitations         Invitation[]
+  subscription        Subscription?
+  usageEvents         UsageEvent[]
+  usageCounters       UsageCounter[]
+  billingPeriods      BillingPeriod[]
+  subscriptionPeriods SubscriptionPeriod[]
   // Kindly (team): positions and member profiles of the organization.
   memberPositions    MemberPosition[]
   memberProfiles     MemberProfile[]
@@ -80,6 +82,7 @@ model AuditLog {
 
   @@index([organizationId, createdAt])
   @@index([organizationId, resourceType, resourceId])
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("audit_logs")
 }
 
@@ -89,18 +92,21 @@ model AuditLog {
 // ============================================================================
 
 model AuthUser {
-  id            String   @id @db.Uuid
+  id               String   @id @db.Uuid
   /// Required by Better Auth. Technical minimum: the visible name lives in `users`.
-  name          String
-  email         String   @unique @db.Citext
-  emailVerified Boolean  @default(false) @map("email_verified")
-  image         String?
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  name             String
+  email            String   @unique @db.Citext
+  emailVerified    Boolean  @default(false) @map("email_verified")
+  image            String?
+  /// Second factor active (ADR 0016). Managed by Better Auth; the business never reads it.
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  sessions AuthSession[]
-  accounts AuthAccount[]
-  user     User?
+  sessions   AuthSession[]
+  accounts   AuthAccount[]
+  twoFactors AuthTwoFactor[]
+  user       User?
 
   @@map("auth_users")
 }
@@ -119,6 +125,25 @@ model AuthSession {
 
   @@index([userId])
   @@map("auth_sessions")
+}
+
+/// TOTP secret and recovery codes of a person (ADR 0016). Both are stored encrypted by Better Auth
+/// with the application secret (versioned, see BETTER_AUTH_SECRETS); never returned or logged.
+model AuthTwoFactor {
+  id                      String    @id @db.Uuid
+  userId                  String    @map("user_id") @db.Uuid
+  secret                  String
+  backupCodes             String    @map("backup_codes")
+  /// False until the first code is verified: an unfinished set-up never protects the account.
+  verified                Boolean   @default(true)
+  failedVerificationCount Int       @default(0) @map("failed_verification_count")
+  lockedUntil             DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt               DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_two_factors")
 }
 
 model AuthAccount {
@@ -168,6 +193,10 @@ model User {
   /// Preferred locale (es/en). Null = the organization's default.
   locale       String?
   anonymizedAt DateTime? @map("anonymized_at") @db.Timestamptz(3)
+  /// Account deletion asked by the person (ADR 0019); executed by a daily job once the grace
+  /// period ends. Both null = no request.
+  deletionRequestedAt  DateTime? @map("deletion_requested_at") @db.Timestamptz(3)
+  deletionScheduledFor DateTime? @map("deletion_scheduled_for") @db.Timestamptz(3)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -175,6 +204,7 @@ model User {
   memberships         OrganizationMember[]
   acceptedInvitations Invitation[]         @relation("AcceptedInvitations")
 
+  @@index([deletionScheduledFor])
   @@map("users")
 }
 
@@ -241,6 +271,35 @@ model Invitation {
   @@map("invitations")
 }
 
+/// Counters of the request limiter (ADR 0015). Global: no tenant, no RLS. `key` is a SHA-256
+/// of scope and identifier, never an IP, an email or an id in the clear.
+model RateLimit {
+  key         String   @id
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  count       Int
+
+  @@index([windowStart])
+  @@map("rate_limits")
+}
+
+enum EmailSuppressionReason {
+  BOUNCE_PERMANENT
+  COMPLAINT
+}
+
+/// Addresses the product must not write to again (ADR 0017). Global: no tenant, no RLS.
+/// Only the SHA-256 of the normalized address is kept, never the address.
+model EmailSuppression {
+  emailHash     String                 @map("email_hash")
+  reason        EmailSuppressionReason
+  /// Provider event that caused it (idempotency and traceability).
+  sourceEventId String?                @map("source_event_id")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([emailHash, reason])
+  @@map("email_suppressions")
+}
+
 // ============================================================================
 // BILLING (ADR 0012). The plan catalog lives in code (core/billing/catalog.ts), versioned;
 // the database stores which plan version each organization has and what it consumed.
@@ -275,10 +334,31 @@ model Subscription {
   createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  periods      SubscriptionPeriod[]
 
   @@unique([organizationId, id])
   @@map("subscriptions")
+}
+
+/// Plan and version in force during each billing period of a subscription, written when the
+/// period starts or is synced (ADR 0014). The close uses it instead of guessing the past.
+model SubscriptionPeriod {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  subscriptionId String   @map("subscription_id") @db.Uuid
+  periodStart    DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd      DateTime @map("period_end") @db.Timestamptz(3)
+  planKey        String   @map("plan_key")
+  planVersion    Int      @map("plan_version")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription Subscription @relation(fields: [organizationId, subscriptionId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([organizationId, subscriptionId, periodStart])
+  @@map("subscription_periods")
 }
 
 /// Metered usage. Append-only for app_user; one row per business effect (idempotency key).
@@ -297,7 +377,26 @@ model UsageEvent {
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, metric, occurredAt])
+  @@index([organizationId, metric, subjectKey, occurredAt])
   @@map("usage_events")
+}
+
+/// Running total of a metric in a billing period, kept in the same transaction as the usage
+/// event so recording does not re-add every event (ADR 0012, amendment R3.3). `usage_events`
+/// stays the evidence: the period close compares both and, if they differ, the sum wins.
+model UsageCounter {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  metric         String
+  periodStart    DateTime @map("period_start") @db.Timestamptz(3)
+  periodEnd      DateTime @map("period_end") @db.Timestamptz(3)
+  value          Decimal  @db.Decimal(20, 6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, metric, periodStart])
+  @@map("usage_counters")
 }
 
 enum BillingPeriodStatus {
@@ -305,6 +404,10 @@ enum BillingPeriodStatus {
   NO_CHARGE
   /// Overage computed, waiting to be charged at the provider.
   PENDING_CHARGE
+  /// Charge being sent to the provider. Written and committed BEFORE the call: if the process
+  /// dies after the provider charged, the period stays here (outcome unknown, check the
+  /// provider) and is never retried automatically. ADR 0014.
+  CHARGING
   CHARGED
   CHARGE_FAILED
 }

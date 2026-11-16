@@ -18,6 +18,7 @@
 | 7. v1.0.0                   | Validación del usuario, creación de `main` y etiqueta `v1.0.0`                                            | ✅ `v1.0.0` (2026-11-12)                    |
 | B1–B5. Cobros               | Planes, derechos, medición de uso, Paddle, excedentes, impagos (ADR 0012)                                 | 🟡 Entregadas; Paddle sin probar en sandbox |
 | D1–D2. Sin Next.js          | Nivel 1: puertos de presentación y regla de fronteras. Nivel 2 (opcional): Hono + Vite + Astro (ADR 0013) | ⏸ Pospuesto por el usuario                  |
+| R1–R5. Robustez             | Correcciones, seguridad, datos, UX y operación tras la revisión del 2026-11-13 (`docs/plan-robustez.md`)  | 🟡 En curso (`plan-finalizacion.md`)        |
 
 ## Fase 1 — entregado
 
@@ -160,3 +161,40 @@ También: `pnpm env:check` compara `.env` con `.env.example` y se ejecuta antes 
 - **Pendiente**: probar con el sandbox (`docs/deploy.md`), cambio de plan de una suscripción existente, créditos manuales (necesitan operador de plataforma) y cuadre automático contra Paddle.
 
 **Verificado en local:** format, lint, typecheck, 76 unitarias (10 del adaptador Paddle: firma válida y con rotación, cuerpo alterado, secreto erróneo, firma caducada, normalización de eventos y estados, cargo en céntimos, errores sin la clave, portal), 80 de integración (evento → plan por su precio, eventos antiguos ignorados, gracia y vuelta al plan por defecto y su recuperación, precio desconocido, condiciones del pago, cobro único y fallo marcado sin reintento, webhook HTTP con firma real que rechaza falsificaciones y encola una sola vez), 12 E2E, build, sincronía esquema/migraciones y auditoría sin avisos altos. **No probado contra Paddle.**
+
+## Plan de cierre (2026-11-14)
+
+Lo que falta para `v1.1.0`, por etapas y con lo que depende del usuario: [`plan-finalizacion.md`](plan-finalizacion.md).
+
+## Robustez R1–R5 — planificado (2026-11-14)
+
+Revisión técnica de `v1.0.0` por lectura de código. El plan, bloque a bloque y con las decisiones pendientes del usuario, está en [`plan-robustez.md`](plan-robustez.md): ese archivo lleva el estado; aquí se anota cada bloque al entregarlo.
+
+- **R1.1 · Carrera del último ADMIN** (2026-11-14): bloqueo consultivo por organización en `changeMemberRole` y `disableMember`; dos tests de concurrencia que fallaban sin la corrección.
+- **R1.2 · IP del cliente de confianza** (2026-11-14): solo se lee `TRUSTED_IP_HEADER` (`cf-connecting-ip` en staging); `x-forwarded-for` se ignora; sin IP, los límites comparten un cubo.
+- **R1.3 · Fallos definitivos de la cola** (2026-11-14): barrido de jobs `failed` sin alerta (expirados o con el worker caído) y actualización de la configuración de colas existentes (`updateQueue`) al registrar consumidores y en `queue:install`.
+- **R1.5 · Estado `CHARGING` del cobro** (2026-11-14, ADR 0014): el cobro se marca antes de llamar al proveedor; un resultado desconocido nunca se reintenta solo ni se marca como fallido.
+- **R1.6 · Cierre de periodos** (2026-11-14, ADR 0014): tabla `subscription_periods` con el plan de cada periodo; el cierre procesa todos los vencidos con su plan y respeta la gracia; el uso de un periodo cerrado se rechaza.
+- **R1.4 · Checkout ligado a la organización** (2026-11-14, ADR 0014): la transacción de Paddle se crea en el servidor para la organización del actor; los eventos de una suscripción ajena se rechazan y auditan. **No probado contra el sandbox.**
+- **R2.1 · Cabeceras de seguridad** (2026-11-14): HSTS, `X-Content-Type-Options`, `frame-ancestors` y demás en `web` y `site` desde `proxy.ts`; CSP con nonce en `web`. **La CSP va en Report-Only** hasta pasar los E2E y probar el checkout de Paddle.
+- **R2.2 · Tiempos límite de Postgres** (2026-11-14): 30 s de sentencia, 5 s de bloqueo y 60 s de transacción inactiva en cada conexión (el worker, más margen); un límite superado se responde como `503 SERVICE_UNAVAILABLE`.
+- **R2.3 · Integridad de las invitaciones** (2026-11-14): índice único parcial por (organización, email) pendiente; `ALREADY_MEMBER` al invitar a un miembro; si el registro por invitación falla tras crear la cuenta, la pantalla ofrece «Iniciar sesión y unirme».
+- **R4.1 · Estados de error y carga** (2026-11-14): páginas de error, 404 y carga en `web` y `site`; `Skeleton`; miembros, invitaciones y cobros muestran carga, error con referencia y «Reintentar», y vacío.
+- **R4.2 · Confirmaciones y sesión caducada** (2026-11-14): confirmación tras cada mutación de miembros, invitaciones y tope de gasto; una sesión caducada lleva a iniciar sesión y vuelve a la misma pantalla.
+- **R3.1 · Restricciones `CHECK` de cobros** (2026-11-14): cantidades, importes, topes y periodos de las tablas de cobros validados por la base de datos.
+- **R5.3 · Parada limpia** (2026-11-14): el worker sale con 1 y reporta ante errores sin capturar y ante un fallo al pararse; `/ready` comprueba pg-boss. La web ya se para bien con el `SIGTERM` de Next (comprobado).
+- **R5.2 · Imágenes en CI** (2026-11-14, **sin ejecutar en CI**): caché de capas entre ejecuciones, escaneo con Trivy (digest fijado) y SBOM generado; falta publicar el SBOM como artefacto (necesita el hash de `actions/upload-artifact`).
+- **R5.1 · Renovate** (2026-11-14, **falta instalar la app**): configuración semanal contra `staging` (parches y menores agrupados, mayores uno a uno, 14 días de espera, nunca fusiona); enmienda del ADR 0009. Sin validar con Renovate real.
+- **R4.6 · Errores del navegador y accesibilidad** (2026-11-14): errores del cliente a Sentry/GlitchTip con las reglas de privacidad del servidor (`SENTRY_BROWSER_DSN`) y comprobación con axe en los E2E; corregidos un contraste y dos nombres accesibles.
+- **R4.3 · Ajustes de la cuenta** (2026-11-14, falta el cambio de email): nombre, idioma y contraseña en Ajustes → Cuenta.
+- **R4.4 · Ajustes de la organización** (2026-11-14): nombre e idioma, salir, archivar escribiendo el nombre y reenviar invitaciones.
+- **R2.4 · Límites en Postgres** (2026-11-14, ADR 0015): contadores persistentes y compartidos entre réplicas; 300 peticiones por minuto por sesión y 50 invitaciones al día por organización.
+- **R3.4 · Supresión de correo** (2026-11-14, ADR 0017): webhook firmado de Resend; rebotes permanentes y quejas dejan de recibir correo (solo se guarda el hash); `pnpm ops:email`. Sin probar contra Resend real.
+- **R3.2 · Avisos de impago** (2026-11-15): correo a los administradores al fallar el pago, dos días antes de la restricción y al aplicarse el plan gratuito; una vez por impago.
+- **R3.5 · Actividad y retención de la auditoría** (2026-11-15, ADR 0018): pantalla Ajustes → Actividad para administradores; la auditoría de más de 24 meses se purga a diario con una función acotada.
+- **R4.3 · Cambio de email de acceso** (2026-11-15): confirmación en la dirección actual y verificación en la nueva; R4.3 completo.
+- **R5.4 · Métricas** (2026-11-15, ADR 0008 enmendado): `/api/metrics` en web y `/metrics` en el worker con token; sin dependencia nueva; Prometheus y Grafana, más adelante.
+- **R3.3 · Contadores de uso** (2026-11-15, enmienda del ADR 0012): `recordUsage` lee y actualiza un total por organización, métrica y periodo en vez de sumar todos los eventos; el cierre compara con la suma y, si difieren, gana la suma y se audita.
+- **R4.5 · Borrado de la cuenta y exportación** (2026-11-15, ADR 0019): solicitud con contraseña y plazo de 14 días, cancelable; un job diario borra el acceso, anonimiza, desactiva membresías y archiva las organizaciones unipersonales; descarga de datos personales.
+- **R2.5 · Refuerzo del acceso** (2026-11-15, ADR 0016): verificación en dos pasos (TOTP y códigos de recuperación), contraseñas filtradas rechazadas, rotación de secretos sin perder los factores y sesiones abiertas visibles.
+- **Decisiones D1–D11** (2026-11-14): D1, D2 (ADR 0014 aceptado), D3, D4, D6, D7, D8, D9 y D11 resueltas con las recomendaciones del plan; D10 (métricas) por confirmar y D5 (producción) sin decidir. Detalle y numeración de los ADR nuevos (0015–0019) en `docs/plan-robustez.md`.

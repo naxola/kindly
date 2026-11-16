@@ -26,7 +26,7 @@ export type ActivityType =
   | 'CHANNEL_CONNECTED'
   | 'CHANNEL_DISCONNECTED'
 
-export interface ActivityEntry {
+export interface TimelineEntry {
   organizationId: string
   type: ActivityType
   /** organization_members.id of the person; null for system activity with no human actor. */
@@ -37,7 +37,7 @@ export interface ActivityEntry {
 }
 
 /** Records an activity inside the caller's transaction (it exists iff the change does). */
-export async function recordActivity(tx: TenantTx, entry: ActivityEntry): Promise<void> {
+export async function recordActivity(tx: TenantTx, entry: TimelineEntry): Promise<void> {
   await tx.activity.create({
     data: {
       organizationId: entry.organizationId,

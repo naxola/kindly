@@ -16,6 +16,13 @@ export const baseEnv = z.object({
 export const databaseEnv = z.object({
   /** Application connection (role app_user, subject to RLS). */
   DATABASE_URL: z.url(),
+  /**
+   * Postgres time limits in milliseconds (R2.2). Empty: the default of the process (web 30 s /
+   * 5 s / 60 s, worker 120 s / 30 s / 120 s); see `db-timeouts.ts`.
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
 })
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1')
@@ -23,9 +30,61 @@ const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' |
 export const authEnv = z.object({
   /** Better Auth secret (signs cookies and tokens). At least 32 characters. */
   BETTER_AUTH_SECRET: z.string().min(32),
+  /**
+   * Versioned secrets for rotating `BETTER_AUTH_SECRET` without losing what is encrypted with it
+   * (the TOTP secrets, ADR 0016): `2:new-secret,1:old-secret`. The FIRST one encrypts and signs;
+   * the rest only decrypt. Empty: `BETTER_AUTH_SECRET` is version 1. Never remove an old entry
+   * while something encrypted with it exists.
+   */
+  BETTER_AUTH_SECRETS: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) return undefined
+      const entries = value.split(',').map((entry) => {
+        const at = entry.indexOf(':')
+        return { version: Number(entry.slice(0, at)), value: entry.slice(at + 1) }
+      })
+      const versions = new Set(entries.map((e) => e.version))
+      const bad =
+        entries.some((e) => !Number.isInteger(e.version) || e.version < 1 || e.value.length < 32) ||
+        versions.size !== entries.length
+      if (bad) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Must be `version:secret` entries, unique versions, secrets of 32+ characters',
+        })
+        return z.NEVER
+      }
+      return entries
+    }),
+  /**
+   * Rejects passwords found in known breaches (Have I Been Pwned, k-anonymity: only 5 characters
+   * of the password's SHA-1 leave the server). If the service does not answer the password is
+   * accepted (ADR 0016). Tests turn it off to avoid the network.
+   */
+  PASSWORD_BREACH_CHECK: bool.default(true),
   /** Rate limiting of the authentication endpoints. */
   AUTH_RATE_LIMIT_ENABLED: bool.default(true),
+  /**
+   * Header with the client IP that the platform in front of the app sets and the client cannot
+   * forge (`cf-connecting-ip` behind Cloudflare). Empty: client IP unknown, so IP limits share
+   * one bucket and the audit log records no IP.
+   */
+  TRUSTED_IP_HEADER: z
+    .string()
+    .regex(/^[A-Za-z0-9-]+$/, 'Must be a header name')
+    .transform((v) => v.toLowerCase())
+    .optional(),
 })
+
+/** Secrets Better Auth encrypts with: the versioned list, or `BETTER_AUTH_SECRET` as version 1. */
+export function authSecretsOf(env: {
+  BETTER_AUTH_SECRET: string
+  BETTER_AUTH_SECRETS?: { version: number; value: string }[] | undefined
+}) {
+  return env.BETTER_AUTH_SECRETS ?? [{ version: 1, value: env.BETTER_AUTH_SECRET }]
+}
 
 export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
   /** Prints emails to the worker log. Local development and tests only. */
@@ -46,6 +105,22 @@ export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
     RESEND_API_KEY: z.string().startsWith('re_'),
   }),
 ])
+
+/**
+ * Signing secret of the email provider's webhook (bounces and complaints, ADR 0017). Resend
+ * signs with Svix: `whsec_…`. Empty: the webhook answers 404 and nothing is suppressed.
+ */
+export const emailWebhookEnv = z.object({
+  EMAIL_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+})
+
+/**
+ * Bearer token that protects `/metrics` (ADR 0008, amendment). Without it the endpoint answers
+ * 404: metrics are never open by accident.
+ */
+export const metricsEnv = z.object({
+  METRICS_TOKEN: z.string().min(16).optional(),
+})
 
 /**
  * Business events webhook (n8n or similar). Without URL, events are recorded as
@@ -77,6 +152,15 @@ export const siteEnv = z.object({
  * Observability (ADR 0008). Everything is optional: without values, errors are only logged
  * and alerts only go to the log, so a fresh clone works without any account.
  */
+/**
+ * DSN for errors of the BROWSER (R4.6). A browser DSN is public by design (it only lets events be
+ * sent), so it is handed to the page at runtime; it can be the same project as `SENTRY_DSN` or a
+ * separate one. Empty: browser errors are not collected.
+ */
+export const browserErrorsEnv = z.object({
+  SENTRY_BROWSER_DSN: z.url().optional(),
+})
+
 export const observabilityEnv = z
   .object({
     /** Sentry or GlitchTip (same protocol). Empty: error tracking disabled. */

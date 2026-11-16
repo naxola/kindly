@@ -2,10 +2,12 @@ packages:
   - apps/*
   - packages/*
 
-onlyBuiltDependencies:
-  - '@prisma/engines'
-  - prisma
-  - esbuild
+allowBuilds:
+  '@parcel/watcher': false
+  '@prisma/engines': true
+  '@swc/core': false
+  esbuild: true
+  prisma: true
 
 # Security patches for transitive dependencies of the Prisma CLI (pnpm audit).
 # Review and remove once Prisma ships versions that already include them.

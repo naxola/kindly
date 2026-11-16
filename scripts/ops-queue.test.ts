@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatSnapshot } from './ops-queue.ts'
+import { chargeRetryDecision, formatSnapshot } from './ops-queue.ts'
 
 describe('ops:queue', () => {
   it('prints counts, the oldest wait and how to retry failures', () => {
@@ -30,5 +30,12 @@ describe('ops:queue', () => {
 
   it('says so when there are no jobs', () => {
     expect(formatSnapshot({ queues: [], recentFailures: [] })).toContain('(no jobs)')
+  })
+
+  it('refuses to retry a charge left in CHARGING unless forced', () => {
+    expect(chargeRetryDecision('CHARGING', false)).toBe('refuse')
+    expect(chargeRetryDecision('CHARGING', true)).toBe('reset-and-retry')
+    expect(chargeRetryDecision('CHARGE_FAILED', false)).toBe('retry')
+    expect(chargeRetryDecision('PENDING_CHARGE', true)).toBe('retry')
   })
 })

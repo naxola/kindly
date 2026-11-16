@@ -2,7 +2,12 @@ import { AuthError } from './auth.ts'
 
 /** Normalized error of /api/v1. */
 export interface ApiErrorBody {
-  error: { code: string; message: string; details?: { code: string; path?: string }[] }
+  error: {
+    code: string
+    message: string
+    details?: { code: string; path?: string }[]
+    correlationId?: string
+  }
 }
 
 export class ApiError extends Error {
@@ -14,6 +19,10 @@ export class ApiError extends Error {
   }
   get code() {
     return this.body?.error.code ?? 'INTERNAL'
+  }
+  /** Id to quote to support: it links this failure with the server logs. */
+  get correlationId() {
+    return this.body?.error.correlationId ?? null
   }
   /** Specific code (e.g. LAST_ADMIN) or, if none, the general one (e.g. FORBIDDEN). */
   get reason() {

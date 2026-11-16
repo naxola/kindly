@@ -18,6 +18,11 @@ app.use('*', async (c, next) => {
 app.get('/boom', () => {
   throw new Error('secret internals')
 })
+app.get('/slow', () => {
+  throw Object.assign(new Error('canceling statement due to statement timeout: SELECT secret'), {
+    cause: { code: '57014' },
+  })
+})
 app.get('/forbidden', () => {
   throw new DomainError('FORBIDDEN', 'No')
 })
@@ -38,6 +43,17 @@ describe('API error handling', () => {
       correlationId: 'corr-1',
       tags: { method: 'GET', route: '/boom' },
     })
+  })
+
+  it('a database time limit is a 503 that leaks no details and is reported', async () => {
+    captureError.mockClear()
+    const res = await app.request('/slow')
+    expect(res.status).toBe(503)
+    const body = await res.text()
+    expect(body).toContain('SERVICE_UNAVAILABLE')
+    expect(body).toContain('corr-1')
+    expect(body).not.toContain('SELECT secret')
+    expect(captureError).toHaveBeenCalledTimes(1)
   })
 
   it('expected domain errors are not reported', async () => {

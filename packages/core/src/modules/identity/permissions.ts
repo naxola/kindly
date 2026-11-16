@@ -40,6 +40,8 @@ export const PERMISSIONS = [
   'procedures.write',
   'billing.read',
   'billing.manage',
+  /** Activity (audit log) of the organization (ADR 0018). */
+  'audit.read',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]

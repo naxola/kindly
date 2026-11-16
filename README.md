@@ -5,7 +5,7 @@ AI Copilot) para profesionales que atienden a sus afiliados por WhatsApp y
 Telegram. Producto descrito en [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
 **Base:** parte de [`naxola/saas-template`](https://github.com/naxola/saas-template)
-**`v1.0.0`** (monorepo pnpm: `apps/web`, `apps/site`, `apps/worker`, `packages/*`).
+**`v1.1.0-rc.1`** (antes `v1.0.0`) (monorepo pnpm: `apps/web`, `apps/site`, `apps/worker`, `packages/*`).
 Kindly añade solo su negocio sobre esa fontanería; las versiones nuevas de la
 plantilla se traen con `git merge` desde el remoto `template`.
 
@@ -24,7 +24,7 @@ plantilla se traen con `git merge` desde el remoto `template`.
 
 - **Node 24.21.0** (fijado en `.node-version`; `fnm` o `nvm` lo eligen solos).
 - **Docker** en marcha (Postgres).
-- **pnpm 10.34.6** vía corepack:
+- **pnpm 12.21.0** vía corepack:
 
 ```bash
 corepack enable

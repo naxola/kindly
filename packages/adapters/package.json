@@ -13,7 +13,9 @@
     "./errors": "./src/errors/index.ts",
     "./payments": "./src/payments/index.ts",
     "./messaging": "./src/messaging/index.ts",
-    "./knowledge": "./src/knowledge/index.ts"
+    "./knowledge": "./src/knowledge/index.ts",
+    "./rate-limit": "./src/rate-limit/index.ts",
+    "./metrics": "./src/metrics/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

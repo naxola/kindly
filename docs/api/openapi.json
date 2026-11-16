@@ -68,6 +68,54 @@
           "checks"
         ]
       },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "NOT_FOUND"
+              },
+              "message": {
+                "type": "string"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              },
+              "correlationId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "correlationId"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
       "Me": {
         "type": "object",
         "properties": {
@@ -118,6 +166,13 @@
               "locale"
             ]
           },
+          "deletionScheduledFor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
           "activeOrganizationId": {
             "type": [
               "string",
@@ -160,56 +215,77 @@
         "required": [
           "access",
           "user",
+          "deletionScheduledFor",
           "activeOrganizationId",
           "organizations"
         ]
       },
-      "ErrorResponse": {
+      "AccountDeletion": {
         "type": "object",
         "properties": {
-          "error": {
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string",
-                "example": "NOT_FOUND"
-              },
-              "message": {
-                "type": "string"
-              },
-              "details": {
-                "type": "array",
-                "items": {
-                  "type": "object",
-                  "properties": {
-                    "path": {
-                      "type": "string"
-                    },
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code"
-                  ]
+          "requestedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "scheduledFor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "description": "LAST_ADMIN, ORGANIZATION_HAS_SUBSCRIPTION, REFERENCE_DELEGATE or CHANNEL_CONNECTED"
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "organizationName": {
+                  "type": "string"
                 }
               },
-              "correlationId": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "code",
-              "message",
-              "correlationId"
-            ]
+              "required": [
+                "code",
+                "organizationId",
+                "organizationName"
+              ]
+            }
+          },
+          "archive": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ]
+            }
           }
         },
         "required": [
-          "error"
+          "requestedAt",
+          "scheduledFor",
+          "blockers",
+          "archive"
         ]
       },
       "Organization": {
@@ -236,7 +312,26 @@
         "type": "object",
         "properties": {
           "organization": {
-            "$ref": "#/components/schemas/Organization"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Organization"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "defaultLocale": {
+                    "type": "string",
+                    "enum": [
+                      "es",
+                      "en"
+                    ]
+                  }
+                },
+                "required": [
+                  "defaultLocale"
+                ]
+              }
+            ]
           },
           "member": {
             "type": "object",
@@ -2243,6 +2338,7 @@
             "enum": [
               "NO_CHARGE",
               "PENDING_CHARGE",
+              "CHARGING",
               "CHARGED",
               "CHARGE_FAILED"
             ]
@@ -2329,30 +2425,74 @@
           "clientToken": {
             "type": "string"
           },
-          "priceId": {
+          "transactionId": {
             "type": "string"
-          },
-          "customData": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "customerEmail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "email"
           }
         },
         "required": [
           "provider",
           "environment",
           "clientToken",
-          "priceId",
-          "customData",
-          "customerEmail"
+          "transactionId"
+        ]
+      },
+      "ActivityEntry": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string",
+            "example": "member.role_changed"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "resourceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actor": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "displayName": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "userId",
+              "displayName"
+            ]
+          },
+          "correlationId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "resourceType",
+          "resourceId",
+          "actor",
+          "correlationId",
+          "createdAt"
         ]
       }
     },
@@ -2410,6 +2550,112 @@
       }
     },
     "/api/v1/me": {
+      "patch": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Change my display name and language",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "displayName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "locale": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "es",
+                      "en",
+                      null
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "locale": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "es",
+                        "en",
+                        null
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "displayName",
+                    "locale"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "identity"
@@ -2433,6 +2679,237 @@
           },
           "401": {
             "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/deletion": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "State of my account deletion and what would block or be archived",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "State",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Ask to delete my account (password required); it is executed after 14 days",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Cancel my pending account deletion",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled"
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Download my personal data (JSON)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Personal data as a JSON attachment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -2653,6 +3130,246 @@
           },
           "404": {
             "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Rename the active organization or change its default language (ADMIN)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "defaultLocale": {
+                    "type": "string",
+                    "enum": [
+                      "es",
+                      "en"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Organization"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defaultLocale": {
+                          "type": "string",
+                          "enum": [
+                            "es",
+                            "en"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "defaultLocale"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organization/archive": {
+      "post": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Archive the active organization; its exact name must be typed (ADMIN)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirmName": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "confirmName"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Archived"
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/organization/leave": {
+      "post": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Leave the active organization (the last active ADMIN cannot)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Left"
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state",
             "content": {
               "application/json": {
                 "schema": {
@@ -3040,6 +3757,82 @@
           },
           "409": {
             "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invitations/{id}/resend": {
+      "post": {
+        "tags": [
+          "invitations"
+        ],
+        "summary": "Send a pending invitation again with a new link (the old one stops working)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invitation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Does not exist or is not visible",
             "content": {
               "application/json": {
                 "schema": {
@@ -7668,6 +8461,136 @@
           },
           "409": {
             "description": "Conflict with the current state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit-logs": {
+      "get": {
+        "tags": [
+          "organization"
+        ],
+        "summary": "Activity (audit log) of the active organization, newest first (ADMIN)",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "required": false,
+            "name": "action",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": false,
+            "name": "actorUserId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "from",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "required": false,
+            "name": "to",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ActivityEntry"
+                      }
+                    },
+                    "nextCursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed",
             "content": {
               "application/json": {
                 "schema": {

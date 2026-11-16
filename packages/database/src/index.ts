@@ -24,6 +24,7 @@ export {
   KnowledgeChunkLevel,
   IngestionStatus,
   ProcedureVersionStatus,
+  EmailSuppressionReason,
 } from './generated/prisma/client.ts'
 export type {
   Organization,

@@ -87,3 +87,14 @@ export function createEmailSender(env: EmailEnv, log: Logger): EmailSender {
       )
   }
 }
+
+export {
+  emailHash,
+  emailSuppressions,
+  InvalidEmailWebhookError,
+  parseResendWebhook,
+  recordEmailSuppression,
+  removeEmailSuppression,
+  SuppressingEmailSender,
+} from './suppression.ts'
+export type { EmailWebhookEvent } from './suppression.ts'

@@ -40,7 +40,8 @@ export function OrganizationSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={t('label')}
+        // The accessible name must contain the visible text (WCAG 2.5.3).
+        aria-label={`${t('label')}: ${active.name}`}
         className="flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-foreground hover:bg-surface-200"
       >
         <span className="truncate">{active.name}</span>
@@ -84,10 +85,10 @@ export function UserMenu({ user }: { user: { name: string; email: string } }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={t('label')}
+        aria-label={`${t('label')}: ${user.name}`}
         className="flex size-7 items-center justify-center rounded-full border border-border-strong bg-surface-200 text-[11px] text-foreground hover:border-foreground-muted"
       >
-        {initials || '?'}
+        <span aria-hidden="true">{initials || '?'}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">
         <DropdownMenuLabel>

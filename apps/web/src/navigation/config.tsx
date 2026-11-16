@@ -38,10 +38,14 @@ export const MODULES: ModuleDef[] = [
       sections: [
         {
           items: [
+            { key: 'organization', path: 'organization', anyOf: ['organization.read'] },
             { key: 'members', path: 'members', anyOf: ['members.read'] },
             { key: 'positions', path: 'positions', anyOf: ['members.read'] },
             { key: 'channels', path: 'channels', anyOf: ['channels.read'] },
             { key: 'billing', path: 'billing', anyOf: ['billing.read'] },
+            { key: 'activity', path: 'activity', anyOf: ['audit.read'] },
+            // Personal: no permission, every signed-in person sees it.
+            { key: 'account', path: 'account' },
           ],
         },
       ],

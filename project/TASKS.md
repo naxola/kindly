@@ -779,15 +779,15 @@ infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usua
 
 - [ ] R2a — **Retención de `webhook_events`**: job que purga los procesados tras N días. **Decidir antes:** N (los legales
       tienen ese plazo como `REVISAR`).
-- [ ] R2b — **Borrado y exportación reales**: casos de uso para eliminar un contacto, un miembro y una organización, y para
+- [ ] R2b — **Borrado y exportación reales**: casos de uso para eliminar un contacto, un miembro y una organización, y para _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae borrado de cuenta y exportación de datos personales (ADR 0019), con la regla de Kindly de delegado de referencia y canal; faltan contacto, miembro y organización)_
       exportar los datos de una persona (acceso y portabilidad). Hoy los legales prometen 30 días y 72 horas y el proceso es
       manual por correo.
 - [ ] R2c — **Copias de seguridad**: `pg_dump` programado, copia cifrada fuera del servidor y un **ensayo de restauración**
       documentado en `docs/operations.md`. **Decidir antes:** dónde se guardan.
-- [ ] R2d — **Cabeceras de seguridad** (CSP, HSTS, `frame-ancestors`, `Referrer-Policy`) en web y sitio público, con E2E.
-- [ ] R2e — **Limitador de peticiones** en Postgres (hoy en memoria: no vale con dos réplicas) e IP de cliente tomada solo
+- [x] R2d — **Cabeceras de seguridad** (CSP, HSTS, `frame-ancestors`, `Referrer-Policy`) en web y sitio público, con E2E. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (cabeceras y CSP con E2E))_
+- [x] R2e — **Limitador de peticiones** en Postgres (hoy en memoria: no vale con dos réplicas) e IP de cliente tomada solo _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (limitador en Postgres, `TRUSTED_IP_HEADER`, ADR 0015))_
       del proxy de confianza (hoy `x-forwarded-for` tal cual, falsificable).
-- [ ] R2f — **2FA para administradores** y lista de sesiones activas (un ADMIN ve todas las conversaciones).
+- [ ] R2f — **2FA para administradores** y lista de sesiones activas (un ADMIN ve todas las conversaciones). _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae segundo factor y gestión de sesiones (ADR 0016); falta decidir si se exige a los ADMIN)_
 - [ ] R2g — **Guardia SSRF sin ventana de *DNS rebinding***: conectar a la IP ya comprobada.
 - [ ] R2h — **Cifrado en reposo** del cuerpo de los mensajes y de las notas. **Decidir antes:** gestión de claves y su
       efecto en la búsqueda de la bandeja (hoy busca en el texto del último mensaje).
@@ -801,7 +801,7 @@ infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usua
 - [ ] R3d — **PDF escaneados**: hoy fallan como «documento vacío». **Decidir antes:** OCR (dependencia y coste) o solo
       avisarlo con claridad al subir.
 - [ ] R3e — **Fusión de contactos duplicados** (y mover una conversación a otro contacto): pendiente desde M7b.
-- [ ] R3f — **Métricas de negocio** y alertas: webhooks en cola y su latencia, envíos fallidos por canal, ingestas atascadas.
+- [ ] R3f — **Métricas de negocio** y alertas: webhooks en cola y su latencia, envíos fallidos por canal, ingestas atascadas. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae `/metrics` y alertas (ADR 0008); faltan las métricas de negocio de Kindly)_
 - [ ] R3g — **Control de concurrencia optimista** (`updated_at`) al editar contactos, tareas y fichas.
 
 ### R4 — Producto y experiencia
@@ -811,7 +811,7 @@ infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usua
 - [ ] R4b — **Crear tarea desde la conversación** (la columna y el caso de uso ya existen; falta el botón) y ficha editable
       (UI-10f).
 - [ ] R4c — **Notificaciones** de mensaje nuevo: título de la pestaña, sonido opcional y, si se decide, push.
-- [ ] R4d — **Estados de carga y de error**: `error.tsx`, `not-found.tsx` y esqueletos en vez de pantallas en blanco.
+- [x] R4d — **Estados de carga y de error**: `error.tsx`, `not-found.tsx` y esqueletos en vez de pantallas en blanco. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (estados de carga, error y vacío))_
 - [ ] R4e — **Búsqueda y filtros** en Contactos y Tareas.
 - [ ] R4f — **Adjuntos sin almacenarlos** (UI-10c): metadatos en el mensaje y descarga por proxy en streaming. **Decidir
       antes:** confirmar con la documentación actual de Meta cuánto tiempo es descargable un medio.
@@ -826,7 +826,7 @@ infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usua
       imagen `postgres` con pgvector incluida. Es lo primero de M13.
 - [ ] R5b — **E2E que faltan**: PDF real, ventana de servicio cerrada, ecos del móvil, dos conversaciones del mismo contacto
       con acceso temporal, URL privada rechazada. Al tenerlos, borrar los E2E que quedan en `legacy/`.
-- [ ] R5c — **Test que falle ante una traducción ausente** (hoy solo sale en el log; se coló una en M8b).
+- [ ] R5c — **Test que falle ante una traducción ausente** (hoy solo sale en el log; se coló una en M8b). _(Plantilla `v1.1.0-rc.1`, 2026-11-16: revisar si el test de mensajes de la plantilla ya lo cubre)_
 - [ ] R5d — **Pruebas de carga** de la bandeja y del webhook con volumen realista, y staging con datos sintéticos.
 - [ ] R5e — **Limpiar la documentación de dos épocas**: reescribir `ARCHITECTURE`/`DATABASE`/`INTEGRATIONS` y `docs/ui/` en
       vez de mantener el bloque «Estado actual» sobre el texto antiguo.
