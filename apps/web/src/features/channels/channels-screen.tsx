@@ -91,9 +91,9 @@ export function ChannelsScreen() {
                   return (
                     <li
                       key={c.channel}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-sm text-foreground">{c.channel}</p>
                         <p className="text-xs text-foreground-lighter">
                           {already ? t('alreadyConnected') : t('willConnect')}
