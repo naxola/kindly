@@ -5,6 +5,7 @@ import {
   ingestPendingKnowledge,
   inviteDelegate,
   press,
+  seedWebsite,
   shot,
 } from './helpers.ts'
 
@@ -149,4 +150,36 @@ test('what is wrong with a submission is said, and a delegate reads and searches
   )
   await press(luis.getByRole('table').getByRole('link', { name: 'Interno' }))
   await expect(luis.getByRole('button', { name: 'Nueva versión' })).toHaveCount(0)
+})
+
+test('websites: a private address is refused; picked pages of a site are indexed', async ({
+  page,
+}) => {
+  await adminWithOrganization(page, 'Sitios')
+  await page.goto('/knowledge')
+  await page.waitForLoadState('networkidle')
+
+  // The server never reads an address of our own network (SSRF guard).
+  await page.getByRole('button', { name: 'Añadir sitio web' }).click()
+  const adding = page.getByRole('dialog')
+  await adding.getByLabel('Dirección').fill('http://127.0.0.1:3100')
+  await adding.getByRole('button', { name: 'Buscar páginas' }).click()
+  await expect(adding.getByText(/No se pudo leer ese sitio/)).toBeVisible()
+  await press(adding.getByRole('button', { name: 'Cerrar', exact: true }))
+
+  const host = `sitio-${Date.now()}.example`
+  await seedWebsite(page, host, ['/uno', '/dos'])
+  await page.reload()
+  await press(page.getByRole('button', { name: `Abrir el sitio Sitio ${host}` }))
+  const panel = page.getByRole('dialog')
+  await expect(panel.getByText('2 páginas · 0 indexadas · 0 en curso · 0 con error')).toBeVisible()
+  await panel.getByLabel(`Seleccionar https://${host}/uno`).check()
+  await press(panel.getByRole('button', { name: 'Indexar seleccionadas (1/30)' }))
+  await expect(page.getByText('1 página en cola para indexar.')).toBeVisible()
+  await expect(panel.getByText('Indexando')).toBeVisible()
+
+  await ingestPendingKnowledge(page, { webText: LAW })
+  // The panel refreshes by itself while a page is being indexed.
+  await expect(panel.getByText('Indexada', { exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(panel.getByText('Sin indexar')).toBeVisible()
 })

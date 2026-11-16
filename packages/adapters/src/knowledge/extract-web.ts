@@ -77,15 +77,14 @@ export interface FetchWebTextOptions {
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024 // 10 MiB
 
 /**
- * Fetch a web page and return its extracted text. Rejects any protocol but
- * http(s), and (Fase 7f, the URL now comes from the UI) any host that does
- * not resolve to a public address — re-checked on every redirect hop, which
- * are followed manually for exactly that reason.
+ * Fetches a public http(s) address and returns its body as text. Rejects any protocol but http(s)
+ * and any host that does not resolve to a public address, re-checked on every redirect hop (they
+ * are followed manually for exactly that reason). The body is capped at `maxBytes`.
  */
-export async function fetchWebText(
+export async function fetchGuarded(
   url: string,
   options: FetchWebTextOptions = {},
-): Promise<string> {
+): Promise<{ body: string; finalUrl: string }> {
   const fetchImpl = options.fetchImpl ?? fetch
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES
 
@@ -117,6 +116,57 @@ export async function fetchWebText(
   if (body.length > maxBytes) {
     throw new Error(`Response from ${url} exceeds the ${maxBytes}-byte limit.`)
   }
+  return { body, finalUrl: current.href }
+}
 
-  return htmlToText(body)
+/** Fetch a web page and return its extracted text (SSRF-guarded, see `fetchGuarded`). */
+export async function fetchWebText(
+  url: string,
+  options: FetchWebTextOptions = {},
+): Promise<string> {
+  return htmlToText((await fetchGuarded(url, options)).body)
+}
+
+/** The page `<title>` (entities decoded, whitespace collapsed), or null when there is none. */
+export function extractTitle(html: string): string | null {
+  const match = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)
+  if (!match?.[1]) return null
+  const title = decodeEntities(match[1].replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim()
+  return title || null
+}
+
+function metaContent(html: string, key: string): string | null {
+  for (const [tag] of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const name = /\b(?:property|name)=["']([^"']+)["']/i.exec(tag)?.[1]?.toLowerCase()
+    if (name !== key) continue
+    const content = /\bcontent=["']([^"']*)["']/i.exec(tag)?.[1]
+    if (content) return decodeEntities(content).trim() || null
+  }
+  return null
+}
+
+/**
+ * What identifies a site at a glance: its name and a preview image, read from the page itself
+ * (`og:image`/`twitter:image`). No screenshot service: that would send the address to a third party
+ * or need a headless browser. Only an http(s) image address is kept (it is only shown in an <img>).
+ */
+export function extractPageMeta(
+  html: string,
+  baseUrl: string,
+): { title: string | null; imageUrl: string | null } {
+  const title = metaContent(html, 'og:site_name') ?? extractTitle(html)
+  const image = metaContent(html, 'og:image') ?? metaContent(html, 'twitter:image')
+  let imageUrl: string | null = null
+  if (image) {
+    try {
+      const resolved = new URL(image, baseUrl)
+      imageUrl =
+        resolved.protocol === 'http:' || resolved.protocol === 'https:' ? resolved.href : null
+    } catch {
+      imageUrl = null
+    }
+  }
+  return { title, imageUrl }
 }

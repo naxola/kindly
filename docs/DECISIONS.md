@@ -4147,3 +4147,31 @@ campos de Meta (`inboundMediaDays` de 7 días; audio, vídeo y sticker no confir
 reflejo en la política de privacidad; base jurídica para datos de salud en tránsito (art. 9 RGPD). El adaptador real de
 coexistence, cuando exista, debe implementar `downloadMedia` y declarar su plazo. Fuera: eco de archivos enviados desde el móvil
 y archivos del historial importado.
+
+## 2026-11-16 — Fuentes web de conocimiento: el sitio como fuente y sus páginas (portado de la rama `staging` antigua)
+
+**Origen.** «Conocimiento, paso 2» y su rediseño (2026-10-08) en la app anterior, que no llegaron a `master`. El usuario pidió
+portarlos (2026-11-16).
+
+**Se mantiene.**
+- **Descubrimiento honesto, sin rastreo** (`packages/adapters/src/knowledge/site-discovery.ts`, portado tal cual con sus tests):
+  `robots.txt` (respeta `Disallow` del grupo `*` y anuncia sitemaps) → `sitemap.xml` (un nivel de índice, máx. 6 ficheros, sin
+  `.gz`) → feed RSS/Atom. Solo páginas del mismo sitio (ignorando `www.`), sin recursos, sin duplicados, dentro de la sección si
+  la dirección no es la raíz, máx. 200 (las más recientes). Guarda SSRF en cada petición.
+- **El sitio web es una entidad** (`knowledge_websites`: dirección, nombre e imagen `og:image` de la portada, origen de las páginas,
+  datos de publicación por defecto) con sus páginas (`knowledge_website_pages`). Sin sitemap ni feed se ofrece la propia dirección
+  y se pueden añadir páginas a mano (del mismo sitio).
+- Elegir hasta **30 páginas** por indexación; «Reintentar» las fallidas; «Volver a buscar páginas» añade solo las nuevas; las
+  páginas que la organización ya tiene como documento (misma dirección) se enlazan sin volver a descargarlas.
+- Vista previa = `og:image` mostrada tal cual (sin servicio de capturas ni navegador sin cabeza), `<img>` sin Referer.
+
+**Cambia con el stack nuevo.**
+1. **Sin mecanismo de tandas propio**: cada página elegida se convierte en un documento ORGANIZATION con `submitDocument` y se ingiere
+   con el job que ya existe (`knowledge.ingest-version`, M8a). El estado de una página es el de su documento (sin documento → «sin
+   indexar»; si no, el estado de ingesta de su última versión). Reintentar crea una versión nueva del mismo documento.
+2. **Eliminar el sitio no borra documentos**: el stack nuevo no tiene borrado de documentos; los indexados se quedan en la base de
+   conocimiento (en la app anterior era opcional borrarlos).
+3. Sin «Reindexar documentos» (re-embebido con otro proveedor): no hay caso de uso equivalente todavía.
+4. Panel en una sola columna con secciones (Información, Páginas, Configuración, Mantenimiento) en vez de pestañas: `packages/ui` no
+   tiene componente de pestañas y no se crea uno para esto.
+5. Solo quien tiene `knowledge.write` (administradores); un delegado no ve la sección.

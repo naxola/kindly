@@ -1255,3 +1255,21 @@ retoman desde el commit anterior a este si hacen falta). Se quitan sus referenci
   `build` y `test:e2e` (65). El E2E de altas esperaba al formulario de claves antes de hidratarse en la batería completa: ahora
   espera a la red y usa un clic real.
 - **Siguiente:** (4/4) fuentes web de conocimiento por sitemap.
+
+### 2026-11-16 — Portado de `staging` (4/4): fuentes web de conocimiento por sitemap
+
+- **Migración** `20261116140000_knowledge_websites` (aditiva): `knowledge_websites` (enum `KnowledgeWebsiteSource`) y
+  `knowledge_website_pages`, con RLS.
+- **Adaptadores:** `extract-web.ts` gana `fetchGuarded`, `extractTitle` y `extractPageMeta`; `site-discovery.ts` portado;
+  `knowledgeExtractor.discoverSite`. El puerto `KnowledgeExtractor` gana `discoverSite` (opcional).
+- **Core:** `knowledge/websites.ts` (añadir, listar, ver, indexar, añadir página, volver a buscar, configuración, eliminar). La
+  indexación reutiliza `submitDocument`/`submitVersion` y el job de ingesta.
+- **API:** `/api/v1/knowledge/websites` (lista, alta, detalle, índice, páginas, volver a buscar, configuración, borrado).
+  `apps/web/src/server/knowledge.ts` expone `knowledgeSources()` (sustituible en tests).
+- **UI:** sección «Sitios web» en Conocimiento (administradores) y panel lateral del sitio.
+- **Tests:** 22 unitarios portados (descubrimiento y metadatos de página), 7 de integración en core, 1 de la API y 1 E2E (dirección
+  privada rechazada; sitio sembrado, selección, indexación y estado).
+- **Verificado:** `format:check`, `lint`, `typecheck`, `test` (324), `test:integration` (389), `db:check`, `api:generate`, `build` y
+  `test:e2e` (66).
+- **Con esto queda portado todo lo pedido de la rama `staging` antigua.** Quedan de M13 el despliegue en staging, aplicar las
+  migraciones nuevas y la fusión en `master` (usuario).

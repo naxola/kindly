@@ -27,6 +27,7 @@ export {
   ProcedureVersionStatus,
   EmailSuppressionReason,
   AffiliateRequestStatus,
+  KnowledgeWebsiteSource,
 } from './generated/prisma/client.ts'
 export type {
   Organization,
@@ -60,4 +61,6 @@ export type {
   AffiliateProfile,
   AffiliateRequest,
   IntegrationKey,
+  KnowledgeWebsite,
+  KnowledgeWebsitePage,
 } from './generated/prisma/client.ts'

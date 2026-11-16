@@ -760,7 +760,7 @@ solo la vista de conjunto.
   - [x] Portar de `staging` (1/4): bienvenida al afiliado que presenta a su delegado (2026-11-16).
   - [x] Portar de `staging` (2/4): altas de afiliados por webhook de n8n (2026-11-16).
   - [x] Portar de `staging` (3/4): archivos en conversaciones (descarga por proxy, sin almacenar) (2026-11-16).
-  - [ ] Portar de `staging` (4/4): fuentes web de conocimiento por sitemap.
+  - [x] Portar de `staging` (4/4): fuentes web de conocimiento por sitemap (2026-11-16).
   - [ ] Desplegar staging (homelab) y aplicar migraciones + `queue:install`.
 
 ## Robustez y profesionalización (planificado 2026-11-13, sin empezar)

@@ -39,3 +39,26 @@ export {
   createDocumentVersion,
 } from './service.ts'
 export type { DocumentView, VersionView, ChunkView } from './service.ts'
+export type { DiscoveredSitePage, SiteDiscovery } from './extractor.ts'
+export {
+  MAX_PAGES_PER_INDEXING,
+  normalizePageUrl,
+  isSameSite,
+  AddWebsiteInput,
+  IndexPagesInput,
+  WebsiteSettingsInput,
+  addWebsite,
+  listWebsites,
+  getWebsite,
+  indexWebsitePages,
+  addWebsitePage,
+  rediscoverWebsite,
+  updateWebsiteSettings,
+  deleteWebsite,
+} from './websites.ts'
+export type {
+  WebsiteView,
+  WebsitePageView,
+  WebsitePageStatus,
+  WebsiteSettings,
+} from './websites.ts'

@@ -248,7 +248,11 @@ export async function deliverFakeMessage(
  * Processes the knowledge uploads still pending, exactly as the worker would (same use case): the
  * E2E environment runs no worker. Embeddings are the deterministic fake.
  */
-export async function ingestPendingKnowledge(page: Page) {
+export async function ingestPendingKnowledge(
+  page: Page,
+  /** Text a web page "has" (the E2E has no network): without it, web sources fail. */
+  { webText }: { webText?: string } = {},
+) {
   const organizationId = (await page.context().cookies()).find(
     (c) => c.name === 'active_org',
   )!.value
@@ -261,7 +265,8 @@ export async function ingestPendingKnowledge(page: Page) {
   )
   const noExtractor = {
     extractPdf: () => Promise.reject(new Error('no PDF extraction in E2E')),
-    fetchWebText: () => Promise.reject(new Error('no network in E2E')),
+    fetchWebText: () =>
+      webText ? Promise.resolve(webText) : Promise.reject(new Error('no network in E2E')),
   }
   for (const { id } of pending) {
     await ingestVersion(
@@ -293,4 +298,30 @@ export async function expectAccessible(page: Page, label: string) {
   )
   // Compare the readable report (not axe's raw objects) so a failure names what to fix.
   expect(report, label).toEqual([])
+}
+
+/**
+ * A website with its pages, as if its sitemap had been read (the E2E has no network, and the SSRF
+ * guard rightly refuses localhost). Returns its id.
+ */
+export async function seedWebsite(page: Page, host: string, paths: string[]) {
+  const organizationId = (await page.context().cookies()).find(
+    (c) => c.name === 'active_org',
+  )!.value
+  const { withTenant } = await import('@saas/database')
+  return withTenant(appDb(), organizationId, async (tx) => {
+    const site = await tx.knowledgeWebsite.create({
+      data: {
+        organizationId,
+        url: `https://${host}/`,
+        name: `Sitio ${host}`,
+        discoverySource: 'SITEMAP',
+        discoveredAt: new Date(),
+      },
+    })
+    await tx.knowledgeWebsitePage.createMany({
+      data: paths.map((p) => ({ organizationId, websiteId: site.id, url: `https://${host}${p}` })),
+    })
+    return site.id
+  })
 }

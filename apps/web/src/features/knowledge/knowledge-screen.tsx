@@ -27,6 +27,7 @@ import { CitationCard } from './citation-card.tsx'
 import { IngestionState, STATUS_BADGE } from './parts.tsx'
 import { useKnowledgeDocuments, useKnowledgeSearch } from './queries.ts'
 import { UploadForm } from './upload-form.tsx'
+import { WebsitesSection } from './websites.tsx'
 
 /** Knowledge: a search over what is in force and the list of documents. The query is in the URL. */
 export function KnowledgeScreen() {
@@ -120,6 +121,9 @@ export function KnowledgeScreen() {
             )
           ) : null}
         </section>
+
+        {/* Websites as sources: only whoever writes knowledge (administrators). */}
+        {canWrite ? <WebsitesSection /> : null}
 
         <section className="space-y-3">
           <h2 className="text-base">{t('documents')}</h2>

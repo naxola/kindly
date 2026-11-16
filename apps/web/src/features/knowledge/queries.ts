@@ -79,3 +79,30 @@ export async function postForm<T>(path: string, form: FormData): Promise<T> {
 export type KnowledgeDocumentData = NonNullable<ReturnType<typeof useKnowledgeDocument>['data']>
 export type KnowledgeVersionData = KnowledgeDocumentData['versions'][number]
 export type KnowledgeResult = NonNullable<ReturnType<typeof useKnowledgeSearch>['data']>[number]
+
+/** Websites (administrators). */
+export const websiteKeys = {
+  list: (orgId: string) => ['org', orgId, 'knowledge', 'websites'] as const,
+  detail: (orgId: string, id: string) => ['org', orgId, 'knowledge', 'websites', id] as const,
+}
+
+export function useWebsites(orgId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: websiteKeys.list(orgId),
+    enabled,
+    queryFn: async () => unwrap(await apiClient.GET('/api/v1/knowledge/websites')).items,
+  })
+}
+
+/** A website and its pages; while a page is being indexed it refreshes by itself. */
+export function useWebsite(orgId: string, id: string) {
+  return useQuery({
+    queryKey: websiteKeys.detail(orgId, id),
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.website.counts.INDEXING ? POLL_MS : false),
+    queryFn: async () =>
+      unwrap(await apiClient.GET('/api/v1/knowledge/websites/{id}', { params: { path: { id } } })),
+  })
+}
+
+export type WebsiteData = NonNullable<ReturnType<typeof useWebsite>['data']>

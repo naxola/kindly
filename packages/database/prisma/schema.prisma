@@ -29,39 +29,41 @@ model Organization {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
 
-  auditLogs           AuditLog[]
-  members             OrganizationMember[]
-  invitations         Invitation[]
-  subscription        Subscription?
-  usageEvents         UsageEvent[]
-  usageCounters       UsageCounter[]
-  billingPeriods      BillingPeriod[]
-  subscriptionPeriods SubscriptionPeriod[]
+  auditLogs             AuditLog[]
+  members               OrganizationMember[]
+  invitations           Invitation[]
+  subscription          Subscription?
+  usageEvents           UsageEvent[]
+  usageCounters         UsageCounter[]
+  billingPeriods        BillingPeriod[]
+  subscriptionPeriods   SubscriptionPeriod[]
   // Kindly (team): positions and member profiles of the organization.
-  memberPositions     MemberPosition[]
-  memberProfiles      MemberProfile[]
-  invitationProfiles  InvitationProfile[]
+  memberPositions       MemberPosition[]
+  memberProfiles        MemberProfile[]
+  invitationProfiles    InvitationProfile[]
   // Kindly (CRM): contacts, who answers for them, their affiliation and their timeline.
-  contacts            Contact[]
-  contactAssignments  ContactAssignment[]
-  affiliations        Affiliation[]
-  activities          Activity[]
-  tasks               Task[]
+  contacts              Contact[]
+  contactAssignments    ContactAssignment[]
+  affiliations          Affiliation[]
+  activities            Activity[]
+  tasks                 Task[]
   // Kindly (messaging): connected accounts, raw webhook events, conversations and messages.
-  messagingAccounts   MessagingAccount[]
-  webhookEvents       WebhookEvent[]
-  conversations       Conversation[]
-  knowledgeDocuments  KnowledgeDocument[]
-  knowledgeVersions   KnowledgeDocumentVersion[]
-  knowledgeChunks     KnowledgeChunk[]
-  procedures          Procedure[]
-  procedureVersions   ProcedureVersion[]
-  procedureSteps      ProcedureStep[]
-  procedureDocuments  ProcedureRequiredDocument[]
-  messages            Message[]
-  affiliateProfiles   AffiliateProfile[]
-  affiliateRequests   AffiliateRequest[]
-  integrationKeys     IntegrationKey[]
+  messagingAccounts     MessagingAccount[]
+  webhookEvents         WebhookEvent[]
+  conversations         Conversation[]
+  knowledgeDocuments    KnowledgeDocument[]
+  knowledgeVersions     KnowledgeDocumentVersion[]
+  knowledgeChunks       KnowledgeChunk[]
+  procedures            Procedure[]
+  procedureVersions     ProcedureVersion[]
+  procedureSteps        ProcedureStep[]
+  procedureDocuments    ProcedureRequiredDocument[]
+  messages              Message[]
+  affiliateProfiles     AffiliateProfile[]
+  affiliateRequests     AffiliateRequest[]
+  integrationKeys       IntegrationKey[]
+  knowledgeWebsites     KnowledgeWebsite[]
+  knowledgeWebsitePages KnowledgeWebsitePage[]
 
   @@map("organizations")
 }
@@ -904,6 +906,7 @@ model KnowledgeDocument {
   organization Organization?              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   versions     KnowledgeDocumentVersion[]
   chunks       KnowledgeChunk[]
+  websitePages KnowledgeWebsitePage[]
 
   @@index([organizationId, visibility])
   @@map("knowledge_documents")
@@ -1150,4 +1153,71 @@ model IntegrationKey {
   @@unique([organizationId, id])
   @@index([organizationId, purpose])
   @@map("integration_keys")
+}
+
+// ---------------------------------------------------------------------------------------------
+// Kindly: a website as a knowledge source (docs/DECISIONS.md 2026-11-16, ported from the previous app).
+// ---------------------------------------------------------------------------------------------
+
+enum KnowledgeWebsiteSource {
+  SITEMAP
+  FEED
+  /// Neither: only pages added by hand (the site's own address to start with).
+  NONE
+}
+
+/// A website the organization indexes pages from, with the publication data its new documents get.
+model KnowledgeWebsite {
+  id               String                 @id @default(uuid(7)) @db.Uuid
+  organizationId   String                 @map("organization_id") @db.Uuid
+  /// Normalized address (no fragment, no trailing slash). Unique per organization.
+  url              String
+  name             String
+  /// Preview image read from the site (`og:image`); only http(s). Shown, never downloaded.
+  imageUrl         String?                @map("image_url")
+  discoverySource  KnowledgeWebsiteSource @map("discovery_source")
+  /// More pages existed than the discovery keeps.
+  truncated        Boolean                @default(false)
+  discoveredAt     DateTime               @map("discovered_at") @db.Timestamptz(3)
+  // Publication data of the documents indexed from now on.
+  version          String                 @default("1")
+  publishAsCurrent Boolean                @default(true) @map("publish_as_current")
+  effectiveFrom    DateTime?              @map("effective_from") @db.Date
+  effectiveUntil   DateTime?              @map("effective_until") @db.Date
+  sourceNote       String?                @map("source_note")
+  jurisdiction     String?
+  territory        String?
+  scope            String?
+  createdAt        DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  pages        KnowledgeWebsitePage[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, url])
+  @@map("knowledge_websites")
+}
+
+/// A page of a website. Its state comes from its document: none yet (only discovered), or the
+/// ingestion status of the document's latest version.
+model KnowledgeWebsitePage {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  websiteId      String   @map("website_id") @db.Uuid
+  url            String
+  /// Known from a feed; sitemaps carry none.
+  title          String?
+  lastModified   String?  @map("last_modified")
+  documentId     String?  @map("document_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  website      KnowledgeWebsite   @relation(fields: [organizationId, websiteId], references: [organizationId, id], onDelete: Restrict)
+  document     KnowledgeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, id])
+  @@unique([websiteId, url])
+  @@index([organizationId, websiteId])
+  @@map("knowledge_website_pages")
 }
