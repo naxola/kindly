@@ -4025,3 +4025,23 @@ vez de ejecutarse.
 **Impacto.** `identity` gana un gancho genérico sin dominio (`DeletionRules.memberBlockers`) y la regla vive en
 `core/team` (`kindlyDeletionRules`), pasada por la ruta `me` y por el job diario. El gancho es un cambio sobre un
 archivo de la plantilla: se propondrá allí. La integración de la rc se fusionó en `migration/saas-template` el mismo día, por decisión del usuario.
+
+## 2026-11-16 — Retención de `webhook_events`: 30 días procesados, 90 días fallidos
+
+**Problema.** `webhook_events` guarda el cuerpo crudo de cada webhook entrante (teléfonos, texto, cabeceras), también
+de los eventos de estado que no generan mensaje. No tiene purga. El texto útil ya vive en `messages`, así que el crudo
+duplica datos personales. Pero el crudo sirve para reprocesar eventos y para investigar disputas sobre lo que
+envió el proveedor.
+
+**Alternativas.** (a) 30 días para los procesados y 90 para los fallidos; (b) 60 días para todos; (c) sin purga.
+
+**Decisión (aceptada por el usuario).** (a). Los eventos procesados con éxito se purgan a los 30 días; los fallidos
+(`processing_error` no nulo), a los 90, para dar margen a reintentar y diagnosticar. La purga es un job diario de la
+cola, en lotes, y antes de borrar pone a `NULL` `messages.source_webhook_event_id`, que hoy es `ON DELETE RESTRICT`.
+
+**Impacto.** Requiere una migración que cambia esa clave foránea, un índice por fecha y estado, y el job. Los 30 días
+deben cubrir el periodo de reenvío de cada proveedor, que hay que contrastar con su documentación vigente antes de
+implementar. El coste de almacenamiento y copias frente a 60 días es pequeño (estimación en `project/MIGRATION.md`).
+Ampliar el plazo más adelante es sencillo; reducirlo, no.
+
+**Pendiente.** Implementar la purga y la migración: aún no está hecho.

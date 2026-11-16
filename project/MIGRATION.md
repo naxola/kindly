@@ -1146,8 +1146,8 @@ a function` en el commit de React). Regla: los efectos usan cuerpo con llaves.
   2. **Staging en el homelab** (docs/deploy.md): variables de repositorio `STAGING_SITE_URL`, `STAGING_APP_URL`, `STAGING_FACEBOOK_DOMAIN_VERIFICATION`;
      `db:deploy` + `queue:install`; **comprobar la imagen `postgres` con pgvector y `docker build`/compose, que no se han podido probar aquí (sin Docker)**; el CI de GitHub tampoco se ha visto correr.
   3. **Datos (D3):** staging empieza con base nueva; confirmar que no hay nada que conservar.
-  4. **Antes de publicar:** contrastar el **NIF** (B42637348 frente al B53487885 del código anterior) con el Registro Mercantil, rellenar los
-     `REVISAR` de los legales, definir la **retención de `webhook_events`**, revisar los textos con una asesoría y solo entonces `reviewed: true`.
+  4. **Antes de publicar:** el **CIF** B42637348 lo ha confirmado el usuario (2026-11-16; el código anterior tenía B53487885); falta contrastarlo con el Registro Mercantil. Retención de `webhook_events` decidida (30/90 días, `docs/DECISIONS.md`, 2026-11-16; la purga está pendiente). Rellenar los
+     `REVISAR` de los legales, revisar los textos con una asesoría y solo entonces `reviewed: true`.
   5. **El usuario fusiona `migration/saas-template` en `master`** y se etiqueta `kindly-v0.2.0`. No fusiono yo en `master`.
 
 ### 2026-11-16 — Plantilla `v1.1.0-rc.1` (rama `chore/template-v1.1.0-rc.1`, fusionada en la de integración)
