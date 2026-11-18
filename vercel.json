@@ -1,8 +1,0 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/reindex-knowledge",
-      "schedule": "0 3 * * 0"
-    }
-  ]
-}

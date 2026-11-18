@@ -3622,214 +3622,556 @@ integración de `upload.ts` — aislamiento, limpieza, límites, sin embeddings)
 PDF real/PDF falso/URL privada, y DELEGATE sin botón).
 
 
+## 2026-11-12 — Migración de Kindly a `saas-template` (ACEPTADO por el usuario el 2026-11-12; D4 sustituida, ver entrada siguiente)
 
-## 2026-10-01 — Fase 8a: backend del AI Copilot (`LLMProvider`, contexto, sugerencia estructurada, auditoría)
+**Contexto:** el usuario pidió tomar `naxola/saas-template` (`v1.0.0`) como
+base de Kindly y montar encima su lógica de negocio, por fases de commits
+retomables entre sesiones. La plantilla cambia piezas que Kindly había
+decidido distinto: Prisma en vez de Drizzle, RLS real, acceso (`auth_*`)
+separado de negocio (`users`, `organization_members`), API Hono en vez de
+Server Actions, jobs pg-boss en vez de `after()`, `packages/ui` en vez del
+sistema de `docs/ui/`, `apps/site` para la web pública y despliegue con Docker
+en el homelab en vez de Vercel. El ADR 0007 de la plantilla ya preveía esta
+migración «por partes, no como reescritura completa».
 
-Alcance: solo servidor (sin UI; el panel del copiloto es 8b/UI-10e).
+**Decisión (propuesta):** migrar por fases M1–M13 según
+`project/MIGRATION.md`, con estas decisiones, que el usuario debe validar
+antes de empezar M1:
 
-- **`LLMProvider`** (`ai/llm-provider.ts`): misma forma que `EmbeddingProvider` (registro en `globalThis`, un único proveedor). Contrato **solo salida estructurada**: recibe un JSON Schema y devuelve JSON; el dominio nunca parsea texto libre. `OpenAILLMProvider` (`fetch` crudo, `response_format: json_schema` estricto, modelo por defecto `gpt-4.1-mini`, override `OPENAI_LLM_MODEL`) se registra desde `instrumentation.ts` solo con `OPENAI_API_KEY`; sin clave el copiloto no está disponible, nunca cae a un fake.
-- **El modelo nunca escribe citas** (`CLAUDE.md` §2.3): solo puede devolver `sourceIds` de los fragmentos que le enviamos; `reconcileSuggestion` (`ai/domain.ts`) reconstruye cada `AISource` desde el fragmento real recuperado, descarta ids inventados (con aviso) y fuerza `EvidenceLevel = INSUFFICIENT` si no queda ninguna fuente real. El nivel nunca es un porcentaje.
-- **Contexto acotado**: últimos 20 mensajes no borrados, Contact (nombre, notas), casos no cerrados, tareas pendientes y hasta 5 fragmentos de `retrieveKnowledge` (hard filters de tenancy/vigencia de 7c). Los mensajes se declaran DATO en el prompt de sistema (defensa básica contra inyección desde el Contact). Sin proveedor de embeddings el copiloto funciona solo con la conversación (`knowledgeAvailable=false`, `INSUFFICIENT`).
-- **Visibilidad**: la sugerencia se genera/lee/resuelve con `getConversationWithDetails(member)`: un DELEGATE sin acceso al Contact recibe `NOT_FOUND`, igual que el Inbox.
-- **Nunca autoenvía**: el módulo no tiene camino de escritura a `messages`. Estados `GENERATED → USED_AS_DRAFT | DISCARDED` (solo una resolución), `FAILED` para intentos fallidos (auditables). "Usado como borrador" no implica envío.
-- **Auditoría** (`ai_suggestions`, migración `0011_ai_suggestions`): guarda lo que recibió el modelo (prompts exactos, ids de mensajes, ids de fragmentos), lo que devolvió, quién resolvió y cuándo. **Retención explícita: 90 días** (`RETENTION_DAYS`, `retention_expires_at` por fila; `purgeExpiredSuggestions` borra lo vencido, pensado para un job programado — **pendiente de programar**). Más `AI_SUGGESTION_GENERATED/USED/DISCARDED` en `activities`.
-- **Sin relevancia mínima** (heredado de 7c): k-NN siempre devuelve vecinos, así que pueden ofrecerse fragmentos poco relevantes; el modelo decide si los cita y el nivel de evidencia lo ajusta. Umbral de score: decisión de producto futura.
-- **Fuera de alcance, anotado**: rate limiting/coste de las llamadas al modelo (`CLAUDE.md` §5), ejecución en segundo plano al entrar un mensaje, "Editada" vs "Usada tal cual" (requiere comparar con el mensaje enviado), resumen de situación (UI-10d).
+- **D1 Git:** rama `migration/saas-template`; la plantilla entra con
+  `git merge --allow-unrelated-histories` de `v1.0.0` para poder traer sus
+  versiones futuras con un merge normal. `master` no cambia hasta el corte.
+- **D2 `legacy/`:** la app actual se mueve a `legacy/` (fuera del tooling) y
+  cada fase borra lo que porta.
+- **D3 Datos:** sin migración de datos (no hay clientes reales).
+- **D4 Roles:** `DELEGATE` = `MEMBER` de la plantilla, mostrado como «Delegado».
+- **D5:** multiorganización de la plantilla (se elimina la restricción de una
+  organización por usuario).
+- **D6 UI:** `packages/ui` + `brand.css`; lo que falte se porta a `apps/web`.
+- **D7:** `activities` sigue como módulo de negocio; `audit_logs` para seguridad.
+- **D8:** conocimiento GLOBAL con `organization_id` nulo, legible por todos
+  los tenants vía RLS y escrito solo por el script de operador (`app_platform`).
+- **D9:** webhooks e ingesta de conocimiento como jobs de pg-boss.
+- **D10:** despliegue de la plantilla (Docker + homelab); Vercel no aloja el worker.
+- **D11:** cobros de la plantilla presentes pero inactivos.
+- **D12:** `master` congelado durante la migración.
+- **D13:** textos en `messages/{es,en}.json` con traducción inglesa real.
 
+**Alternativas consideradas:**
 
-## 2026-10-01 — Fase 8, paso 1: calidad del retrieval (FTS en lenguaje natural, contexto jerárquico, modelo de embeddings por fragmento)
+- *Reescribir Kindly desde cero sobre la plantilla* sin `legacy/`: se pierde la
+  referencia directa y la medida de lo que falta.
+- *Leer el código antiguo con `git show master:…`* en vez de `legacy/`: válido,
+  pero no deja ver de un vistazo qué queda por portar.
+- *Copiar los archivos de la plantilla sin fusionar historiales*: más simple,
+  pero cada actualización de la plantilla sería manual.
+- *Mantener Drizzle/Server Actions en Kindly*: contradice ADR 0007 de la
+  plantilla y anula el sentido de compartir base con el resto del portafolio.
+- *Renombrar `MEMBER` a `DELEGATE` en la plantilla de Kindly*: más fiel al
+  dominio, pero diverge de la plantilla y complica actualizarla.
 
-Alcance redefinido por el usuario (Copiloto = tarjeta contextual, no chatbot; plan en `project/CURRENT_TASK.md`). Este paso corrige el retrieval antes de construir la tarjeta.
+**Por qué:** fases pequeñas y siempre en verde, sin perder funcionalidad ni
+tests, y con un camino limpio para recibir las mejoras futuras de la plantilla.
 
-- **FTS en lenguaje natural**: `websearch_to_tsquery` hacía AND de todos los términos (una pregunta real casi nunca casaba) y daba significado de operador al texto del usuario. Ahora la consulta es el OR de los lexemas de la propia pregunta (`to_tsvector` → `string_agg(quote_literal(...), ' | ')::tsquery`), ordenado por `ts_rank_cd`. Se descartó sustituir `&` por `|` en `websearch_to_tsquery`: un "-horas" pasaba a ser "o NO horas", que casa con casi todo.
-- **`search_text`** (nueva columna, migración `0012_knowledge_search_text`): lo que se indexa en FTS (`content_tsv` se genera ahora desde aquí; el nombre de la columna se conserva para no forzar un renombrado) y lo que se embebe. Contiene el contexto jurídico completo: documento, ubicación (Título > Capítulo > Sección > Artículo), etiqueta del fragmento, una línea por apartado ("Artículo 34, apartado 8 (art. 34.8)") y por subapartado ("art. 34.8.a"), y el contenido entero. `content` sigue siendo lo que se muestra y se cita. Lo construye `knowledge/indexing.ts::buildSearchText` (puro). Detección de apartados de mejor esfuerzo: números a principio de línea; dentro de una línea solo si forman una serie consecutiva (PDF colapsado), para descartar "2024. " y similares.
-- **Consulta**: `normalizeLegalReferences` convierte "art." en "artículo" (el stemmer no los une) y añade el token compacto `34.8` para "artículo 34 apartado 8" / "apartado 8 del artículo 34". PostgreSQL (`spanish`) indexa "34.8" como un único lexema.
-- **Modelo de embeddings por fragmento**: nueva columna `embedding_model` (= `EmbeddingProvider.id`); la búsqueda vectorial solo compara con fragmentos del modelo activo. `OPENAI_EMBEDDING_MODEL` configurable (debe dar 1536 dimensiones; familia `text-embedding-3-*`), también en el script de ingesta. Las filas existentes quedan como `legacy` y con un `search_text` provisional (sin apartados) tras la migración: **solo FTS las encuentra hasta ejecutar `npm run knowledge:reindex`**.
-- **Reindexación** (`knowledge/reindex.ts` + `scripts/reindex-knowledge.ts`): recalcula `search_text` y re-embebe lo que cambió de texto, tiene otro modelo o con `--force`; idempotente; opción `documentId` para un solo documento. Operación de mantenimiento sobre toda la tabla (todas las organizaciones), nunca toca las columnas de tenancy.
-- **Fragmentos completos**: el prompt del copiloto y `AISource` llevan el fragmento entero (≤1800 del chunker); se quita el recorte a 1000/600 de 8a.
-- `EmbeddingProviderNotConfiguredError` tipado (base para separar "no configurado" de "error" en el paso 2; el `catch {}` del copiloto se corrige allí).
-- Verificado: lint + typecheck + 584/584 unit/integración + 51/51 E2E + build + `knowledge:reindex` real contra la base local (2 pasadas, la segunda sin cambios). Nota de entorno: en este contenedor Playwright no encuentra su Chromium; se ejecutó con una configuración temporal apuntando a `/opt/pw-browsers/chromium` (no commiteada).
+**Supersede a:** cuando se valide, las partes de `CLAUDE.md` §7 (stack:
+Drizzle, Server Actions implícitas, Vercel) y las decisiones de «sin colas» de
+Fase 7f quedan sustituidas; `CLAUDE.md` se reescribe en M1b.
 
+## 2026-11-12 — Acceso, ficha de la persona y cargo: tres cosas distintas (ACEPTADO)
 
-## 2026-10-01 — Fase 8, paso 2: grounding, abstención, seguridad y trazabilidad del retrieval
+**Contexto:** al revisar el plan de migración, el usuario corrigió D4
+(«`DELEGATE` = `MEMBER`»). `auth_users` es solo el acceso a la plataforma;
+hace falta otra tabla con los datos de la persona (nombre, teléfono…) y un
+rol funcional dentro de la organización (delegado, presidente…) que no es
+lo mismo que ser miembro: `MEMBER` solo dice que pertenece a la
+organización. Los cargos se crean en ajustes y se eligen al dar de alta a un
+miembro.
 
-Supersede de 8a donde se indica. Decisiones del usuario: abstención sin ningún borrador; umbral parametrizado y conservador; `Reranker` identidad; un único modelo LLM configurable.
+**Decisión:**
 
-- **Abstención real** (supersede "evidenceLevel INSUFFICIENT con respuesta" de 8a): el modelo declara `requiresKnowledge` (la respuesta afirmaría derechos, plazos, cuantías, requisitos o normas). `AISuggestion.outcome`: `GROUNDED` (≥1 fuente real citada y nivel ≠ INSUFFICIENT), `ABSTAINED` (necesita respaldo y no lo hay: `suggestedReply` vacío, nivel `INSUFFICIENT`, `missingInformation` explica qué falta; sin borrador, ni siquiera neutro) y `NO_KNOWLEDGE_NEEDED` (saludo, pedir un dato…: se conserva la respuesta, `evidenceLevel = null` porque no hay afirmación normativa que evidenciar, sin citas). Límite conocido: que una respuesta "necesite" respaldo lo declara el modelo; la defensa en profundidad es que las citas se reconstruyen de fragmentos reales y que sin ellas se abstiene.
-- **Umbral de relevancia** (`ai/config.ts`, `KNOWLEDGE_MIN_SIMILARITY`, defecto **0.25**, deliberadamente permisivo): un candidato se ofrece al modelo si comparte algún lexema con la consulta (`ftsMatch`) **o** su similitud coseno ≥ umbral. `retrieveKnowledge` devuelve ahora `ftsMatch` y `similarity` (null si el fragmento es de otro modelo). Como el FTS es OR, un solo lexema común basta: es intencionado (recall primero); el segundo filtro es la abstención del modelo. Calibrar con el dataset de evaluación.
-- **Consulta de retrieval** (`buildRetrievalQuery`, pura): último mensaje entrante; si tiene <12 palabras, se anteponen hasta 2 entrantes anteriores (nunca los del profesional). Sin memoria semántica.
-- **`Reranker`** (`knowledge/reranker.ts`): interfaz `rerank(query, candidates) → RankedChunk[]` + implementación identidad por defecto + `registerReranker`. Se invoca tras el filtro de relevancia y antes de tomar los 5 mejores. Sin JEV ni ninguna llamada externa.
-- **Inyección desde documentos** (supersede el prompt con `<fuente id="…">` de 8a, que un título con comillas o un `</fuente>` en el contenido podía romper): el mensaje de usuario es **un único JSON** (`JSON.stringify`) con persona, casos, tareas, conversación y conocimiento; el prompt de sistema declara todo ello DATO NO FIABLE y prohíbe que un documento cambie reglas, pida citar ids ajenos o revele instrucciones. Las citas siguen restringidas a los ids ofrecidos. Probado con un documento hostil y un modelo que lo obedece.
-- **`catch {}` vacío**: `EmbeddingProviderNotConfiguredError` (esperado) → `knowledgeStatus: NOT_CONFIGURED`, sin log; cualquier otro fallo → `ERROR`, registrado **solo con el nombre del error** (un mensaje de PostgreSQL puede incluir el texto de la consulta, es decir, un mensaje del Contact), y la sugerencia lo muestra (`warnings`). Nunca se trata como "no se encontró nada".
-- **Traza**: `context_snapshot` (jsonb, sin migración) guarda `knowledgeStatus` (sustituye a `knowledgeAvailable`) y `retrieval` (consulta usada, umbral, reranker, candidatos con rango/ftsMatch/similitud/si pasaron el filtro): base para la evaluación. Las filas de 8a conservan su forma antigua; nada las lee.
-- **Modelo LLM**: un único modelo vía `OPENAI_LLM_MODEL`, defecto `gpt-5.4-mini`; el proveedor **ya no envía `temperature`** (los GPT-5.x pueden rechazarla con 400). Pendiente: prueba real en staging (sin clave aquí; la documentación oficial no era accesible desde este entorno).
-- Verificado: lint + typecheck + 603/603 + build.
+1. **Acceso** (`auth_users`, plantilla): solo credenciales.
+2. **Rol de acceso** (`organization_members.role`, `ADMIN`/`MEMBER`,
+   plantilla): solo permisos. No se modifica.
+3. **Ficha del miembro** (`member_profiles`, Kindly, del tenant con RLS, 1:1
+   con `organization_members`): nombre, apellidos, teléfono, email de
+   contacto, cargo, notas. Del tenant y no global: la gestiona el ADMIN de
+   cada organización. El teléfono no es la identidad de WhatsApp.
+4. **Cargo** (`member_positions`, Kindly, del tenant con RLS): catálogo por
+   organización gestionado en Ajustes → Cargos (ADMIN); «Delegado» sembrado
+   al crear la organización; archivar en vez de borrar si está en uso.
+5. **Alta**: la invitación lleva rol de acceso + cargo + datos de la ficha
+   (`invitation_profiles`), copiados a `member_profiles` al aceptarla en la
+   misma transacción, mediante puntos de extensión genéricos en
+   `core/identity` (`onOrganizationCreated`, `onMemberJoined`).
 
+**Resuelto por el usuario el mismo día (`project/MIGRATION.md` §3.1):**
 
-## 2026-10-01 — Fase 8, pasos 3-4: Copilot API y tarjeta del Copiloto
+6. **El cargo es solo un nombre**, sin comportamiento. Las reglas que decían
+   «solo un DELEGATE» (delegado de referencia, responsable de caso,
+   visibilidad restringida a sus afiliados) dependen solo de `role = MEMBER`.
+   Descartado: un atributo del cargo («puede tener afiliados asignados»).
+7. **Un cargo por miembro** (`member_profiles.position_id`, opcional).
+8. **Solo el nombre es obligatorio** en la ficha.
 
-- **Capas** (la UI no conoce el modelo): `tarjeta → /api/conversations/[id]/copilot → ai/service → retrieval → LLMProvider`. La API responde solo con `CopilotSuggestionDto` (`ai/dto.ts`): resultado, nivel de evidencia, respuesta, fuentes (documento, versión, vigencia, ubicación, texto completo), avisos, información que falta, `triggerMessageId`/`hasNewerMessage`. **Nunca** proveedor, modelo, prompt, snapshot ni traza de retrieval (test que lo comprueba aunque la fila los lleve).
-- **Rutas**: `GET` (última sugerencia), `POST` (generar, 201), `POST …/[suggestionId]` con `{action: USED_AS_DRAFT | DISCARDED}`. Sesión obligatoria (401), visibilidad del miembro (404 como el Inbox), la sugerencia debe pertenecer a la conversación de la ruta. La resolución exige `application/json` (415 si no): un formulario de otro sitio no puede enviar ese tipo sin preflight CORS. Errores con código estable + mensaje en español (`ai/http.ts`): 429 (+`Retry-After`), 422 sin mensaje al que responder, 502 fallo del modelo, 503 sin proveedor configurado, 409 ya resuelta / sin respuesta que usar.
-- **Freno de coste**: una generación por conversación cada 10 s (`GENERATION_COOLDOWN_SECONDS`), medido sobre `ai_suggestions` (cuenta también un intento fallido, para no martillear a un proveedor caído). Está en base de datos y no en memoria porque en serverless no hay memoria compartida; dos peticiones exactamente simultáneas pueden colarse ambas (aceptado: la UI deshabilita el botón mientras genera). No hay límite global por organización todavía.
-- **Una abstención no se puede usar como borrador** (`NOTHING_TO_USE`, 409) — solo descartar o volver a pedir.
-- **Tarjeta** (`inbox/[id]/copilot-card.tsx`, entre el historial y el compositor; solo si el visor puede responder en esa conversación): **a petición** ("Sugerir respuesta"), no automática — supersede lo de "job en segundo plano" de `CONVERSATION_WORKSPACE.md` §4, fuera de alcance por decisión del usuario. Muestra qué plantea, el borrador (`font-document`), badge de evidencia (suficiente/parcial/insuficiente; "No requiere normativa" si no hay afirmación normativa), fuentes desplegables con versión, vigencia, estado de la versión, ubicación, texto completo y enlace al documento, avisos y "falta por saber". Abstención: alerta "No hay evidencia suficiente para proponer una respuesta" con lo que falta, sin borrador ni botón de uso. Mensaje nuevo desde la sugerencia: aviso + "Actualizar sugerencia" (comparación en vivo con el último entrante que el hilo ya sondea). Plegable. Nota fija "Nada se envía sin que lo revises tú".
-- **Nunca envía**: "Usar como borrador" solo llama a `setText` del compositor (sin señal de "escribiendo") y enfoca; pide confirmación si ya hay texto; después registra `USED_AS_DRAFT`. No hay botón de enviar en la tarjeta (E2E lo comprueba) y el E2E verifica contra la base de datos que no se crea ningún mensaje saliente hasta que el profesional pulsa Enviar. Con la ventana de servicio cerrada el botón queda deshabilitado con motivo.
-- **E2E** (`tests/e2e/copilot.spec.ts`, 3 tests + axe): sugerencia con fuentes, usar/enviar por el profesional/descartar, cooldown; abstención; confirmación de reemplazo y aviso de mensaje nuevo. `E2E_FAKE_LLM=true` (solo `playwright.config.ts`, ignorado en Vercel) registra un LLM falso determinista (`createE2EFakeLLMProvider`).
-- Verificado: lint + typecheck + 616/616 + 54/54 E2E + build + captura real de la tarjeta.
+**Alternativas consideradas:** columnas nuevas en `users` de la plantilla
+(global: los datos de una organización serían visibles para otra y diverge
+de la plantilla); cargo como enum fijo (no configurable por organización);
+renombrar `MEMBER` a `DELEGATE` (mezcla permisos con cargo).
 
+**Supersede a:** D4 de la entrada anterior.
 
-## 2026-10-01 — Fase 8, paso 6: preparación de la evaluación del retrieval
+## 2026-11-12 — pgvector sobre la imagen de Postgres de la plantilla (ACEPTADO, fase M2)
 
-Sin bloquear la fase (decisión del usuario): solo la arquitectura para medir después con un dataset real de 50-100 preguntas.
-- **Formato** (JSONL, `tests/eval/README.md`, ejemplo en `tests/eval/dataset.example.jsonl`): `id`, `question`, `atDate`/`jurisdiction` opcionales y `expected` (fuentes: `documentTitle` + `article` y/o `contains`); `expected: []` = pregunta que la base no responde (el copiloto debería abstenerse).
-- **Métricas puras** (`knowledge/evaluation.ts`, 7 tests): recall@k, MRR, % de fragmentos relevantes que superan el umbral de relevancia del copiloto, % de preguntas sin respuesta en las que no se ofrece nada y media de candidatos ofrecidos — las dos últimas sirven para calibrar `KNOWLEDGE_MIN_SIMILARITY`.
-- **`npm run eval:retrieval -- --dataset <file> [--organization-id] [--limit] [--verbose]`** (solo lectura): ejecuta `retrieveKnowledge` y el mismo `isRelevantCandidate` que el copiloto. Sin `--organization-id` solo busca conocimiento GLOBAL. No se evalúa todavía la calidad de la respuesta generada (eso necesita juicio humano o un verificador; fuera de alcance).
-- La traza de retrieval guardada en `ai_suggestions` (paso 2) permite analizar después casos reales del uso.
+**Contexto:** el conocimiento de Kindly (RAG híbrido, fases M8a/M8b) necesita
+pgvector. La plantilla usa `postgres:18.6-trixie` y Kindly usaba
+`pgvector/pgvector:pg16`.
 
+**Decisión:**
 
-## 2026-10-01 — Fase 8: Gemini como proveedor alternativo de AI
+1. **Opción A (elegida por el usuario):** instalar `postgresql-${PG_MAJOR}-pgvector`
+   (repositorio PGDG, ya configurado en la imagen oficial) en el target `postgres` del
+   `Dockerfile`. El `docker-compose.yml` local construye ese mismo target, así que
+   desarrollo, CI y staging usan la misma imagen. Sin fijar la versión de pgvector:
+   es la que PGDG publica para esa versión de Postgres.
+2. **La extensión la crea el script de inicio, no la migración.** `vector` no es una
+   extensión «de confianza»: `app_migrator` no puede crearla (comprobado). El script
+   `00-roles.sh` la crea como superusuario al crear cada base de datos; la migración
+   `20261112210000_pgvector` es `CREATE EXTENSION IF NOT EXISTS`, que no hace nada si
+   existe y falla con un error claro si no.
+3. **En el esquema `extensions`, no en `public`.** Prisma vacía `public` al reconstruir la
+   base sombra (`db:check`, `migrate dev`) y se llevaría la extensión por delante (el primer
+   intento falló exactamente así). Los tres roles de la aplicación llevan
+   `search_path = public, extensions` para usar `vector` y sus operadores sin cualificar.
+4. **No se añaden todavía las variables de Kindly** (`OPENAI_API_KEY`, Meta/WhatsApp,
+   `FACEBOOK_DOMAIN_VERIFICATION`) que el plan asignaba a M2: una variable sin código que la
+   lea es configuración muerta (regla 7). Se añaden en la fase que las consume: OpenAI en
+   M8a, Meta/WhatsApp en M6b, verificación de dominio en M10, cada una en `.env.example`,
+   `infra/staging/compose.yml` y `infra/staging/.env.example`.
 
-El LLM y los embeddings se acceden solo a través de `LLMProvider`/`EmbeddingProvider` (`CLAUDE.md` §2), así que cambiar de proveedor es registrar otra implementación, sin tocar dominio, rutas ni UI.
-- **`GeminiLLMProvider`** (`generateContent`, `responseJsonSchema`, `gemini-3.8-flash` por defecto (2.5-flash ya no está disponible para cuentas nuevas, 2026-10-01)) y **`GeminiEmbeddingProvider`** (`gemini-embedding-001` con `outputDimensionality` = 1536, vectores normalizados; la columna `vector(1536)` no cambia). Raw `fetch`, la clave va en cabecera, nunca en la URL ni en los errores.
-- **Selección** (`instrumentation.ts`, `activeAIProvider`): `AI_PROVIDER=openai|gemini`; si está vacío, OpenAI si hay `OPENAI_API_KEY`, si no Gemini si hay `GEMINI_API_KEY`. Un solo backend a la vez. Si ambas claves están en el entorno hay que fijar `AI_PROVIDER` explícitamente.
-- **Cambiar de proveedor exige reindexar** (`npm run knowledge:reindex` o `POST /api/cron/reindex-knowledge`): el `embedding_model` distinto (`gemini:…` vs `openai:…`) aísla los vectores y los fragmentos antiguos no aparecen en la búsqueda vectorial hasta entonces (el FTS sigue funcionando).
-- **Riesgo de privacidad**: el nivel gratuito de la API de Gemini puede usar los prompts para mejorar los productos de Google. Contradice `CLAUDE.md` §5 (no usar datos de clientes para entrenar). Por tanto el nivel gratuito solo es válido en staging con datos de prueba; con datos reales de afiliados hay que usar el nivel de pago (sin ese uso) tras revisión jurídica.
+**Alternativas consideradas:** partir de `pgvector/pgvector` (opción B: queda por detrás de
+la versión de Postgres de la plantilla); crear la extensión en `public` (Prisma la borra);
+migración que la cree (necesita superusuario, rompe «migraciones desde cero» con
+`app_migrator`); dar `SUPERUSER` al migrador (rompe ADR 0002).
 
+**Consecuencias:** un volumen de Postgres anterior debe crear la extensión a mano una vez
+(`docs/deploy.md`). Columnas `vector` en Prisma: `Unsupported("vector(N)")` y SQL crudo, a
+resolver en M8a.
 
-## 2026-10-08 — Conocimiento: lista de fuentes con estado, contador de uso y "Añadir conocimiento" (paso 1)
+## 2026-11-12 — Ficha y cargos: implementación (M3b) y refinamientos de D14/D15
 
-Referencia de flujo: la gestión de fuentes de Aidbase (lista con tipo/fecha/estado → "Add new knowledge" con selector de tipo → estado y entrenamiento por fuente). Decidido con el usuario: sin tipo Vídeo; contador de uso sí; primero la lista y el alta con lo que ya funciona (documento y una URL), después la selección de varias páginas de un sitio (paso 2, con ingesta en segundo plano).
-- **El estado se deriva, no se guarda** (`knowledge/source-status.ts`, `deriveIndexStatus`): `Indexado` (todos los fragmentos con el modelo del proveedor activo), `Pendiente de reindexar` (algún fragmento con otro `embedding_model`, p. ej. tras cambiar de proveedor o el marcador `legacy`), `Sin contenido` (sin fragmentos) y `Sin comprobar` (sin proveedor registrado en este entorno). Así no puede divergir de lo que la búsqueda vectorial usa de verdad. Aún no hay estados "Indexando/Error": la subida sigue siendo síncrona y un documento solo existe si se indexó; llegarán con el paso 2.
-- **Contador de uso**: fuentes propias, fragmentos y caracteres indexados de la organización (`summarizeUsage`; el conocimiento GLOBAL público no es coste suyo). Sin cuota ni barra de límite: no hay plan ni facturación definidos y no se inventa un tope.
-- **`listKnowledgeSources`** agrega los fragmentos por documento con la misma condición de visibilidad que el documento (defensa en profundidad, test de aislamiento entre organizaciones).
-- **Reindexar** (`reindexKnowledgeSourceAction`, solo ADMIN): re-embebe un documento *propio* con el proveedor activo; nunca uno GLOBAL (lo gestiona el operador) ni de otra organización. Es síncrono, acotado a un documento, a diferencia del cron de toda la tabla.
-- **UI**: "Subir documento" pasa a "Añadir conocimiento" (el origen es lo primero que se elige; el botón de envío del formulario se queda como "Subir documento"); la tabla "Documentos" pasa a "Fuentes de conocimiento" con filtro por título y tipo (GET, sin JS), estado por fuente y fecha de alta. Se mantiene el `Sheet` y no un `Dialog`: el formulario tiene más de tres campos (`COMPONENTS.md` §4). Sin componentes nuevos en `src/components/`.
-- Sin migración. Tests: 10 unit (`knowledge-source-status`), 1 integración (`listKnowledgeSources`), E2E ampliado (estado Indexado, contador, filtros).
+**Contexto:** M3b implementa lo aceptado en «Acceso, ficha de la persona y cargo».
 
+**Decisiones de implementación:**
 
-## 2026-10-08 — Conocimiento, paso 2: añadir varias páginas de un sitio web
+1. **Atomicidad por callbacks, no por estado global.** `core/identity` admite callbacks
+   opcionales (`onCreated`, `onAccepted`) dentro de su transacción; el módulo `team`
+   los usa para sembrar el cargo por defecto, crear la ficha del creador y copiar los
+   datos de la invitación. Descartado: un registro global de hooks (estado mutable
+   compartido) y llamar a `team` desde `identity` (acoplaría la plantilla a Kindly).
+2. **`users.display_name` no se modifica desde la ficha** (corrige D14): `users` es
+   global y la ficha es de una organización; con dos organizaciones el nombre sería
+   ambiguo. Se muestra el de la ficha y, si no hay, el de la cuenta.
+3. **Los cargos nunca se borran**: se archivan; su nombre sigue ocupado (único sin
+   distinguir mayúsculas por organización). Un cargo archivado no se puede asignar
+   a nadie nuevo pero lo conservan quienes ya lo tienen.
+4. **Notas internas** solo para quien gestiona fichas; la auditoría registra los
+   campos cambiados, no los valores (nombre, teléfono y email son datos personales).
+5. **Validación**: la API declara cuerpos simples para el contrato y `core` valida y
+   normaliza (vacío = sin valor, teléfono a E.164 quitando separadores). Un `ZodError`
+   de un caso de uso se responde como 400 normalizado.
+6. **Nombre obligatorio** al invitar (Q3): sin él no habría ficha con la que mostrar a
+   la persona. Las invitaciones anteriores a esta fase caen al nombre de la cuenta.
 
-Continúa el flujo al estilo Aidbase (ver entrada anterior): descubrir páginas, elegir cuáles y seguir el estado de cada una. Decidido con el usuario: sin Vídeo, con contador de uso, primero lista/alta y después esto.
-- **Descubrimiento honesto, sin rastreo** (`ingestion/site-discovery.ts`): `robots.txt` (respeta `Disallow` del grupo `*`; anuncia sitemaps) → `sitemap.xml` (con un nivel de índice de sitemaps, máx. 6 ficheros, sin `.gz`) → feed RSS/Atom (el que anuncia la portada con `<link rel="alternate">` y las rutas habituales). Seguir enlaces de la página queda fuera: mezcla menús, pies y externos, y un rastreador es infraestructura sin necesidad (`CLAUDE.md` §2). Solo páginas del mismo host (ignorando `www.`), sin recursos (imágenes, PDF, css…), sin duplicados (fragmento y barra final no cuentan), restringidas a la sección si la dirección no es la raíz, máx. 200 candidatas (más recientes primero, se avisa si hay más). Los sitemaps no traen títulos: se muestra la ruta y el título real se lee al indexar; el feed sí trae título.
-- **Sin infraestructura nueva para el segundo plano**: tabla `knowledge_import_pages` (migración 0013, solo aditiva; estado `PENDING/INDEXING/INDEXED/FAILED/SKIPPED`, error legible, documento resultante, opciones de publicación del lote). `processImportBatch` indexa por *tandas* con presupuesto de tiempo (40 s) y reclama cada página con un único `UPDATE … FOR UPDATE SKIP LOCKED`: dos tandas simultáneas nunca toman la misma, y una página que se queda `INDEXING` por una tanda caída se retoma pasados 3 min. La primera tanda corre con `after()` de la acción que crea el lote; la pantalla de progreso sigue llamando a `continueSiteImportAction` mientras queden páginas (así una importación larga sobrevive al límite de la función). Si el usuario cierra la pantalla, la importación continúa hasta donde llegue la tanda en curso y se retoma al volver a abrirla; no hay cron que la termine sola (aceptado; si hace falta, se añade al cron semanal).
-- **Una página = un documento ORGANIZATION** (`uploadKnowledgeDocument`, que ya valida, trocea, embebe y audita; `source.text` evita descargar dos veces). Mismos datos de versión/vigencia/jurisdicción para todo el lote. Máx. 30 páginas por importación (`MAX_IMPORT_PAGES`) para acotar el coste de embeddings de una sola acción. Las páginas que la organización ya tiene como documento (por `source_url` normalizada) o ya está importando se marcan `SKIPPED` ("Ya estaba añadida."/"Ya se está importando.") y no se vuelven a descargar.
-- **Seguridad**: solo ADMIN (404 para el resto); todo lote y toda consulta filtran por `organization_id` (otra organización ve un lote vacío, test); guarda SSRF en cada petición (`fetchGuarded`, redirecciones revisadas); cada página debe pertenecer al host del sitio elegido, comprobado de nuevo al indexarla; los errores guardados son mensajes en español, nunca trazas ni detalles del proveedor. Sin clave de embeddings no se procesa nada (mensaje claro, las páginas siguen en cola).
-- **UI**: "Añadir conocimiento" ofrece "Un archivo o una página web" / "Varias páginas de un sitio web"; esta última lleva a `/knowledge/sitio` (buscar → lista con casillas, filtro, "seleccionar visibles", contador n/30, "Ya añadida" desactivado, datos de publicación) y de ahí a `/knowledge/sitio/[batchId]` (estado por página, enlace al documento, "Reintentar" las fallidas). `/knowledge` lista las importaciones recientes. Sin componentes nuevos en `src/components/`.
-- Tests: 17 unit de descubrimiento (parsers y función con red simulada), 1 unit de resumen, 10 de integración (lote, deduplicación, tandas, fallos y reintento, relevo de página colgada, aislamiento entre organizaciones, historial) y E2E (historial, progreso, 404 ajeno y de DELEGATE, sitio privado rechazado). El descubrimiento contra un sitio real no se puede cubrir en E2E (la guarda SSRF rechaza localhost, como debe).
+**Alternativas consideradas:** guardar los datos de la invitación como JSON en la
+tabla `invitations` de la plantilla (obligaba a modificar una tabla ajena); columnas
+nuevas en `users` (global); un cargo con atributos de comportamiento (descartado por
+el usuario en Q1).
 
+## 2026-11-13 — CRM sobre la plantilla: contactos, asignación, afiliación y actividad (M4a)
 
-## 2026-10-08 — Conocimiento: el sitio web como fuente con su propio panel (rediseño del paso 2)
+**Contexto:** primera pieza de dominio de Kindly sobre la plantilla (fase M4a).
 
-Supera la entrada "Conocimiento, paso 2" (pantallas `/knowledge/sitio` y lotes de importación), que el usuario descartó por la interfaz. Nuevo flujo, tal como lo pidió:
-- **"Añadir conocimiento" abre un diálogo corto** (`Dialog`, `COMPONENTS.md` §4: decisión corta) que pregunta el tipo: *Sitio web* o *Documento*. Con *Sitio web* pide la dirección y, al aceptar, crea la fuente y **abre el panel de la derecha del sitio** (`?sitio=<id>`); con *Documento*, "Continuar" abre el panel (`Sheet`) con el formulario de subida (PDF o texto; "Página web" ya no es un origen de un documento nuevo, solo de una nueva versión de uno existente).
-- **El sitio web es una entidad** (`knowledge_websites`: dirección, nombre, imagen de vista previa, origen del descubrimiento, datos de publicación por defecto) con sus páginas (`knowledge_website_pages`: estado `DISCOVERED/PENDING/INDEXING/INDEXED/FAILED`, error legible, documento resultante). Migraciones 0014 (elimina `knowledge_import_pages` y su enum, solo el estado de las importaciones del paso 2 anterior: los documentos ya indexados no se tocan) y 0015 (crea las dos tablas). `organization_id` en ambas, filtrado en cada consulta; un id de otra organización se comporta como inexistente.
-- **Panel con tres pestañas**. *Información*: vista previa, dirección, de dónde salen las páginas, contadores y fechas. *Páginas*: lista con buscador de direcciones, 10 por tabla (selector 10/25/50) y paginación, casillas para elegir hasta 30 y "Indexar", "Reintentar" las fallidas y "Añadir una página por su dirección" (misma web; sirve de salida si el sitio no publica sitemap ni feed, en cuyo caso se ofrece la propia dirección). *Configuración*: datos de publicación (versión, vigencia, nota de fuente, jurisdicción, territorio, ámbito, estado; valen para lo que se indexe a partir de ahora, con la fecha de hoy como valor inicial), "Volver a buscar páginas" (añade solo las nuevas), "Reindexar documentos" (re-embebe con el proveedor activo) y **zona de peligro** (eliminar el sitio, con casilla para borrar también los documentos indexados desde él; `ConfirmDialog`).
-- **Vista previa = `og:image` de la portada, no una captura real**: una captura exige un servicio de terceros (enviaría la dirección fuera) o un navegador sin cabeza (infraestructura, `CLAUDE.md` §2). Se muestra directamente desde el sitio (solo http/https, `<img>` sin Referer); sin imagen o si falla, un marcador con el dominio.
-- **Se mantiene** el mecanismo de indexación por tandas (reclamo atómico por página con `FOR UPDATE SKIP LOCKED`, relevo tras 3 min, primera tanda con `after()`, el panel abierto sigue con más tandas): `websites.ts::processWebsitePages`, `useWebsiteImport`. Descubrimiento (`site-discovery.ts`) sin cambios.
-- Tests: unit (resumen, paginación, `extractPageMeta`), 17 de integración de `websites.ts` (alta con nombre/imagen/páginas, duplicado, páginas ya existentes, sin sitemap, sitio inaccesible o privado, cola y tandas, fallos y reintento, presupuesto de tiempo, relevo, nueva búsqueda, página manual, contadores, reindexado, borrado con y sin documentos, aislamiento entre organizaciones) y E2E del panel completo y del rechazo de una dirección privada. El descubrimiento contra un sitio real no se cubre en E2E (la guarda SSRF rechaza localhost, como debe).
+**Decisiones:**
 
+1. **`Affiliation`, no `Membership`.** La plantilla ya tiene «miembro» (`OrganizationMember`);
+   llamar «membresía» a la afiliación de un contacto confunde ambos conceptos.
+2. **Referencias a personas siempre a `organization_members`** (delegado de referencia,
+   quien asigna, autor de una actividad), con clave compuesta `(organization_id, id)` para
+   que la base impida mezclar organizaciones. Nunca a `auth_users` (ADR 0003).
+3. **Visibilidad como fragmento `where`** de Prisma (`contactVisibilityWhere`) basado en el
+   permiso `contacts.read_all` (ADMIN). Sustituye al predicado SQL con `exists` del código
+   anterior; la regla de «acceso temporal» se añadirá ahí mismo en M6a, cuando existan los
+   mensajes de los que se deriva (sin estado adicional que pueda desincronizarse).
+4. **Invariantes en la base de datos**, no solo en la aplicación: una asignación y una
+   afiliación abiertas por contacto (índices únicos parciales), `ACTIVE` ⇔ sin fecha de
+   fin, teléfono E.164, `activities` append-only para el rol de la aplicación.
+5. **Actividad y auditoría son dos cosas** (D7): la actividad es producto (lo que se ve en
+   la ficha) y no tiene autorización propia —la decide el módulo dueño de la entidad—; la
+   auditoría es seguridad y guarda solo ids.
+6. **Cuota vencida calculada en el servidor** (`feeOverdue`), regla fija y nunca
+   inferencia de la IA, como ya estaba decidido (UI-10b).
+7. **El delegado de referencia puede ser cualquier miembro activo**, como en el código
+   anterior; la restricción a `MEMBER` es de visibilidad y de responsable de un caso.
 
-## 2026-10-10 — Una base de datos atrasada no debe tumbar `/knowledge`
+**Alternativas consideradas:** mantener el predicado SQL crudo con `exists` (obliga a
+SQL manual en cada módulo y se salta los tipos); un filtro posterior en memoria (los
+datos ajenos saldrían de la base de datos); un rol «DELEGATE» en la base (descartado en
+D4).
 
-Este proyecto no migra en el deploy, así que un deploy que trae una migración nueva corre contra la base antigua hasta que alguien la aplica a mano. Con el panel de sitios web, `/knowledge` consulta `knowledge_websites` y devolvía un 500 genérico ("This page couldn't load") en una base sin las migraciones 0014 y 0015 (reproducido con las tablas ocultas en local).
-- `knowledge/schema-behind.ts::isSchemaBehindError` reconoce `42P01` (la tabla no existe) y `42703` (la columna no existe), también envueltos como `cause`. `/knowledge` responde 200 con un aviso ("La base de datos necesita una actualización", con el comando `npm run db:migrate` para un ADMIN y un mensaje neutro para el resto) en lugar del 500; las acciones del sitio web devuelven el mismo motivo. Se registra el error y cualquier otro fallo sigue siendo un error de verdad.
-- No se cambia la decisión de migrar a mano (sigue en vigor): esto solo hace visible el motivo. Migrar en el deploy sería una decisión nueva del usuario.
-- La sección "Sitios web" sube justo debajo de la búsqueda (estaba al final de la página, tras toda la tabla de documentos).
+## 2026-11-13 — Mensajería sobre la plantilla: tubería, webhook y registro de adaptadores (M6a)
 
+**Contexto:** el código anterior procesaba el webhook con `after()` y registraba los
+adaptadores en un `Map` global bajo `globalThis` (un apaño para que `instrumentation.ts` y las
+rutas compartieran instancia bajo Turbopack). La plantilla trae RLS real, cola y worker.
 
-## 2026-10-11 — UI-10c, incremento 1: "Trámite y documentación" en la ficha
+**Decisiones:**
 
-Primera parte de UI-10c (la que no depende de Meta): el trámite en curso de una persona y el estado de sus documentos requeridos. Sigue el principio de §5.2: **Kindly guarda solo el estado, nunca los archivos**.
-- **Modelo** (migración 0016, solo aditiva): `procedure_applications` (contacto, trámite, **versión del trámite con la que se inició**, caso opcional, estado `ACTIVE/COMPLETED/CANCELLED`, quién y cuándo) y `procedure_application_documents` (un registro por documento requerido de esa versión: `REQUIRED/RECEIVED`, cuándo, por qué canal, mensaje opcional, quién lo marcó). Editar el trámite después no cambia lo que ya está en curso (test). Un único trámite abierto de cada tipo por contacto (índice único parcial); al cerrarlo se puede iniciar otra vez.
-- **Reglas** (`procedures/applications.ts`): el contacto y el trámite son de la organización y el trámite tiene versión publicada; un caso solo se vincula si es del mismo contacto; un trámite cerrado no admite cambios; un documento ajeno al trámite se rechaza; todo filtra por `organization_id` (un id de otra organización se comporta como inexistente, tests). Cada cambio queda en el historial del contacto (`PROCEDURE_STARTED/DOCUMENT_RECEIVED/DOCUMENT_UNMARKED/COMPLETED/CANCELLED`).
-- **Permisos** (`application-actions.ts`): ADMIN y los delegados que ven al contacto (misma regla que la ficha y la afiliación: `getContactForMember`). Las acciones devuelven `{ error }` en vez de lanzar (un error lanzado se redacta en producción).
-- **UI**: sección "Trámite y documentación" entre Delegado de referencia y Casos abiertos. Sin trámite: "Sin trámite en curso" + selector "Iniciar un trámite..." (o un enlace a definirlos en Conocimiento si no hay ninguno publicado). Con trámite: nombre, versión, "n de m recibidos", cada documento como *Falta* o *Recibido · canal · fecha*, "Marcar recibido"/"Deshacer", y "Terminar trámite" (avisa si faltan documentos) / "Cancelar trámite" mediante `ConfirmDialog`. **El delegado marca lo recibido; el copiloto no marca nada por su cuenta** (§2: la IA no actúa sola).
-- Se quita la etiqueta "Solo lectura" de la cabecera de la ficha: ya no era cierta (vincula casos, reasigna, gestiona trámites) y chocaba con el aviso del compositor en un E2E.
-- Tests: 8 de integración (`procedure-applications`) y un E2E (`procedure-documents`: iniciar, marcar/deshacer con canal, terminar con confirmación, volver a iniciar y cancelar, rastro en el historial, accesibilidad).
-- **Pendiente de UI-10c** (depende de Meta y de revisión jurídica, ver la entrada siguiente): metadatos del adjunto en el mensaje, "Descargar" por proxy y el aviso al afiliado.
+1. **El webhook se procesa como job** de pg-boss (`messaging.process-webhook`), no con
+   `after()`: reintentos con espera, supervivencia a un reinicio y fallo definitivo visible
+   (resuelve también el pendiente de la subida síncrona de conocimiento, que sigue igual).
+2. **Verificar y guardar son atómicos**: firma válida → evento crudo + encolado en una sola
+   transacción; firma inválida → nada se guarda (no queda rastro de una petición falsificada).
+3. **Una transacción por webhook entero**: todos sus eventos se aplican juntos o ninguno; el
+   reintento parte de cero y la clave única `(cuenta, id externo del mensaje)` absorbe
+   duplicados. Los chats nuevos concurrentes se serializan con un bloqueo asesor
+   `(cuenta, chat)` en vez de dejar que uno aborte la transacción por la restricción única.
+4. **Resolver la cuenta antes de conocer la organización** con un contexto RLS de solo
+   lectura de esa fila (`withMessagingAccount`), no con `app_platform` (BYPASSRLS):
+   mínimo privilegio. Lo demás corre en `withTenant` de la organización de la cuenta.
+5. **Registro de adaptadores inyectado** (`MessagingRegistry`), sin estado global: cada proceso
+   (web, worker, test) tiene los adaptadores que se le dieron. Producción no tiene ninguno
+   hasta que llegue el real, y entonces todo webhook responde 404.
+6. **Visibilidad temporal derivada de los mensajes**, sin estado propio que pueda
+   desincronizarse, dentro de la función única `contactVisibilityWhere`.
+7. **Un contacto desconocido no se pierde ni se inventa**: se crea «sin identificar» con el
+   nombre que dé el proveedor (o el teléfono, o el id externo) y se asigna al delegado de la
+   cuenta que lo recibió, sin actor humano. Sin fusión automática de duplicados.
 
+**Alternativas consideradas:** `after()` (sin reintentos ni durabilidad); `app_platform` para
+resolver la cuenta (demasiado privilegio para una lectura); registro global (estado mutable
+compartido, difícil de probar); procesar cada evento de un webhook en su propia transacción
+(un fallo a medias dejaría el lote parcialmente aplicado y el reintento duplicaría trabajo).
 
-## 2026-10-11 — UI-10c, incremento 2: archivos en la conversación, descarga por proxy y aviso
+**Pendiente:** política de retención del cuerpo crudo de `webhook_events` (datos personales).
 
-Segunda parte de UI-10c (la que depende de Meta). Se siguió la secuencia de `CLAUDE.md` §3: primero se comprobó en la documentación actual de Meta lo que el diseño pedía confirmar, y solo entonces se construyó.
-- **Lo confirmado** (referencia de Cloud API consultada el 2026-10-11): el `media_id` de un webhook entrante **se puede descargar 7 días** ("Media IDs in webhooks expire after 7 days"); la URL que devuelve `GET /{media-id}` **caduca a los 5 minutos** y se descarga con `Authorization: Bearer`; el webhook de imagen/documento trae `id`, `mime_type`, `sha256`, `caption` (y `filename` en documentos) y **no trae el tamaño del archivo** — por eso el descriptor no guarda tamaño (el diseño lo mencionaba; no está disponible hasta descargar). Audio, vídeo y sticker se leen por `id` y `mime_type`; no pude confirmar esos tres tipos en la página y se ignora un medio sin `id`. Esto se vio con un resumen de la página oficial: **hay que validarlo con un archivo real en staging** (número de prueba de Meta, `WHATSAPP_TEST_ADAPTER_ENABLED`).
-- **Qué guarda un mensaje** (migración 0017, una columna nullable): `messages.attachment` = `{ kind, mediaId, mimeType, filename }`. El texto del mensaje es el pie de foto o un marcador ("[Documento: x.pdf]"). El `mediaId` nunca llega al navegador: el hilo recibe `{ kind, filename, mimeType, downloadable }`. `downloadable` pasa a `false` a los 7 días (capacidad `inboundMediaDays` del canal, declarada por el adaptador, no fijada en el dominio).
-- **Descarga por proxy** (`GET /api/conversations/[id]/messages/[messageId]/media`): el contenido pasa del proveedor al navegador **en streaming, sin escribirse en disco, storage, base de datos ni caché** (`Cache-Control: no-store`; test que lo comprueba espiando las APIs de ficheros y comparando filas). Acceso con la regla de la ficha: mensaje fuera de la organización → 404; conversación que el miembro no puede ver → **403** (criterio de aceptación del diseño; el resto de rutas usa 404). 410 si el archivo caducó (por antigüedad o porque el proveedor ya no lo tiene) o el canal no descarga; 413 por encima de 25 MB; 429 por encima de 20 descargas/minuto por miembro, contadas desde el historial de actividad (`MESSAGE_MEDIA_DOWNLOADED`, que además deja constancia de quién descargó qué; sin memoria compartida, como el freno del copiloto). Cabeceras: `attachment` con nombre saneado, tipo MIME validado, `nosniff` y CSP `sandbox`. En el adaptador de Meta la URL recibida debe ser `https` y pública (guarda SSRF) y no se siguen redirecciones.
-- **Los errores se detectan por nombre, no con `instanceof`**: en el build de producción (Turbopack) cada bloque instancia su propia copia de un módulo, así que la clase que lanza el adaptador no es la que importa la ruta. Lo cazó el E2E (el 410 salía como 502); está documentado en la ruta, igual que ya pasaba en el registro de embeddings.
-- **UI**: la burbuja muestra el archivo (tipo y nombre) con "Archivo no guardado en Kindly · Descargar" (o "ya no está disponible en el proveedor"); un fallo se muestra en la propia burbuja, no se descarga una página de error. Un mensaje que es solo un archivo no repite su marcador. El botón **"Insertar aviso de documentos"** del compositor añade el texto del aviso (no envía nada: el delegado lo revisa y pulsa Enviar, igual que "Usar como borrador"). Además, el contenedor de mensajes es ahora enfocable con teclado (axe: región desplazable).
-- **Aviso al afiliado** — texto propuesto en el diseño, sin cambios: "Kindly no guarda los documentos que envías: tu delegado los descarga para tramitarlos y no quedan almacenados en la plataforma." Es veraz porque no promete nada sobre sitios que Kindly no controla (el móvil del delegado con coexistence, los servidores de Meta durante 7 días). **Pendiente antes de producción: revisión jurídica del texto y su reflejo en la política de privacidad** (`src/app/(public)/privacidad`), que no he tocado: no inventaré texto legal en una política publicada.
-- **Datos de salud** (un parte de baja, art. 9 RGPD): se mantiene lo del diseño — no guardarlos reduce el riesgo, pero Kindly los trata en tránsito y sigue haciendo falta base jurídica y registro de actividades de tratamiento.
-- Adaptadores: el de Meta (número de prueba) y el falso implementan `downloadMedia`; el adaptador real de coexistence (PKG-009) aún no existe y tendrá que implementarlo y declarar su `inboundMediaDays`. Fuera de esta entrega: eco de archivos enviados desde el móvil del delegado y archivos del historial importado.
-- Tests: unit (marcadores, caducidad, saneado de nombres y tipos, lectura de medios de Meta, descarga en dos pasos con caducados/privadas/redirección/tamaño, limitador de flujo) e integración (descriptor sin archivo, idempotencia, DTO sin `mediaId`, 401/404/403/200/410/413-429, nada escrito) y un E2E (burbuja, descarga real del navegador, caducado, aviso sin enviar).
+## 2026-11-13 — Envío saliente, ventana de servicio y adaptador de prueba de Meta (M6b)
 
+**Decisiones (portadas sin cambiar el comportamiento aceptado en PKG-005/011/014):**
 
-## 2026-10-26 — Altas de afiliados por webhook, con asignación semiautomática
+1. **El guardarraíl de identidad vive en el caso de uso, no en la interfaz**: `sendMessage`
+   exige que quien envía sea el delegado dueño de la cuenta de la conversación y envía siempre
+   por esa cuenta. Un ADMIN tampoco responde por el número de otro.
+2. **Ventana de servicio contra capacidades, no proveedores**, contada desde el último mensaje
+   entrante: ni lo que escribe el delegado ni el eco desde su móvil la abren o extienden.
+3. **Un envío rechazado no es una excepción**: se guarda `FAILED` en el hilo y el motivo se
+   devuelve al llamador, que decide si registrarlo; no se persiste (sin columna ni datos
+   personales de más).
+4. **Una cuenta no operativa no envía** (`ACCOUNT_NOT_OPERATIONAL`): endurece el código
+   anterior, que dejaba que el proveedor lo rechazase.
+5. **El adaptador de prueba de Meta se configura por entorno, apagado por defecto y prohibido
+   en producción**, con validación que nombra las variables sin sus valores. Sigue sin ser una
+   vía de conexión para delegados (principio 1).
+6. **Las reglas de alta de WhatsApp en `core` son ids y estructura**; el copy va en los
+   mensajes de la aplicación (es/en), no en el dominio.
 
-Una automatización (n8n) extrae un alta de un email y debe llegar a Kindly, que la guarda y propone un delegado; el administrador confirma. Respuestas del usuario a las cuatro dudas: perfil de afiliado en tabla propia, propuesta solo por carga, contacto creado al recibir (pendiente de asignar) y duplicados decididos por el administrador.
-- **Datos** (migración 0018, solo aditiva): `affiliate_profiles` (1:1 con `contacts`: DNI normalizado, único por organización; fecha de nacimiento, género, domicilio, provincia, sector, situación laboral, cuota en céntimos, centro de trabajo), `affiliate_requests` (`PENDING/DUPLICATE/CONFIRMED/DISCARDED`, delegado propuesto y final, el alta normalizada en `jsonb`, quién y cuándo resolvió; índice único parcial por (organización, DNI) mientras esté abierta) e `integration_keys`. `organization_id` en todas.
-- **Recepción**: crea el contacto (inserción directa: `createContact` asignaría al creador), el perfil, una afiliación ACTIVE y la solicitud con la propuesta, **sin asignación**: hasta que se confirma solo lo ve un ADMIN (`contactVisibilityCondition`), así que un delegado no ve altas que no son suyas. Un DNI ya afiliado en esa organización genera una solicitud `DUPLICATE` sin crear nada; reenviar un DNI que ya espera decisión devuelve la misma solicitud (idempotente, también ante dos entregas simultáneas).
-- **Propuesta** (`proposal.ts`, pura): el DELEGATE con menos afiliados, contando los asignados **y** las propuestas pendientes (varias altas seguidas se reparten en vez de caer en la misma persona); desempate fijo por antigüedad en la organización. Nunca un ADMIN (mismo criterio que casos y contactos de referencia). Sin delegados: pendiente sin propuesta.
-- **Confirmar** = `assignContactToDelegate` (historial y actividad existentes) más cerrar la solicitud; se reclama de forma atómica (`UPDATE … WHERE status = …`), así que un doble clic o dos administradores la resuelven una vez. El delegado elegido debe ser DELEGATE de la organización. **Descartar** borra el contacto creado salvo que ya tenga conversaciones o casos (entonces solo se cierra la solicitud). **Duplicado**: "Actualizar datos" sobrescribe contacto y perfil con el alta nueva sin tocar al delegado; "Descartar" no cambia nada. "Confirmar todas con la propuesta" asigna en bloque (con `ConfirmDialog`).
-- **Autenticación del endpoint: clave Bearer por organización, no HMAC.** Se propuso primero una firma HMAC; se cambia a una clave porque un nodo HTTP de n8n envía una cabecera fija con facilidad y firmar el cuerpo exige código en la automatización. La clave tiene 256 bits aleatorios, se muestra una vez y se guarda solo su SHA-256 (con esa entropía basta un hash rápido); se puede revocar, registra último uso y deduce la organización. Contrapartida asumida: quien intercepte una petición puede reutilizar la clave (va por HTTPS) y no hay protección contra repetición más allá de la idempotencia por DNI. Es una excepción acotada al "todo webhook se valida por firma" de `CLAUDE.md` §5, que habla de webhooks de proveedores de mensajería; si se prefiere HMAC, se añade sin cambiar el modelo.
-- **UX**: elemento "Altas" en el menú solo para ADMIN con contador de pendientes (también en el menú móvil); aviso con toast ("Tienes N altas pendientes de asignar" + "Revisar") una vez por aumento y por sesión, con sondeo cada minuto para las que llegan con la app abierta (`/api/affiliate-requests/count`, solo ADMIN, 404 al resto); no se muestra estando en la propia página. La página "Altas" lista pendientes (propuesta incluida) y, aparte, "Posibles duplicados". "Revisar" abre un panel con los datos recibidos y la **tabla de delegados con sus cifras** (afiliados, por confirmar, con esta alta), la propuesta preseleccionada y la opción de elegir otro. Organización → Integraciones (solo ADMIN) crea y revoca la clave y muestra el endpoint. Un DELEGATE recibe 404 en ambas páginas.
-- **Validación del payload**: solo `tipoSolicitud: "alta"`, `validoParaProcesar: true` y `errores` vacío; DNI/NIE comprobado de formato, **sin dígito de control** (la fuente es un email: el administrador es la autoridad); nombre en mayúsculas pasa a mayúscula inicial; teléfono español a E.164; fecha `DD-MM-YYYY` a ISO; cuota a céntimos. Lo que no se lee se rechaza con un motivo por elemento, sin impedir los demás. No se registran datos personales en logs; el DNI, un dato personal, solo vive en las tablas con `organization_id`.
-- Contrato del endpoint en `docs/INTEGRATIONS.md` §7. Tests: unit (normalización, propuesta), 13 de integración (claves, payload, recepción, reparto por carga, reenvío, duplicados, confirmar/descartar/aplicar, aislamiento entre organizaciones) y 2 E2E (clave → webhook → aviso → propuesta → confirmación → duplicado; un DELEGATE no ve nada), con accesibilidad.
+## 2026-11-13 — Bandeja: SQL crudo con visibilidad por ids, y envío síncrono (M7a)
 
-## 2026-11-05 — Onboarding de delegados: invitación por email, teléfono, bienvenida al afiliado
+**Decisiones:**
 
-Pedido del usuario: enviar a los miembros del equipo el correo para darse de
-alta; enviar un email de bienvenida al afiliado cuando se le asigna delegado,
-con el **email y el teléfono del delegado**; y poder elegir delegado y enviar
-la bienvenida al crear un afiliado. Respuestas del usuario: teléfono editable
-por ADMIN y por cada delegado; sin dominio verificado por ahora (se usa el
-remitente que haya); bienvenida al reasignar **opcional**; plantillas HTML
-profesionales.
+1. **La bandeja usa SQL crudo** (`LEFT JOIN LATERAL`, filtros, ordenación y contadores en la
+   base de datos) dentro de `withTenant`, así que la RLS sigue aplicando. Prisma no expresa el
+   último mensaje por conversación; cargar todos los mensajes para quedarse con uno era el
+   problema que el rediseño del código anterior ya había resuelto.
+2. **La visibilidad del SQL crudo es la misma regla, como lista de ids** (`visibleContactIds`),
+   no una copia de la lógica: `contactVisibilityWhere` y la lista comparten
+   `temporaryAccessContactIds`.
+3. **«Sin leer» cuenta cualquier último mensaje más nuevo que la marca de lectura**, también el
+   propio (igual que una lista de chats), y la vista «pendientes» es distinta: el contacto habló
+   el último. Una conversación sin mensajes no es ni una cosa ni otra.
+4. **El envío saliente sigue síncrono** (no pasa por el worker): feedback inmediato y sin
+   riesgo de duplicar un mensaje por un reintento. Riesgo asumido y outbox como mejora
+   anotada (`project/MIGRATION.md`, M7a).
+5. **El canal falso de E2E se enciende con una variable que solo pone la configuración de
+   Playwright y que la validación rechaza en producción.** Los E2E entregan webhooks firmados por
+   la ruta pública real y los procesan con el mismo caso de uso que el worker.
+6. **El limitador de los endpoints públicos respeta `AUTH_RATE_LIMIT_ENABLED=false`** (solo
+   E2E), como los de Better Auth.
 
-**Supersede parcialmente:** "Kindly no envía emails, y se dice" (PKG-006) para
-las invitaciones, y "sin selector de delegado en el alta" (PKG-014).
+## 2026-11-13 — Espacio de conversación: panel en la URL, ficha de solo lectura y tareas ligadas (M7b)
 
-1. **Invitación por email** (`organizations/invitation-email.ts`, enviada desde
-   `inviteMemberAction`). El enlace sigue visible en la tabla de pendientes y
-   hay "Reenviar". Un fallo de envío **no** invalida la invitación: se crea y
-   se avisa ("creada, pero el email no se pudo enviar"), nunca un "enviado"
-   falso.
-2. **Limitación conocida (sin dominio verificado):** con `onboarding@resend.dev`
-   Resend solo entrega al email dueño de la cuenta; los correos al resto darán
-   error 403 y la UI mostrará el aviso. Al verificar un dominio basta con
-   cambiar `EMAIL_FROM`, sin tocar código.
-3. **Teléfono del delegado**: `organization_members.phone_e164` (por
-   pertenencia, no por usuario: es el canal profesional dentro de la
-   organización). Cada miembro edita el suyo; un ADMIN edita el de cualquiera.
-   Formato E.164 obligatorio (`lib/phone.ts`); no se adivina el prefijo.
-4. **Bienvenida al afiliado** (`contacts/welcome.ts`, plantilla pura en
-   `welcome-email.ts`): presenta al delegado de referencia vigente con nombre,
-   email y teléfono (la fila del teléfono se omite si no lo tiene). Se sella en
-   `contact_assignments.welcome_sent_at` —en la asignación, no en el Contact,
-   porque un delegado nuevo implica una presentación nueva— y se audita
-   (`CONTACT_WELCOME_SENT`). No se reenvía sola; "Reenviar" fuerza. El sello
-   solo se escribe tras un envío correcto, así que un fallo se puede reintentar.
-5. **Alta de afiliado con delegado**: el ADMIN elige delegado (por defecto,
-   él mismo); un DELEGATE no ve el selector y el servidor rechaza un
-   `delegateId` ajeno (misma regla ADMIN-only que "Reasignar"). `assignedBy`
-   solo se rellena si se eligió a otra persona (el caso por defecto sigue
-   siendo `null`, como antes).
-6. **Reasignar** tiene casillero opcional "Avisar al afiliado por email"
-   (deshabilitado sin email). Reasignar ya hecho + email fallido = aviso, no
-   error: la operación principal no se deshace por un fallo de correo.
-7. **La AI no interviene:** son plantillas redactadas por humanos y disparadas
-   por una acción humana; no choca con "la AI nunca autoenvía" (`CLAUDE.md` §2).
-8. Abstracciones: todo pasa por `EmailSender`; el HTML comparte
-   `email/layout.ts` (tablas + estilos en línea, los únicos colores
-   hardcodeados permitidos: un email no puede usar los tokens de `docs/ui/`).
-9. `useCloseAfterAction` acepta ahora un `ActionFeedback` (`error` mantiene el
-   formulario abierto; `warning` lo cierra y avisa), porque un error lanzado
-   por una Server Action se redacta en producción.
+**Decisiones:**
 
-**Migración `0019_delegate_phone_welcome_email`** (a aplicar a mano en
-staging/producción): `organization_members.phone_e164`,
-`contact_assignments.welcome_sent_at`.
+1. **La conversación abierta vive en la URL** (`/inbox?conversation=<id>`) y se cambia con
+   `router.push`, no con la API de historial a mano: Atrás la cierra, el enlace se puede compartir y
+   recargar. `/inbox/<id>` (enlaces anteriores) redirige. Supersede el diseño de rutas por conversación
+   de M7a.
+2. **La ficha del afiliado es de solo lectura y se compone con los endpoints que ya existen**
+   (contacto con su delegado de referencia, afiliación, tareas del contacto, conversaciones del
+   contacto). No se creó una ruta «workspace» a medida: cada pieza conserva su autorización y su clave
+   de caché (editar el contacto o su afiliación la refresca). **Sin casos**: siguen aplazados.
+3. **Por debajo de `xl` el panel sustituye a la lista** y la ficha es una pestaña; no hay `Sheet`
+   modal intermedio (el `SidePanel` de `packages/ui` es otro patrón) ni animación de anchura: el
+   beneficio no justifica portarlo ahora; queda para M11 si se echa en falta.
+4. **«Ahora lo atiende X» es un aviso, no un permiso.** Quién puede responder no cambia con la
+   reasignación (principio 1: solo el dueño de la cuenta, por su cuenta); el aviso solo dice quién es
+   el delegado de referencia cuando no es el dueño del número.
+5. **«Escribiendo…» es para el contacto**, no para el delegado: lo emite el adaptador
+   (`sendTypingIndicator`) mientras el delegado escribe, como mucho cada 20 s, solo el dueño de la
+   cuenta y nunca con la ventana cerrada. Un fallo del proveedor no es un error de la petición.
+6. **El envío optimista vive en el cliente.** Un fallo de red deja la burbuja con el motivo y
+   «Reintentar»; un mensaje que el proveedor rechazó se guarda como `FAILED` y reintentarlo envía
+   un mensaje nuevo con el mismo texto (no se «reenvía» el fallido).
+7. **`tasks.conversation_id`**: una tarea puede nacer de una conversación, que ha de ser visible y del
+   mismo contacto (la clave compuesta impide además cruzar organizaciones). Editar sin indicarla
+   mantiene el vínculo mientras el contacto no cambie.
+8. **Límite de envíos** (`CLAUDE.md` §5): 30 mensajes/min y 12 señales de «escribiendo»/min por
+   conversación, en memoria como los demás limitadores (con varias réplicas habría que moverlos).
 
-**Verificación:** lint + typecheck + 566 unit/integración (17 nuevos: plantillas,
-validación de teléfono, teléfono por organización, delegado elegido, bienvenida
-enviada/no duplicada/forzada/sin email/fallo reintentable/aislamiento entre
-organizaciones) + 52/52 E2E (1 nuevo).
+**Pendiente:** «Sin identificar» no tiene hoy ninguna acción en la interfaz (ni marcar como
+identificado ni mover la conversación a otro contacto); ver `project/MIGRATION.md` §8, M7b.
+
+## 2026-11-13 — Canales: el asistente se impone en el servidor (M7c)
+
+**Decisiones:**
+
+1. **Un canal con onboarding guiado no se conecta de un paso**: `connectMessagingAccount` lo rechaza
+   (`ONBOARDING_REQUIRED`) y solo `connectWithOnboarding` lo conecta, tras comprobar vía disponible,
+   los seis puntos confirmados y, si hay lista configurada, el país. Que el botón esté desactivado es
+   cortesía; la garantía está en el caso de uso (los puntos hablan de lo que pierde el móvil de la
+   persona).
+2. **Los canales viven en Ajustes → Canales** (`/settings/channels`), no en una sección «Organización»
+   aparte: la plantilla ya agrupa ahí lo que se configura. Cada persona ve y conecta lo suyo; ver todo
+   y desconectar a otro sigue siendo `channels.read_all`/`channels.disconnect_any` (principio 1: nadie
+   conecta una cuenta en nombre de otro).
+3. **La pantalla dice lo que hay.** Sin adaptadores registrados (producción hoy) muestra que no hay
+   proveedor disponible; el asistente existe pero solo se alcanza para un canal que declare onboarding
+   guiado. No se sustituye el adaptador real de coexistence (PKG-009, bloqueado) por nada no oficial,
+   y el aviso final no promete una redirección a Facebook que nadie hace.
+4. **El canal falso de E2E incluye una variante con onboarding guiado** (`fake-coexistence`, sin
+   desconexión desde Kindly) para probar el asistente sin Meta; sigue prohibido en producción.
+
+## 2026-11-13 — Conocimiento: GLOBAL por RLS, ingesta asíncrona y sin índice vectorial (M8a)
+
+**Decisiones:**
+
+1. **GLOBAL ⟺ sin organización**, con CHECK en documentos y fragmentos. Lectura: GLOBAL más lo propio
+   (`organization_id IS NULL OR = actual`); escritura de un tenant: solo lo propio; **GLOBAL solo lo
+   escribe el rol `app_platform` (BYPASSRLS)** desde `pnpm knowledge:ingest`, con
+   `DATABASE_PLATFORM_URL` que no leen ni la web ni el worker. Un tenant no puede ni crear, ni cambiar,
+   ni borrar conocimiento GLOBAL (D8).
+2. **Claves simples, no compuestas, entre documento, versión y fragmento.** Con organización nula una
+   clave compuesta no se comprueba, y lo GLOBAL se quedaba sin integridad referencial. La coherencia de
+   organización entre padre e hijo la garantiza `core` (copia, nunca la da el llamante) y la RLS.
+3. **La ingesta es un job** (`knowledge.ingest-version`, D9). La versión nace `DRAFT`/`PENDING` y solo
+   al terminar recibe su estado y sustituye la CURRENT anterior: una subida a medias no quita la vigente.
+   Los bytes subidos viven solo hasta que el job acaba (éxito o fallo); el fallo guarda un **código**
+   estable, nunca el mensaje del proveedor. Sin `OPENAI_API_KEY` el resultado es `FAILED` con
+   `EMBEDDINGS_NOT_CONFIGURED`, no un fallo silencioso.
+4. **Sin índice vectorial por ahora.** Toda búsqueda filtra por organización, vigencia y ámbito antes
+   de ordenar; un índice aproximado (HNSW) pierde recall bajo esos filtros y un barrido exacto sobre lo
+   filtrado es rápido a este tamaño. Prisma tampoco puede declararlo sin marcarlo como deriva. Se
+   añade cuando el volumen lo pida (regla 7). Supersede el HNSW del código anterior.
+5. **`EmbeddingProvider` y `KnowledgeExtractor` se inyectan** (como el registro de mensajería): sin
+   global. OpenAI por `fetch` directo y PDF con `unpdf` (única dependencia nueva: local, sin red); el
+   HTML se reduce a texto con regex, sin jsdom. La guardia SSRF resuelve el host y rechaza todo lo no
+   público en cada redirección (residual conocido: rebinding de DNS entre la comprobación y la
+   descarga; aceptable para un administrador autenticado).
+
+## 2026-11-13 — Recuperación de conocimiento: umbral, citas y sin respuesta a medias (M8b)
+
+**Decisiones:**
+
+1. **Todos los filtros duros van antes de ordenar** (organización o GLOBAL, estado y vigencia a la fecha de
+   consulta, versión lista, ámbito). Jurisdicción, territorio y ámbito son igualdad sin distinguir
+   mayúsculas, con los comodines escapados: un `%` no es un patrón.
+2. **Un resultado es una cita completa**: documento, versión, vigencia, nota de fuente y ubicación. El
+   `EvidenceLevel` no lo calcula la recuperación sino el Copilot (Fase 8): lo recuperado puede no sostener
+   la respuesta y eso solo lo sabe quien la redacta. Nunca se inventa una cita (principio 3).
+3. **Sin proveedor de embeddings, la búsqueda responde 503** (`EMBEDDINGS_NOT_CONFIGURED`) y no cae a solo
+   texto: una respuesta parcial se leería como completa.
+4. **Umbral de similitud de 0,2 en la parte vectorial**, **provisional y sin validar con embeddings
+   reales**: sin umbral, el vecino más cercano siempre aparece aunque no tenga relación con la consulta.
+   Ajustar con documentos reales y OpenAI antes de apoyar en él al Copilot.
+5. **Subir es aceptar, no procesar**: 202 y estado consultable; la pantalla refresca sola mientras haya
+   algo en curso. Los errores de la fuente son códigos estables que traduce la interfaz.
+
+## 2026-11-13 — Trámites: versionados, privados y sin archivos (M9)
+
+**Decisiones:**
+
+1. **Un trámite es una definición versionada** (pasos y documentos requeridos), privada de cada
+   organización; no hay trámites GLOBAL. Editar publica una versión nueva y **nunca reescribe las
+   anteriores**: lo que se gestionó con la versión 1 sigue leyéndose como era.
+2. **Publicaciones serializadas** (`SELECT … FOR UPDATE` sobre el trámite): dos administradores publicando a la
+   vez no calculan el mismo número de versión.
+3. **Lectura para todos, escritura solo ADMIN**: el delegado necesita ver qué documentos faltan por pedir.
+4. **Solo la definición**: ni archivos de afiliados ni su estado por documento (eso es la UI-10c, no aquí).
+   Sin `activities`: no hay línea de tiempo de un trámite; basta la auditoría de seguridad.
+
+## 2026-11-16 — Borrado de cuenta: bloqueado mientras otros dependan de la persona (plantilla v1.1.0-rc.1)
+
+**Problema.** La plantilla `v1.1.0-rc.1` añade el borrado de cuenta (ADR 0019): a los 14 días la persona se anonimiza
+y deja sus organizaciones. En Kindly eso dejaría afiliados sin delegado de referencia y canales de WhatsApp/Telegram
+conectados a nombre de nadie.
+
+**Alternativas.** (a) Reasignar automáticamente a un ADMIN al ejecutar el borrado; (b) dejar los afiliados sin
+delegado; (c) bloquear el borrado hasta que alguien reasigne y desconecte.
+
+**Decisión (aceptada por el usuario).** (c). La cuenta no se puede borrar mientras la persona sea delegado de
+referencia de algún afiliado (`REFERENCE_DELEGATE`) o tenga un canal sin desconectar (`CHANNEL_CONNECTED`). Se
+comprueba al solicitarlo y de nuevo al ejecutarlo: si la condición aparece durante el plazo, el borrado se cancela en
+vez de ejecutarse.
+
+**Impacto.** `identity` gana un gancho genérico sin dominio (`DeletionRules.memberBlockers`) y la regla vive en
+`core/team` (`kindlyDeletionRules`), pasada por la ruta `me` y por el job diario. El gancho es un cambio sobre un
+archivo de la plantilla: se propondrá allí. La integración de la rc se fusionó en `migration/saas-template` el mismo día, por decisión del usuario.
+
+## 2026-11-16 — Retención de `webhook_events`: 30 días procesados, 90 días fallidos
+
+**Problema.** `webhook_events` guarda el cuerpo crudo de cada webhook entrante (teléfonos, texto, cabeceras), también
+de los eventos de estado que no generan mensaje. No tiene purga. El texto útil ya vive en `messages`, así que el crudo
+duplica datos personales. Pero el crudo sirve para reprocesar eventos y para investigar disputas sobre lo que
+envió el proveedor.
+
+**Alternativas.** (a) 30 días para los procesados y 90 para los fallidos; (b) 60 días para todos; (c) sin purga.
+
+**Decisión (aceptada por el usuario).** (a). Los eventos procesados con éxito se purgan a los 30 días; los fallidos
+(`processing_error` no nulo), a los 90, para dar margen a reintentar y diagnosticar. La purga es un job diario de la
+cola, en lotes, y antes de borrar pone a `NULL` `messages.source_webhook_event_id`, que hoy es `ON DELETE RESTRICT`.
+
+**Impacto.** Requiere una migración que cambia esa clave foránea, un índice por fecha y estado, y el job. Los 30 días
+deben cubrir el periodo de reenvío de cada proveedor, que hay que contrastar con su documentación vigente antes de
+implementar. El coste de almacenamiento y copias frente a 60 días es pequeño (estimación en `project/MIGRATION.md`).
+Ampliar el plazo más adelante es sencillo; reducirlo, no.
+
+**Implementado (2026-11-16).** Migración `20261116100000_webhook_events_retention`: función `app.purge_expired_webhook_events()`
+(`SECURITY DEFINER`, sin argumentos, lotes de 1000, los más antiguos primero) que primero pone a `NULL` el enlace de
+`messages` y después borra el evento; políticas de RLS para el propietario acotadas a los eventos caducados (patrón de la
+auditoría, ADR 0018); índices `webhook_events(received_at)` y `messages(source_webhook_event_id)`. Se queda
+`ON DELETE RESTRICT` en la clave foránea: cambiarla a `SET NULL` no se puede expresar en Prisma con una clave compuesta.
+Job diario `messaging.purge-webhook-events` (04:17 UTC), que deja una entrada de auditoría `webhook_events.purged` sin
+organización. «Fallido» incluye lo nunca procesado: la regla es `processed_at` no nulo y más de 30 días, o más de 90 días.
+
+**Plazos de reenvío de los proveedores** (contrastados el 2026-11-16, **sin documentación oficial a la vista**): Meta,
+unas 8 horas según un foro; Telegram, 24 horas según un foro. Ambos quedan muy por debajo de 30 días, pero conviene
+confirmarlo en la documentación oficial antes de producción.
+
+## 2026-11-16 — Bienvenida al afiliado que presenta a su delegado (portado de la rama `staging` antigua)
+
+**Problema.** La app anterior, en su rama `staging` (2026-11-05), enviaba al afiliado un correo que le presenta a su delegado
+de referencia (nombre, email y teléfono), y permitía elegir delegado al crear el contacto. No llegó a `master`, así que la
+migración no lo traía. El usuario pidió portarlo (2026-11-16).
+
+**Decisión.**
+1. **Asíncrono y por la cola** (ADR 0004): el caso de uso encola `contacts.welcome-email` en la transacción del cambio; el
+   worker envía, y solo después sella `contact_assignments.welcome_sent_at` y registra la actividad `CONTACT_WELCOME_SENT`.
+   El sello va en la asignación, no en el contacto: un delegado nuevo es una presentación nueva.
+2. **Tres disparadores, siempre por una persona:** casilla al crear el contacto, casilla «Avisar al contacto» al reasignar y
+   botón «Enviar / Reenviar bienvenida» en la ficha. Clave de idempotencia `contact-welcome:{asignación}` en los dos primeros
+   (como mucho uno por asignación) y una por petición en el reenvío.
+3. **Si el contacto cambia de delegado antes de que corra el job, no se envía** (presentaría a la persona equivocada); tampoco
+   si el delegado está desactivado o el contacto ya no tiene email.
+4. **Datos del delegado:** nombre de su ficha, `contactEmail` y teléfono de `member_profiles` (la invitación ya rellena el email
+   de contacto con el invitado). El email del delegado va también como `Reply-To`. No se lee `auth_*` desde contactos.
+5. **Elegir delegado al crear** exige `contacts.assign` si no es uno mismo (la misma regla que reasignar); supersede «sin selector
+   de delegado en el alta».
+6. Plantilla escrita por personas (es/en según el idioma de la organización); **la AI no interviene**.
+
+**Fuera de este paso:** las invitaciones por correo y el teléfono del delegado de aquel commit ya existían en el stack nuevo
+(plantilla + `member_profiles`).
+
+## 2026-11-16 — Altas de afiliados por webhook de una automatización (portado de la rama `staging` antigua)
+
+**Origen.** Decisión del 2026-10-26 en la app anterior («Altas de afiliados por webhook, con asignación semiautomática»), que
+no llegó a `master`. El usuario pidió portarla (2026-11-16). Se mantiene el diseño aceptado entonces; cambia lo que exige el
+stack nuevo.
+
+**Se mantiene.**
+- Recepción: crea contacto, perfil de afiliado (`affiliate_profiles`, DNI/NIE normalizado y único por organización) y una
+  afiliación ACTIVE, **sin delegado**: hasta que un ADMIN confirma, solo lo ve quien lee todos los contactos. Un DNI ya afiliado
+  genera una solicitud `DUPLICATE` sin crear nada; reenviar un DNI que espera decisión devuelve la misma (índice único parcial).
+- Propuesta por carga (afiliados asignados + propuestas pendientes), solo entre delegados (rol MEMBER activo), desempate por
+  antigüedad. Confirmar, «Confirmar todas con la propuesta», descartar (borra lo creado si nada cuelga del contacto) y, para un
+  duplicado, «Actualizar datos» (no cambia el delegado).
+- **Autenticación por clave Bearer por organización, no HMAC** (excepción acotada y ya aceptada a «todo webhook se valida por
+  firma», que se refiere a proveedores de mensajería): 256 bits, se muestra una vez, solo se guarda su SHA-256, revocable, con
+  último uso. La organización se deduce de la clave, nunca del cuerpo.
+- Validación del payload (`tipoSolicitud: "alta"`, `validoParaProcesar`, sin `errores`; DNI/NIE de forma, sin dígito de
+  control); un elemento inválido no bloquea los demás; sin datos personales en logs.
+
+**Cambia con el stack nuevo.**
+1. Módulo `core/intake`; tablas con RLS (`affiliate_profiles`, `affiliate_requests`, `integration_keys`). La clave se resuelve
+   antes de conocer la organización con el contexto `app.integration_key_hash` (`withIntegrationKey`), que solo deja **leer**
+   esa fila; lo demás corre en `withTenant` de la organización.
+2. Confirmar es **una transacción**: se reclama la solicitud, se asigna con `assignContactInTx` (que valida al delegado) y se
+   registra el delegado final; si algo falla, el alta sigue pendiente. El delegado puede ser cualquier miembro activo (regla de
+   Kindly), aunque la propuesta y el selector ofrecen solo delegados.
+3. Confirmar permite enviar a la vez la **bienvenida** al afiliado (portado 1/4).
+4. Permisos nuevos `affiliate_requests.manage` e `integrations.manage` (solo ADMIN).
+5. Endpoint fuera de `/v1`: `POST /api/integrations/affiliate-requests`, con límite por IP (`affiliate-intake`, 60/min).
+6. UI: «Altas (N)» en la cabecera de Contactos y página `/contacts/requests`; Ajustes → Integraciones; aviso en toda la app
+   para administradores (sondeo cada minuto, una vez por aumento y sesión del navegador).
+
+**Pendiente (no estaba en la app anterior):** mostrar el perfil de afiliado (DNI, domicilio…) en la ficha del contacto tras
+confirmar; hoy solo se ve al revisar el alta.
+
+## 2026-11-16 — Archivos en conversaciones: descriptor y descarga por proxy (portado de la rama `staging` antigua)
+
+**Origen.** UI-10c, incremento 2, de la app anterior (2026-10-11), que no llegó a `master`. El usuario pidió portarlo
+(2026-11-16). Se mantiene el diseño; cambia lo que exige el stack nuevo.
+
+**Se mantiene.**
+- **Kindly no guarda el archivo.** Un mensaje guarda solo un descriptor (`messages.attachment`: `kind`, `mediaId`,
+  `mimeType`, `filename`). El texto es el pie de foto o un marcador (`[Documento: x.pdf]`). El `mediaId` nunca sale del
+  servidor: el hilo recibe `kind`, `filename`, `mimeType`, `downloadable` y `captioned`.
+- **Descarga por proxy** en streaming del proveedor al navegador, sin escribir en disco, storage, base de datos, logs ni caché
+  (`Cache-Control: no-store, private`, `nosniff`, CSP `sandbox`, nombre y tipo saneados). Límite de 25 MB y de 20 descargas por
+  minuto y persona. Cada descarga queda registrada (actividad `MESSAGE_MEDIA_DOWNLOADED` y auditoría), nunca su contenido.
+- Puerto: `inboundMediaDays` (capacidad del canal; el número de prueba de Meta declara 7) y `downloadMedia` opcional. Errores
+  reconocidos por nombre (`MediaUnavailableError`, `MediaTooLargeError`). En el adaptador de Meta: descarga en dos pasos, URL
+  `https` y pública (guarda SSRF), sin seguir redirecciones.
+- UI: la burbuja muestra el archivo con «Archivo no guardado en Kindly · Descargar» (o «ya no está disponible en el proveedor»);
+  un fallo se muestra en la burbuja. Botón **«Insertar aviso de documentos»** en el compositor: añade el texto, no envía nada.
+
+**Cambia con el stack nuevo.**
+1. Una conversación que la persona no puede ver responde **404**, como en el resto del stack nuevo (la app anterior usaba 403
+   aquí): no se distingue «no existe» de «no es tuya».
+2. Un archivo caducado o que el canal no puede descargar responde **404 con motivo** (`MEDIA_EXPIRED`, `MEDIA_UNAVAILABLE`) en
+   vez de 410, y uno demasiado grande 413 (`MEDIA_TOO_LARGE`): los códigos de error del contrato no tienen 410.
+3. El límite de descargas usa el limitador de la plantilla en Postgres (ADR 0015, ámbito `messages.media`), no el recuento del
+   historial de actividad.
+4. Ruta: `GET /api/v1/conversations/{id}/messages/{messageId}/media`.
+
+**Pendiente antes de producción (sin cambios respecto a la app anterior).** Validar con un archivo real en staging los plazos y
+campos de Meta (`inboundMediaDays` de 7 días; audio, vídeo y sticker no confirmados); revisión jurídica del texto del aviso y su
+reflejo en la política de privacidad; base jurídica para datos de salud en tránsito (art. 9 RGPD). El adaptador real de
+coexistence, cuando exista, debe implementar `downloadMedia` y declarar su plazo. Fuera: eco de archivos enviados desde el móvil
+y archivos del historial importado.
+
+## 2026-11-16 — Fuentes web de conocimiento: el sitio como fuente y sus páginas (portado de la rama `staging` antigua)
+
+**Origen.** «Conocimiento, paso 2» y su rediseño (2026-10-08) en la app anterior, que no llegaron a `master`. El usuario pidió
+portarlos (2026-11-16).
+
+**Se mantiene.**
+- **Descubrimiento honesto, sin rastreo** (`packages/adapters/src/knowledge/site-discovery.ts`, portado tal cual con sus tests):
+  `robots.txt` (respeta `Disallow` del grupo `*` y anuncia sitemaps) → `sitemap.xml` (un nivel de índice, máx. 6 ficheros, sin
+  `.gz`) → feed RSS/Atom. Solo páginas del mismo sitio (ignorando `www.`), sin recursos, sin duplicados, dentro de la sección si
+  la dirección no es la raíz, máx. 200 (las más recientes). Guarda SSRF en cada petición.
+- **El sitio web es una entidad** (`knowledge_websites`: dirección, nombre e imagen `og:image` de la portada, origen de las páginas,
+  datos de publicación por defecto) con sus páginas (`knowledge_website_pages`). Sin sitemap ni feed se ofrece la propia dirección
+  y se pueden añadir páginas a mano (del mismo sitio).
+- Elegir hasta **30 páginas** por indexación; «Reintentar» las fallidas; «Volver a buscar páginas» añade solo las nuevas; las
+  páginas que la organización ya tiene como documento (misma dirección) se enlazan sin volver a descargarlas.
+- Vista previa = `og:image` mostrada tal cual (sin servicio de capturas ni navegador sin cabeza), `<img>` sin Referer.
+
+**Cambia con el stack nuevo.**
+1. **Sin mecanismo de tandas propio**: cada página elegida se convierte en un documento ORGANIZATION con `submitDocument` y se ingiere
+   con el job que ya existe (`knowledge.ingest-version`, M8a). El estado de una página es el de su documento (sin documento → «sin
+   indexar»; si no, el estado de ingesta de su última versión). Reintentar crea una versión nueva del mismo documento.
+2. **Eliminar el sitio no borra documentos**: el stack nuevo no tiene borrado de documentos; los indexados se quedan en la base de
+   conocimiento (en la app anterior era opcional borrarlos).
+3. Sin «Reindexar documentos» (re-embebido con otro proveedor): no hay caso de uso equivalente todavía.
+4. Panel en una sola columna con secciones (Información, Páginas, Configuración, Mantenimiento) en vez de pestañas: `packages/ui` no
+   tiene componente de pestañas y no se crea uno para esto.
+5. Solo quien tiene `knowledge.write` (administradores); un delegado no ve la sección.

@@ -1,0 +1,93 @@
+{
+  "site": {
+    "name": "Kindly",
+    "tagline": "Las conversaciones de tus afiliados, ordenadas y a nombre de cada delegado."
+  },
+  "nav": {
+    "pricing": "Precios",
+    "blog": "Blog",
+    "signIn": "Entrar",
+    "signUp": "Crear cuenta",
+    "language": "Idioma",
+    "main": "Navegación principal"
+  },
+  "home": {
+    "title": "Las conversaciones de tus afiliados, ordenadas y a tu nombre",
+    "subtitle": "Kindly reúne en una bandeja las conversaciones que cada delegado mantiene desde su propio WhatsApp, las une a la ficha de cada afiliado y pone la normativa delante, con su fuente y su vigencia.",
+    "primaryCta": "Crear cuenta",
+    "secondaryCta": "Ver precios",
+    "featuresTitle": "Qué puedes hacer",
+    "features": {
+      "one": {
+        "title": "Cada delegado, con su propio número",
+        "body": "Kindly sincroniza la cuenta de WhatsApp de cada profesional. No la sustituye ni la centraliza en un número de la organización."
+      },
+      "two": {
+        "title": "La ficha del afiliado, junto al chat",
+        "body": "Afiliación y cuota, delegado de referencia, tareas pendientes y el resto de conversaciones del contacto, a la vista mientras respondes."
+      },
+      "three": {
+        "title": "Normativa con fuente y vigencia",
+        "body": "Una base de conocimiento donde cada texto indica documento, versión y fechas de vigencia, y trámites con los documentos que hay que pedir."
+      }
+    },
+    "faqTitle": "Preguntas frecuentes",
+    "faq": {
+      "one": {
+        "q": "¿Para quién es?",
+        "a": "Para sindicatos, asociaciones y despachos con delegados que atienden a sus afiliados por mensajería."
+      },
+      "two": {
+        "q": "¿Responde una IA por mí?",
+        "a": "No. Nada se envía a un contacto sin que una persona lo escriba o lo acepte. Kindly no presta asesoramiento: muestra la normativa cargada, con su fuente y su vigencia, para que la revises."
+      },
+      "three": {
+        "q": "¿Dónde están mis datos?",
+        "a": "Cada organización solo ve los suyos: la base de datos aplica ese aislamiento. El detalle, con los proveedores que intervienen, está en la política de privacidad. Kindly no guarda los archivos de tus afiliados."
+      }
+    },
+    "ctaTitle": "¿Empezamos?",
+    "ctaBody": "Crea tu cuenta en un minuto."
+  },
+  "pricing": {
+    "title": "Precios",
+    "description": "Planes y condiciones.",
+    "comingSoon": "Estamos preparando los precios.",
+    "contact": "Escríbenos a {email} y te contamos.",
+    "choose": "Empezar",
+    "featured": "Recomendado",
+    "plans": {}
+  },
+  "blog": {
+    "title": "Blog",
+    "description": "Novedades y guías.",
+    "empty": "Todavía no hay artículos.",
+    "readingTime": "{minutes} min de lectura",
+    "rss": "RSS",
+    "back": "Volver al blog",
+    "by": "por {author}",
+    "updated": "Actualizado el {date}"
+  },
+  "legal": {
+    "privacy": "Privacidad",
+    "terms": "Términos",
+    "cookies": "Cookies",
+    "reviewWarning": "Plantilla pendiente de revisión legal: este texto no debe publicarse tal cual. Revísalo con tu asesoría y marca legal.reviewed en site.config.ts.",
+    "updated": "Última actualización: {date}",
+    "legal-notice": "Aviso legal",
+    "data-deletion": "Eliminar mis datos"
+  },
+  "footer": {
+    "rights": "© {year} {company}",
+    "legal": "Legal"
+  },
+  "states": {
+    "errorTitle": "Algo ha fallado",
+    "errorBody": "No hemos podido mostrar esta página. Inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "reference": "Referencia: {id}",
+    "notFoundTitle": "Página no encontrada",
+    "notFoundBody": "La dirección no existe o se ha movido.",
+    "goHome": "Ir al inicio"
+  }
+}

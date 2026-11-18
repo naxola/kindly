@@ -1,0 +1,93 @@
+{
+  "site": {
+    "name": "Kindly",
+    "tagline": "Your members' conversations, organized and in each delegate's own name."
+  },
+  "nav": {
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "language": "Language",
+    "main": "Main navigation"
+  },
+  "home": {
+    "title": "Your members' conversations, organized and in your own name",
+    "subtitle": "Kindly gathers in one inbox the conversations each delegate holds from their own WhatsApp, links them to each member's profile and puts the regulations in front of you, with their source and validity.",
+    "primaryCta": "Create account",
+    "secondaryCta": "See pricing",
+    "featuresTitle": "What you can do",
+    "features": {
+      "one": {
+        "title": "Each delegate, with their own number",
+        "body": "Kindly syncs each professional's WhatsApp account. It does not replace it nor centralize it on an organization number."
+      },
+      "two": {
+        "title": "The member's profile, next to the chat",
+        "body": "Affiliation and fee, reference delegate, open tasks and the contact's other conversations, in view while you reply."
+      },
+      "three": {
+        "title": "Regulations with source and validity",
+        "body": "A knowledge base where each text states its document, version and validity dates, and procedures with the documents to ask for."
+      }
+    },
+    "faqTitle": "Frequently asked questions",
+    "faq": {
+      "one": {
+        "q": "Who is it for?",
+        "a": "For unions, associations and firms whose delegates serve their members over messaging."
+      },
+      "two": {
+        "q": "Does an AI reply for me?",
+        "a": "No. Nothing is sent to a contact unless a person writes or accepts it. Kindly does not give advice: it shows the loaded regulations, with their source and validity, for you to review."
+      },
+      "three": {
+        "q": "Where is my data?",
+        "a": "Each organization only sees its own: the database enforces that isolation. The detail, with the providers involved, is in the privacy policy. Kindly does not keep your members' files."
+      }
+    },
+    "ctaTitle": "Shall we start?",
+    "ctaBody": "Create your account in a minute."
+  },
+  "pricing": {
+    "title": "Pricing",
+    "description": "Plans and terms.",
+    "comingSoon": "We are preparing our prices.",
+    "contact": "Write to us at {email} and we will tell you.",
+    "choose": "Start",
+    "featured": "Recommended",
+    "plans": {}
+  },
+  "blog": {
+    "title": "Blog",
+    "description": "News and guides.",
+    "empty": "No articles yet.",
+    "readingTime": "{minutes} min read",
+    "rss": "RSS",
+    "back": "Back to the blog",
+    "by": "by {author}",
+    "updated": "Updated on {date}"
+  },
+  "legal": {
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "cookies": "Cookies",
+    "reviewWarning": "Template pending legal review: this text must not be published as is. Review it with your adviser and set legal.reviewed in site.config.ts.",
+    "updated": "Last updated: {date}",
+    "legal-notice": "Legal notice",
+    "data-deletion": "Delete my data"
+  },
+  "footer": {
+    "rights": "© {year} {company}",
+    "legal": "Legal"
+  },
+  "states": {
+    "errorTitle": "Something went wrong",
+    "errorBody": "We could not show this page. Try again.",
+    "retry": "Try again",
+    "reference": "Reference: {id}",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The address does not exist or has moved.",
+    "goHome": "Go to the start"
+  }
+}

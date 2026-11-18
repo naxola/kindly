@@ -1,0 +1,19 @@
+{
+  "name": "@saas/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./env": "./src/env.ts",
+    "./db-timeouts": "./src/db-timeouts.ts",
+    "./client-ip": "./src/client-ip.ts",
+    "./security-headers": "./src/security-headers.ts",
+    "./tsconfig/*": "./tsconfig/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

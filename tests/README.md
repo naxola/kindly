@@ -1,95 +1,48 @@
-# tests/README.md — Estrategia de testing
+# Tests de Kindly
 
-## Herramientas
+Definición de «terminado» en `CLAUDE.md` (sección _Testing_). Esta es la guía práctica. Los tests viven **junto al código** (no en una
+carpeta aparte), salvo los E2E.
 
-- **Unit / Integration:** Vitest.
-- **E2E:** Playwright.
-- **CI:** GitHub Actions, en cada PR y en `main`.
+## Qué hay y dónde
 
-Las APIs externas (WhatsApp, Telegram, OpenAI) siempre se simulan con
-mocks/sandboxes en los tests. Ningún test en CI depende de credenciales
-reales de un proveedor externo. Las PoC descritas en `docs/INTEGRATIONS.md`
-se ejecutan manualmente/exploratoriamente, no como parte de la suite de CI.
+| Tipo                | Dónde                                                                        | Comando                                             | Necesita                                  |
+| ------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------- |
+| Unitarios           | `packages/*/test/*.test.ts`, `apps/*/test/*.test.ts`, `scripts/**/*.test.ts` | `pnpm test`                                         | nada                                      |
+| Integración         | `*.int.test.ts` junto al paquete                                             | `pnpm test:integration`                             | Postgres con pgvector (puerto 5441)       |
+| E2E (Playwright)    | `e2e/*.spec.ts`                                                              | `pnpm test:e2e`                                     | Postgres + build de producción + Chromium |
+| Contrato de la API  | `docs/api/openapi.json`                                                      | `pnpm api:generate` (el CI falla si no está al día) | —                                         |
+| Fronteras y entorno | `scripts/check-boundaries.ts`, `scripts/check-env.ts`                        | `pnpm lint`, `pnpm env:check`                       | —                                         |
 
-Better Auth **no** entra en esta regla de mocks: es infraestructura propia
-del proyecto (elegida en `docs/ARCHITECTURE.md`), no un proveedor externo de
-mensajería/IA, así que sus tests de integración (`tests/integration/
-auth-flow.test.ts`, desde PKG-001) corren contra una instancia real.
+Antes de dar nada por hecho: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm db:check && pnpm build && pnpm test:e2e`.
+`pnpm lint` ya arranca ESLint con 4 GB de memoria (con menos se quedaba sin ella).
 
-### Base de datos de test
+## Qué se prueba con qué
 
-`npm test` necesita PostgreSQL corriendo (`docker compose up -d`, ver
-`README.md`) y usa la base `kindly_test`, separada de la de desarrollo
-(`kindly`) — nunca toca datos de desarrollo. `tests/setup.ts` redirige
-`DATABASE_URL` a `TEST_DATABASE_URL` antes de que cualquier módulo de la app
-abra su conexión. `docker/init-test-db.sh` crea `kindly_test`
-automáticamente la primera vez que se levanta el contenedor.
+- **Dominio puro** (reglas, filtros, validación de subidas, troceado, fusión RRF, visibilidad): unitarios.
+- **Todo lo que toca PostgreSQL**: integración, **incluido el aislamiento entre organizaciones** (cada módulo tiene su «una organización no ve lo de
+  otra»). `packages/database/test/rls.int.test.ts` falla si una tabla nueva no tiene RLS forzada; `knowledge-rls.int.test.ts` cubre GLOBAL.
+- **La API**: `apps/web/test/*.int.test.ts` llama a `api.request` con sesiones reales (helpers en `api-helpers.ts`).
+- **El worker con pg-boss real**: `apps/worker/test/worker.int.test.ts`.
+- **Flujos de usuario** (bandeja, conversación, canales, conocimiento, trámites, contactos, tareas, web pública, accesibilidad): E2E del
+  camino feliz **y** de lo que debe fallar visiblemente.
 
-## Tipos de test y qué cubren
+## Reglas
 
-### Unit tests
+- **Nunca** credenciales reales de WhatsApp/OpenAI/Telegram ni red en CI: adaptadores y proveedores falsos (`FakeMessagingAdapter`,
+  `FakeEmbeddingProvider`, `fetch` inyectado). El canal falso de E2E (`E2E_FAKE_MESSAGING_SECRET`) y los embeddings falsos
+  (`E2E_FAKE_EMBEDDINGS`) **solo los pone `playwright.config.ts`** y la validación de entorno los rechaza con `APP_ENV=production`.
+- El entorno de E2E **no corre worker**: los helpers (`deliverFakeMessage`, `ingestPendingKnowledge`) procesan con el mismo caso de uso.
+- La base de pruebas (`saas_test`) se comparte: el conocimiento GLOBAL que dejan unas pruebas lo leen todas. Las aserciones miran **solo lo
+  propio** de cada prueba (palabras únicas, filtrar por organización).
+- En E2E: `press()` envía el clic como evento (para botones bajo indicadores flotantes) pero **un menú de Radix se abre con pointer down**: ahí
+  `click()` real. No cerrar un panel con `Esc` si lo que se prueba es su botón de cerrar.
+- Accesibilidad: `e2e/accessibility.spec.ts` (axe, claro y oscuro, 320 px). La app arranca en oscuro: el test fija el tema en `localStorage`.
+- Una prueba que falla de forma intermitente es un fallo, no un «reintentar»: se investiga (tres pasadas seguidas en verde antes de darla por buena).
 
-- Lógica de dominio de cada módulo (`app/modules/*`).
-- Servicios de aplicación.
-- Filtros de RAG (hard filters de tenancy y vigencia, `docs/DATABASE.md`
-  sección 15) — deben probarse exhaustivamente porque son la barrera contra
-  fuga de datos entre organizaciones.
-- Reglas de permisos (`ADMIN` vs `DELEGATE`).
-- Lógica de idempotencia de mensajes (mismo `external_message_id` no genera
-  dos `Message`).
+## Entorno local sin Docker
 
-### Integration tests
+Postgres 16 + pgvector con el script de roles de la plantilla (`infra/postgres/init/00-roles.sh`); detalle en `project/MIGRATION.md` §8.
+Node 24 y pnpm 10.34.6 vía corepack. Chromium preinstalado: `PW_CHROMIUM_PATH=/ruta/chrome pnpm test:e2e`.
 
-- Repositorios contra PostgreSQL real (test database, no mocks de SQL).
-- `MessagingAdapter` (Telegram/WhatsApp) contra un servidor HTTP simulado que
-  reproduce las respuestas y webhooks reales del proveedor.
-- Procesamiento de webhooks end-to-end: firma inválida rechazada, evento
-  duplicado no duplica `Message`, evento fuera de orden se maneja
-  correctamente.
-- Servicios de AI contra un `LLMProvider`/`EmbeddingProvider` fake
-  determinista (no llamadas reales a OpenAI en CI).
-
-### E2E tests
-
-Como mínimo, estos dos flujos completos:
-
-```
-Login → Inbox → Conversation → AI suggestion → Edit → Send
-```
-
-```
-External message → Webhook → Conversation → Inbox
-```
-
-Y, en cuanto exista un canal implementado, el acceptance test específico de
-ese canal (ver `docs/INTEGRATIONS.md` y `project/TASKS.md` Fase 4/5):
-conectar, recibir, mostrar en Inbox, responder desde Kindly y desde el
-móvil, verificar no duplicación, desconexión y reconexión.
-
-## Definition of Done
-
-Una funcionalidad no se considera terminada sin:
-
-1. Unit tests de la lógica de dominio que introduce o modifica.
-2. Integration tests si toca PostgreSQL, un `MessagingAdapter` o
-   procesamiento de webhooks.
-3. Al menos un E2E de camino feliz si añade o cambia un flujo de usuario
-   visible (Inbox, conexión de canal, AI Copilot).
-4. Todos los tests existentes en verde. Si algo queda roto a propósito
-   (por ejemplo, en medio de una migración grande), debe quedar anotado
-   explícitamente en `project/CURRENT_TASK.md`, nunca en silencio.
-5. Sin secretos ni credenciales reales en fixtures o tests.
-
-## Multi-tenancy: caso de test obligatorio
-
-Cualquier endpoint o query nuevo que toque datos con `organization_id` debe
-tener al menos un test que verifique explícitamente que un usuario de la
-`Organization` A no puede leer ni escribir datos de la `Organization` B —
-incluyendo, cuando aplique, las consultas de RAG.
-
-Ejemplo de referencia desde PKG-002:
-`tests/integration/crm.test.ts` (bloque `describe("multi-tenant isolation")`)
-y `tests/e2e/crm.spec.ts` (test "a second organization cannot see the first
-organization's contacts") — el mismo patrón (dos organizaciones, un usuario
-de cada una, verificar que ninguna ve ni puede modificar los datos de la
-otra) se repite tanto a nivel de servicio como de UI.
+La suite del código anterior (381 pruebas unitarias, integración y E2E) sigue en `legacy/tests/`; se borra a medida que se porta
+(`project/MIGRATION.md`).

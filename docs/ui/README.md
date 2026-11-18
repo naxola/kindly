@@ -11,6 +11,42 @@ Amplía la estructura de contexto que ya usa el proyecto (`CLAUDE.md` →
 `project/CURRENT_TASK.md` / `project/TASKS.md` (detalle operativo), como el
 resto de paquetes.
 
+## Estado tras la migración a `saas-template` (M11)
+
+La interfaz se reconstruyó sobre `packages/ui` (D6). Los documentos de esta carpeta describen el
+**diseño y sus porqués** (siguen valiendo), pero las **rutas de código** que citan (`src/components/ui`,
+`src/styles/tokens.css`, `src/app/(app)/...`, Server Actions, `inbox-workspace.tsx`…) son las de la app
+anterior, hoy en `legacy/`. Equivalencias:
+
+| Antes | Ahora |
+|---|---|
+| `src/styles/tokens.css` | `packages/ui/src/styles.css` (tokens base de la plantilla) + `packages/ui/src/brand.css` (identidad de Kindly: acento, radio y los ajustes de contraste) |
+| `src/components/ui/*` | `packages/ui/src/components/*` (`@saas/ui`); los de negocio, en `apps/web/src/features/<módulo>/` |
+| `src/app/(app)/<ruta>` | página fina en `apps/web/src/app/(app)/<ruta>` + componentes en `apps/web/src/features/<módulo>/` |
+| Server Actions | rutas `/api/v1` + TanStack Query (`apps/web/src/client`) |
+| Textos en el JSX | `apps/web/messages/{es,en}.json` |
+| Sheet / `Sheet` modal | `SidePanel` de `@saas/ui` para crear y editar; el panel de conversación es propio (`features/inbox`) |
+
+**Lo que se verifica de verdad (E2E, `e2e/accessibility.spec.ts`):** axe (WCAG 2.x AA, impacto serio o crítico)
+sobre las pantallas principales de la app y de la web pública, **en claro y en oscuro**; y que a **320 px** ninguna
+pantalla provoca desplazamiento horizontal. Hallazgos que salieron al montarlo y se corrigieron:
+
+- Contraste: `--foreground-lighter`, `--warning`, `--success` y `--destructive` de la plantilla quedaban por debajo de
+  4,5:1 en claro. `brand.css` los ajusta (con el valor oscuro de la plantilla restituido en `.dark`: `brand.css`
+  se carga después y su `:root` ganaría).
+- Las tablas escapaban de su caja de desplazamiento por las celdas `sr-only` (posicionadas sin ancestro posicionado):
+  `Table` es ahora `relative`.
+- La app arranca en **oscuro** por defecto (`next-themes`, decisión de la plantilla), no según el sistema: el test
+  fija el tema en `localStorage`.
+
+**Teclado:** `F6` / `Mayús+F6` mueven el foco entre regiones (`data-f6`; `main` si la pantalla no define ninguna): en la
+bandeja, lista → chat → ficha. Hay un enlace «Saltar al contenido».
+
+**Pendiente (no se ha hecho):** la animación de anchura de apertura del panel de conversación, `Alt+↑/↓` para pasar a
+la conversación anterior/siguiente, el `Sheet` modal entre `md` y `xl`, la revisión manual de lector de pantalla y una
+pasada visual de 1536 px y de móvil real (axe no sustituye a una persona usándolo). `ROADMAP.md` es historia de las
+fases de la app anterior, no el plan actual (ese es `project/MIGRATION.md`).
+
 ## Orden de lectura para una IA que retoma el trabajo de UI
 
 1. `project/CURRENT_TASK.md` — qué fase/paquete de UI toca ahora.
@@ -48,9 +84,9 @@ resto de paquetes.
 
 - **Nada de valores visuales sueltos** en componentes: colores, radios,
   sombras, alturas, z-index y duraciones salen de tokens
-  (`src/styles/tokens.css`). Un test (`tests/unit/ui-tokens.test.ts`) lo
-  comprueba en `src/components/`.
-- **Antes de crear un componente, busca en `src/components/ui/`** y en
+  (`packages/ui/src/styles.css` y `brand.css`). El lint y la revisión lo
+  comprueban; el test de tokens del código anterior no se portó.
+- **Antes de crear un componente, busca en `packages/ui` y `apps/web/src/components/`** y en
   `COMPONENTS.md`. Si existe algo que resuelve el caso, se usa o se extiende
   con una variante; no se crea un gemelo.
 - **Las tres reglas del producto mandan sobre la estética** (`CLAUDE.md` §2):

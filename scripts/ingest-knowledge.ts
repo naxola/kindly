@@ -1,129 +1,103 @@
 /**
- * Operator tool: ingest a PDF, a web page or a plain text file into the
- * Knowledge base (Fase 7b) — extraction + hierarchical chunking +
- * embeddings + persistence, reusing `ingestDocumentVersion`
- * (`knowledge/ingestion/pipeline.ts`) unchanged. Since Fase 7f an ADMIN
- * uploads their organization's knowledge from the UI; this script remains
- * the only way to load GLOBAL knowledge (laws, official guides).
+ * Operator tool: load GLOBAL knowledge (laws, official guides: it reaches every organization) from
+ * a PDF, a web page or a text file. Extraction, hierarchical chunking, embeddings and storage are
+ * the same use case the worker runs for an organization's uploads, but with the platform role
+ * (`app_platform`, BYPASSRLS) and synchronously. What an organization uploads goes through the app.
  *
- * This script imports `knowledge/service.ts` and friends, which start with
- * `import "server-only"` — that throws under a plain Node/tsx run unless
- * the module resolver is given the `"react-server"` condition (confirmed:
- * `node` throws, `node --conditions=react-server` doesn't). Hence the
- * `NODE_OPTIONS` in the npm script (`package.json`) instead of duplicating
- * `service.ts`'s logic here by hand — see `docs/DECISIONS.md`, entrada
- * "Fase 7b", for the full rationale and the pattern for future scripts.
+ *   pnpm knowledge:ingest --title "Estatuto de los Trabajadores" --version 2015 \
+ *     --effective-from 2015-10-24 --jurisdiction ES --pdf ./et.pdf
+ *   pnpm knowledge:ingest --document-id <id> --version 2024 --effective-from 2024-01-01 --url https://…
  *
- * Usage (fish):
- *   env DATABASE_URL='<url>' OPENAI_API_KEY='<key>' npm run knowledge:ingest -- \
- *     --title "Ley de Extranjería" --visibility GLOBAL \
- *     --version "1.0" --effective-from 2024-01-01 \
- *     --pdf ./ley.pdf
- *
- * Or set DATABASE_URL/OPENAI_API_KEY in .env (loaded automatically) and
- * just: npm run knowledge:ingest -- --title ... (same flags).
- *
- * --provider fake skips OpenAI and uses the deterministic fake embedding
- * (semantically meaningless — dev/testing only, never for real knowledge).
+ * Needs `DATABASE_PLATFORM_URL` (the platform role) and `OPENAI_API_KEY`; `--provider fake` uses a
+ * deterministic embedding with no meaning, for development only: never for real knowledge.
+ * Nothing is printed that could carry a key or a connection string.
  */
-import "dotenv/config";
-import { readFile } from "node:fs/promises";
-import { parseIngestArgs, type IngestArgs } from "./lib/knowledge-ingest-args";
-import type { IngestionSource } from "@/modules/knowledge/ingestion/pipeline";
-import type { KnowledgeDocumentSourceType } from "@/modules/knowledge/schema";
+import { readFile } from 'node:fs/promises'
+import { knowledgeExtractor } from '@saas/adapters/knowledge'
+import { OpenAIEmbeddingProvider } from '@saas/adapters/knowledge'
+import { loadKnowledgeEnv } from '@saas/config/env'
+import {
+  FakeEmbeddingProvider,
+  ingestGlobalDocument,
+  type EmbeddingProvider,
+  type OperatorSource,
+} from '@saas/core'
+import { createDb } from '@saas/database'
+import { parseIngestArgs, type IngestInput } from './lib/knowledge-ingest-args.ts'
 
-const DOCUMENT_SOURCE_TYPE: Record<IngestArgs["input"]["type"], KnowledgeDocumentSourceType> = {
-  PDF: "PDF",
-  URL: "WEB",
-  TEXT_FILE: "MANUAL",
-};
-
-async function resolveSource(input: IngestArgs["input"]): Promise<IngestionSource> {
+async function resolveSource(input: IngestInput): Promise<OperatorSource> {
   switch (input.type) {
-    case "TEXT_FILE":
-      return { type: "TEXT", text: await readFile(input.path, "utf8") };
-    case "URL":
-      return { type: "WEB", url: input.url };
-    case "PDF": {
-      const isRemote = /^https?:\/\//i.test(input.location);
-      const data = isRemote
-        ? new Uint8Array(await (await fetch(input.location)).arrayBuffer())
-        : new Uint8Array(await readFile(input.location));
-      return { type: "PDF", data };
+    case 'TEXT_FILE':
+      return { kind: 'TEXT', text: await readFile(input.path, 'utf8') }
+    case 'URL':
+      return { kind: 'WEB', url: input.url }
+    case 'PDF': {
+      if (/^https?:\/\//i.test(input.location)) {
+        // The same guard as a page: a PDF by URL must not reach an internal address either.
+        const { assertPublicHost } = await import('@saas/adapters/knowledge')
+        await assertPublicHost(new URL(input.location))
+        const res = await fetch(input.location)
+        if (!res.ok) throw new Error(`Downloading the PDF failed: HTTP ${res.status}`)
+        return { kind: 'PDF', data: new Uint8Array(await res.arrayBuffer()) }
+      }
+      return { kind: 'PDF', data: new Uint8Array(await readFile(input.location)) }
     }
   }
 }
 
-async function registerProvider(args: IngestArgs) {
-  const { registerEmbeddingProvider } = await import("@/modules/knowledge/embedding-provider");
-
-  if (args.provider === "fake") {
+function provider(kind: 'openai' | 'fake'): EmbeddingProvider {
+  if (kind === 'fake') {
     console.warn(
-      "[knowledge:ingest] --provider fake: vectors are semantically meaningless. Never use this for real knowledge.",
-    );
-    const { createFakeEmbeddingProvider } = await import("@/modules/knowledge/testing/fake-embedding-provider");
-    registerEmbeddingProvider(createFakeEmbeddingProvider());
-    return;
+      '[knowledge:ingest] --provider fake: vectors have no meaning. Never use it for real knowledge.',
+    )
+    return new FakeEmbeddingProvider()
   }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  const { OPENAI_API_KEY } = loadKnowledgeEnv()
+  if (!OPENAI_API_KEY) {
     throw new Error(
-      "OPENAI_API_KEY is not set. Set it (env var or .env) or pass --provider fake for a dev/test run.",
-    );
+      'OPENAI_API_KEY is not set. Set it, or pass --provider fake for a development run.',
+    )
   }
-  const { OpenAIEmbeddingProvider } = await import("@/modules/knowledge/openai-embedding-provider");
-  registerEmbeddingProvider(
-    new OpenAIEmbeddingProvider({ apiKey, model: process.env.OPENAI_EMBEDDING_MODEL || undefined }),
-  );
+  return new OpenAIEmbeddingProvider({ apiKey: OPENAI_API_KEY })
 }
 
 async function main() {
-  const args = parseIngestArgs(process.argv.slice(2));
-  await registerProvider(args);
-
-  const { createDocument } = await import("@/modules/knowledge/service");
-  const { ingestDocumentVersion } = await import("@/modules/knowledge/ingestion/pipeline");
-
-  const documentId =
-    args.documentId ??
-    (
-      await createDocument({
-        organizationId: args.organizationId,
-        visibility: args.visibility!,
-        title: args.title!,
-        sourceType: DOCUMENT_SOURCE_TYPE[args.input.type],
-        sourceUrl: args.input.type === "URL" ? args.input.url : null,
-        jurisdiction: args.jurisdiction,
-        territory: args.territory,
-        scope: args.scope,
-      })
-    ).id;
-
-  const input = await resolveSource(args.input);
-  const version = await ingestDocumentVersion({
-    documentId,
-    version: args.version,
-    status: args.status,
-    effectiveFrom: args.effectiveFrom,
-    effectiveUntil: args.effectiveUntil,
-    source: args.sourceNote,
-    input,
-  });
-
-  console.log(`Document: ${documentId}`);
-  console.log(`Version: ${version.id} (${version.version}, ${version.status})`);
+  const args = parseIngestArgs(process.argv.slice(2))
+  const url = process.env.DATABASE_PLATFORM_URL
+  if (!url)
+    throw new Error('DATABASE_PLATFORM_URL is not set (the connection of the platform role).')
+  const db = createDb({ connectionString: url, max: 2 })
+  try {
+    const result = await ingestGlobalDocument(
+      { db, embeddings: provider(args.provider), extractor: knowledgeExtractor },
+      {
+        ...(args.documentId ? { documentId: args.documentId } : {}),
+        document: {
+          title: args.title ?? 'unused',
+          jurisdiction: args.jurisdiction,
+          territory: args.territory,
+          scope: args.scope,
+        },
+        version: {
+          version: args.version,
+          status: args.status,
+          effectiveFrom: args.effectiveFrom,
+          effectiveUntil: args.effectiveUntil,
+          source: args.sourceNote,
+        },
+        source: await resolveSource(args.input),
+      },
+    )
+    console.log(`Document: ${result.documentId}`)
+    console.log(
+      `Version: ${result.versionId} (${args.version}, ${args.status}), ${result.chunks} chunks`,
+    )
+  } finally {
+    await db.$disconnect()
+  }
 }
 
-// `@/db/client`'s postgres pool is cached on `globalThis` (shared with the
-// whole app) and nothing closes it — without an explicit exit, this
-// one-shot CLI hangs after finishing, waiting on connections that are never
-// going to close themselves (same reasoning as `scripts/reset-password.ts`
-// closing its own connection explicitly, adapted here since this script
-// doesn't own the pool it uses).
-main()
-  .then(() => process.exit(0))
-  .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  });
+main().catch((error: unknown) => {
+  console.error(error instanceof Error ? error.message : error)
+  process.exit(1)
+})

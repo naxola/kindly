@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  '@parcel/watcher': false
+  '@prisma/engines': true
+  '@swc/core': false
+  esbuild: true
+  prisma: true
+
+# Security patches for transitive dependencies of the Prisma CLI (pnpm audit).
+# Review and remove once Prisma ships versions that already include them.
+overrides:
+  mysql2: 3.24.5
+  deepmerge-ts: 8.0.2

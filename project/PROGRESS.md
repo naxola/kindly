@@ -1,6 +1,14 @@
 # PROGRESS.md — Estado resumido del proyecto
 
-Última actualización: 2026-11-05 (onboarding de delegados: invitación por email, teléfono del delegado y bienvenida al afiliado).
+Última actualización: 2026-11-16 (portado desde `staging` (4/4): bienvenida al afiliado, altas por webhook de n8n, archivos en conversaciones y fuentes web por sitemap; `legacy/` borrado; purga de `webhook_events` 30/90 días implementada; plantilla `v1.1.0-rc.1` integrada en `migration/saas-template`; planificadas las fases de robustez R1–R5 en `TASKS.md`, sin empezar; Migración a `saas-template`: M12 (documentación); M11 (accesibilidad y pulido); M10 (web pública y legales); M9 (trámites); M8b (recuperación híbrida y pantallas de conocimiento); M8a (conocimiento: datos, ingesta como job, script de operador); M7c (canales y alta de WhatsApp); M7b (espacio de conversación: chat + ficha, envío optimista, «escribiendo…»); M7a (bandeja y conversación básica, canal falso de E2E); M6 completa (6a núcleo/webhook/acceso temporal, 6b envío y adaptador de prueba de Meta); M5 (solo tareas; casos aplazados); M4 completa (4a datos/core/API, 4b UI): contactos, asignaciones, afiliación y actividad; M3b: ficha del miembro y cargos; M2: pgvector; M1: `legacy/`, plantilla fusionada, marca).
+
+## Migración a `saas-template` (activa desde 2026-11-12)
+
+Kindly pasa a construirse sobre `naxola/saas-template` `v1.0.0` (monorepo,
+Prisma + RLS, API Hono, worker pg-boss, `packages/ui`, `apps/site`). Plan por
+fases M0–M13 en `project/MIGRATION.md`. Estado: **M0 hecha y validada**
+(con ficha del miembro y cargos configurables como fase M3b); **M1–M12 hechas (M5 solo tareas); casos aplazados** (rama `migration/saas-template`); siguiente, M13 (el corte, con el usuario). La app actual
+sigue en `master` sin cambios hasta el corte (M13).
 
 ## Resumen en una línea
 
@@ -173,8 +181,7 @@ parseo propio. Verificado con lint+typecheck+365/365 unit-integration
 | **Fase 7e** | **Knowledge: UI (`/knowledge`: lista, detalle con versiones, búsqueda con citas)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7d** | **Knowledge: Trámites (`Procedure` versionado por organización; desbloquea `UI-10c`)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
 | **Fase 7f** | **Knowledge: subida de documentos desde la UI (PDF/texto/web, solo ADMIN, sin script de operador)** | Código (agente) | 🟢 **Completo** (2026-09-30) |
-| **Fase 8a** | **AI Copilot: backend (`LLMProvider`, contexto, `AISuggestion` reconciliada con fuentes reales, auditoría con retención 90 días)** | Código (agente) | 🟢 **Completo** (2026-10-01) |
-| **Fase 8** (alcance 2026-10-01) | **AI Copilot como tarjeta contextual: retrieval, grounding/abstención, seguridad, Copilot API, tarjeta, trazabilidad, evaluación preparada** | Código (agente) | 🟢 **Completo** (2026-10-01) — pendiente validar en staging |
+| Fase 8 | AI | Código (futuro paquete) | ⚪ No iniciada |
 
 Leyenda: 🔴 activo · 🟡 pendiente/manual · 🟢 completo · ⚪ no iniciado.
 

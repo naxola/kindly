@@ -1,0 +1,209 @@
+import { createPasswordBreachCheck, type PasswordBreachCheck } from './password-breach.ts'
+import { betterAuthRateLimitStorage } from '../rate-limit/index.ts'
+import { newId, type Db } from '@saas/database'
+import { betterAuth } from 'better-auth'
+import { prismaAdapter } from 'better-auth/adapters/prisma'
+import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api'
+import { twoFactor } from 'better-auth/plugins'
+
+/**
+ * Access layer (ADR 0003): Better Auth on the auth_* tables. It only knows who can sign
+ * in — no business data, no active organization. Authorization lives in core.
+ */
+
+/** Better Auth routes under the app (`/api/auth/*`), outside `/api/v1` and its OpenAPI. */
+export const AUTH_BASE_PATH = '/api/auth'
+
+/** SUPUESTO (OWASP ASVS 2.1.1/2.1.2): passwords from 12 to 128 characters. */
+export const PASSWORD_MIN_LENGTH = 12
+export const PASSWORD_MAX_LENGTH = 128
+
+const ONE_HOUR = 60 * 60
+
+/** Endpoints where someone chooses a password, and the body field that carries it. */
+const BREACH_CHECKED_PATHS: Record<string, string> = {
+  '/sign-up/email': 'password',
+  '/change-password': 'newPassword',
+  '/reset-password': 'newPassword',
+}
+
+export interface AuthEmail {
+  to: string
+  name: string
+  url: string
+  /** Raw one-time token: use it only to derive an idempotency key, never log it. */
+  token: string
+}
+
+/** Confirmation sent to the CURRENT address when someone asks to change their email. */
+export interface ChangeEmailConfirmation extends AuthEmail {
+  /** The address they want to move to. */
+  newEmail: string
+}
+
+export interface CreateAuthOptions {
+  db: Db
+  /** Public URL of the app (APP_URL). */
+  baseURL: string
+  /** At least 32 characters. */
+  secret: string
+  /**
+   * Versioned secrets (first = current, the rest only decrypt), so rotating the secret does not
+   * lose the TOTP secrets encrypted with the old one (ADR 0016). Default: `secret` as version 1.
+   */
+  secrets?: { version: number; value: string }[]
+  /** Refuses breached passwords (ADR 0016). Default: off (the apps turn it on). */
+  passwordBreachCheck?: PasswordBreachCheck
+  rateLimit: boolean
+  /** Header with the trusted client IP (TRUSTED_IP_HEADER). Unset: IP unknown. */
+  trustedIpHeader?: string
+  /** Default true. Only disable in tests or local tools. */
+  requireEmailVerification?: boolean
+  /**
+   * Delivery of the access emails. In the apps, use `queuedAuthEmails(db, queue)`:
+   * Better Auth enqueues and the worker sends (async, idempotent). Tests capture them.
+   */
+  sendVerificationEmail?: (email: AuthEmail) => Promise<void>
+  sendResetPasswordEmail?: (email: AuthEmail) => Promise<void>
+  /**
+   * Changing the access email takes two steps: this confirmation goes to the current address, and
+   * then the usual verification email goes to the new one (the email only changes after both).
+   */
+  sendChangeEmailConfirmation?: (email: ChangeEmailConfirmation) => Promise<void>
+  /**
+   * Unexpected failures inside the access layer (database down, bugs). Expected answers
+   * such as wrong password or rate limit are not reported. Without it, Better Auth logs them.
+   */
+  onUnexpectedError?: (error: unknown) => void
+}
+
+const missingSender = (kind: string) => () =>
+  Promise.reject(new Error(`No sender configured for ${kind} emails`))
+
+export function createAuth({
+  db,
+  baseURL,
+  secret,
+  secrets,
+  passwordBreachCheck = createPasswordBreachCheck({ enabled: false }),
+  rateLimit,
+  trustedIpHeader,
+  requireEmailVerification = true,
+  sendVerificationEmail = missingSender('verification'),
+  sendResetPasswordEmail = missingSender('password reset'),
+  sendChangeEmailConfirmation = missingSender('email change confirmation'),
+  onUnexpectedError,
+}: CreateAuthOptions) {
+  const secure = baseURL.startsWith('https://')
+  return betterAuth({
+    baseURL,
+    basePath: AUTH_BASE_PATH,
+    secret,
+    // Always versioned: the TOTP secrets are encrypted with the first entry (ADR 0016).
+    secrets: secrets ?? [{ version: 1, value: secret }],
+    database: prismaAdapter(db, { provider: 'postgresql' }),
+    telemetry: { enabled: false },
+    ...(onUnexpectedError
+      ? {
+          onAPIError: {
+            onError: (error: unknown) => {
+              if (isAPIError(error) && error.status !== 'INTERNAL_SERVER_ERROR') return
+              onUnexpectedError(error)
+            },
+          },
+        }
+      : {}),
+    // Access tables carry the auth_ prefix (Prisma models AuthUser, AuthSession…).
+    user: {
+      modelName: 'authUser',
+      changeEmail: {
+        enabled: true,
+        sendChangeEmailConfirmation: ({ user, newEmail, url, token }) =>
+          sendChangeEmailConfirmation({ to: user.email, name: user.name, newEmail, url, token }),
+      },
+    },
+    session: {
+      modelName: 'authSession',
+      expiresIn: 7 * 24 * ONE_HOUR,
+      updateAge: 24 * ONE_HOUR,
+      // No cookie cache: a revoked session stops working on the next request.
+      cookieCache: { enabled: false },
+    },
+    account: { modelName: 'authAccount' },
+    verification: { modelName: 'authVerification' },
+    advanced: {
+      database: { generateId: () => newId() },
+      useSecureCookies: secure,
+      defaultCookieAttributes: { httpOnly: true, sameSite: 'lax', secure },
+      // Never `x-forwarded-for` (client-written). Empty list: unknown IP, one shared bucket.
+      ipAddress: { ipAddressHeaders: trustedIpHeader ? [trustedIpHeader] : [] },
+    },
+    rateLimit: {
+      enabled: rateLimit,
+      // Counters in Postgres (ADR 0015): shared by every replica and kept across restarts. If
+      // the store fails here the request fails: the access endpoints fail closed.
+      customStorage: betterAuthRateLimitStorage(db),
+      window: 60,
+      max: 100,
+      // SUPUESTO: per-IP, per-minute limits on sensitive endpoints.
+      customRules: {
+        '/sign-in/email': { window: 60, max: 5 },
+        '/sign-up/email': { window: 60, max: 3 },
+        '/request-password-reset': { window: 60, max: 3 },
+        '/send-verification-email': { window: 60, max: 3 },
+        '/change-email': { window: 60, max: 3 },
+      },
+    },
+    // Breached passwords are refused wherever a person chooses one (ADR 0016).
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        const field = BREACH_CHECKED_PATHS[ctx.path]
+        const password = field ? (ctx.body as Record<string, unknown> | undefined)?.[field] : null
+        if (typeof password === 'string' && (await passwordBreachCheck(password))) {
+          throw new APIError('BAD_REQUEST', {
+            message: 'This password appears in a data breach',
+            code: 'PASSWORD_BREACHED',
+          })
+        }
+      }),
+    },
+    plugins: [
+      // Second factor: TOTP with recovery codes, optional per person (ADR 0016). Enabling it asks
+      // for the password and a first valid code; failed attempts lock the account for a while.
+      twoFactor({
+        issuer: new URL(baseURL).host,
+        twoFactorTable: 'authTwoFactor',
+        backupCodeOptions: { amount: 10, length: 10 },
+        skipVerificationOnEnable: false,
+      }),
+    ],
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification,
+      minPasswordLength: PASSWORD_MIN_LENGTH,
+      maxPasswordLength: PASSWORD_MAX_LENGTH,
+      autoSignIn: false,
+      resetPasswordTokenExpiresIn: ONE_HOUR,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: ({ user, url, token }) =>
+        sendResetPasswordEmail({ to: user.email, name: user.name, url, token }),
+    },
+    emailVerification: {
+      sendOnSignUp: requireEmailVerification,
+      sendOnSignIn: requireEmailVerification,
+      autoSignInAfterVerification: true,
+      expiresIn: ONE_HOUR,
+      sendVerificationEmail: ({ user, url, token }) =>
+        sendVerificationEmail({ to: user.email, name: user.name, url, token }),
+    },
+  })
+}
+
+export type Auth = ReturnType<typeof createAuth>
+
+export { createPasswordBreachCheck } from './password-breach.ts'
+export type { PasswordBreachCheck } from './password-breach.ts'
+export { queuedAuthEmails } from './queued-emails.ts'
+export { createInvitedAccount } from './invited-account.ts'
+export type { InvitedAccountResult } from './invited-account.ts'
+export { verifyAccountPassword } from './reauth.ts'

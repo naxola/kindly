@@ -661,7 +661,7 @@ Previo a UI-10 (la ficha y las descargas dependen de "quién es el delegado del 
 
 - [x] UI-10a — Panel de dos columnas + ficha de solo lectura con los datos existentes (cerrado 2026-09-29).
 - [x] UI-10b — `Membership` (afiliación: número, estado, desde/hasta, cuota pagada hasta) con alta/edición manual en `/contacts/[id]` + sección en la ficha con avisos de baja y de cuota pendiente (cerrado 2026-09-29).
-- [x] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". (2026-10-11 — `procedures/applications.ts`, `messaging/attachments.ts`, `/api/conversations/[id]/messages/[messageId]/media`, migraciones 0016-0017.) Pendiente antes de producción: revisión jurídica del aviso y de la política de privacidad; probar un archivo real con Meta.
+- [ ] UI-10c — Adjuntos **sin almacenar** (metadatos en `Message` + descarga por proxy en streaming desde Meta) + aviso al afiliado + sección "Trámite y documentación". Absorbe "imágenes entrantes". Depende de trámites (Fase 7).
 - [ ] UI-10d — Resumen de situación por IA. Depende de Fase 8.
 - [ ] UI-10e — Copiloto dinámico en la conversación. Depende de Fases 7 y 8.
 - [ ] UI-10f — Ficha editable. Tras validar UI-10a visualmente.
@@ -714,44 +714,131 @@ híbrida + citas), 7d (Trámites, desbloquea `UI-10c`), 7e (UI de Knowledge).
 
 - [x] Subida de documentos desde la UI, sin script de operador (PDF, texto, página web; solo ADMIN; solo conocimiento de la organización). (Fase 7f, cerrado 2026-09-30 — `knowledge/upload.ts`, `knowledge/actions.ts`, `/knowledge` "Subir documento" y "Nueva versión".)
 
-- [x] Lista de fuentes de conocimiento con estado de indexado, contador de uso y "Añadir conocimiento" al estilo Aidbase (paso 1; sin Vídeo). (2026-10-08 — `knowledge/source-status.ts`, `listKnowledgeSources`, `reindexKnowledgeSourceAction`, `/knowledge`.)
-- [x] Sitio web como fuente de conocimiento: diálogo de tipo → panel con Información/Páginas/Configuración; descubrir por `sitemap.xml`/RSS, elegir páginas (buscador, paginación), indexar en segundo plano con estado por página, datos de publicación, reindexar y eliminar. (2026-10-08 — `ingestion/site-discovery.ts`, `websites.ts`, migraciones 0013-0015, `/knowledge?sitio=`.)
-- [ ] Re-sincronizar un sitio importado (detectar páginas nuevas o cambiadas) y terminar importaciones abandonadas desde el cron semanal.
-
 ## Fase 8 — AI
 
-- [x] Abstracción `LLMProvider` (OpenAI inicial). (Fase 8a, 2026-10-01 — `ai/llm-provider.ts`, `ai/openai-llm-provider.ts`.)
-- [x] Construcción de contexto acotado (Fase 8a — `ai/service.ts`) (mensajes recientes, resumen, Contact,
+- [ ] Abstracción `LLMProvider` (OpenAI inicial).
+- [ ] Construcción de contexto acotado (mensajes recientes, resumen, Contact,
       Case, tareas, conocimiento relevante).
-- [x] AI Copilot: `AISuggestion` estructurado (Fase 8a — `ai/domain.ts`, fuentes reconstruidas de fragmentos reales) (issue, suggestedReply,
+- [ ] AI Copilot: `AISuggestion` estructurado (issue, suggestedReply,
       evidenceLevel, sources, warnings, missingInformation).
-- [x] Fase 8 paso 1: retrieval (FTS en OR, `search_text` jerárquico, "art. 34.8", `embedding_model` por fragmento, `knowledge:reindex`, fragmentos completos). (2026-10-01)
-- [x] Fase 8 paso 2: abstención real, inyección desde documentos, `catch` del proveedor, consulta con contexto, `Reranker` identidad, umbral parametrizado. (2026-10-01)
-- [x] Fase 8 paso 3: Copilot API (rutas, DTO sin modelo/prompt, freno 1/10 s). (2026-10-01)
-- [x] Fase 8 paso 4: tarjeta del Copiloto en la conversación (Usar como borrador / Descartar) vía Copilot API. (2026-10-01)
-- [x] Auditabilidad de AI (Fase 8a — `ai_suggestions`, retención 90 días) (qué recibió, qué recuperó, qué generó, qué hizo el
+- [ ] UI de Copilot en la vista de conversación (Accept / Edit / Reject).
+- [ ] Auditabilidad de AI (qué recibió, qué recuperó, qué generó, qué hizo el
       profesional) con política de retención explícita.
-- [x] (backend) Garantía de que ninguna sugerencia se envía sin acción humana.
+- [ ] Garantía de que ninguna sugerencia se envía sin acción humana.
 
-- [x] Fase 8 paso 6: preparar evaluación (formato de dataset, métricas, `npm run eval:retrieval`). (2026-10-01)
-- [ ] Fase 8, pendiente de staging: probar `gpt-5.4-mini` real; calibrar `KNOWLEDGE_MIN_SIMILARITY` con el dataset; programar `purgeExpiredSuggestions`.
+## Migración a `saas-template` (plan: `project/MIGRATION.md`)
 
-## Altas de afiliados por webhook (2026-10-26)
+Detalle, alcance de cada fase y estado real en `project/MIGRATION.md`; aquí
+solo la vista de conjunto.
 
-- [x] Tablas `affiliate_profiles`, `affiliate_requests`, `integration_keys` (migración 0018).
-- [x] Endpoint `POST /api/integrations/affiliate-requests` (clave Bearer por organización, 202 con resultado por alta).
-- [x] Propuesta de delegado por carga y confirmación/descarte/duplicados por el ADMIN.
-- [x] UI: "Altas" con contador y aviso, panel de asignación con carga por delegado, Organización → Integraciones.
-- [ ] Pendiente (no es código): aplicar la migración 0018 en staging/Production y configurar el nodo HTTP de n8n.
-- [ ] Anotado: ver los datos de afiliado en la ficha del contacto; histórico de altas resueltas.
+- [x] M0 — Plan y decisiones propuestas (2026-11-12).
+- [x] Validación del usuario de las decisiones (2026-11-12; D4 rehecha, D14–D15 nuevas).
+- [x] Q1–Q3 resueltas (2026-11-12): cargo solo nombre, uno por miembro, solo nombre obligatorio.
+- [x] M1a — app movida a `legacy/` (2026-11-12).
+- [x] M1b — plantilla `v1.0.0` fusionada y `legacy/` fuera del tooling (2026-11-12).
+- [x] M1c — marca de Kindly; format/lint/tipos/unitarias/integración/build/E2E en verde en local (2026-11-12).
+- [x] M2 — pgvector (imagen, init, migración, test) (2026-11-12). Variables de entorno de Kindly: en M6b/M8a/M10 (se añaden donde se leen).
+- [x] M3a — absorbida: los permisos de Kindly se añaden en cada fase de módulo (2026-11-12).
+- [x] M3b — Ficha del miembro (`member_profiles`) y cargos configurables (`member_positions`) (2026-11-12).
+- [x] M4a — Contactos, asignaciones, afiliación y actividad: datos, `core` y API (2026-11-13).
+- [x] M4b — UI de contactos y afiliación; E2E; borrado de lo portado en `legacy/` (2026-11-13).
+- [x] M5 (solo tareas) — datos, `core`, API, UI y E2E (2026-11-13).
+- [ ] M5-casos — Casos (máquina de estados, responsable, vínculo con conversaciones): **aplazados por el usuario**, sin fecha.
+- [x] M6a — Mensajería: núcleo, tubería de webhook como job, acceso temporal, canal falso para tests (2026-11-13).
+- [x] M6b — Envío con guardarraíl de identidad, ventana de servicio, reglas de alta y adaptador de prueba de Meta (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
+- [x] M7a — Bandeja (API + UI), conversación básica con envío y canal falso de E2E (2026-11-13).
+- [x] M7b — Espacio de conversación: panel de dos columnas (chat + ficha de solo lectura), envío optimista con marcas, «escribiendo…», aviso de «ahora lo atiende X», panel plegable con preferencia recordada y `tasks.conversation_id` (2026-11-13). Sin casos.
+- [x] M7c — Canales: vista por delegado, estados, alta de WhatsApp en tres vías con comprobaciones en servidor y desconexión (2026-11-13). El adaptador real de coexistence sigue bloqueado (PKG-009).
+- [x] M8a — Conocimiento: datos con GLOBAL y RLS, `EmbeddingProvider`, extracción PDF/web con guardia SSRF, troceado, ingesta como job y `pnpm knowledge:ingest` (2026-11-13).
+- [x] M8b — Conocimiento: recuperación híbrida con citas verificables, API, pantallas `/knowledge` con estado de la ingesta y E2E (2026-11-13).
+- [x] M9 — Trámites: versionados, con pasos y documentos requeridos, lectura para todos y escritura solo ADMIN (2026-11-13).
+- [x] M10 — Web pública: portada de Kindly, cinco documentos legales es/en (incluida la eliminación de datos que exige Meta), datos de empresa y verificación de dominio (2026-11-13). **Los legales siguen como borrador sin revisar** (`legal.reviewed = false`).
+- [x] M11 — Accesibilidad y pulido: axe en claro y oscuro, 320 px, F6, contraste, `docs/ui/` al nuevo stack (2026-11-13).
+- [x] M12 — Documentación al nuevo stack: `ARCHITECTURE`, `DATABASE`, `INTEGRATIONS`, `tests/README`, `README` (2026-11-13).
+- [ ] M13 — Corte (con el usuario): vaciar `legacy/`, staging, datos, fusión en `master`. **Siguiente.**
+  - [x] `legacy/` borrado (2026-11-16).
+  - [x] Portar de `staging` (1/4): bienvenida al afiliado que presenta a su delegado (2026-11-16).
+  - [x] Portar de `staging` (2/4): altas de afiliados por webhook de n8n (2026-11-16).
+  - [x] Portar de `staging` (3/4): archivos en conversaciones (descarga por proxy, sin almacenar) (2026-11-16).
+  - [x] Portar de `staging` (4/4): fuentes web de conocimiento por sitemap (2026-11-16).
+  - [ ] Desplegar staging (homelab) y aplicar migraciones + `queue:install`.
 
-## Onboarding de delegados (cerrado 2026-11-05)
+## Robustez y profesionalización (planificado 2026-11-13, sin empezar)
 
-- [x] Teléfono del delegado por miembro, editable por él mismo o un ADMIN (migración `0011`).
-- [x] Invitación del equipo por email (HTML) con "Reenviar" y enlace de respaldo.
-- [x] Email de bienvenida al afiliado con email y teléfono del delegado; sello por asignación; reenvío manual.
-- [x] Alta de afiliado: selector de delegado (ADMIN) + enviar bienvenida; al reasignar, aviso opcional al afiliado.
-- [ ] Verificar un dominio en Resend (hoy solo entrega al dueño de la cuenta).
+Fases salidas de la revisión técnica posterior a la migración. **Ninguna está empezada**; se hacen después del
+corte (M13), en este orden salvo que el usuario diga otra cosa. Cada una cumple la Definition of Done de
+`CLAUDE.md` y registra sus decisiones en `docs/DECISIONS.md`. Las que cambian un requisito o añaden
+infraestructura llevan «**Decidir antes**»: no se construyen hasta que el usuario lo resuelva.
+
+### R1 — Fiabilidad de los mensajes
+
+- [ ] R1a — **Envío con *outbox***: el mensaje se guarda `PENDING` y lo envía el worker; reconciliación por el id del
+      proveedor en vez de reintento ciego (hoy, si el proceso muere tras aceptar el proveedor, el mensaje sale y no se
+      registra). La UI muestra los estados intermedios. Supersede la decisión «envío síncrono» de M7a.
+- [ ] R1b — **Leído por persona**: hoy hay una marca de lectura por organización y un ADMIN que abre la conversación de
+      un delegado se la marca como leída. Tabla de lecturas por miembro; contadores de la bandeja por persona.
+- [ ] R1c — **Tiempo real** en bandeja e hilo con SSE alimentado por `LISTEN/NOTIFY` de Postgres (sin infraestructura
+      nueva), en lugar del sondeo cada 15 s / 5 s. **Decidir antes:** comprobar que el proxy de staging (Cloudflare
+      Tunnel + Coolify) mantiene conexiones largas.
+
+### R2 — Datos, cumplimiento y seguridad
+
+- [x] R2a — **Retención de `webhook_events`**: 30 días procesados, 90 fallidos o pendientes; job diario `messaging.purge-webhook-events`
+      (decisión `docs/DECISIONS.md` 2026-11-16, hecho el mismo día). El texto legal de privacidad ya recoge el plazo.
+- [ ] R2b — **Borrado y exportación reales**: casos de uso para eliminar un contacto, un miembro y una organización, y para _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae borrado de cuenta y exportación de datos personales (ADR 0019), con la regla de Kindly de delegado de referencia y canal; faltan contacto, miembro y organización)_
+      exportar los datos de una persona (acceso y portabilidad). Hoy los legales prometen 30 días y 72 horas y el proceso es
+      manual por correo.
+- [ ] R2c — **Copias de seguridad**: `pg_dump` programado, copia cifrada fuera del servidor y un **ensayo de restauración**
+      documentado en `docs/operations.md`. **Decidir antes:** dónde se guardan.
+- [x] R2d — **Cabeceras de seguridad** (CSP, HSTS, `frame-ancestors`, `Referrer-Policy`) en web y sitio público, con E2E. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (cabeceras y CSP con E2E))_
+- [x] R2e — **Limitador de peticiones** en Postgres (hoy en memoria: no vale con dos réplicas) e IP de cliente tomada solo _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (limitador en Postgres, `TRUSTED_IP_HEADER`, ADR 0015))_
+      del proxy de confianza (hoy `x-forwarded-for` tal cual, falsificable).
+- [ ] R2f — **2FA para administradores** y lista de sesiones activas (un ADMIN ve todas las conversaciones). _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae segundo factor y gestión de sesiones (ADR 0016); falta decidir si se exige a los ADMIN)_
+- [ ] R2g — **Guardia SSRF sin ventana de *DNS rebinding***: conectar a la IP ya comprobada.
+- [ ] R2h — **Cifrado en reposo** del cuerpo de los mensajes y de las notas. **Decidir antes:** gestión de claves y su
+      efecto en la búsqueda de la bandeja (hoy busca en el texto del último mensaje).
+
+### R3 — Robustez del backend
+
+- [ ] R3a — **Paginación por cursor** en contactos, tareas, hilo (hoy corta en 500) y bandeja (100).
+- [ ] R3b — **Evaluación de la búsqueda** con embeddings reales: conjunto de preguntas y documentos del usuario, ajuste del
+      umbral de similitud (0,2 provisional) y decisión medida sobre el índice vectorial. Requisito previo de la Fase 8.
+- [ ] R3c — **Cuota de embeddings por organización** con `recordUsage` de la plantilla (hoy una subida se embebe sin techo).
+- [ ] R3d — **PDF escaneados**: hoy fallan como «documento vacío». **Decidir antes:** OCR (dependencia y coste) o solo
+      avisarlo con claridad al subir.
+- [ ] R3e — **Fusión de contactos duplicados** (y mover una conversación a otro contacto): pendiente desde M7b.
+- [ ] R3f — **Métricas de negocio** y alertas: webhooks en cola y su latencia, envíos fallidos por canal, ingestas atascadas. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: la plantilla trae `/metrics` y alertas (ADR 0008); faltan las métricas de negocio de Kindly)_
+- [ ] R3g — **Control de concurrencia optimista** (`updated_at`) al editar contactos, tareas y fichas.
+
+### R4 — Producto y experiencia
+
+- [ ] R4a — **Panel de inicio del delegado**: pendientes de respuesta, tareas que vencen, afiliados con cuota vencida
+      (hoy es el saludo vacío de la plantilla).
+- [ ] R4b — **Crear tarea desde la conversación** (la columna y el caso de uso ya existen; falta el botón) y ficha editable
+      (UI-10f).
+- [ ] R4c — **Notificaciones** de mensaje nuevo: título de la pestaña, sonido opcional y, si se decide, push.
+- [x] R4d — **Estados de carga y de error**: `error.tsx`, `not-found.tsx` y esqueletos en vez de pantallas en blanco. _(Plantilla `v1.1.0-rc.1`, 2026-11-16: cubierto por la plantilla (estados de carga, error y vacío))_
+- [ ] R4e — **Búsqueda y filtros** en Contactos y Tareas.
+- [ ] R4f — **Adjuntos sin almacenarlos** (UI-10c): metadatos en el mensaje y descarga por proxy en streaming. **Decidir
+      antes:** confirmar con la documentación actual de Meta cuánto tiempo es descargable un medio.
+- [ ] R4g — **Plantillas aprobadas de WhatsApp** para escribir con la ventana de 24 h cerrada. **Decidir antes:** depende
+      del adaptador real (PKG-009) y de la capacidad vigente de Meta.
+- [ ] R4h — **Móvil**: pasada real en teléfono y valorar PWA. Accesibilidad pendiente de M11: lector de pantalla,
+      `Alt+↑/↓`, animación del panel.
+
+### R5 — Calidad de ingeniería
+
+- [ ] R5a — **Ver correr el CI de GitHub y `docker build`/compose** (no se han podido probar en las sesiones sin Docker);
+      imagen `postgres` con pgvector incluida. Es lo primero de M13.
+- [ ] R5b — **E2E que faltan**: PDF real, ventana de servicio cerrada, ecos del móvil, dos conversaciones del mismo contacto
+      con acceso temporal, URL privada rechazada. Al tenerlos, borrar los E2E que quedan en `legacy/`.
+- [ ] R5c — **Test que falle ante una traducción ausente** (hoy solo sale en el log; se coló una en M8b). _(Plantilla `v1.1.0-rc.1`, 2026-11-16: revisar si el test de mensajes de la plantilla ya lo cubre)_
+- [ ] R5d — **Pruebas de carga** de la bandeja y del webhook con volumen realista, y staging con datos sintéticos.
+- [ ] R5e — **Limpiar la documentación de dos épocas**: reescribir `ARCHITECTURE`/`DATABASE`/`INTEGRATIONS` y `docs/ui/` en
+      vez de mantener el bloque «Estado actual» sobre el texto antiguo.
+
+**En paralelo, no técnico:** el alta como Tech Provider de Meta y la decisión sobre el Business Manager (PKG-009). Sin el
+adaptador real de WhatsApp nada de lo anterior se usa en producción.
 
 ## Backlog explícitamente fuera del MVP (no planificar todavía)
 

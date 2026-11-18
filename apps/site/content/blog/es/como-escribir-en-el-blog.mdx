@@ -1,0 +1,31 @@
+---
+title: Cómo escribir en el blog
+description: Este artículo de ejemplo explica dónde viven los posts y qué campos lleva cada uno. Bórralo al publicar el primero real.
+date: 2026-11-06
+author: Equipo
+tags: [guía]
+---
+
+Este es un **artículo de ejemplo** de la plantilla. Bórralo cuando publiques el primero de verdad.
+
+## Dónde viven los posts
+
+Cada post es un archivo `.mdx` en `apps/site/content/blog/<idioma>/`. El nombre del archivo es la dirección del post: `como-escribir-en-el-blog.mdx` se publica en `/es/blog/como-escribir-en-el-blog`.
+
+## La cabecera
+
+| Campo         | Obligatorio | Para qué sirve                        |
+| ------------- | ----------- | ------------------------------------- |
+| `title`       | Sí          | Título y tarjeta para redes sociales  |
+| `description` | Sí          | Resumen en la lista, buscadores y RSS |
+| `date`        | Sí          | Fecha de publicación (`AAAA-MM-DD`)   |
+| `updated`     | No          | Fecha de la última actualización      |
+| `author`      | No          | Autor                                 |
+| `tags`        | No          | Etiquetas                             |
+| `draft`       | No          | `true` lo oculta salvo en desarrollo  |
+
+Si falta un campo obligatorio, la construcción de la web se para y dice qué archivo hay que corregir.
+
+## Publicar
+
+Publicar es hacer commit y desplegar la web. Cuando haga falta publicar sin desplegar o que escriba alguien no técnico, se cambiará a un CMS sin tocar las páginas.

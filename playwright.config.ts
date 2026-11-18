@@ -1,47 +1,74 @@
-import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from 'dotenv'
+import { defineConfig, devices } from '@playwright/test'
 
 /**
- * PKG-001 only needed one happy-path E2E flow (register → login →
- * protected route → logout); PKG-002/003/004 added their own suites.
- *
- * `E2E_FAKE_MESSAGING_CHANNEL=true` is set only here — it makes the real
- * running server (started below with `next build && next start`) register
- * the test-only `FakeMessagingAdapter` (src/instrumentation.ts), which
- * tests/e2e/inbox.spec.ts needs to simulate a real inbound webhook end to
- * end. See docs/DECISIONS.md, bloque "PKG-004".
+ * E2E of the critical journeys. Runs the production build of the web against the test
+ * database, on its own port so it does not clash with `pnpm dev`.
  */
+loadEnv({ path: new URL('.env', import.meta.url).pathname, quiet: true })
+
+const PORT = 3100
+const BASE_URL = `http://localhost:${PORT}`
+/** Public site (apps/site), on its own port. */
+export const SITE_PORT = 3200
+export const SITE_URL = `http://localhost:${SITE_PORT}`
+
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: 'e2e',
   fullyParallel: false,
+  workers: 1,
   retries: 0,
-  reporter: [["list"]],
+  timeout: 60_000,
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: "http://localhost:3000",
-    trace: "retain-on-failure",
+    baseURL: BASE_URL,
+    trace: 'retain-on-failure',
+    locale: 'es-ES',
+    ...devices['Desktop Chrome'],
+    // Where Chromium is preinstalled (e.g. containers), its path is given here.
+    ...(process.env.PW_CHROMIUM_PATH
+      ? { launchOptions: { executablePath: process.env.PW_CHROMIUM_PATH } }
+      : {}),
   },
-  projects: [
+  webServer: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      command: `pnpm --filter @saas/web build && pnpm --filter @saas/web exec next start --port ${PORT}`,
+      url: `${BASE_URL}/api/health`,
+      timeout: 240_000,
+      reuseExistingServer: false,
+      env: {
+        // The development .env sets NODE_ENV=development; build and `next start` need production.
+        NODE_ENV: 'production',
+        APP_URL: BASE_URL,
+        DATABASE_URL: process.env.TEST_DATABASE_URL!,
+        AUTH_RATE_LIMIT_ENABLED: 'false',
+        // Each browser context is its own "client" (see `asNewClient` in e2e/helpers.ts): the
+        // per-IP limits of the invitation endpoints (5 sign-ups a minute) would otherwise be shared by
+        // the whole suite, which signs many invited people up from one address.
+        TRUSTED_IP_HEADER: 'x-e2e-ip',
+        // A fake messaging channel so the tests can deliver signed webhooks (never set elsewhere).
+        E2E_FAKE_MESSAGING_SECRET: 'e2e-fake-secret',
+        // Deterministic embeddings so search works without OpenAI (refused in production).
+        E2E_FAKE_EMBEDDINGS: 'true',
+        PASSWORD_BREACH_CHECK: 'false',
+        // Browser errors go to a local port that the E2E intercepts (e2e/browser-errors.spec.ts).
+        SENTRY_BROWSER_DSN: 'http://e2ekey@localhost:3199/1',
+        LOG_LEVEL: 'warn',
+      },
+    },
+    {
+      command: `pnpm --filter @saas/site build && pnpm --filter @saas/site exec next start --port ${SITE_PORT}`,
+      url: `${SITE_URL}/robots.txt`,
+      timeout: 240_000,
+      reuseExistingServer: false,
+      env: {
+        NODE_ENV: 'production',
+        SITE_URL,
+        APP_URL: BASE_URL,
+        // Baked at build time, like the URLs (Meta's domain verification tag).
+        FACEBOOK_DOMAIN_VERIFICATION: 'e2e-verification-token',
+      },
     },
   ],
-  webServer: {
-    command: "npm run build && npm run start",
-    url: "http://localhost:3000/login",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      E2E_FAKE_MESSAGING_CHANNEL: "true",
-      // Deterministic fake embeddings so uploads/search work without an OpenAI key.
-      E2E_FAKE_EMBEDDINGS: "true",
-      // Deterministic fake LLM for the Copilot card.
-      E2E_FAKE_LLM: "true",
-      OPENAI_API_KEY: "",
-      // Better Auth's default rate limiter is only active in production —
-      // exactly the mode `next build && next start` runs — and a full E2E
-      // suite registering several distinct users within a few seconds trips
-      // it easily. See src/modules/auth/auth.ts and docs/DECISIONS.md.
-      DISABLE_AUTH_RATE_LIMIT: "true",
-    },
-  },
-});
+})

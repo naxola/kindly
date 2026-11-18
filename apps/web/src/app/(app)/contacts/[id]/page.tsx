@@ -1,0 +1,12 @@
+import type { Metadata } from 'next'
+import { getTranslations } from 'next-intl/server'
+import { ContactDetail } from '@/features/contacts/contact-detail.tsx'
+
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations())('contacts.title') }
+}
+
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <ContactDetail contactId={id} />
+}

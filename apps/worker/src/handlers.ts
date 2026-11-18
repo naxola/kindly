@@ -1,0 +1,173 @@
+import type { JobHandler } from '@saas/adapters/queue'
+import { purgeRateLimits } from '@saas/adapters/rate-limit'
+import {
+  billingChargeHandler,
+  billingCloseHandlers,
+  chargePeriodJob,
+  providerEventHandler,
+  providerEventJob,
+  purgeAuditLogsJob,
+  purgeExpiredAuditLogs,
+  purgeExpiredWebhookEvents,
+  purgeWebhookEventsJob,
+  purgeRateLimitsJob,
+  billingEmailHandlers,
+  accountDeletionEmailJob,
+  kindlyDeletionRules,
+  processAccountDeletionsJob,
+  processAccountDeletions,
+  changeEmailConfirmationEmailJob,
+  closeDuePeriodsScanJob,
+  closePeriodsJob,
+  contactWelcomeEmailJob,
+  contactWelcomeHandler,
+  deliverEventHandler,
+  deliverEventJob,
+  dunningEmailJob,
+  identityEmailHandlers,
+  invitationEmailJob,
+  passwordResetEmailJob,
+  ingestVersionHandler,
+  ingestVersionJob,
+  processWebhookHandler,
+  processWebhookJob,
+  quotaAlertEmailJob,
+  verificationEmailJob,
+  type EmailSender,
+  type EmbeddingProvider,
+  type EventSink,
+  type JobDefinition,
+  type JobQueue,
+  type KnowledgeExtractor,
+  type MessagingRegistry,
+  type PaymentProvider,
+} from '@saas/core'
+import type { Db } from '@saas/database'
+import type { z } from 'zod'
+
+export interface HandlerDeps {
+  db: Db
+  /** Lazy: only resolved if this process consumes a queue that sends email. */
+  email: () => EmailSender
+  events: EventSink
+  /** Producer side, for jobs that enqueue other jobs. */
+  queue: JobQueue
+  appUrl: string
+  /** Null when PAYMENT_PROVIDER=none. */
+  payments: PaymentProvider | null
+  /** Messaging adapters of this process (none in production until a real channel ships). */
+  messaging: MessagingRegistry
+  /** Null when no OPENAI_API_KEY is set: knowledge ingestions then fail with a clear code. */
+  embeddings: EmbeddingProvider | null
+  knowledgeExtractor: KnowledgeExtractor
+}
+
+export interface Registration<S extends z.ZodType = z.ZodType> {
+  job: JobDefinition<S>
+  handler: (deps: HandlerDeps) => JobHandler<S>
+  /** The handler sends email (email configuration is required at startup). */
+  sendsEmail?: boolean
+}
+
+const register = <S extends z.ZodType>(r: Registration<S>) => r as unknown as Registration
+
+/**
+ * Consumer registry: the worker is only wiring, the handlers live in core. Each new job
+ * is registered here (a test checks that ALL_JOBS are).
+ */
+export const registrations: Registration[] = [
+  register({
+    job: verificationEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).verification,
+    sendsEmail: true,
+  }),
+  register({
+    job: passwordResetEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).passwordReset,
+    sendsEmail: true,
+  }),
+  register({
+    job: invitationEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).invitation,
+    sendsEmail: true,
+  }),
+  register({
+    job: changeEmailConfirmationEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).changeEmailConfirmation,
+    sendsEmail: true,
+  }),
+  register({
+    job: accountDeletionEmailJob,
+    handler: ({ email }) => identityEmailHandlers(email()).accountDeletion,
+    sendsEmail: true,
+  }),
+  register({
+    job: processAccountDeletionsJob,
+    handler:
+      ({ db, queue, appUrl }) =>
+      async (_payload, { log, jobId }) => {
+        const result = await processAccountDeletions(
+          { db, queue, appUrl, correlationId: jobId },
+          // Kindly: a delegate who still answers for members or has a channel is not deleted.
+          kindlyDeletionRules,
+        )
+        log.info(result, 'account deletions processed')
+      },
+  }),
+  register({ job: deliverEventJob, handler: ({ events }) => deliverEventHandler(events) }),
+  register({
+    job: quotaAlertEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).quotaAlert,
+    sendsEmail: true,
+  }),
+  register({
+    job: dunningEmailJob,
+    handler: ({ email, db }) => billingEmailHandlers(email(), db).dunning,
+    sendsEmail: true,
+  }),
+  register({ job: closeDuePeriodsScanJob, handler: (deps) => billingCloseHandlers(deps).scan }),
+  register({ job: closePeriodsJob, handler: (deps) => billingCloseHandlers(deps).close }),
+  register({ job: providerEventJob, handler: (deps) => providerEventHandler(deps) }),
+  register({
+    job: chargePeriodJob,
+    handler: ({ db, payments }) => billingChargeHandler({ db, provider: payments }),
+  }),
+  register({
+    job: processWebhookJob,
+    handler: ({ db, messaging }) => processWebhookHandler({ db, registry: messaging }),
+  }),
+  register({
+    job: ingestVersionJob,
+    handler: ({ db, embeddings, knowledgeExtractor }) =>
+      ingestVersionHandler({ db, embeddings, extractor: knowledgeExtractor }),
+  }),
+  register({
+    job: purgeAuditLogsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredAuditLogs(db) }, 'expired audit entries purged')
+      },
+  }),
+  register({
+    job: contactWelcomeEmailJob,
+    handler: ({ db, email }) => contactWelcomeHandler({ db, email: email() }),
+    sendsEmail: true,
+  }),
+  register({
+    job: purgeWebhookEventsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeExpiredWebhookEvents(db) }, 'expired webhook events purged')
+      },
+  }),
+  register({
+    job: purgeRateLimitsJob,
+    handler:
+      ({ db }) =>
+      async (_payload, { log }) => {
+        log.info({ deleted: await purgeRateLimits(db) }, 'rate limit counters purged')
+      },
+  }),
+]

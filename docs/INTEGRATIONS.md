@@ -1,5 +1,27 @@
 # INTEGRATIONS.md — WhatsApp, Telegram, LLM, embeddings, storage
 
+> **Estado actual (migración a `saas-template`, M12).** Lo construido y lo que sigue bloqueado; el resto del documento es la
+> investigación original de cada proveedor y **no se ha revalidado contra la documentación vigente de Meta** durante la migración
+> (regla de `CLAUDE.md`: comprobar la capacidad actual antes de construir sobre ella).
+>
+> - **Puerto `MessagingAdapter`** (`packages/core/src/modules/messaging/port.ts`): conexión, envío, indicador de escritura, verificación
+>   de firma y parseo de eventos; capacidades declaradas (ventana de servicio, si se puede desconectar desde Kindly, tipo de alta).
+>   El dominio nunca ramifica por nombre de proveedor.
+> - **Webhook público** `GET|POST /api/webhooks/messaging/{channel}/{accountId}`: firma antes de procesar, evento persistido y encolado en
+>   una transacción, procesamiento idempotente en el worker.
+> - **Envío** solo desde la cuenta del delegado dueño (`NOT_ACCOUNT_OWNER` para cualquiera, también un ADMIN), con ventana de servicio
+>   contada desde el último mensaje **entrante**; coexistence (ecos del móvil, historial, desconexión externa) modelada en el puerto.
+> - **Alta de WhatsApp** guiada (tres vías, seis confirmaciones validadas en el servidor, comprobación de país que dice «no puedo comprobarlo»
+>   si no hay lista configurada). **Solo está disponible la vía de coexistence**, y no hay adaptador real que la ejecute.
+> - **Adaptadores:** falso (solo E2E, prohibido en producción), `whatsapp-test` (número de prueba de la Cloud API, **prohibido en
+>   producción**; port del adaptador ya validado contra Meta en staging) y, en conocimiento, `OpenAIEmbeddingProvider` (`fetch` directo).
+> - **Bloqueado (PKG-009):** el adaptador real de **coexistence** (Embedded Signup) depende del alta como Tech Provider de Meta y de la
+>   decisión sobre el Business Manager (`project/TASKS.md`). Ninguna fase de la migración lo desbloquea. **Telegram no está construido.**
+> - **Sin almacenamiento de archivos de afiliados** (principio de producto): ni adjuntos ni object storage; la descarga de medios por proxy
+>   en streaming (UI-10c) sigue sin hacerse.
+> - **Sin LLM todavía** (Fase 8): `LLMProvider` no existe; el Copilot no está construido y, cuando exista, nunca autoenvía.
+
+
 Regla general (ver `CLAUDE.md` sección 3): antes de construir sobre una
 capacidad de un proveedor externo, se verifica que esa capacidad existe
 **hoy**, oficialmente, y se documenta aquí con su limitación real. No se usan
@@ -291,27 +313,22 @@ procesar, según el mecanismo oficial de cada proveedor (X-Hub-Signature para
 Meta, secret token de Telegram). Ver `docs/ARCHITECTURE.md` sección 7 para el
 pipeline completo.
 
-
 ## 7. Altas de afiliados desde una automatización (n8n)
 
-Entrada de datos, no un canal de mensajería: una automatización externa envía
-cada alta (extraída de un email) a Kindly, que la guarda **pendiente de
-asignar** hasta que un ADMIN confirma el delegado (`docs/DECISIONS.md`, "Altas
-de afiliados por webhook").
+Entrada de datos, no un canal de mensajería: una automatización externa envía cada alta (extraída de un email) a Kindly, que la
+guarda **pendiente de asignar** hasta que un ADMIN confirma el delegado (`docs/DECISIONS.md`, 2026-11-16, «Altas de afiliados por
+webhook»).
 
-**Endpoint:** `POST {BETTER_AUTH_URL}/api/integrations/affiliate-requests`
+**Endpoint:** `POST {APP_URL}/api/integrations/affiliate-requests` (fuera de `/api/v1`: sin sesión ni CSRF). Límite: 60 peticiones
+por minuto e IP.
 
-**Autenticación:** `Authorization: Bearer kly_…`. La clave se crea en
-Organización → Integraciones (solo ADMIN), se muestra una vez y se guarda solo
-su SHA-256; la organización se deduce de la clave, nunca del cuerpo. Una clave
-revocada o desconocida responde 401.
+**Autenticación:** `Authorization: Bearer kly_…`. La clave se crea en Ajustes → Integraciones (solo ADMIN), se muestra una vez y se
+guarda solo su SHA-256; la organización se deduce de la clave, nunca del cuerpo. Una clave revocada o desconocida responde 401.
 
-**Cuerpo:** `Content-Type: application/json`, el array que produce la
-automatización tal cual (o un único objeto). Máximo 50 elementos y 512 KB.
-Cada elemento debe traer `tipoSolicitud: "alta"`, `validoParaProcesar: true`,
-`errores` vacío y un `afiliado` con nombre, apellidos y DNI/NIE con formato
-válido; el resto de campos son opcionales pero, si vienen, deben ser legibles
-(fecha `DD-MM-YYYY`, teléfono español, email, cuota como `11.5 €`).
+**Cuerpo:** `Content-Type: application/json`, el array que produce la automatización tal cual (o un único objeto). Máximo 50
+elementos y 512 KB. Cada elemento debe traer `tipoSolicitud: "alta"`, `validoParaProcesar: true`, `errores` vacío y un `afiliado`
+con nombre, apellidos y DNI/NIE con formato válido; el resto de campos son opcionales pero, si vienen, deben ser legibles (fecha
+`DD-MM-YYYY`, teléfono español, email, cuota como `11.5 €`).
 
 **Respuesta:** `202` con un resultado por elemento, en el mismo orden:
 
@@ -324,12 +341,8 @@ válido; el resto de campos son opcionales pero, si vienen, deben ser legibles
 ```
 
 - `RECEIVED`: guardada, pendiente de que el ADMIN confirme el delegado.
-- `DUPLICATE`: ese DNI ya es un afiliado; no se crea nada y el ADMIN decide
-  (actualizar sus datos o descartar el alta).
-- `INVALID`: no se guarda; `errors` dice por qué. Un elemento inválido no
-  impide los demás.
-- `repeated: true`: el mismo DNI ya estaba esperando decisión; se devuelve la
-  misma solicitud y no se duplica nada (reenviar es seguro).
+- `DUPLICATE`: ese DNI ya es un afiliado; no se crea nada y el ADMIN decide (actualizar sus datos o descartar el alta).
+- `INVALID`: no se guarda; `errors` dice por qué. Un elemento inválido no impide los demás.
+- `repeated: true`: el mismo DNI ya estaba esperando decisión; se devuelve la misma solicitud (reenviar es seguro).
 
-Otros códigos: `400` (no es JSON, vacío o más de 50 elementos), `401`, `413`.
-No se registra ningún dato personal en logs.
+Otros códigos: `400` (no es JSON, vacío o más de 50 elementos), `401`, `413`, `429`. No se registra ningún dato personal en logs.

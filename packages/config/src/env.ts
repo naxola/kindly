@@ -1,0 +1,334 @@
+import { z } from 'zod'
+
+/**
+ * Environment schemas, one per concern. Each process (web, site, worker) validates
+ * only the ones it needs at startup: if a variable is missing, it does not start.
+ * Later phases add their own schemas here (auth, email, storage…).
+ */
+
+export const baseEnv = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+  APP_URL: z.url(),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+})
+
+export const databaseEnv = z.object({
+  /** Application connection (role app_user, subject to RLS). */
+  DATABASE_URL: z.url(),
+  /**
+   * Postgres time limits in milliseconds (R2.2). Empty: the default of the process (web 30 s /
+   * 5 s / 60 s, worker 120 s / 30 s / 120 s); see `db-timeouts.ts`.
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_LOCK_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  DB_IDLE_IN_TRANSACTION_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+})
+
+const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1')
+
+export const authEnv = z.object({
+  /** Better Auth secret (signs cookies and tokens). At least 32 characters. */
+  BETTER_AUTH_SECRET: z.string().min(32),
+  /**
+   * Versioned secrets for rotating `BETTER_AUTH_SECRET` without losing what is encrypted with it
+   * (the TOTP secrets, ADR 0016): `2:new-secret,1:old-secret`. The FIRST one encrypts and signs;
+   * the rest only decrypt. Empty: `BETTER_AUTH_SECRET` is version 1. Never remove an old entry
+   * while something encrypted with it exists.
+   */
+  BETTER_AUTH_SECRETS: z
+    .string()
+    .optional()
+    .transform((value, ctx) => {
+      if (!value) return undefined
+      const entries = value.split(',').map((entry) => {
+        const at = entry.indexOf(':')
+        return { version: Number(entry.slice(0, at)), value: entry.slice(at + 1) }
+      })
+      const versions = new Set(entries.map((e) => e.version))
+      const bad =
+        entries.some((e) => !Number.isInteger(e.version) || e.version < 1 || e.value.length < 32) ||
+        versions.size !== entries.length
+      if (bad) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Must be `version:secret` entries, unique versions, secrets of 32+ characters',
+        })
+        return z.NEVER
+      }
+      return entries
+    }),
+  /**
+   * Rejects passwords found in known breaches (Have I Been Pwned, k-anonymity: only 5 characters
+   * of the password's SHA-1 leave the server). If the service does not answer the password is
+   * accepted (ADR 0016). Tests turn it off to avoid the network.
+   */
+  PASSWORD_BREACH_CHECK: bool.default(true),
+  /** Rate limiting of the authentication endpoints. */
+  AUTH_RATE_LIMIT_ENABLED: bool.default(true),
+  /**
+   * Header with the client IP that the platform in front of the app sets and the client cannot
+   * forge (`cf-connecting-ip` behind Cloudflare). Empty: client IP unknown, so IP limits share
+   * one bucket and the audit log records no IP.
+   */
+  TRUSTED_IP_HEADER: z
+    .string()
+    .regex(/^[A-Za-z0-9-]+$/, 'Must be a header name')
+    .transform((v) => v.toLowerCase())
+    .optional(),
+})
+
+/** Secrets Better Auth encrypts with: the versioned list, or `BETTER_AUTH_SECRET` as version 1. */
+export function authSecretsOf(env: {
+  BETTER_AUTH_SECRET: string
+  BETTER_AUTH_SECRETS?: { version: number; value: string }[] | undefined
+}) {
+  return env.BETTER_AUTH_SECRETS ?? [{ version: 1, value: env.BETTER_AUTH_SECRET }]
+}
+
+export const emailEnv = z.discriminatedUnion('EMAIL_PROVIDER', [
+  /** Prints emails to the worker log. Local development and tests only. */
+  z.object({ EMAIL_PROVIDER: z.literal('log'), EMAIL_FROM: z.string().min(3) }),
+  /** SMTP: a sandbox such as Mailtrap in development. */
+  z.object({
+    EMAIL_PROVIDER: z.literal('smtp'),
+    EMAIL_FROM: z.string().min(3),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().positive(),
+    SMTP_USER: z.string().min(1),
+    SMTP_PASS: z.string().min(1),
+  }),
+  /** Resend: staging and production. */
+  z.object({
+    EMAIL_PROVIDER: z.literal('resend'),
+    EMAIL_FROM: z.string().min(3),
+    RESEND_API_KEY: z.string().startsWith('re_'),
+  }),
+])
+
+/**
+ * Signing secret of the email provider's webhook (bounces and complaints, ADR 0017). Resend
+ * signs with Svix: `whsec_…`. Empty: the webhook answers 404 and nothing is suppressed.
+ */
+export const emailWebhookEnv = z.object({
+  EMAIL_WEBHOOK_SECRET: z.string().startsWith('whsec_').optional(),
+})
+
+/**
+ * Bearer token that protects `/metrics` (ADR 0008, amendment). Without it the endpoint answers
+ * 404: metrics are never open by accident.
+ */
+export const metricsEnv = z.object({
+  METRICS_TOKEN: z.string().min(16).optional(),
+})
+
+/**
+ * Business events webhook (n8n or similar). Without URL, events are recorded as
+ * delivered-to-nobody in the worker log; with URL, the secret is mandatory.
+ */
+export const eventsEnv = z
+  .object({
+    EVENTS_WEBHOOK_URL: z.url().optional(),
+    EVENTS_WEBHOOK_SECRET: z.string().min(32).optional(),
+  })
+  .refine((e) => !e.EVENTS_WEBHOOK_URL || e.EVENTS_WEBHOOK_SECRET, {
+    path: ['EVENTS_WEBHOOK_SECRET'],
+    message: 'Required when EVENTS_WEBHOOK_URL is set',
+  })
+
+/** Public site (apps/site). Read at build time: the pages are prerendered. */
+export const siteEnv = z.object({
+  /** Public URL of the site (canonical URLs, sitemap, RSS, Open Graph). */
+  SITE_URL: z.url(),
+  /** Public URL of the app (sign-in and sign-up links). */
+  APP_URL: z.url(),
+  /** Plausible domain. Empty: no analytics script at all. */
+  PLAUSIBLE_DOMAIN: z.string().min(3).optional(),
+  /** Token of Meta's domain verification, published as a <meta> tag. Empty: none. */
+  FACEBOOK_DOMAIN_VERIFICATION: z.string().min(3).optional(),
+})
+
+/**
+ * Observability (ADR 0008). Everything is optional: without values, errors are only logged
+ * and alerts only go to the log, so a fresh clone works without any account.
+ */
+/**
+ * DSN for errors of the BROWSER (R4.6). A browser DSN is public by design (it only lets events be
+ * sent), so it is handed to the page at runtime; it can be the same project as `SENTRY_DSN` or a
+ * separate one. Empty: browser errors are not collected.
+ */
+export const browserErrorsEnv = z.object({
+  SENTRY_BROWSER_DSN: z.url().optional(),
+})
+
+export const observabilityEnv = z
+  .object({
+    /** Sentry or GlitchTip (same protocol). Empty: error tracking disabled. */
+    SENTRY_DSN: z.url().optional(),
+    ALERT_PROVIDER: z.enum(['none', 'ntfy', 'telegram']).default('none'),
+    /** ntfy topic URL, e.g. https://ntfy.sh/my-secret-topic or a self-hosted one. */
+    NTFY_URL: z.url().optional(),
+    /** Access token of a protected ntfy topic. */
+    NTFY_TOKEN: z.string().min(1).optional(),
+    TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+    TELEGRAM_CHAT_ID: z.string().min(1).optional(),
+  })
+  .superRefine((e, ctx) => {
+    if (e.ALERT_PROVIDER === 'ntfy' && !e.NTFY_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['NTFY_URL'],
+        message: 'Required with ALERT_PROVIDER=ntfy',
+      })
+    }
+    if (e.ALERT_PROVIDER === 'telegram') {
+      for (const key of ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'] as const) {
+        if (!e[key])
+          ctx.addIssue({
+            code: 'custom',
+            path: [key],
+            message: 'Required with ALERT_PROVIDER=telegram',
+          })
+      }
+    }
+  })
+
+/**
+ * Payment provider (ADR 0012). `none`: plans can only be the default one (no checkout).
+ * Paddle keys are per environment: sandbox keys only work against the sandbox API.
+ */
+export const paymentEnv = z.discriminatedUnion('PAYMENT_PROVIDER', [
+  z.object({ PAYMENT_PROVIDER: z.literal('none') }),
+  z.object({
+    PAYMENT_PROVIDER: z.literal('paddle'),
+    PADDLE_ENVIRONMENT: z.enum(['sandbox', 'production']),
+    /** Server API key (pdl_sdbx_apikey_… / pdl_live_apikey_…). Secret. */
+    PADDLE_API_KEY: z.string().startsWith('pdl_'),
+    /** Client-side token for Paddle.js. Public by design. */
+    PADDLE_CLIENT_TOKEN: z.string().min(10),
+    /** Secret of the notification destination (pdl_ntfset_…). */
+    PADDLE_WEBHOOK_SECRET: z.string().min(10),
+    /** Paddle product the overage charges are attached to. */
+    PADDLE_OVERAGE_PRODUCT_ID: z.string().startsWith('pro_'),
+  }),
+])
+
+/**
+ * Messaging channels. The WhatsApp TEST adapter talks to Meta's free test number: an engineering tool
+ * to validate the real webhook pipeline (real payloads, real HMAC signatures) while the Tech Provider
+ * paperwork runs. It is NOT a connection option for delegates (the test number is a shared Cloud API
+ * number with no phone behind it) and is refused in production. Everything is optional.
+ */
+export const messagingEnv = z
+  .object({
+    APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+    /**
+     * A fake channel (signature = this shared secret) so the end-to-end tests can deliver webhooks.
+     * Only the E2E configuration sets it; refused in production.
+     */
+    E2E_FAKE_MESSAGING_SECRET: z.string().min(8).optional(),
+    WHATSAPP_TEST_ADAPTER_ENABLED: bool.default(false),
+    WHATSAPP_TEST_PHONE_NUMBER_ID: z.string().min(1).optional(),
+    WHATSAPP_TEST_WABA_ID: z.string().min(1).optional(),
+    WHATSAPP_TEST_ACCESS_TOKEN: z.string().min(1).optional(),
+    WHATSAPP_TEST_APP_SECRET: z.string().min(1).optional(),
+    WHATSAPP_TEST_VERIFY_TOKEN: z.string().min(1).optional(),
+    /** ISO country codes where coexistence is not offered; empty = "cannot check" (never guessed). */
+    WHATSAPP_UNSUPPORTED_COUNTRY_CODES: z.string().optional(),
+  })
+  .superRefine((e, ctx) => {
+    if (e.E2E_FAKE_MESSAGING_SECRET && e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['E2E_FAKE_MESSAGING_SECRET'],
+        message: 'The fake messaging channel is not allowed in production',
+      })
+    }
+    if (!e.WHATSAPP_TEST_ADAPTER_ENABLED) return
+    if (e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['WHATSAPP_TEST_ADAPTER_ENABLED'],
+        message: 'The WhatsApp test adapter is not allowed in production',
+      })
+    }
+    for (const key of [
+      'WHATSAPP_TEST_PHONE_NUMBER_ID',
+      'WHATSAPP_TEST_ACCESS_TOKEN',
+      'WHATSAPP_TEST_APP_SECRET',
+      'WHATSAPP_TEST_VERIFY_TOKEN',
+    ] as const) {
+      if (!e[key]) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [key],
+          message: 'Required with WHATSAPP_TEST_ADAPTER_ENABLED=true',
+        })
+      }
+    }
+  })
+
+export type BaseEnv = z.infer<typeof baseEnv>
+export type DatabaseEnv = z.infer<typeof databaseEnv>
+export type AuthEnv = z.infer<typeof authEnv>
+export type EmailEnv = z.infer<typeof emailEnv>
+export type EventsEnv = z.infer<typeof eventsEnv>
+export type SiteEnv = z.infer<typeof siteEnv>
+export type ObservabilityEnv = z.infer<typeof observabilityEnv>
+export type PaymentEnv = z.infer<typeof paymentEnv>
+export type MessagingEnv = z.infer<typeof messagingEnv>
+
+/** Messaging configuration; everything off by default. */
+export const loadMessagingEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(messagingEnv, source)
+
+/** Knowledge base configuration: the embedding provider is off unless a key is given. */
+export const knowledgeEnv = z
+  .object({
+    APP_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
+    OPENAI_API_KEY: z.string().min(1).optional(),
+    /** Deterministic embeddings with no meaning, so the end-to-end tests can search. Refused in production. */
+    E2E_FAKE_EMBEDDINGS: bool.default(false),
+  })
+  .superRefine((e, ctx) => {
+    if (e.E2E_FAKE_EMBEDDINGS && e.APP_ENV === 'production') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['E2E_FAKE_EMBEDDINGS'],
+        message: 'Fake embeddings are not allowed in production',
+      })
+    }
+  })
+export type KnowledgeEnv = z.infer<typeof knowledgeEnv>
+export const loadKnowledgeEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(knowledgeEnv, source)
+
+/** Payment configuration; without PAYMENT_PROVIDER there is no provider (`none`). */
+export const loadPaymentEnv = (source: Record<string, string | undefined> = process.env) =>
+  parseEnv(paymentEnv, { ...source, PAYMENT_PROVIDER: source.PAYMENT_PROVIDER || 'none' })
+
+export class EnvError extends Error {
+  constructor(public readonly issues: string[]) {
+    super(`Invalid environment configuration:\n${issues.map((i) => `  - ${i}`).join('\n')}`)
+    this.name = 'EnvError'
+  }
+}
+
+/**
+ * Validates environment variables against a schema. The error never includes the
+ * values, only the variable names and the reason. An empty variable counts as unset
+ * (Docker Compose and Coolify pass `VAR=` for optional values left blank).
+ */
+export function parseEnv<S extends z.ZodType>(
+  schema: S,
+  source: Record<string, string | undefined> = process.env,
+): z.infer<S> {
+  const present = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== ''))
+  const result = schema.safeParse(present)
+  if (!result.success) {
+    throw new EnvError(
+      result.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),
+    )
+  }
+  return result.data
+}
